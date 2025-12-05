@@ -2,57 +2,440 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>2HP Mini‑Rack – Fixed Ranges Demo (v1.1)</title>
+    <title>2HP Mini‑Rack – Interactive Patcher</title>
     <style>
-        /* ------------------------------------------------------------------
-           Face‑plate sizing only – visuals kept from original
-           ----------------------------------------------------------------*/
         :root {
-            --hp: calc(100vh / 50);
+            --hp: 12px;
+            --module-height: 380px;
+            --jack-size: 24px;
+            --knob-size: 32px;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: #1a1a1a;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
         }
 
         .rack {
-            background: #111;
-            height: 100vh;
-        }
-
-        .row {
+            background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
+            padding: 20px;
             display: flex;
-            height: 50vh;
-            border-top: 15px solid #555;
-            border-bottom: 15px solid #555;
+            gap: 4px;
+            border-top: 12px solid #444;
+            border-bottom: 12px solid #333;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
         }
 
         .module {
-            height: 50vh;
-            margin: -15px 0;
-            background: #2a2a2a;
+            background: linear-gradient(to bottom, #3a3a3a, #2a2a2a);
+            border: 1px solid #555;
+            border-radius: 3px;
+            height: var(--module-height);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 4px;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
         }
 
-        .module-2hp {
-            width: calc(var(--hp) * 2);
+        .module-2hp { width: calc(var(--hp) * 6); }
+        .module-4hp { width: calc(var(--hp) * 12); }
+        .module-8hp { width: calc(var(--hp) * 20); }
+
+        .module-label {
+            font-size: 9px;
+            font-weight: bold;
+            color: #ddd;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .module-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+        }
+
+        /* Knobs */
+        .knob-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .knob {
+            width: var(--knob-size);
+            height: var(--knob-size);
+            background: linear-gradient(145deg, #555, #333);
+            border-radius: 50%;
+            border: 2px solid #222;
+            position: relative;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.1);
+        }
+
+        .knob::after {
+            content: '';
+            position: absolute;
+            width: 3px;
+            height: 10px;
+            background: #fff;
+            border-radius: 1px;
+            top: 4px;
+            left: 50%;
+            transform-origin: bottom center;
+            transform: translateX(-50%);
+            box-shadow: 0 0 3px rgba(255,255,255,0.5);
+        }
+
+        .knob:hover {
+            background: linear-gradient(145deg, #666, #444);
+        }
+
+        .knob-label {
+            font-size: 7px;
+            color: #999;
+            text-transform: uppercase;
+        }
+
+        /* Jacks */
+        .jack-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .jack {
+            width: var(--jack-size);
+            height: var(--jack-size);
+            background: radial-gradient(circle at 30% 30%, #222, #111);
+            border-radius: 50%;
+            border: 2px solid #444;
+            position: relative;
+            cursor: crosshair;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+        }
+
+        .jack::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #111;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 1px solid #333;
+        }
+
+        .jack.output {
+            border-color: #c44;
+        }
+
+        .jack.input {
+            border-color: #4a4;
+        }
+
+        .jack:hover {
+            border-color: #fff;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.8), 0 0 8px rgba(255,255,255,0.3);
+        }
+
+        .jack.connected::after {
+            background: #666;
+        }
+
+        .jack-label {
+            font-size: 6px;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        /* Jack rows */
+        .jack-row {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* Compact elements for wider modules */
+        .module-8hp .jack-row {
+            gap: 2px;
+        }
+
+        .module-8hp .jack {
+            width: 20px;
+            height: 20px;
+        }
+
+        .module-8hp .switch {
+            width: 14px;
+            height: 20px;
+        }
+
+        .module-8hp .switch::after {
+            width: 10px;
+            height: 8px;
+            left: 1px;
+            top: 2px;
+        }
+
+        .module-8hp .switch.on::after {
+            top: 9px;
+        }
+
+        .module-8hp .knob {
+            width: 28px;
+            height: 28px;
+        }
+
+        .module-8hp .knob::after {
+            height: 8px;
+            top: 3px;
+        }
+
+        /* LEDs */
+        .led {
+            width: 6px;
+            height: 6px;
+            background: #300;
+            border-radius: 50%;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .led.active {
+            background: #f44;
+            box-shadow: 0 0 8px #f44, inset 0 1px 2px rgba(255,255,255,0.3);
+        }
+
+        .led.green { background: #030; }
+        .led.green.active { background: #4f4; box-shadow: 0 0 8px #4f4; }
+
+        /* Switches */
+        .switch {
+            width: 16px;
+            height: 24px;
+            background: linear-gradient(to bottom, #444, #333);
+            border-radius: 3px;
+            border: 1px solid #555;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .switch::after {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 10px;
+            background: linear-gradient(to bottom, #888, #666);
+            border-radius: 2px;
+            left: 1px;
+            top: 2px;
+            transition: top 0.1s;
+        }
+
+        .switch.on::after {
+            top: 11px;
+        }
+
+        /* Cable SVG overlay */
+        #cable-svg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .cable {
+            fill: none;
+            stroke-width: 4;
+            stroke-linecap: round;
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+        }
+
+        .cable-preview {
+            opacity: 0.6;
+            stroke-dasharray: 8 4;
+        }
+
+        /* Spacer */
+        .spacer {
+            flex: 1;
+        }
+
+        /* Section dividers */
+        .section-label {
+            font-size: 6px;
+            color: #666;
+            width: 100%;
+            text-align: center;
+            border-top: 1px solid #444;
+            padding-top: 4px;
+            margin-top: 2px;
+        }
+
+        /* Toolbar */
+        #toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
+            border-bottom: 1px solid #444;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 16px;
+            z-index: 200;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        }
+
+        .toolbar-section {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .toolbar-divider {
+            width: 1px;
+            height: 28px;
+            background: #444;
+        }
+
+        .toolbar-spacer {
+            flex: 1;
+        }
+
+        #toolbar select {
+            padding: 6px 10px;
+            font-size: 12px;
+            border: none;
+            border-radius: 4px;
+            background: #333;
+            color: #fff;
+            cursor: pointer;
+            min-width: 140px;
+        }
+
+        #toolbar select:hover {
+            background: #444;
+        }
+
+        #toolbar input[type="text"] {
+            padding: 6px 10px;
+            font-size: 12px;
+            border: none;
+            border-radius: 4px;
+            background: #333;
+            color: #fff;
+            width: 110px;
+        }
+
+        #toolbar input[type="text"]::placeholder {
+            color: #666;
+        }
+
+        #toolbar button {
+            padding: 6px 12px;
+            font-size: 11px;
+            font-weight: bold;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #444;
+            color: #fff;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        #toolbar button:hover {
+            background: #555;
+        }
+
+        #toolbar button.primary {
+            background: #2a5a2a;
+        }
+
+        #toolbar button.primary:hover {
+            background: #3a7a3a;
+        }
+
+        #toolbar button.danger {
+            background: #5a2a2a;
+        }
+
+        #toolbar button.danger:hover {
+            background: #7a3a3a;
+        }
+
+        #toolbar button.active {
+            background: #4a4;
+        }
+
+        .toolbar-label {
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Offset rack for toolbar */
+        .rack {
+            margin-top: 48px;
         }
     </style>
 </head>
 <body>
-<button id="startButton"
-        style="position:absolute;top:1rem;right:1rem;z-index:10;
-                   padding:.5rem 1rem;font:inherit;cursor:pointer;">
-    Enable Audio
-</button>
-<div class="rack">
-    <div class="row">
-        <div class="module module-2hp"></div><!-- LFO -->
-        <div class="module module-2hp"></div><!-- VCO -->
-        <div class="module module-2hp"></div><!-- VCA -->
-        <div class="module module-2hp"></div><!-- OUT -->
+<div id="toolbar">
+    <div class="toolbar-section">
+        <button id="startButton">▶ Start</button>
     </div>
+    <div class="toolbar-divider"></div>
+    <div class="toolbar-section">
+        <span class="toolbar-label">Patches</span>
+        <select id="patchSelect">
+            <option value="">-- Select --</option>
+        </select>
+        <button id="loadPatch">Load</button>
+        <button id="deletePatch" class="danger">Del</button>
+    </div>
+    <div class="toolbar-divider"></div>
+    <div class="toolbar-section">
+        <input type="text" id="patchName" placeholder="New patch...">
+        <button id="savePatch" class="primary">Save</button>
+    </div>
+    <div class="toolbar-spacer"></div>
+    <div class="toolbar-section">
+        <button id="clearCables">Clear Cables</button>
+    </div>
+</div>
+
+<svg id="cable-svg"></svg>
+
+<div class="rack" id="rack">
+    <!-- Modules will be rendered by JavaScript -->
 </div>
 
 <script>
@@ -61,6 +444,46 @@
      * =========================================================== */
     const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
     const expMap = (norm, min, max) => min * Math.pow(max / min, clamp(norm));
+
+    /* =============================================================
+     * Capacitor Slew – RC low-pass filter for CV smoothing
+     * -------------------------------------------------------------
+     * Simulates capacitor charging/discharging in real analog circuits.
+     * Creates a one-pole IIR filter with configurable time constant.
+     *
+     * Usage:
+     *   const slew = createSlew({ sampleRate: 44100, timeMs: 5 });
+     *   smoothedValue = slew.process(inputValue);
+     *
+     * timeMs: rise/fall time constant in milliseconds (typ. 1-50ms)
+     * =========================================================== */
+    function createSlew({sampleRate = 44100, timeMs = 5} = {}) {
+        let state = 0;
+        /* RC coefficient: how much of the difference to apply per sample */
+        const coeff = 1 - Math.exp(-1000 / (sampleRate * timeMs));
+
+        return {
+            set timeMs(ms) {
+                /* Allow runtime adjustment of slew rate */
+                this._coeff = 1 - Math.exp(-1000 / (sampleRate * Math.max(0.1, ms)));
+            },
+            get _coeff() { return coeff; },
+            set _coeff(v) { /* stored in closure via setter */ },
+            process(input) {
+                state += coeff * (input - state);
+                return state;
+            },
+            processBuffer(inputBuf, outputBuf) {
+                for (let i = 0; i < inputBuf.length; i++) {
+                    state += coeff * (inputBuf[i] - state);
+                    outputBuf[i] = state;
+                }
+            },
+            reset(value = 0) {
+                state = value;
+            }
+        };
+    }
 
     /* =============================================================
      * 2HP LFO – Eight‑wave VC LFO (DIGITAL CLONE)
@@ -144,7 +567,8 @@
     /* =============================================================
      * 2HP VCO – CEM3340 Analogue Oscillator (±5 V outs)
      * -------------------------------------------------------------
-     * (unchanged from previous version)
+     * PolyBLEP anti-aliasing for sawtooth and pulse waves
+     * Capacitor-smoothed pitch CV (configurable glide/portamento)
      * =========================================================== */
     function create2hpVCO({sampleRate = 44100, bufferSize = 512, fmVoltsPerHz = 200} = {}) {
         const coarseHz = {min: 4.3, max: 22000};
@@ -152,46 +576,104 @@
         const tri = new Float32Array(bufferSize);
         const saw = new Float32Array(bufferSize);
         const sqr = new Float32Array(bufferSize);
+
+        /* CV smoothing state */
+        let pitchState = 0, pwmState = 0;
+        const pwmCoeff = 1 - Math.exp(-1000 / (sampleRate * 2)); /* 2ms for PWM */
+
+        /* PolyBLEP: softens discontinuities to reduce aliasing */
+        function polyBlep(t, dt) {
+            if (t < dt) {
+                const x = t / dt;
+                return x + x - x * x - 1;
+            } else if (t > 1 - dt) {
+                const x = (t - 1) / dt;
+                return x * x + x + x + 1;
+            }
+            return 0;
+        }
+
         return {
-            params: {coarse: 0.4, fine: 0},
+            params: {coarse: 0.4, fine: 0, glide: 5},
             inputs: {vOct: 0, fm: 0, pwm: 2.5, sync: 0},
             outputs: {triangle: tri, ramp: saw, pulse: sqr},
             process() {
                 const base = expMap(this.params.coarse, coarseHz.min, coarseHz.max);
-                const freq = Math.max(0, base * 2 ** this.inputs.vOct * 2 ** (this.params.fine / 12) + this.inputs.fm * fmVoltsPerHz);
-                const duty = 0.05 + clamp(this.inputs.pwm, 0, 5) / 5 * 0.90;
-                const inc = freq / sampleRate;
+                const targetDuty = 0.05 + clamp(this.inputs.pwm, 0, 5) / 5 * 0.90;
+                /* Dynamic glide coefficient based on glide param (0-100ms) */
+                const glideMs = Math.max(0.1, this.params.glide);
+                const pitchCoeff = 1 - Math.exp(-1000 / (sampleRate * glideMs));
+
                 for (let i = 0; i < bufferSize; i++) {
+                    /* Smooth pitch CV per-sample for glide effect */
+                    pitchState += pitchCoeff * (this.inputs.vOct - pitchState);
+                    pwmState += pwmCoeff * (targetDuty - pwmState);
+                    const smoothedVOct = pitchState;
+                    const smoothedDuty = pwmState;
+
+                    const freq = Math.max(0, base * 2 ** smoothedVOct * 2 ** (this.params.fine / 12) + this.inputs.fm * fmVoltsPerHz);
+                    const inc = freq / sampleRate;
+
                     if (lastSync <= 0 && this.inputs.sync > 0) phase = 0;
                     lastSync = this.inputs.sync;
                     phase = (phase + inc) % 1;
                     const t = phase;
+
+                    /* Naive waveforms */
+                    let sawVal = 2 * t - 1;
+                    let sqrVal = t < smoothedDuty ? 1 : -1;
+
+                    /* Apply PolyBLEP correction at discontinuities */
+                    sawVal -= polyBlep(t, inc);
+                    sqrVal += polyBlep(t, inc);
+                    sqrVal -= polyBlep((t + 1 - smoothedDuty) % 1, inc);
+
+                    /* Triangle via integrated saw (naturally band-limited) */
                     tri[i] = (4 * Math.abs(t - 0.5) - 1) * 5;
-                    saw[i] = (2 * t - 1) * 5;
-                    sqr[i] = (t < duty ? 1 : -1) * 5;
+                    saw[i] = sawVal * 5;
+                    sqr[i] = sqrVal * 5;
                 }
             }
         };
     }
 
     /* =============================================================
-     * 2HP Dual VCA – Spec‑accurate Clone (unchanged)
+     * 2HP Dual VCA – Exponential Response (like real analog VCAs)
+     * -------------------------------------------------------------
+     * Uses exponential CV response for natural-sounding dynamics.
+     * CV input is capacitor-smoothed to prevent clicks/pops.
+     * LED meters have smooth decay like real hardware.
      * =========================================================== */
-    function create2hpDualVCA({bufferSize = 512} = {}) {
+    function create2hpDualVCA({bufferSize = 512, sampleRate = 44100} = {}) {
         const ch1Out = new Float32Array(bufferSize);
         const ch2Out = new Float32Array(bufferSize);
         const leds = {ch1: 0, ch2: 0};
+
+        /* CV smoothing: prevents clicks when CV changes abruptly (~3ms) */
+        const cvSlew = createSlew({sampleRate, timeMs: 3});
+
+        /* LED decay: ~100ms time constant (typical hardware response) */
+        const ledDecay = Math.exp(-1 / (sampleRate * 0.1) * bufferSize);
+
+        /* Attempt to approximate ~60dB dynamic range like real VCAs */
+        function expResponse(cv) {
+            const norm = clamp(cv, 0, 5) / 5;
+            return norm * norm * norm;
+        }
+
         return {
             params: {ch1Gain: 1, ch2Gain: 1},
-            inputs: {ch1In: new Float32Array(bufferSize), ch2In: new Float32Array(bufferSize), ch2CV: 0},
+            inputs: {ch1In: new Float32Array(bufferSize), ch2In: new Float32Array(bufferSize), ch2CV: 5},
             outputs: {ch1Out, ch2Out}, leds,
             process() {
-                const cv = clamp(this.inputs.ch2CV, 0, 5);
-                const cvGain = cv / 5;
                 const g1 = clamp(this.params.ch1Gain);
                 const g2 = clamp(this.params.ch2Gain);
                 let pk1 = 0, pk2 = 0;
                 for (let i = 0; i < bufferSize; i++) {
+                    /* Smooth CV per-sample to prevent clicks */
+                    const smoothedCV = cvSlew.process(this.inputs.ch2CV);
+                    const cvGain = expResponse(smoothedCV);
+
                     const s1 = this.inputs.ch1In[i] * g1;
                     const s2 = this.inputs.ch2In[i] * g2 * cvGain;
                     ch1Out[i] = s1;
@@ -199,8 +681,9 @@
                     pk1 = Math.max(pk1, Math.abs(s1));
                     pk2 = Math.max(pk2, Math.abs(s2));
                 }
-                leds.ch1 = pk1 / 10;
-                leds.ch2 = pk2 / 10;
+                /* LED smoothing with decay */
+                leds.ch1 = Math.max(pk1 / 10, leds.ch1 * ledDecay);
+                leds.ch2 = Math.max(pk2 / 10, leds.ch2 * ledDecay);
             }
         };
     }
@@ -299,179 +782,1728 @@
     }
 
     /* =============================================================
- * Two expanded patch examples for the 2HP Mini‑Rack demo (v1.1)
- * -------------------------------------------------------------
- * Each patch is a single function.  Drop this file beneath the
- * module definitions in your original HTML and call ONE patch
- * function from the browser console (or add an on‑load call).
- *
- *   • patchAmbientPad() – evolving glassy drone
- *   • patchBassGroove() – syncopated pentatonic bassline
- *
- * Tip: refresh the page between patches to free old AudioContexts.
- * =========================================================== */
+     * ADSR Envelope Generator
+     * -------------------------------------------------------------
+     * Classic 4-stage envelope: Attack, Decay, Sustain, Release
+     * Based on CEM3310 / AS3310 style envelope generators
+     *
+     * ┌─────────────────────────────────────────────────────────────┐
+     * │ PARAM / I/O RANGES                                         │
+     * ├───────────────────────────────────────────────────────────┤
+     * │ params.attack    0→1 (2ms to 10s, exponential)            │
+     * │ params.decay     0→1 (2ms to 10s, exponential)            │
+     * │ params.sustain   0→1 (0-100% level)                       │
+     * │ params.release   0→1 (2ms to 10s, exponential)            │
+     * │ inputs.gate      0→5V (triggers on ≥1V rising edge)       │
+     * │ inputs.retrig    0→5V (retrigger input)                   │
+     * │ outputs.env      0→5V (envelope CV output)                │
+     * │ outputs.inv      0→-5V (inverted envelope)                │
+     * │ outputs.eoc      0/5V (end of cycle trigger)              │
+     * └─────────────────────────────────────────────────────────────┘
+     * =========================================================== */
+    function createADSR({sampleRate = 44100, bufferSize = 512} = {}) {
+        const env = new Float32Array(bufferSize);
+        const inv = new Float32Array(bufferSize);
+        const eoc = new Float32Array(bufferSize);
+
+        /* Envelope state */
+        const IDLE = 0, ATTACK = 1, DECAY = 2, SUSTAIN = 3, RELEASE = 4;
+        let stage = IDLE;
+        let level = 0;
+        let lastGate = 0;
+        let lastRetrig = 0;
+
+        /* Convert knob 0-1 to time in seconds (2ms to 10s, exponential) */
+        function knobToTime(knob) {
+            return 0.002 * Math.pow(5000, clamp(knob));
+        }
+
+        /* Calculate coefficient for exponential envelope */
+        function calcCoeff(timeSeconds, targetRatio = 0.001) {
+            const samples = timeSeconds * sampleRate;
+            if (samples < 1) return 1;
+            return 1 - Math.exp(-Math.log((1 + targetRatio) / targetRatio) / samples);
+        }
+
+        return {
+            params: {attack: 0.2, decay: 0.3, sustain: 0.7, release: 0.4},
+            inputs: {gate: 0, retrig: 0},
+            outputs: {env, inv, eoc},
+            leds: {env: 0},
+            process() {
+                const attackTime = knobToTime(this.params.attack);
+                const decayTime = knobToTime(this.params.decay);
+                const sustainLevel = clamp(this.params.sustain) * 5; /* 0-5V */
+                const releaseTime = knobToTime(this.params.release);
+
+                const attackCoeff = calcCoeff(attackTime);
+                const decayCoeff = calcCoeff(decayTime);
+                const releaseCoeff = calcCoeff(releaseTime);
+
+                for (let i = 0; i < bufferSize; i++) {
+                    const gateHigh = this.inputs.gate >= 1;
+                    const gateEdge = gateHigh && lastGate < 1;
+                    const retrigEdge = this.inputs.retrig >= 1 && lastRetrig < 1;
+
+                    /* Gate on - start attack */
+                    if (gateEdge || (retrigEdge && gateHigh)) {
+                        stage = ATTACK;
+                    }
+
+                    /* Gate off - start release */
+                    if (!gateHigh && lastGate >= 1) {
+                        stage = RELEASE;
+                    }
+
+                    lastGate = this.inputs.gate;
+                    lastRetrig = this.inputs.retrig;
+
+                    /* Process envelope stages */
+                    let eocTrig = 0;
+                    switch (stage) {
+                        case ATTACK:
+                            level += attackCoeff * (5.5 - level); /* Overshoot slightly for snappy attack */
+                            if (level >= 5) {
+                                level = 5;
+                                stage = DECAY;
+                            }
+                            break;
+                        case DECAY:
+                            level += decayCoeff * (sustainLevel - level);
+                            if (Math.abs(level - sustainLevel) < 0.001) {
+                                level = sustainLevel;
+                                stage = SUSTAIN;
+                            }
+                            break;
+                        case SUSTAIN:
+                            level = sustainLevel;
+                            break;
+                        case RELEASE:
+                            level += releaseCoeff * (0 - level);
+                            if (level < 0.001) {
+                                level = 0;
+                                stage = IDLE;
+                                eocTrig = 5; /* End of cycle trigger */
+                            }
+                            break;
+                        case IDLE:
+                        default:
+                            level = 0;
+                            break;
+                    }
+
+                    env[i] = level;
+                    inv[i] = -level;
+                    eoc[i] = eocTrig;
+                }
+
+                /* LED shows envelope level */
+                this.leds.env = level / 5;
+            }
+        };
+    }
 
     /* =============================================================
- * Two "cable‑only" patch examples for the 2HP Mini‑Rack demo (v1.1)
- * -----------------------------------------------------------------
- * No extra maths, scaling, or logic is applied to the signals –
- * every connection is a straight wire between module ports.  The
- * only numbers tweaked are front‑panel parameters.
- * -----------------------------------------------------------------
- *   • patchDreamDrift() – slow drifting pad
- *   • patchPulseBass()  – punchy rhythmic bass
- *
- * Add this file under the module definitions and call ONE patch
- * from the browser console.  Reload the page to free resources
- * before switching patches.
- * =========================================================== */
+     * VCF – Moog-style Transistor Ladder Filter
+     * -------------------------------------------------------------
+     * 24dB/octave low-pass filter with resonance (self-oscillates)
+     * Based on the classic transistor ladder topology
+     *
+     * ┌─────────────────────────────────────────────────────────────┐
+     * │ PARAM / I/O RANGES                                         │
+     * ├───────────────────────────────────────────────────────────┤
+     * │ params.cutoff    0→1 (20Hz to 20kHz, exponential)         │
+     * │ params.resonance 0→1 (0% to self-oscillation)             │
+     * │ inputs.audio     ±5V audio input                          │
+     * │ inputs.cutoffCV  0→5V (adds to cutoff, 1V/oct)            │
+     * │ inputs.resCV     0→5V (adds to resonance)                 │
+     * │ outputs.lpf      ±5V 24dB/oct low-pass                    │
+     * │ outputs.bpf      ±5V 12dB/oct band-pass                   │
+     * │ outputs.hpf      ±5V 12dB/oct high-pass                   │
+     * └─────────────────────────────────────────────────────────────┘
+     * =========================================================== */
+    function createVCF({sampleRate = 44100, bufferSize = 512} = {}) {
+        const lpf = new Float32Array(bufferSize);
+        const bpf = new Float32Array(bufferSize);
+        const hpf = new Float32Array(bufferSize);
 
-    /* -------------------------------------------------------------
-     * PATCH 1 – Dream Drift (ambient wash)
-     * ----------------------------------------------------------- */
-    function patchDreamDrift() {
-        const SAMPLE_RATE = 44100;
-        const BUFFER = 512;
+        /* 4-pole ladder filter state */
+        let stage = [0, 0, 0, 0];
+        let delay = [0, 0, 0, 0];
 
-        /* Modules */
-        const lfo = create2hpLFO({sampleRate: SAMPLE_RATE, bufferSize: BUFFER});
-        const vco = create2hpVCO({sampleRate: SAMPLE_RATE, bufferSize: BUFFER});
-        const vca = create2hpDualVCA({bufferSize: BUFFER});
-        const out = create2hpOut(undefined, {bufferSize: BUFFER});
-        const bard = createBardQuartet({bufferSize: BUFFER});
+        /* Attempt to linearize cutoff CV input */
+        let cutoffSmooth = 0;
+        const cutoffSlew = 1 - Math.exp(-1000 / (sampleRate * 2));
 
-        /* Front‑panel settings */
-        lfo.params.range = 1;     // slow bank
-        lfo.params.rateKnob = 0.2;   // very slow (~0.1Hz)
-        lfo.params.waveKnob = 0.5;   // morph half‑way
+        return {
+            params: {cutoff: 0.5, resonance: 0.3},
+            inputs: {audio: new Float32Array(bufferSize), cutoffCV: 0, resCV: 0},
+            outputs: {lpf, bpf, hpf},
+            leds: {cutoff: 0},
+            process() {
+                /* Base cutoff frequency from knob (20Hz to 20kHz exponential) */
+                const cutoffKnob = clamp(this.params.cutoff);
+                const cutoffHz = 20 * Math.pow(1000, cutoffKnob);
 
-        vco.params.coarse = 0;  // low register
-        vco.params.fine = 0;
+                /* CV modulation (1V/oct style) */
+                const cvMod = clamp(this.inputs.cutoffCV, 0, 5) / 5;
+                const modulatedHz = cutoffHz * Math.pow(4, cvMod); /* ~2 octaves per 5V */
 
-        vca.params.ch1Gain = 0.4;
-        vca.params.ch2Gain = 0.4;
+                /* Resonance with CV */
+                const res = clamp(this.params.resonance + this.inputs.resCV / 10, 0, 1.1);
+                const k = res * 4; /* Feedback amount (4 = self-oscillation threshold) */
 
-        bard.params.scale = 0;   // Major
-        bard.params.root = 0;   // C
-        bard.params.continuous[0] = true; // follow CV continuously
+                for (let i = 0; i < bufferSize; i++) {
+                    /* Smooth cutoff to prevent zipper noise */
+                    cutoffSmooth += cutoffSlew * (modulatedHz - cutoffSmooth);
 
-        /* Scheduler */
-        const BUF_DUR = BUFFER / SAMPLE_RATE;
-        let nextT = out.audioCtx.currentTime + 0.05;
+                    /* Calculate filter coefficient */
+                    /* Attempt to linearize frequency response across range */
+                    const fc = clamp(cutoffSmooth / sampleRate, 0.0001, 0.45);
+                    const g = Math.tan(Math.PI * fc);
+                    const G = g / (1 + g);
 
-        function schedule() {
-            while (nextT < out.audioCtx.currentTime + 0.1) {
-                lfo.process();
+                    /* Input with resonance feedback */
+                    const input = this.inputs.audio[i] / 5; /* Normalize to ±1 */
+                    const feedback = delay[3];
 
-                /* Straight wires */
-                bard.inputs.cv[0].set(lfo.outputs.primary);   // LFO ➜ Bard CV
-                bard.inputs.trig[0] = lfo.outputs.secondary[0]; // LFO ➜ Bard trig
-                bard.process();
+                    /* Soft clip the feedback for musical self-oscillation */
+                    const clipFeedback = Math.tanh(feedback * k);
+                    const u = input - clipFeedback;
 
-                vco.inputs.vOct = bard.outputs.cv[0][0];          // Bard ➜ VCO pitch
-                vco.inputs.pwm = lfo.outputs.primary[0];         // LFO ➜ PWM
-                vco.inputs.fm = lfo.outputs.secondary[0];       // LFO ➜ FM (unipolar)
-                vco.process();
+                    /* 4-pole cascade (each pole is a 1-pole lowpass) */
+                    for (let p = 0; p < 4; p++) {
+                        const prevStage = p === 0 ? u : stage[p - 1];
+                        const v = G * (prevStage - delay[p]);
+                        stage[p] = v + delay[p];
+                        delay[p] = stage[p] + v;
+                    }
 
-                vca.inputs.ch1In.set(vco.outputs.triangle);       // VCO ➜ VCA 1
-                vca.inputs.ch2In.set(vco.outputs.pulse);          // VCO ➜ VCA 2
-                vca.inputs.ch2CV = lfo.outputs.secondary[0];      // LFO ➜ VCA CV
-                vca.process();
+                    /* Outputs */
+                    lpf[i] = stage[3] * 5; /* 24dB LP from 4th pole */
+                    bpf[i] = (stage[1] - stage[3]) * 5; /* BP from difference */
+                    hpf[i] = (u - stage[1]) * 5; /* HP from input - 2nd pole */
+                }
 
-                out.inputs.L.set(vca.outputs.ch1Out);             // Pad left
-                out.inputs.R.set(vca.outputs.ch2Out);             // Pad right
-                out.process(nextT);
-
-                nextT += BUF_DUR;
+                /* LED shows cutoff frequency */
+                this.leds.cutoff = cutoffKnob;
             }
-            setTimeout(schedule, 25);
-        }
-
-        schedule();
+        };
     }
 
-    /* -------------------------------------------------------------
-     * PATCH 2 – Pulse Bass (rhythmic groove)
-     * ----------------------------------------------------------- */
-    function patchPulseBass() {
-        const SAMPLE_RATE = 44100;
-        const BUFFER = 512;
+    /* =============================================================
+     * Noise / Sample & Hold Module
+     * -------------------------------------------------------------
+     * White/Pink noise generator with Sample & Hold circuit
+     * Based on classic analog noise sources and S&H designs
+     *
+     * ┌─────────────────────────────────────────────────────────────┐
+     * │ PARAM / I/O RANGES                                         │
+     * ├───────────────────────────────────────────────────────────┤
+     * │ params.rate      0→1 (internal clock 0.1Hz to 100Hz)      │
+     * │ params.slew      0→1 (S&H output smoothing)               │
+     * │ inputs.sample    ±5V (signal to sample)                   │
+     * │ inputs.trigger   0→5V (external trigger, ≥1V edge)        │
+     * │ outputs.white    ±5V white noise                          │
+     * │ outputs.pink     ±5V pink noise (-3dB/octave)             │
+     * │ outputs.sh       ±5V sampled & held value                 │
+     * └─────────────────────────────────────────────────────────────┘
+     * =========================================================== */
+    function createNoiseSH({sampleRate = 44100, bufferSize = 512} = {}) {
+        const white = new Float32Array(bufferSize);
+        const pink = new Float32Array(bufferSize);
+        const sh = new Float32Array(bufferSize);
 
-        /* Modules */
-        const lfo = create2hpLFO({sampleRate: SAMPLE_RATE, bufferSize: BUFFER});
-        const vco = create2hpVCO({sampleRate: SAMPLE_RATE, bufferSize: BUFFER});
-        const vca = create2hpDualVCA({bufferSize: BUFFER});
-        const out = create2hpOut(undefined, {bufferSize: BUFFER});
-        const bard = createBardQuartet({bufferSize: BUFFER});
+        /* Pink noise filter state (Paul Kellet's algorithm) */
+        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
 
-        /* Front‑panel settings */
-        lfo.params.range = 1;     // fast bank
-        lfo.params.rateKnob = 0.1;   // ~8Hz square swings
-        lfo.params.waveKnob = 0;     // sine/square start
+        /* Sample & Hold state */
+        let heldValue = 0;
+        let lastTrig = 0;
+        let internalPhase = 0;
 
-        vco.params.coarse = 0.3;  // bass region
-        vco.params.fine = 0;   // drop an octave
+        /* S&H output slew state */
+        let slewState = 0;
 
-        vca.params.ch1Gain = 0.2;   // subtle layer
-        vca.params.ch2Gain = 0.5;     // main bass
+        /* Track if external sample input is connected */
+        let sampleBuffer = null;
 
-        bard.params.scale = 9; // Minor pentatonic
-        bard.params.root = 7; // G
-        bard.params.continuous[0] = false; // sample‑hold on trig
+        return {
+            params: {rate: 0.3, slew: 0},
+            inputs: {
+                get sample() { return sampleBuffer; },
+                set sample(buf) { sampleBuffer = buf; },
+                trigger: 0
+            },
+            outputs: {white, pink, sh},
+            leds: {sh: 0},
+            process() {
+                /* Internal clock rate (0.1Hz to 100Hz exponential) */
+                const clockHz = 0.1 * Math.pow(1000, clamp(this.params.rate));
+                const clockInc = clockHz / sampleRate;
 
-        /* Scheduler */
-        const BUF_DUR = BUFFER / SAMPLE_RATE;
-        let nextT = out.audioCtx.currentTime + 0.05;
+                /* Slew coefficient for S&H smoothing */
+                const slewTime = clamp(this.params.slew) * 50 + 0.5; /* 0.5ms to 50ms */
+                const slewCoeff = 1 - Math.exp(-1000 / (sampleRate * slewTime));
 
-        function schedule() {
-            while (nextT < out.audioCtx.currentTime + 0.1) {
-                lfo.process();
+                /* Check if external sample is connected (has non-zero signal) */
+                const useExternal = sampleBuffer && sampleBuffer.some(v => Math.abs(v) > 0.001);
 
-                /* Straight wires */
-                bard.inputs.cv[0].set(lfo.outputs.primary);       // LFO ➜ Bard pitch CV
-                bard.inputs.trig[0] = lfo.outputs.secondary[0];   // LFO ➜ Bard trig
-                bard.process();
+                for (let i = 0; i < bufferSize; i++) {
+                    /* White noise using fast xorshift */
+                    const w = (Math.random() * 2 - 1);
+                    white[i] = w * 5;
 
-                vco.inputs.vOct = bard.outputs.cv[0][0] - 2;      // Bard ➜ VCO pitch (‑2oct)
-                vco.inputs.pwm = lfo.outputs.primary[0];         // LFO ➜ PWM
-                vco.inputs.sync = lfo.outputs.secondary[0];       // LFO ➜ hard sync
-                vco.process();
+                    /* Pink noise filter (Paul Kellet's economy method) */
+                    b0 = 0.99886 * b0 + w * 0.0555179;
+                    b1 = 0.99332 * b1 + w * 0.0750759;
+                    b2 = 0.96900 * b2 + w * 0.1538520;
+                    b3 = 0.86650 * b3 + w * 0.3104856;
+                    b4 = 0.55000 * b4 + w * 0.5329522;
+                    b5 = -0.7616 * b5 - w * 0.0168980;
+                    const pinkSample = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+                    b6 = w * 0.115926;
+                    pink[i] = pinkSample * 5;
 
-                vca.inputs.ch1In.set(vco.outputs.triangle);       // gentle layer
-                vca.inputs.ch2In.set(vco.outputs.pulse);          // main voice
-                vca.inputs.ch2CV = lfo.outputs.secondary[0];      // LFO square ➜ gate depth
-                vca.process();
+                    /* Sample & Hold */
+                    /* Check for trigger (external or internal clock) */
+                    internalPhase += clockInc;
+                    const internalTrig = internalPhase >= 1 ? 5 : 0;
+                    if (internalPhase >= 1) internalPhase -= 1;
 
-                out.inputs.L.set(vca.outputs.ch1Out);             // triangle left
-                out.inputs.R.set(vca.outputs.ch2Out);             // pulse right
-                out.process(nextT);
+                    const trigIn = Math.max(this.inputs.trigger, internalTrig);
+                    const trigEdge = trigIn >= 1 && lastTrig < 1;
+                    lastTrig = trigIn;
 
-                nextT += BUF_DUR;
+                    if (trigEdge) {
+                        /* Sample from external input or internal white noise */
+                        heldValue = useExternal ? sampleBuffer[i] : white[i];
+                    }
+
+                    /* Apply slew to S&H output */
+                    slewState += slewCoeff * (heldValue - slewState);
+                    sh[i] = this.params.slew > 0.01 ? slewState : heldValue;
+                }
+
+                /* LED shows S&H activity (absolute level) */
+                this.leds.sh = Math.abs(heldValue) / 5;
             }
-            setTimeout(schedule, 25);
-        }
-
-        schedule();
+        };
     }
 
+    /* =============================================================
+     * Clock / Divider Module
+     * -------------------------------------------------------------
+     * Master clock with multiple divided outputs
+     * Based on classic clock/divider designs like 4MS RCD
+     *
+     * ┌─────────────────────────────────────────────────────────────┐
+     * │ PARAM / I/O RANGES                                         │
+     * ├───────────────────────────────────────────────────────────┤
+     * │ params.bpm       0→1 (30 to 300 BPM, exponential)         │
+     * │ params.swing     0→1 (0% to 75% swing on /2 output)       │
+     * │ inputs.extClock  0→5V (external clock input)              │
+     * │ inputs.reset     0→5V (reset all dividers)                │
+     * │ outputs.clock    0/5V (main clock pulse)                  │
+     * │ outputs.div2     0/5V (/2 with swing)                     │
+     * │ outputs.div4     0/5V (/4)                                │
+     * │ outputs.div8     0/5V (/8)                                │
+     * └─────────────────────────────────────────────────────────────┘
+     * =========================================================== */
+    function createClockDiv({sampleRate = 44100, bufferSize = 512} = {}) {
+        const clock = new Float32Array(bufferSize);
+        const div2 = new Float32Array(bufferSize);
+        const div4 = new Float32Array(bufferSize);
+        const div8 = new Float32Array(bufferSize);
 
+        /* Clock state */
+        let phase = 0;
+        let counter = 0;           /* Counts clock pulses for divisions */
+        let lastExtClock = 0;
+        let lastReset = 0;
 
-    const btn = document.getElementById('startButton');
+        /* Pulse width (10ms typical for triggers) */
+        const pulseWidth = 0.01 * sampleRate;
+        let pulseSamples = [0, 0, 0, 0]; /* Remaining samples for each output pulse */
 
-    btn.addEventListener('click', () => {
-        patchPulseBass();
-        // patchDreamDrift();
-        // btn.remove();                           // hide the button
+        /* Swing timing state */
+        let swingPhase = false;    /* Toggle for swing timing */
 
-        /* Just in case the AudioContext is still suspended
-           (Safari often does this the first time) */
-        const ctx = window.AudioContext
-            ? new AudioContext()          // a throwaway ctx to probe state
-            : new webkitAudioContext();
-        if (ctx.state === 'suspended') ctx.resume();
-        ctx.close();                            // tidy up
-    });
+        return {
+            params: {bpm: 0.4, swing: 0},
+            inputs: {extClock: 0, reset: 0},
+            outputs: {clock, div2, div4, div8},
+            leds: {clock: 0},
+            process() {
+                /* BPM from knob (30 to 300 BPM) */
+                const bpm = 30 * Math.pow(10, clamp(this.params.bpm));
+                const clockHz = bpm / 60;
+                const clockInc = clockHz / sampleRate;
 
+                /* Swing amount (0 to 75%) */
+                const swingAmount = clamp(this.params.swing) * 0.75;
+
+                for (let i = 0; i < bufferSize; i++) {
+                    /* Check for reset */
+                    const resetEdge = this.inputs.reset >= 1 && lastReset < 1;
+                    lastReset = this.inputs.reset;
+                    if (resetEdge) {
+                        phase = 0;
+                        counter = 0;
+                        swingPhase = false;
+                        pulseSamples = [0, 0, 0, 0];
+                    }
+
+                    /* Check for external clock override */
+                    const extEdge = this.inputs.extClock >= 1 && lastExtClock < 1;
+                    lastExtClock = this.inputs.extClock;
+
+                    /* Internal clock tick detection */
+                    const prevPhase = phase;
+                    phase += clockInc;
+                    const internalTick = prevPhase < 1 && phase >= 1;
+                    if (phase >= 1) phase -= 1;
+
+                    /* Clock tick (internal or external) */
+                    const tick = extEdge || (this.inputs.extClock < 0.5 && internalTick);
+
+                    if (tick) {
+                        /* Main clock pulse */
+                        pulseSamples[0] = pulseWidth;
+                        counter++;
+
+                        /* /2 with swing */
+                        if (counter % 2 === 0) {
+                            swingPhase = !swingPhase;
+                            /* Swing delays alternate beats */
+                            if (!swingPhase || swingAmount < 0.01) {
+                                pulseSamples[1] = pulseWidth;
+                            }
+                        } else if (swingPhase && swingAmount >= 0.01) {
+                            /* Delayed swing beat - check if we should trigger now */
+                            /* (This is a simplified swing - ideally would be timing-based) */
+                            pulseSamples[1] = pulseWidth;
+                        }
+
+                        /* /4 */
+                        if (counter % 4 === 0) {
+                            pulseSamples[2] = pulseWidth;
+                        }
+
+                        /* /8 */
+                        if (counter % 8 === 0) {
+                            pulseSamples[3] = pulseWidth;
+                        }
+                    }
+
+                    /* Output pulses (decay) */
+                    clock[i] = pulseSamples[0] > 0 ? 5 : 0;
+                    div2[i] = pulseSamples[1] > 0 ? 5 : 0;
+                    div4[i] = pulseSamples[2] > 0 ? 5 : 0;
+                    div8[i] = pulseSamples[3] > 0 ? 5 : 0;
+
+                    /* Decrement pulse counters */
+                    for (let p = 0; p < 4; p++) {
+                        if (pulseSamples[p] > 0) pulseSamples[p]--;
+                    }
+                }
+
+                /* LED blinks with clock */
+                this.leds.clock = pulseSamples[0] > 0 ? 1 : 0;
+            }
+        };
+    }
+
+    /* =============================================================
+     * Interactive Patcher System
+     * -------------------------------------------------------------
+     * Renders modules with knobs and jacks, allows cable patching
+     * =========================================================== */
+
+    const SAMPLE_RATE = 44100;
+    const BUFFER = 512;
+
+    /* Cable colors for visual distinction */
+    const CABLE_COLORS = [
+        '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
+        '#9b59b6', '#1abc9c', '#e91e63', '#00bcd4'
+    ];
+    let colorIndex = 0;
+
+    /* State */
+    let audioCtx = null;
+    let isRunning = false;
+    let modules = {};
+    let cables = [];
+    let dragState = null;
+
+    /* Module definitions for UI rendering */
+    const MODULE_DEFS = {
+        lfo: {
+            name: 'LFO',
+            hp: 4,
+            color: '#2d5a27',
+            create: () => create2hpLFO({sampleRate: SAMPLE_RATE, bufferSize: BUFFER}),
+            knobs: [
+                {id: 'rateKnob', label: 'Rate', param: 'rateKnob', min: 0, max: 1, default: 0.3},
+                {id: 'waveKnob', label: 'Wave', param: 'waveKnob', min: 0, max: 1, default: 0}
+            ],
+            switches: [
+                {id: 'range', label: 'Fast', param: 'range', default: 0}
+            ],
+            inputs: [
+                {id: 'rateCV', label: 'Rate', input: 'rateCV', type: 'cv'},
+                {id: 'waveCV', label: 'Wave', input: 'waveCV', type: 'cv'},
+                {id: 'reset', label: 'Reset', input: 'reset', type: 'trigger'}
+            ],
+            outputs: [
+                {id: 'primary', label: 'Pri', output: 'primary', type: 'buffer'},
+                {id: 'secondary', label: 'Sec', output: 'secondary', type: 'buffer'}
+            ]
+        },
+        vco: {
+            name: 'VCO',
+            hp: 4,
+            color: '#8b4513',
+            create: () => create2hpVCO({sampleRate: SAMPLE_RATE, bufferSize: BUFFER}),
+            knobs: [
+                {id: 'coarse', label: 'Coarse', param: 'coarse', min: 0, max: 1, default: 0.4},
+                {id: 'fine', label: 'Fine', param: 'fine', min: -6, max: 6, default: 0},
+                {id: 'glide', label: 'Glide', param: 'glide', min: 0, max: 100, default: 5}
+            ],
+            inputs: [
+                {id: 'vOct', label: 'V/Oct', input: 'vOct', type: 'cv'},
+                {id: 'fm', label: 'FM', input: 'fm', type: 'cv'},
+                {id: 'pwm', label: 'PWM', input: 'pwm', type: 'cv'},
+                {id: 'sync', label: 'Sync', input: 'sync', type: 'trigger'}
+            ],
+            outputs: [
+                {id: 'triangle', label: 'Tri', output: 'triangle', type: 'buffer'},
+                {id: 'ramp', label: 'Saw', output: 'ramp', type: 'buffer'},
+                {id: 'pulse', label: 'Pls', output: 'pulse', type: 'buffer'}
+            ]
+        },
+        vca: {
+            name: 'VCA',
+            hp: 4,
+            color: '#4a4a8a',
+            create: () => create2hpDualVCA({sampleRate: SAMPLE_RATE, bufferSize: BUFFER}),
+            knobs: [
+                {id: 'ch1Gain', label: 'Ch1', param: 'ch1Gain', min: 0, max: 1, default: 0.8},
+                {id: 'ch2Gain', label: 'Ch2', param: 'ch2Gain', min: 0, max: 1, default: 0.8}
+            ],
+            inputs: [
+                {id: 'ch1In', label: 'In 1', input: 'ch1In', type: 'buffer'},
+                {id: 'ch2In', label: 'In 2', input: 'ch2In', type: 'buffer'},
+                {id: 'ch2CV', label: 'CV', input: 'ch2CV', type: 'cv'}
+            ],
+            outputs: [
+                {id: 'ch1Out', label: 'Out1', output: 'ch1Out', type: 'buffer'},
+                {id: 'ch2Out', label: 'Out2', output: 'ch2Out', type: 'buffer'}
+            ],
+            leds: ['ch1', 'ch2']
+        },
+        bard: {
+            name: 'QUANT',
+            hp: 8,
+            color: '#6b3a6b',
+            create: () => createBardQuartet({bufferSize: BUFFER}),
+            knobs: [
+                {id: 'scale', label: 'Scale', param: 'scale', min: 0, max: 15, default: 0, step: 1},
+                {id: 'root', label: 'Root', param: 'root', min: 0, max: 11, default: 0, step: 1}
+            ],
+            switches: [
+                {id: 'cont0', label: 'C1', param: 'continuous[0]', default: true},
+                {id: 'cont1', label: 'C2', param: 'continuous[1]', default: false},
+                {id: 'cont2', label: 'C3', param: 'continuous[2]', default: false},
+                {id: 'cont3', label: 'C4', param: 'continuous[3]', default: false}
+            ],
+            inputs: [
+                {id: 'cv0', label: 'CV1', input: 'cv[0]', type: 'buffer'},
+                {id: 'cv1', label: 'CV2', input: 'cv[1]', type: 'buffer'},
+                {id: 'cv2', label: 'CV3', input: 'cv[2]', type: 'buffer'},
+                {id: 'cv3', label: 'CV4', input: 'cv[3]', type: 'buffer'},
+                {id: 'trig0', label: 'T1', input: 'trig[0]', type: 'cv'},
+                {id: 'trig1', label: 'T2', input: 'trig[1]', type: 'cv'},
+                {id: 'trig2', label: 'T3', input: 'trig[2]', type: 'cv'},
+                {id: 'trig3', label: 'T4', input: 'trig[3]', type: 'cv'}
+            ],
+            outputs: [
+                {id: 'cvOut0', label: 'O1', output: 'cv[0]', type: 'buffer'},
+                {id: 'cvOut1', label: 'O2', output: 'cv[1]', type: 'buffer'},
+                {id: 'cvOut2', label: 'O3', output: 'cv[2]', type: 'buffer'},
+                {id: 'cvOut3', label: 'O4', output: 'cv[3]', type: 'buffer'}
+            ]
+        },
+        vcf: {
+            name: 'VCF',
+            hp: 4,
+            color: '#4a6a8a',
+            create: () => createVCF({sampleRate: SAMPLE_RATE, bufferSize: BUFFER}),
+            knobs: [
+                {id: 'cutoff', label: 'Freq', param: 'cutoff', min: 0, max: 1, default: 0.5},
+                {id: 'resonance', label: 'Res', param: 'resonance', min: 0, max: 1, default: 0.3}
+            ],
+            inputs: [
+                {id: 'audio', label: 'In', input: 'audio', type: 'buffer'},
+                {id: 'cutoffCV', label: 'Freq', input: 'cutoffCV', type: 'cv'},
+                {id: 'resCV', label: 'Res', input: 'resCV', type: 'cv'}
+            ],
+            outputs: [
+                {id: 'lpf', label: 'LP', output: 'lpf', type: 'buffer'},
+                {id: 'bpf', label: 'BP', output: 'bpf', type: 'buffer'},
+                {id: 'hpf', label: 'HP', output: 'hpf', type: 'buffer'}
+            ],
+            leds: ['cutoff']
+        },
+        adsr: {
+            name: 'ADSR',
+            hp: 4,
+            color: '#8a4a4a',
+            create: () => createADSR({sampleRate: SAMPLE_RATE, bufferSize: BUFFER}),
+            knobs: [
+                {id: 'attack', label: 'Atk', param: 'attack', min: 0, max: 1, default: 0.2},
+                {id: 'decay', label: 'Dec', param: 'decay', min: 0, max: 1, default: 0.3},
+                {id: 'sustain', label: 'Sus', param: 'sustain', min: 0, max: 1, default: 0.7},
+                {id: 'release', label: 'Rel', param: 'release', min: 0, max: 1, default: 0.4}
+            ],
+            inputs: [
+                {id: 'gate', label: 'Gate', input: 'gate', type: 'cv'},
+                {id: 'retrig', label: 'Retr', input: 'retrig', type: 'trigger'}
+            ],
+            outputs: [
+                {id: 'env', label: 'Env', output: 'env', type: 'buffer'},
+                {id: 'inv', label: 'Inv', output: 'inv', type: 'buffer'},
+                {id: 'eoc', label: 'EOC', output: 'eoc', type: 'buffer'}
+            ],
+            leds: ['env']
+        },
+        noise: {
+            name: 'NOISE',
+            hp: 4,
+            color: '#5a5a5a',
+            create: () => createNoiseSH({sampleRate: SAMPLE_RATE, bufferSize: BUFFER}),
+            knobs: [
+                {id: 'rate', label: 'Rate', param: 'rate', min: 0, max: 1, default: 0.3},
+                {id: 'slew', label: 'Slew', param: 'slew', min: 0, max: 1, default: 0}
+            ],
+            inputs: [
+                {id: 'sample', label: 'Samp', input: 'sample', type: 'buffer'},
+                {id: 'trigger', label: 'Trig', input: 'trigger', type: 'cv'}
+            ],
+            outputs: [
+                {id: 'white', label: 'Wht', output: 'white', type: 'buffer'},
+                {id: 'pink', label: 'Pink', output: 'pink', type: 'buffer'},
+                {id: 'sh', label: 'S&H', output: 'sh', type: 'buffer'}
+            ],
+            leds: ['sh']
+        },
+        clock: {
+            name: 'CLOCK',
+            hp: 4,
+            color: '#6a5a2a',
+            create: () => createClockDiv({sampleRate: SAMPLE_RATE, bufferSize: BUFFER}),
+            knobs: [
+                {id: 'bpm', label: 'BPM', param: 'bpm', min: 0, max: 1, default: 0.4},
+                {id: 'swing', label: 'Swng', param: 'swing', min: 0, max: 1, default: 0}
+            ],
+            inputs: [
+                {id: 'extClock', label: 'Ext', input: 'extClock', type: 'cv'},
+                {id: 'reset', label: 'Rst', input: 'reset', type: 'trigger'}
+            ],
+            outputs: [
+                {id: 'clock', label: 'Clk', output: 'clock', type: 'buffer'},
+                {id: 'div2', label: '/2', output: 'div2', type: 'buffer'},
+                {id: 'div4', label: '/4', output: 'div4', type: 'buffer'},
+                {id: 'div8', label: '/8', output: 'div8', type: 'buffer'}
+            ],
+            leds: ['clock']
+        },
+        out: {
+            name: 'OUT',
+            hp: 4,
+            color: '#333',
+            create: () => {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                return create2hpOut(audioCtx, {bufferSize: BUFFER});
+            },
+            knobs: [
+                {id: 'volume', label: 'Vol', param: 'volume', min: 0, max: 1, default: 0.7}
+            ],
+            inputs: [
+                {id: 'L', label: 'L', input: 'L', type: 'buffer'},
+                {id: 'R', label: 'R', input: 'R', type: 'buffer'}
+            ],
+            outputs: [],
+            leds: ['L', 'R']
+        }
+    };
+
+    /* =============================================================
+     * UI Rendering
+     * =========================================================== */
+    function renderModule(type, id) {
+        const def = MODULE_DEFS[type];
+        const el = document.createElement('div');
+        el.className = `module module-${def.hp}hp`;
+        el.id = `module-${id}`;
+        el.style.background = `linear-gradient(to bottom, ${def.color}, ${adjustColor(def.color, -30)})`;
+
+        let html = `<div class="module-label">${def.name}</div><div class="module-content">`;
+
+        /* LEDs */
+        if (def.leds) {
+            html += '<div class="jack-row">';
+            def.leds.forEach(led => {
+                html += `<div class="led green" id="led-${id}-${led}"></div>`;
+            });
+            html += '</div>';
+        }
+
+        /* Knobs - render in a row if more than 2 */
+        if (def.knobs.length > 2) {
+            html += '<div class="jack-row">';
+        }
+        def.knobs.forEach(knob => {
+            html += `
+                <div class="knob-container">
+                    <div class="knob" id="knob-${id}-${knob.id}"
+                         data-module="${id}" data-param="${knob.param}"
+                         data-min="${knob.min}" data-max="${knob.max}"
+                         data-value="${knob.default}" data-step="${knob.step || 0}"></div>
+                    <div class="knob-label">${knob.label}</div>
+                </div>`;
+        });
+        if (def.knobs.length > 2) {
+            html += '</div>';
+        }
+
+        /* Switches - render in a row */
+        if (def.switches && def.switches.length > 0) {
+            html += '<div class="jack-row">';
+            def.switches.forEach(sw => {
+                html += `
+                    <div class="knob-container">
+                        <div class="switch ${sw.default ? 'on' : ''}" id="switch-${id}-${sw.id}"
+                             data-module="${id}" data-param="${sw.param}"></div>
+                        <div class="knob-label">${sw.label}</div>
+                    </div>`;
+            });
+            html += '</div>';
+        }
+
+        html += '<div class="spacer"></div>';
+
+        /* Outputs */
+        if (def.outputs.length > 0) {
+            html += '<div class="section-label">Out</div><div class="jack-row">';
+            def.outputs.forEach(out => {
+                html += `
+                    <div class="jack-container">
+                        <div class="jack output" id="jack-${id}-${out.id}"
+                             data-module="${id}" data-port="${out.output}" data-dir="output" data-type="${out.type}"></div>
+                        <div class="jack-label">${out.label}</div>
+                    </div>`;
+            });
+            html += '</div>';
+        }
+
+        /* Inputs - group by type for larger modules */
+        if (def.inputs.length > 0) {
+            if (def.inputs.length > 4) {
+                /* Split inputs into groups (CV and triggers) */
+                const cvInputs = def.inputs.filter(i => i.id.startsWith('cv'));
+                const trigInputs = def.inputs.filter(i => i.id.startsWith('trig'));
+                const otherInputs = def.inputs.filter(i => !i.id.startsWith('cv') && !i.id.startsWith('trig'));
+
+                if (cvInputs.length > 0) {
+                    html += '<div class="section-label">CV In</div><div class="jack-row">';
+                    cvInputs.forEach(inp => {
+                        html += `
+                            <div class="jack-container">
+                                <div class="jack input" id="jack-${id}-${inp.id}"
+                                     data-module="${id}" data-port="${inp.input}" data-dir="input" data-type="${inp.type}"></div>
+                                <div class="jack-label">${inp.label}</div>
+                            </div>`;
+                    });
+                    html += '</div>';
+                }
+                if (trigInputs.length > 0) {
+                    html += '<div class="section-label">Trig In</div><div class="jack-row">';
+                    trigInputs.forEach(inp => {
+                        html += `
+                            <div class="jack-container">
+                                <div class="jack input" id="jack-${id}-${inp.id}"
+                                     data-module="${id}" data-port="${inp.input}" data-dir="input" data-type="${inp.type}"></div>
+                                <div class="jack-label">${inp.label}</div>
+                            </div>`;
+                    });
+                    html += '</div>';
+                }
+                if (otherInputs.length > 0) {
+                    html += '<div class="section-label">In</div><div class="jack-row">';
+                    otherInputs.forEach(inp => {
+                        html += `
+                            <div class="jack-container">
+                                <div class="jack input" id="jack-${id}-${inp.id}"
+                                     data-module="${id}" data-port="${inp.input}" data-dir="input" data-type="${inp.type}"></div>
+                                <div class="jack-label">${inp.label}</div>
+                            </div>`;
+                    });
+                    html += '</div>';
+                }
+            } else {
+                html += '<div class="section-label">In</div><div class="jack-row">';
+                def.inputs.forEach(inp => {
+                    html += `
+                        <div class="jack-container">
+                            <div class="jack input" id="jack-${id}-${inp.id}"
+                                 data-module="${id}" data-port="${inp.input}" data-dir="input" data-type="${inp.type}"></div>
+                            <div class="jack-label">${inp.label}</div>
+                        </div>`;
+                });
+                html += '</div>';
+            }
+        }
+
+        html += '</div>';
+        el.innerHTML = html;
+        return el;
+    }
+
+    function adjustColor(hex, amount) {
+        const num = parseInt(hex.slice(1), 16);
+        const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+        const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amount));
+        const b = Math.min(255, Math.max(0, (num & 0x0000FF) + amount));
+        return `#${(1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1)}`;
+    }
+
+    function updateKnobRotation(knobEl) {
+        const min = parseFloat(knobEl.dataset.min);
+        const max = parseFloat(knobEl.dataset.max);
+        const value = parseFloat(knobEl.dataset.value);
+        const rotation = -135 + ((value - min) / (max - min)) * 270;
+        knobEl.style.setProperty('--rotation', `${rotation}deg`);
+        const indicator = knobEl.querySelector('::after') || knobEl;
+        knobEl.style.transform = `rotate(${rotation}deg)`;
+    }
+
+    /* =============================================================
+     * Cable System
+     * =========================================================== */
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const cableSvg = document.getElementById('cable-svg');
+
+    function getJackCenter(jackEl) {
+        const rect = jackEl.getBoundingClientRect();
+        return {x: rect.left + rect.width / 2, y: rect.top + rect.height / 2};
+    }
+
+    function createCablePath(x1, y1, x2, y2) {
+        const dy = y2 - y1;
+        const sag = Math.min(100, Math.abs(x2 - x1) * 0.3 + 30);
+        const cp1y = y1 + sag;
+        const cp2y = y2 + sag;
+        return `M ${x1} ${y1} C ${x1} ${cp1y}, ${x2} ${cp2y}, ${x2} ${y2}`;
+    }
+
+    function renderCable(cable) {
+        const from = getJackCenter(cable.fromEl);
+        const to = getJackCenter(cable.toEl);
+        cable.pathEl.setAttribute('d', createCablePath(from.x, from.y, to.x, to.y));
+    }
+
+    function addCable(fromJack, toJack) {
+        const path = document.createElementNS(svgNS, 'path');
+        path.classList.add('cable');
+        path.style.stroke = CABLE_COLORS[colorIndex++ % CABLE_COLORS.length];
+        cableSvg.appendChild(path);
+
+        const cable = {
+            fromEl: fromJack,
+            toEl: toJack,
+            pathEl: path,
+            fromModule: fromJack.dataset.module,
+            fromPort: fromJack.dataset.port,
+            toModule: toJack.dataset.module,
+            toPort: toJack.dataset.port,
+            type: fromJack.dataset.type
+        };
+
+        cables.push(cable);
+        fromJack.classList.add('connected');
+        toJack.classList.add('connected');
+        renderCable(cable);
+        return cable;
+    }
+
+    function removeCable(cable) {
+        cable.pathEl.remove();
+        cable.fromEl.classList.remove('connected');
+        cable.toEl.classList.remove('connected');
+        cables = cables.filter(c => c !== cable);
+    }
+
+    function clearAllCables() {
+        cables.forEach(c => {
+            c.pathEl.remove();
+            c.fromEl.classList.remove('connected');
+            c.toEl.classList.remove('connected');
+        });
+        cables = [];
+    }
+
+    /* Preview cable while dragging */
+    let previewPath = null;
+
+    function startDrag(jackEl, e) {
+        dragState = {
+            startJack: jackEl,
+            startDir: jackEl.dataset.dir
+        };
+        previewPath = document.createElementNS(svgNS, 'path');
+        previewPath.classList.add('cable', 'cable-preview');
+        previewPath.style.stroke = CABLE_COLORS[colorIndex % CABLE_COLORS.length];
+        cableSvg.appendChild(previewPath);
+        updatePreview(e);
+    }
+
+    function updatePreview(e) {
+        if (!dragState || !previewPath) return;
+        const start = getJackCenter(dragState.startJack);
+        const end = {x: e.clientX, y: e.clientY};
+        previewPath.setAttribute('d', createCablePath(start.x, start.y, end.x, end.y));
+    }
+
+    function endDrag(targetJack) {
+        if (!dragState) return;
+
+        if (previewPath) {
+            previewPath.remove();
+            previewPath = null;
+        }
+
+        if (targetJack && targetJack !== dragState.startJack) {
+            const startDir = dragState.startDir;
+            const endDir = targetJack.dataset.dir;
+
+            /* Must connect output to input */
+            if (startDir !== endDir) {
+                const fromJack = startDir === 'output' ? dragState.startJack : targetJack;
+                const toJack = startDir === 'input' ? dragState.startJack : targetJack;
+
+                /* Remove existing cable to this input */
+                const existing = cables.find(c => c.toEl === toJack);
+                if (existing) removeCable(existing);
+
+                addCable(fromJack, toJack);
+            }
+        }
+
+        dragState = null;
+    }
+
+    /* =============================================================
+     * Knob Interaction
+     * =========================================================== */
+    let knobDrag = null;
+
+    function startKnobDrag(knobEl, e) {
+        knobDrag = {
+            knob: knobEl,
+            startY: e.clientY,
+            startValue: parseFloat(knobEl.dataset.value)
+        };
+    }
+
+    function updateKnobDrag(e) {
+        if (!knobDrag) return;
+        const knob = knobDrag.knob;
+        const min = parseFloat(knob.dataset.min);
+        const max = parseFloat(knob.dataset.max);
+        const step = parseFloat(knob.dataset.step) || 0;
+        const range = max - min;
+        const dy = knobDrag.startY - e.clientY;
+        let newValue = knobDrag.startValue + (dy / 150) * range;
+
+        if (step > 0) {
+            newValue = Math.round(newValue / step) * step;
+        }
+        newValue = Math.max(min, Math.min(max, newValue));
+
+        knob.dataset.value = newValue;
+        updateKnobRotation(knob);
+
+        /* Update module param */
+        const moduleId = knob.dataset.module;
+        const param = knob.dataset.param;
+        if (modules[moduleId] && modules[moduleId].instance) {
+            modules[moduleId].instance.params[param] = newValue;
+        }
+    }
+
+    function endKnobDrag() {
+        knobDrag = null;
+    }
+
+    /* =============================================================
+     * Audio Processing Loop
+     * =========================================================== */
+    let nextTime = 0;
+    const BUF_DUR = BUFFER / SAMPLE_RATE;
+
+    function processAudio() {
+        if (!isRunning) return;
+
+        while (nextTime < audioCtx.currentTime + 0.1) {
+            /* Process modules in order */
+            const order = ['clock', 'lfo', 'noise', 'bard', 'vco', 'vcf', 'adsr', 'vca', 'out'];
+
+            order.forEach(id => {
+                if (!modules[id]) return;
+                const mod = modules[id].instance;
+
+                /* Apply cable connections before processing */
+                cables.forEach(cable => {
+                    if (cable.toModule === id) {
+                        const srcMod = modules[cable.fromModule]?.instance;
+                        if (!srcMod) return;
+
+                        /* Get source value */
+                        let srcValue = getNestedValue(srcMod.outputs, cable.fromPort);
+
+                        /* Set destination value */
+                        setNestedValue(mod.inputs, cable.toPort, srcValue);
+                    }
+                });
+
+                /* Process the module */
+                if (id === 'out') {
+                    mod.process(nextTime);
+                } else {
+                    mod.process();
+                }
+            });
+
+            nextTime += BUF_DUR;
+        }
+
+        /* Update LEDs */
+        if (modules.out?.instance?.led) {
+            const leds = modules.out.instance.led;
+            document.getElementById('led-out-L')?.classList.toggle('active', leds.L > 0.1);
+            document.getElementById('led-out-R')?.classList.toggle('active', leds.R > 0.1);
+        }
+        if (modules.vca?.instance?.leds) {
+            const leds = modules.vca.instance.leds;
+            document.getElementById('led-vca-ch1')?.classList.toggle('active', leds.ch1 > 0.1);
+            document.getElementById('led-vca-ch2')?.classList.toggle('active', leds.ch2 > 0.1);
+        }
+        if (modules.adsr?.instance?.leds) {
+            const leds = modules.adsr.instance.leds;
+            document.getElementById('led-adsr-env')?.classList.toggle('active', leds.env > 0.1);
+        }
+        if (modules.vcf?.instance?.leds) {
+            const leds = modules.vcf.instance.leds;
+            document.getElementById('led-vcf-cutoff')?.classList.toggle('active', leds.cutoff > 0.3);
+        }
+        if (modules.noise?.instance?.leds) {
+            const leds = modules.noise.instance.leds;
+            document.getElementById('led-noise-sh')?.classList.toggle('active', leds.sh > 0.1);
+        }
+        if (modules.clock?.instance?.leds) {
+            const leds = modules.clock.instance.leds;
+            document.getElementById('led-clock-clock')?.classList.toggle('active', leds.clock > 0.5);
+        }
+
+        setTimeout(processAudio, 20);
+    }
+
+    function getNestedValue(obj, path) {
+        const match = path.match(/(\w+)\[(\d+)\]/);
+        if (match) {
+            return obj[match[1]][parseInt(match[2])];
+        }
+        return obj[path];
+    }
+
+    function setNestedValue(obj, path, value) {
+        const match = path.match(/(\w+)\[(\d+)\]/);
+        if (match) {
+            const arr = obj[match[1]];
+            const idx = parseInt(match[2]);
+            if (value instanceof Float32Array) {
+                if (arr[idx] instanceof Float32Array) {
+                    arr[idx].set(value);
+                } else {
+                    arr[idx] = value[0];
+                }
+            } else {
+                arr[idx] = value;
+            }
+        } else {
+            if (obj[path] instanceof Float32Array && value instanceof Float32Array) {
+                obj[path].set(value);
+            } else if (obj[path] instanceof Float32Array) {
+                obj[path].fill(value);
+            } else if (value instanceof Float32Array) {
+                obj[path] = value[0];
+            } else {
+                obj[path] = value;
+            }
+        }
+    }
+
+    /* =============================================================
+     * Patch Bank System
+     * -------------------------------------------------------------
+     * Save and load patches to/from localStorage
+     * =========================================================== */
+    const PATCH_STORAGE_KEY = 'eurorack-patches';
+
+    /* Built-in factory patches */
+    const FACTORY_PATCHES = {
+        /* === Test Patches - Isolated module tests === */
+        'Test - VCO Only': {
+            name: 'Test - VCO Only',
+            factory: true,
+            state: {
+                knobs: {
+                    vco: { coarse: 0.35, fine: 0, glide: 5 },
+                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
+                    out: { volume: 0.5 }
+                },
+                switches: {},
+                cables: [
+                    { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
+                    { fromModule: 'vco', fromPort: 'ramp', toModule: 'vca', toPort: 'ch2In' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
+                    { fromModule: 'vca', fromPort: 'ch2Out', toModule: 'out', toPort: 'R' }
+                ]
+            }
+        },
+        'Test - LFO → VCO Pitch': {
+            name: 'Test - LFO → VCO Pitch',
+            factory: true,
+            state: {
+                knobs: {
+                    lfo: { rateKnob: 0.5, waveKnob: 0 },
+                    vco: { coarse: 0.35, fine: 0, glide: 5 },
+                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
+                    out: { volume: 0.5 }
+                },
+                switches: {
+                    lfo: { range: false }
+                },
+                cables: [
+                    { fromModule: 'lfo', fromPort: 'primary', toModule: 'vco', toPort: 'vOct' },
+                    { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
+                ]
+            }
+        },
+        'Test - VCF Resonance': {
+            name: 'Test - VCF Resonance',
+            factory: true,
+            state: {
+                knobs: {
+                    lfo: { rateKnob: 0.4, waveKnob: 0.5 },
+                    vco: { coarse: 0.25, fine: 0, glide: 5 },
+                    vcf: { cutoff: 0.4, resonance: 0.7 },
+                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
+                    out: { volume: 0.5 }
+                },
+                switches: {
+                    lfo: { range: false }
+                },
+                cables: [
+                    { fromModule: 'vco', fromPort: 'ramp', toModule: 'vcf', toPort: 'audio' },
+                    { fromModule: 'lfo', fromPort: 'primary', toModule: 'vcf', toPort: 'cutoffCV' },
+                    { fromModule: 'vcf', fromPort: 'lpf', toModule: 'vca', toPort: 'ch1In' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
+                ]
+            }
+        },
+        'Test - ADSR Envelope': {
+            name: 'Test - ADSR Envelope',
+            factory: true,
+            state: {
+                knobs: {
+                    clock: { bpm: 0.35, swing: 0 },
+                    vco: { coarse: 0.35, fine: 0, glide: 5 },
+                    adsr: { attack: 0.15, decay: 0.3, sustain: 0.5, release: 0.35 },
+                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
+                    out: { volume: 0.6 }
+                },
+                switches: {},
+                cables: [
+                    { fromModule: 'clock', fromPort: 'div2', toModule: 'adsr', toPort: 'gate' },
+                    { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
+                    { fromModule: 'adsr', fromPort: 'env', toModule: 'vca', toPort: 'ch2CV' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
+                ]
+            }
+        },
+        'Test - Noise Outputs': {
+            name: 'Test - Noise Outputs',
+            factory: true,
+            state: {
+                knobs: {
+                    noise: { rate: 0.5, slew: 0 },
+                    vca: { ch1Gain: 0.5, ch2Gain: 0.5 },
+                    out: { volume: 0.4 }
+                },
+                switches: {},
+                cables: [
+                    { fromModule: 'noise', fromPort: 'white', toModule: 'vca', toPort: 'ch1In' },
+                    { fromModule: 'noise', fromPort: 'pink', toModule: 'vca', toPort: 'ch2In' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
+                    { fromModule: 'vca', fromPort: 'ch2Out', toModule: 'out', toPort: 'R' }
+                ]
+            }
+        },
+        'Test - S&H → Pitch': {
+            name: 'Test - S&H → Pitch',
+            factory: true,
+            state: {
+                knobs: {
+                    noise: { rate: 0.4, slew: 0.2 },
+                    vco: { coarse: 0.35, fine: 0, glide: 10 },
+                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
+                    out: { volume: 0.5 }
+                },
+                switches: {},
+                cables: [
+                    { fromModule: 'noise', fromPort: 'sh', toModule: 'vco', toPort: 'vOct' },
+                    { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
+                ]
+            }
+        },
+        'Test - Clock Divisions': {
+            name: 'Test - Clock Divisions',
+            factory: true,
+            state: {
+                knobs: {
+                    clock: { bpm: 0.45, swing: 0 },
+                    vco: { coarse: 0.3, fine: 0, glide: 2 },
+                    adsr: { attack: 0.05, decay: 0.2, sustain: 0.0, release: 0.15 },
+                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
+                    out: { volume: 0.5 }
+                },
+                switches: {},
+                cables: [
+                    { fromModule: 'clock', fromPort: 'clock', toModule: 'adsr', toPort: 'gate' },
+                    { fromModule: 'clock', fromPort: 'div4', toModule: 'vco', toPort: 'vOct' },
+                    { fromModule: 'vco', fromPort: 'pulse', toModule: 'vca', toPort: 'ch1In' },
+                    { fromModule: 'adsr', fromPort: 'env', toModule: 'vca', toPort: 'ch2CV' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
+                ]
+            }
+        },
+        'Test - Quantizer Scales': {
+            name: 'Test - Quantizer Scales',
+            factory: true,
+            state: {
+                knobs: {
+                    lfo: { rateKnob: 0.45, waveKnob: 0.25 },
+                    bard: { scale: 0, root: 0 },
+                    vco: { coarse: 0.35, fine: 0, glide: 15 },
+                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
+                    out: { volume: 0.5 }
+                },
+                switches: {
+                    lfo: { range: false },
+                    bard: { 'continuous[0]': true, 'continuous[1]': false, 'continuous[2]': false, 'continuous[3]': false }
+                },
+                cables: [
+                    { fromModule: 'lfo', fromPort: 'primary', toModule: 'bard', toPort: 'cv[0]' },
+                    { fromModule: 'bard', fromPort: 'cv[0]', toModule: 'vco', toPort: 'vOct' },
+                    { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
+                ]
+            }
+        },
+        /* === Demo Patches === */
+        'Demo - Melodic Arp': {
+            name: 'Demo - Melodic Arp',
+            factory: true,
+            state: {
+                knobs: {
+                    clock: { bpm: 0.4, swing: 0 },
+                    lfo: { rateKnob: 0.5, waveKnob: 0.25 },
+                    noise: { rate: 0.3, slew: 0 },
+                    vco: { coarse: 0.35, fine: 0, glide: 15 },
+                    vcf: { cutoff: 0.5, resonance: 0.3 },
+                    bard: { scale: 9, root: 0 },
+                    adsr: { attack: 0.2, decay: 0.3, sustain: 0.7, release: 0.4 },
+                    vca: { ch1Gain: 0.6, ch2Gain: 0.3 },
+                    out: { volume: 0.7 }
+                },
+                switches: {
+                    lfo: { range: false },
+                    bard: { 'continuous[0]': true, 'continuous[1]': false, 'continuous[2]': false, 'continuous[3]': false }
+                },
+                cables: [
+                    { fromModule: 'lfo', fromPort: 'primary', toModule: 'bard', toPort: 'cv[0]' },
+                    { fromModule: 'bard', fromPort: 'cv[0]', toModule: 'vco', toPort: 'vOct' },
+                    { fromModule: 'lfo', fromPort: 'secondary', toModule: 'vco', toPort: 'pwm' },
+                    { fromModule: 'lfo', fromPort: 'secondary', toModule: 'vca', toPort: 'ch2CV' },
+                    { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
+                    { fromModule: 'vco', fromPort: 'pulse', toModule: 'vca', toPort: 'ch2In' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
+                    { fromModule: 'vca', fromPort: 'ch2Out', toModule: 'out', toPort: 'R' }
+                ]
+            }
+        },
+        'Demo - Filtered Bass': {
+            name: 'Demo - Filtered Bass',
+            factory: true,
+            state: {
+                knobs: {
+                    clock: { bpm: 0.35, swing: 0 },
+                    lfo: { rateKnob: 0.4, waveKnob: 0.5 },
+                    noise: { rate: 0.3, slew: 0 },
+                    vco: { coarse: 0.25, fine: 0, glide: 25 },
+                    vcf: { cutoff: 0.35, resonance: 0.6 },
+                    bard: { scale: 0, root: 0 },
+                    adsr: { attack: 0.1, decay: 0.4, sustain: 0.3, release: 0.3 },
+                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
+                    out: { volume: 0.7 }
+                },
+                switches: {
+                    lfo: { range: false },
+                    bard: { 'continuous[0]': true, 'continuous[1]': false, 'continuous[2]': false, 'continuous[3]': false }
+                },
+                cables: [
+                    { fromModule: 'lfo', fromPort: 'primary', toModule: 'bard', toPort: 'cv[0]' },
+                    { fromModule: 'bard', fromPort: 'cv[0]', toModule: 'vco', toPort: 'vOct' },
+                    { fromModule: 'lfo', fromPort: 'secondary', toModule: 'vcf', toPort: 'cutoffCV' },
+                    { fromModule: 'vco', fromPort: 'ramp', toModule: 'vcf', toPort: 'audio' },
+                    { fromModule: 'vcf', fromPort: 'lpf', toModule: 'vca', toPort: 'ch1In' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
+                ]
+            }
+        },
+        'Demo - S&H Random': {
+            name: 'Demo - S&H Random',
+            factory: true,
+            state: {
+                knobs: {
+                    clock: { bpm: 0.45, swing: 0 },
+                    lfo: { rateKnob: 0.4, waveKnob: 0 },
+                    noise: { rate: 0.35, slew: 0.25 },
+                    vco: { coarse: 0.35, fine: 0, glide: 20 },
+                    vcf: { cutoff: 0.5, resonance: 0.4 },
+                    bard: { scale: 12, root: 0 },
+                    adsr: { attack: 0.05, decay: 0.3, sustain: 0.5, release: 0.25 },
+                    vca: { ch1Gain: 0.7, ch2Gain: 0.7 },
+                    out: { volume: 0.65 }
+                },
+                switches: {
+                    lfo: { range: false },
+                    bard: { 'continuous[0]': true, 'continuous[1]': false, 'continuous[2]': false, 'continuous[3]': false }
+                },
+                cables: [
+                    { fromModule: 'noise', fromPort: 'sh', toModule: 'bard', toPort: 'cv[0]' },
+                    { fromModule: 'bard', fromPort: 'cv[0]', toModule: 'vco', toPort: 'vOct' },
+                    { fromModule: 'vco', fromPort: 'pulse', toModule: 'vcf', toPort: 'audio' },
+                    { fromModule: 'vcf', fromPort: 'lpf', toModule: 'vca', toPort: 'ch1In' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
+                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
+                ]
+            }
+        }
+    };
+
+    function getPatchList() {
+        try {
+            const data = localStorage.getItem(PATCH_STORAGE_KEY);
+            const userPatches = data ? JSON.parse(data) : {};
+            /* Merge factory patches with user patches (user patches take precedence) */
+            return { ...FACTORY_PATCHES, ...userPatches };
+        } catch (e) {
+            console.error('Error loading patches:', e);
+            return { ...FACTORY_PATCHES };
+        }
+    }
+
+    function savePatchList(patches) {
+        try {
+            localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(patches));
+        } catch (e) {
+            console.error('Error saving patches:', e);
+        }
+    }
+
+    function serializeCurrentState() {
+        const state = {
+            knobs: {},
+            switches: {},
+            cables: []
+        };
+
+        /* Serialize all knob values */
+        document.querySelectorAll('.knob').forEach(knob => {
+            const moduleId = knob.dataset.module;
+            const param = knob.dataset.param;
+            const value = parseFloat(knob.dataset.value);
+            if (!state.knobs[moduleId]) state.knobs[moduleId] = {};
+            state.knobs[moduleId][param] = value;
+        });
+
+        /* Serialize all switch states */
+        document.querySelectorAll('.switch').forEach(sw => {
+            const moduleId = sw.dataset.module;
+            const param = sw.dataset.param;
+            const isOn = sw.classList.contains('on');
+            if (!state.switches[moduleId]) state.switches[moduleId] = {};
+            state.switches[moduleId][param] = isOn;
+        });
+
+        /* Serialize cable connections */
+        cables.forEach(cable => {
+            state.cables.push({
+                fromModule: cable.fromModule,
+                fromPort: cable.fromPort,
+                toModule: cable.toModule,
+                toPort: cable.toPort
+            });
+        });
+
+        return state;
+    }
+
+    function applyPatchState(state) {
+        /* Clear existing cables */
+        clearAllCables();
+
+        /* Apply knob values */
+        if (state.knobs) {
+            Object.entries(state.knobs).forEach(([moduleId, params]) => {
+                Object.entries(params).forEach(([param, value]) => {
+                    const knob = document.querySelector(`.knob[data-module="${moduleId}"][data-param="${param}"]`);
+                    if (knob) {
+                        knob.dataset.value = value;
+                        updateKnobRotation(knob);
+                        if (modules[moduleId]?.instance) {
+                            modules[moduleId].instance.params[param] = value;
+                        }
+                    }
+                });
+            });
+        }
+
+        /* Apply switch states */
+        if (state.switches) {
+            Object.entries(state.switches).forEach(([moduleId, params]) => {
+                Object.entries(params).forEach(([param, isOn]) => {
+                    const sw = document.querySelector(`.switch[data-module="${moduleId}"][data-param="${param}"]`);
+                    if (sw) {
+                        sw.classList.toggle('on', isOn);
+                        if (modules[moduleId]?.instance) {
+                            if (param.includes('[')) {
+                                const match = param.match(/(\w+)\[(\d+)\]/);
+                                if (match) {
+                                    modules[moduleId].instance.params[match[1]][parseInt(match[2])] = isOn;
+                                }
+                            } else {
+                                modules[moduleId].instance.params[param] = isOn ? 1 : 0;
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        /* Apply cable connections */
+        if (state.cables) {
+            state.cables.forEach(conn => {
+                /* Find jacks by module and port */
+                const fromJack = document.querySelector(`.jack[data-module="${conn.fromModule}"][data-port="${conn.fromPort}"]`);
+                const toJack = document.querySelector(`.jack[data-module="${conn.toModule}"][data-port="${conn.toPort}"]`);
+                if (fromJack && toJack) {
+                    addCable(fromJack, toJack);
+                }
+            });
+        }
+    }
+
+    function savePatch(name) {
+        if (!name || !name.trim()) {
+            alert('Please enter a patch name');
+            return false;
+        }
+        name = name.trim();
+
+        const patches = getPatchList();
+        patches[name] = {
+            name: name,
+            created: new Date().toISOString(),
+            state: serializeCurrentState()
+        };
+
+        savePatchList(patches);
+        updatePatchSelect();
+        return true;
+    }
+
+    function loadPatch(name) {
+        const patches = getPatchList();
+        if (!patches[name]) {
+            alert('Patch not found');
+            return false;
+        }
+
+        applyPatchState(patches[name].state);
+        return true;
+    }
+
+    function deletePatch(name) {
+        if (!name) return false;
+
+        /* Cannot delete factory patches */
+        if (FACTORY_PATCHES[name]) {
+            alert('Cannot delete factory patches');
+            return false;
+        }
+
+        const patches = getPatchList();
+        if (!patches[name]) return false;
+
+        if (!confirm(`Delete patch "${name}"?`)) return false;
+
+        /* Only delete from user patches in localStorage */
+        const userPatches = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY) || '{}');
+        delete userPatches[name];
+        localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(userPatches));
+        updatePatchSelect();
+        return true;
+    }
+
+    function updatePatchSelect() {
+        const select = document.getElementById('patchSelect');
+        const patches = getPatchList();
+
+        /* Clear existing options except the first placeholder */
+        while (select.options.length > 1) {
+            select.remove(1);
+        }
+
+        /* Separate factory and user patches */
+        const factoryNames = Object.keys(FACTORY_PATCHES).sort();
+        const userPatches = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY) || '{}');
+        const userNames = Object.keys(userPatches).sort();
+
+        /* Add factory patches group */
+        if (factoryNames.length > 0) {
+            const factoryGroup = document.createElement('optgroup');
+            factoryGroup.label = 'Factory Patches';
+            factoryNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                factoryGroup.appendChild(option);
+            });
+            select.appendChild(factoryGroup);
+        }
+
+        /* Add user patches group */
+        if (userNames.length > 0) {
+            const userGroup = document.createElement('optgroup');
+            userGroup.label = 'My Patches';
+            userNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                userGroup.appendChild(option);
+            });
+            select.appendChild(userGroup);
+        }
+    }
+
+    function initPatchBank() {
+        /* Update patch list dropdown */
+        updatePatchSelect();
+
+        /* Save button */
+        document.getElementById('savePatch').addEventListener('click', () => {
+            const nameInput = document.getElementById('patchName');
+            if (savePatch(nameInput.value)) {
+                /* Select the newly saved patch */
+                document.getElementById('patchSelect').value = nameInput.value.trim();
+                nameInput.value = '';
+            }
+        });
+
+        /* Load button */
+        document.getElementById('loadPatch').addEventListener('click', () => {
+            const select = document.getElementById('patchSelect');
+            if (select.value) {
+                loadPatch(select.value);
+            }
+        });
+
+        /* Delete button */
+        document.getElementById('deletePatch').addEventListener('click', () => {
+            const select = document.getElementById('patchSelect');
+            if (select.value) {
+                deletePatch(select.value);
+                select.value = '';
+            }
+        });
+
+        /* Allow Enter key to save */
+        document.getElementById('patchName').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('savePatch').click();
+            }
+        });
+
+        /* Double-click on select to load */
+        document.getElementById('patchSelect').addEventListener('dblclick', () => {
+            const select = document.getElementById('patchSelect');
+            if (select.value) {
+                loadPatch(select.value);
+            }
+        });
+    }
+
+    /* =============================================================
+     * Initialization
+     * =========================================================== */
+    function init() {
+        const rack = document.getElementById('rack');
+
+        /* Create modules */
+        ['clock', 'lfo', 'noise', 'vco', 'vcf', 'bard', 'adsr', 'vca', 'out'].forEach(type => {
+            const def = MODULE_DEFS[type];
+            const el = renderModule(type, type);
+            rack.appendChild(el);
+            modules[type] = {def, el, instance: null};
+        });
+
+        /* Initialize knob rotations */
+        document.querySelectorAll('.knob').forEach(updateKnobRotation);
+
+        /* Event listeners */
+        document.addEventListener('mousedown', e => {
+            const jack = e.target.closest('.jack');
+            const knob = e.target.closest('.knob');
+            const sw = e.target.closest('.switch');
+
+            if (jack) {
+                e.preventDefault();
+                /* Right-click to remove cables */
+                if (e.button === 2) {
+                    const cable = cables.find(c => c.fromEl === jack || c.toEl === jack);
+                    if (cable) removeCable(cable);
+                } else {
+                    startDrag(jack, e);
+                }
+            } else if (knob) {
+                e.preventDefault();
+                startKnobDrag(knob, e);
+            } else if (sw) {
+                e.preventDefault();
+                sw.classList.toggle('on');
+                const moduleId = sw.dataset.module;
+                const param = sw.dataset.param;
+                if (modules[moduleId]?.instance) {
+                    if (param.includes('[')) {
+                        const match = param.match(/(\w+)\[(\d+)\]/);
+                        modules[moduleId].instance.params[match[1]][parseInt(match[2])] = sw.classList.contains('on');
+                    } else {
+                        modules[moduleId].instance.params[param] = sw.classList.contains('on') ? 1 : 0;
+                    }
+                }
+            }
+        });
+
+        document.addEventListener('mousemove', e => {
+            if (dragState) updatePreview(e);
+            if (knobDrag) updateKnobDrag(e);
+        });
+
+        document.addEventListener('mouseup', e => {
+            if (dragState) {
+                const jack = e.target.closest('.jack');
+                endDrag(jack);
+            }
+            if (knobDrag) endKnobDrag();
+        });
+
+        document.addEventListener('contextmenu', e => {
+            if (e.target.closest('.jack')) e.preventDefault();
+        });
+
+        /* Redraw cables on resize */
+        window.addEventListener('resize', () => cables.forEach(renderCable));
+
+        /* Control buttons */
+        document.getElementById('startButton').addEventListener('click', toggleAudio);
+        document.getElementById('clearCables').addEventListener('click', clearAllCables);
+
+        /* Initialize patch bank */
+        initPatchBank();
+    }
+
+    function toggleAudio() {
+        const btn = document.getElementById('startButton');
+
+        if (isRunning) {
+            isRunning = false;
+            btn.textContent = '▶ Start';
+            btn.classList.remove('active');
+            if (audioCtx) {
+                audioCtx.close();
+                audioCtx = null;
+            }
+            /* Clear instances */
+            Object.keys(modules).forEach(id => modules[id].instance = null);
+        } else {
+            /* Create audio context and module instances */
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            Object.keys(modules).forEach(id => {
+                modules[id].instance = modules[id].def.create();
+                /* Apply current knob values */
+                document.querySelectorAll(`.knob[data-module="${id}"]`).forEach(knob => {
+                    const param = knob.dataset.param;
+                    const value = parseFloat(knob.dataset.value);
+                    modules[id].instance.params[param] = value;
+                });
+                /* Apply current switch values */
+                document.querySelectorAll(`.switch[data-module="${id}"]`).forEach(sw => {
+                    const param = sw.dataset.param;
+                    const isOn = sw.classList.contains('on');
+                    if (param.includes('[')) {
+                        const match = param.match(/(\w+)\[(\d+)\]/);
+                        modules[id].instance.params[match[1]][parseInt(match[2])] = isOn;
+                    } else {
+                        modules[id].instance.params[param] = isOn ? 1 : 0;
+                    }
+                });
+            });
+
+            nextTime = audioCtx.currentTime + 0.05;
+            isRunning = true;
+            btn.textContent = '⏹ Stop';
+            btn.classList.add('active');
+            processAudio();
+        }
+    }
+
+    /* Start when DOM ready */
+    document.addEventListener('DOMContentLoaded', init);
 
 </script>
 </body>

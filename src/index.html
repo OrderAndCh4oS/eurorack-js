@@ -686,10 +686,11 @@
         cable.pathEl.setAttribute('d', createCablePath(from.x, from.y, to.x, to.y));
     }
 
-    function addCable(fromJack, toJack) {
+    function addCable(fromJack, toJack, color = null) {
         const path = document.createElementNS(svgNS, 'path');
         path.classList.add('cable');
-        path.style.stroke = CABLE_COLORS[colorIndex++ % CABLE_COLORS.length];
+        /* Use provided color or get next color from palette */
+        path.style.stroke = color || CABLE_COLORS[colorIndex++ % CABLE_COLORS.length];
         cableSvg.appendChild(path);
 
         const cable = {
@@ -730,14 +731,41 @@
     let previewPath = null;
 
     function startDrag(jackEl, e) {
-        dragState = {
-            startJack: jackEl,
-            startDir: jackEl.dataset.dir
-        };
-        previewPath = document.createElementNS(svgNS, 'path');
-        previewPath.classList.add('cable', 'cable-preview');
-        previewPath.style.stroke = CABLE_COLORS[colorIndex % CABLE_COLORS.length];
-        cableSvg.appendChild(previewPath);
+        /* Check if this jack has an existing cable connected */
+        const existingCable = cables.find(c => c.fromEl === jackEl || c.toEl === jackEl);
+
+        if (existingCable) {
+            /* Detach the cable from this jack, drag from the other end */
+            const isFromEnd = existingCable.fromEl === jackEl;
+            const anchorJack = isFromEnd ? existingCable.toEl : existingCable.fromEl;
+            const cableColor = existingCable.pathEl.style.stroke;
+
+            /* Remove the existing cable */
+            removeCable(existingCable);
+
+            /* Start dragging from the anchor (the other end) */
+            dragState = {
+                startJack: anchorJack,
+                startDir: anchorJack.dataset.dir,
+                reconnecting: true
+            };
+
+            previewPath = document.createElementNS(svgNS, 'path');
+            previewPath.classList.add('cable', 'cable-preview');
+            previewPath.style.stroke = cableColor;
+            cableSvg.appendChild(previewPath);
+        } else {
+            /* No existing cable - start new connection */
+            dragState = {
+                startJack: jackEl,
+                startDir: jackEl.dataset.dir,
+                reconnecting: false
+            };
+            previewPath = document.createElementNS(svgNS, 'path');
+            previewPath.classList.add('cable', 'cable-preview');
+            previewPath.style.stroke = CABLE_COLORS[colorIndex++ % CABLE_COLORS.length];
+            cableSvg.appendChild(previewPath);
+        }
         updatePreview(e);
     }
 
@@ -751,16 +779,20 @@
     function endDrag(targetJack) {
         if (!dragState) return;
 
+        const cableColor = previewPath ? previewPath.style.stroke : CABLE_COLORS[colorIndex % CABLE_COLORS.length];
+
         if (previewPath) {
             previewPath.remove();
             previewPath = null;
         }
 
+        let connected = false;
+
         if (targetJack && targetJack !== dragState.startJack) {
             const startDir = dragState.startDir;
             const endDir = targetJack.dataset.dir;
 
-            /* Must connect output to input */
+            /* Must connect output to input (different directions) */
             if (startDir !== endDir) {
                 const fromJack = startDir === 'output' ? dragState.startJack : targetJack;
                 const toJack = startDir === 'input' ? dragState.startJack : targetJack;
@@ -769,9 +801,13 @@
                 const existing = cables.find(c => c.toEl === toJack);
                 if (existing) removeCable(existing);
 
-                addCable(fromJack, toJack);
+                addCable(fromJack, toJack, cableColor);
+                connected = true;
             }
         }
+
+        /* If reconnecting and dropped on invalid target, cable is removed (already done in startDrag) */
+        /* If new cable and dropped on invalid target, nothing happens */
 
         dragState = null;
     }

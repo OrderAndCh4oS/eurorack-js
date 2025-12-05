@@ -256,6 +256,39 @@
             top: 11px;
         }
 
+        /* Button bank (octave select) */
+        .button-bank {
+            display: flex;
+            gap: 2px;
+            padding: 2px 0;
+        }
+
+        .octave-btn {
+            width: 14px;
+            height: 16px;
+            font-size: 7px;
+            background: linear-gradient(to bottom, #444, #333);
+            border: 1px solid #555;
+            border-radius: 2px;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .octave-btn:hover {
+            background: linear-gradient(to bottom, #555, #444);
+        }
+
+        .octave-btn.active {
+            background: linear-gradient(to bottom, #8b5cf6, #6d28d9);
+            border-color: #a78bfa;
+            color: #fff;
+            box-shadow: 0 0 6px rgba(139, 92, 246, 0.5);
+        }
+
         /* Cable SVG overlay */
         #cable-svg {
             position: fixed;
@@ -426,6 +459,10 @@
         <input type="text" id="patchName" placeholder="New patch...">
         <button id="savePatch" class="primary">Save</button>
     </div>
+    <div class="toolbar-divider"></div>
+    <div class="toolbar-section">
+        <button id="copyPatch">Copy</button>
+    </div>
     <div class="toolbar-spacer"></div>
     <div class="toolbar-section">
         <button id="clearCables">Clear Cables</button>
@@ -438,781 +475,16 @@
     <!-- Modules will be rendered by JavaScript -->
 </div>
 
-<script>
+<script type="module">
     /* =============================================================
-     * Helper utilities (shared by every module)
+     * Import modular definitions
      * =========================================================== */
-    const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
-    const expMap = (norm, min, max) => min * Math.pow(max / min, clamp(norm));
-
-    /* =============================================================
-     * Capacitor Slew – RC low-pass filter for CV smoothing
-     * -------------------------------------------------------------
-     * Simulates capacitor charging/discharging in real analog circuits.
-     * Creates a one-pole IIR filter with configurable time constant.
-     *
-     * Usage:
-     *   const slew = createSlew({ sampleRate: 44100, timeMs: 5 });
-     *   smoothedValue = slew.process(inputValue);
-     *
-     * timeMs: rise/fall time constant in milliseconds (typ. 1-50ms)
-     * =========================================================== */
-    function createSlew({sampleRate = 44100, timeMs = 5} = {}) {
-        let state = 0;
-        /* RC coefficient: how much of the difference to apply per sample */
-        const coeff = 1 - Math.exp(-1000 / (sampleRate * timeMs));
-
-        return {
-            set timeMs(ms) {
-                /* Allow runtime adjustment of slew rate */
-                this._coeff = 1 - Math.exp(-1000 / (sampleRate * Math.max(0.1, ms)));
-            },
-            get _coeff() { return coeff; },
-            set _coeff(v) { /* stored in closure via setter */ },
-            process(input) {
-                state += coeff * (input - state);
-                return state;
-            },
-            processBuffer(inputBuf, outputBuf) {
-                for (let i = 0; i < inputBuf.length; i++) {
-                    state += coeff * (inputBuf[i] - state);
-                    outputBuf[i] = state;
-                }
-            },
-            reset(value = 0) {
-                state = value;
-            }
-        };
-    }
-
-    /* =============================================================
-     * 2HP LFO – Eight‑wave VC LFO (DIGITAL CLONE)
-     * -------------------------------------------------------------
-     * ▸ Unipolar 0→5 V outputs.
-     * ▸ inputs.reset triggers on ≥1 V **rising** edge (matches panel).
-     *
-     * ┌─────────────────────────────────────────────────────────────┐
-     * │ PARAM / INPUT RANGES                                       │
-     * ├───────────────────────────────┬─────────────────────────────┤
-     * │ params.range     0 = slow · 1 = fast                       │
-     * │ params.rateKnob  0→1 (expo) → 30 s … 20 Hz / 3 s … 2 kHz   │
-     * │ params.waveKnob  0→1 (morph)                               │
-     * │ inputs.rateCV    0→5 V  (1 V/oct, adds ≤ +5 oct)           │
-     * │ inputs.waveCV    0→5 V  (linear morph)                     │
-     * │ inputs.reset     ≥1 V rising edge = hard sync              │
-     * │ outs.primary     0→5 V (morph bank A)                      │
-     * │ outs.secondary   0→5 V (morph bank B)                      │
-     * └─────────────────────────────────────────────────────────────┘
-     * =========================================================== */
-    function create2hpLFO({sampleRate = 44100, bufferSize = 512} = {}) {
-        const TWO_PI = 2 * Math.PI;
-        const slow = {min: 1 / 30, max: 20};       // 30 s → 20 Hz
-        const fast = {min: 1 / 3, max: 2000};     // 3 s → 2 kHz
-
-        /* Four‑shape cross‑fade banks */
-        const primary = [
-            t => Math.sin(TWO_PI * t),
-            t => 2 * Math.abs(2 * (t - 0.5)) - 1,
-            t => 2 * t - 1,
-            t => (t < 0.5 ? 1 : -1)
-        ];
-        const secondary = [
-            t => Math.abs(Math.sin(TWO_PI * t)) - Math.abs(Math.cos(TWO_PI * t)),
-            t => Math.sin(TWO_PI * t) * Math.sin(4 * TWO_PI * t),
-            t => 1 - 2 * t,
-            t => {
-                const x = primary[1](t);
-                return Math.round((x + 1) * 2) / 2 - 1;
-            }
-        ];
-
-        let phase = 0, lastResetGate = 0;
-        const outA = new Float32Array(bufferSize);
-        const outB = new Float32Array(bufferSize);
-
-        return {
-            params: {range: 0, rateKnob: 0.75, waveKnob: 0},
-            inputs: {rateCV: 0, waveCV: 0, reset: 0},
-            outputs: {primary: outA, secondary: outB},
-            process() {
-                const rng = this.params.range ? fast : slow;
-                const fBase = expMap(this.params.rateKnob, rng.min, rng.max);
-                const cvOct = clamp(this.inputs.rateCV, 0, 5);
-                const freq = fBase * 2 ** cvOct;
-                const inc = freq / sampleRate;
-
-                const wNorm = clamp(this.params.waveKnob + this.inputs.waveCV / 5);
-                const pos = wNorm * 4;
-                const idx = Math.floor(pos) & 3;
-                const frac = pos - Math.floor(pos);
-                const next = (idx + 1) & 3;
-                const a1 = primary[idx], a2 = primary[next];
-                const b1 = secondary[idx], b2 = secondary[next];
-
-                if (this.inputs.reset >= 1 && lastResetGate < 1) phase = 0;
-                lastResetGate = this.inputs.reset;
-
-                for (let i = 0; i < bufferSize; i++) {
-                    phase = (phase + inc) % 1;
-                    const t = phase;
-                    const prim = (1 - frac) * a1(t) + frac * a2(t);
-                    const sec = (1 - frac) * b1(t) + frac * b2(t);
-                    outA[i] = (prim + 1) * 2.5; // 0→5 V
-                    outB[i] = (sec + 1) * 2.5;
-                }
-            }
-        };
-    }
-
-    /* =============================================================
-     * 2HP VCO – CEM3340 Analogue Oscillator (±5 V outs)
-     * -------------------------------------------------------------
-     * PolyBLEP anti-aliasing for sawtooth and pulse waves
-     * Capacitor-smoothed pitch CV (configurable glide/portamento)
-     * =========================================================== */
-    function create2hpVCO({sampleRate = 44100, bufferSize = 512, fmVoltsPerHz = 200} = {}) {
-        const coarseHz = {min: 4.3, max: 22000};
-        let phase = 0, lastSync = 0;
-        const tri = new Float32Array(bufferSize);
-        const saw = new Float32Array(bufferSize);
-        const sqr = new Float32Array(bufferSize);
-
-        /* CV smoothing state */
-        let pitchState = 0, pwmState = 0;
-        const pwmCoeff = 1 - Math.exp(-1000 / (sampleRate * 2)); /* 2ms for PWM */
-
-        /* PolyBLEP: softens discontinuities to reduce aliasing */
-        function polyBlep(t, dt) {
-            if (t < dt) {
-                const x = t / dt;
-                return x + x - x * x - 1;
-            } else if (t > 1 - dt) {
-                const x = (t - 1) / dt;
-                return x * x + x + x + 1;
-            }
-            return 0;
-        }
-
-        return {
-            params: {coarse: 0.4, fine: 0, glide: 5},
-            inputs: {vOct: 0, fm: 0, pwm: 2.5, sync: 0},
-            outputs: {triangle: tri, ramp: saw, pulse: sqr},
-            process() {
-                const base = expMap(this.params.coarse, coarseHz.min, coarseHz.max);
-                const targetDuty = 0.05 + clamp(this.inputs.pwm, 0, 5) / 5 * 0.90;
-                /* Dynamic glide coefficient based on glide param (0-100ms) */
-                const glideMs = Math.max(0.1, this.params.glide);
-                const pitchCoeff = 1 - Math.exp(-1000 / (sampleRate * glideMs));
-
-                for (let i = 0; i < bufferSize; i++) {
-                    /* Smooth pitch CV per-sample for glide effect */
-                    pitchState += pitchCoeff * (this.inputs.vOct - pitchState);
-                    pwmState += pwmCoeff * (targetDuty - pwmState);
-                    const smoothedVOct = pitchState;
-                    const smoothedDuty = pwmState;
-
-                    const freq = Math.max(0, base * 2 ** smoothedVOct * 2 ** (this.params.fine / 12) + this.inputs.fm * fmVoltsPerHz);
-                    const inc = freq / sampleRate;
-
-                    if (lastSync <= 0 && this.inputs.sync > 0) phase = 0;
-                    lastSync = this.inputs.sync;
-                    phase = (phase + inc) % 1;
-                    const t = phase;
-
-                    /* Naive waveforms */
-                    let sawVal = 2 * t - 1;
-                    let sqrVal = t < smoothedDuty ? 1 : -1;
-
-                    /* Apply PolyBLEP correction at discontinuities */
-                    sawVal -= polyBlep(t, inc);
-                    sqrVal += polyBlep(t, inc);
-                    sqrVal -= polyBlep((t + 1 - smoothedDuty) % 1, inc);
-
-                    /* Triangle via integrated saw (naturally band-limited) */
-                    tri[i] = (4 * Math.abs(t - 0.5) - 1) * 5;
-                    saw[i] = sawVal * 5;
-                    sqr[i] = sqrVal * 5;
-                }
-            }
-        };
-    }
-
-    /* =============================================================
-     * 2HP Dual VCA – Exponential Response (like real analog VCAs)
-     * -------------------------------------------------------------
-     * Uses exponential CV response for natural-sounding dynamics.
-     * CV input is capacitor-smoothed to prevent clicks/pops.
-     * LED meters have smooth decay like real hardware.
-     * =========================================================== */
-    function create2hpDualVCA({bufferSize = 512, sampleRate = 44100} = {}) {
-        const ch1Out = new Float32Array(bufferSize);
-        const ch2Out = new Float32Array(bufferSize);
-        const leds = {ch1: 0, ch2: 0};
-
-        /* CV smoothing: prevents clicks when CV changes abruptly (~3ms) */
-        const cvSlew = createSlew({sampleRate, timeMs: 3});
-
-        /* LED decay: ~100ms time constant (typical hardware response) */
-        const ledDecay = Math.exp(-1 / (sampleRate * 0.1) * bufferSize);
-
-        /* Attempt to approximate ~60dB dynamic range like real VCAs */
-        function expResponse(cv) {
-            const norm = clamp(cv, 0, 5) / 5;
-            return norm * norm * norm;
-        }
-
-        return {
-            params: {ch1Gain: 1, ch2Gain: 1},
-            inputs: {ch1In: new Float32Array(bufferSize), ch2In: new Float32Array(bufferSize), ch2CV: 5},
-            outputs: {ch1Out, ch2Out}, leds,
-            process() {
-                const g1 = clamp(this.params.ch1Gain);
-                const g2 = clamp(this.params.ch2Gain);
-                let pk1 = 0, pk2 = 0;
-                for (let i = 0; i < bufferSize; i++) {
-                    /* Smooth CV per-sample to prevent clicks */
-                    const smoothedCV = cvSlew.process(this.inputs.ch2CV);
-                    const cvGain = expResponse(smoothedCV);
-
-                    const s1 = this.inputs.ch1In[i] * g1;
-                    const s2 = this.inputs.ch2In[i] * g2 * cvGain;
-                    ch1Out[i] = s1;
-                    ch2Out[i] = s2;
-                    pk1 = Math.max(pk1, Math.abs(s1));
-                    pk2 = Math.max(pk2, Math.abs(s2));
-                }
-                /* LED smoothing with decay */
-                leds.ch1 = Math.max(pk1 / 10, leds.ch1 * ledDecay);
-                leds.ch2 = Math.max(pk2 / 10, leds.ch2 * ledDecay);
-            }
-        };
-    }
-
-    /* =============================================================
-     * Shakmat Bard Quartet v1.1 – Quad Quantiser & Composer
-     * -------------------------------------------------------------
-     * ▸ Channels = 4, each with 8 Harmony memories and full µtuning.
-     * ▸ Electrical ranges brought in‑line with the official specs.
-     *
-     * ┌─────────────────────────────────────────────────────────────┐
-     * │ PARAM / I/O RANGES                                         │
-     * ├───────────────────────────────┬─────────────────────────────┤
-     * │ inputs.cv[ch]     –3→+7 V  (1 V/Oct)                       │
-     * │ inputs.trig[ch]   0→+5 V  (rising edge ≥1 V)                │
-     * │ inputs.harmonyCV  –5→+5 V (not implemented here)           │
-     * │ inputs.transpose  –5→+5 V (not implemented here)           │
-     * │ outputs.cv[ch]    –3→+7 V  (quantised 1 V/Oct)             │
-     * │ trigger out       0→+5 V (not implemented here)            │
-     * └─────────────────────────────────────────────────────────────┘
-     * =========================================================== */
-    function createBardQuartet({bufferSize = 512} = {}) {
-        const toSemi = v => v * 12;          // 1 V = 12 semitones
-        const toVolt = s => s / 12;
-        const clampPitch = v => Math.max(-3, Math.min(7, v));  // –3→+7 V spec
-
-        /* 16 factory scales (12‑bit masks) */
-        const SCALES = [0b101011010101, 0b101101010110, 0b110101011010, 0b101010110101,
-            0b101101010101, 0b101101011010, 0b110101010110, 0b101011011001,
-            0b101011010110, 0b100101001001, 0b001010010010, 0b001011011001,
-            0b111111111111, 0b100010010001, 0b110110110000, 0b011011011000];
-
-        const cvIn = Array.from({length: 4}, () => new Float32Array(bufferSize));
-        const cvOut = Array.from({length: 4}, () => new Float32Array(bufferSize));
-        const held = new Float32Array(4);
-        const lastGate = new Float32Array(4);
-
-        function quantise(semi, mask, root) {
-            const oct = Math.floor(semi / 12);
-            const note = ((semi % 12) + 12) % 12;
-            const rel = (note - root + 12) % 12;
-            for (let i = 0; i < 12; i++) {
-                const test = (rel + i) % 12;
-                if (mask & (1 << (11 - test))) return oct * 12 + (note + i);
-            }
-            return semi;
-        }
-
-        return {
-            params: {scale: 0, root: 0, continuous: [false, false, false, false]},
-            inputs: {cv: cvIn, trig: new Float32Array(4)},
-            outputs: {cv: cvOut},
-            process() {
-                const mask = SCALES[this.params.scale & 15];
-                const root = this.params.root % 12;
-                for (let ch = 0; ch < 4; ch++) {
-                    const edge = this.inputs.trig[ch] >= 1 && lastGate[ch] < 1;
-                    lastGate[ch] = this.inputs.trig[ch];
-                    const live = this.params.continuous[ch] || edge;
-                    if (live) {
-                        const v0 = clampPitch(this.inputs.cv[ch][0]);
-                        const semi = quantise(Math.round(toSemi(v0)), mask, root);
-                        held[ch] = clampPitch(toVolt(semi));
-                    }
-                    cvOut[ch].fill(held[ch]);
-                }
-            }
-        };
-    }
-
-    /* =============================================================
-     * 2HP OUT – Stereo Line/Phones Driver (unchanged)
-     * =========================================================== */
-    function create2hpOut(ctx = new (window.AudioContext)(), {bufferSize = 512} = {}) {
-        const gain = ctx.createGain();
-        gain.connect(ctx.destination);
-        const leds = {L: 0, R: 0};
-        return {
-            audioCtx: ctx,
-            params: {volume: 0.8},
-            inputs: {L: new Float32Array(bufferSize), R: new Float32Array(bufferSize)},
-            led: leds,
-            process(time = ctx.currentTime) {
-                const buf = ctx.createBuffer(2, this.inputs.L.length, ctx.sampleRate);
-                buf.getChannelData(0).set(this.inputs.L);
-                buf.getChannelData(1).set(this.inputs.R);
-                leds.L = Math.max(...this.inputs.L.map(Math.abs)) / 5;
-                leds.R = Math.max(...this.inputs.R.map(Math.abs)) / 5;
-                const src = ctx.createBufferSource();
-                src.buffer = buf;
-                src.connect(gain);
-                gain.gain.setValueAtTime(this.params.volume, time);
-                src.start(time);
-            }
-        };
-    }
-
-    /* =============================================================
-     * ADSR Envelope Generator
-     * -------------------------------------------------------------
-     * Classic 4-stage envelope: Attack, Decay, Sustain, Release
-     * Based on CEM3310 / AS3310 style envelope generators
-     *
-     * ┌─────────────────────────────────────────────────────────────┐
-     * │ PARAM / I/O RANGES                                         │
-     * ├───────────────────────────────────────────────────────────┤
-     * │ params.attack    0→1 (2ms to 10s, exponential)            │
-     * │ params.decay     0→1 (2ms to 10s, exponential)            │
-     * │ params.sustain   0→1 (0-100% level)                       │
-     * │ params.release   0→1 (2ms to 10s, exponential)            │
-     * │ inputs.gate      0→5V (triggers on ≥1V rising edge)       │
-     * │ inputs.retrig    0→5V (retrigger input)                   │
-     * │ outputs.env      0→5V (envelope CV output)                │
-     * │ outputs.inv      0→-5V (inverted envelope)                │
-     * │ outputs.eoc      0/5V (end of cycle trigger)              │
-     * └─────────────────────────────────────────────────────────────┘
-     * =========================================================== */
-    function createADSR({sampleRate = 44100, bufferSize = 512} = {}) {
-        const env = new Float32Array(bufferSize);
-        const inv = new Float32Array(bufferSize);
-        const eoc = new Float32Array(bufferSize);
-
-        /* Envelope state */
-        const IDLE = 0, ATTACK = 1, DECAY = 2, SUSTAIN = 3, RELEASE = 4;
-        let stage = IDLE;
-        let level = 0;
-        let lastGate = 0;
-        let lastRetrig = 0;
-
-        /* Convert knob 0-1 to time in seconds (2ms to 10s, exponential) */
-        function knobToTime(knob) {
-            return 0.002 * Math.pow(5000, clamp(knob));
-        }
-
-        /* Calculate coefficient for exponential envelope */
-        function calcCoeff(timeSeconds, targetRatio = 0.001) {
-            const samples = timeSeconds * sampleRate;
-            if (samples < 1) return 1;
-            return 1 - Math.exp(-Math.log((1 + targetRatio) / targetRatio) / samples);
-        }
-
-        return {
-            params: {attack: 0.2, decay: 0.3, sustain: 0.7, release: 0.4},
-            inputs: {gate: 0, retrig: 0},
-            outputs: {env, inv, eoc},
-            leds: {env: 0},
-            process() {
-                const attackTime = knobToTime(this.params.attack);
-                const decayTime = knobToTime(this.params.decay);
-                const sustainLevel = clamp(this.params.sustain) * 5; /* 0-5V */
-                const releaseTime = knobToTime(this.params.release);
-
-                const attackCoeff = calcCoeff(attackTime);
-                const decayCoeff = calcCoeff(decayTime);
-                const releaseCoeff = calcCoeff(releaseTime);
-
-                for (let i = 0; i < bufferSize; i++) {
-                    const gateHigh = this.inputs.gate >= 1;
-                    const gateEdge = gateHigh && lastGate < 1;
-                    const retrigEdge = this.inputs.retrig >= 1 && lastRetrig < 1;
-
-                    /* Gate on - start attack */
-                    if (gateEdge || (retrigEdge && gateHigh)) {
-                        stage = ATTACK;
-                    }
-
-                    /* Gate off - start release */
-                    if (!gateHigh && lastGate >= 1) {
-                        stage = RELEASE;
-                    }
-
-                    lastGate = this.inputs.gate;
-                    lastRetrig = this.inputs.retrig;
-
-                    /* Process envelope stages */
-                    let eocTrig = 0;
-                    switch (stage) {
-                        case ATTACK:
-                            level += attackCoeff * (5.5 - level); /* Overshoot slightly for snappy attack */
-                            if (level >= 5) {
-                                level = 5;
-                                stage = DECAY;
-                            }
-                            break;
-                        case DECAY:
-                            level += decayCoeff * (sustainLevel - level);
-                            if (Math.abs(level - sustainLevel) < 0.001) {
-                                level = sustainLevel;
-                                stage = SUSTAIN;
-                            }
-                            break;
-                        case SUSTAIN:
-                            level = sustainLevel;
-                            break;
-                        case RELEASE:
-                            level += releaseCoeff * (0 - level);
-                            if (level < 0.001) {
-                                level = 0;
-                                stage = IDLE;
-                                eocTrig = 5; /* End of cycle trigger */
-                            }
-                            break;
-                        case IDLE:
-                        default:
-                            level = 0;
-                            break;
-                    }
-
-                    env[i] = level;
-                    inv[i] = -level;
-                    eoc[i] = eocTrig;
-                }
-
-                /* LED shows envelope level */
-                this.leds.env = level / 5;
-            }
-        };
-    }
-
-    /* =============================================================
-     * VCF – Moog-style Transistor Ladder Filter
-     * -------------------------------------------------------------
-     * 24dB/octave low-pass filter with resonance (self-oscillates)
-     * Based on the classic transistor ladder topology
-     *
-     * ┌─────────────────────────────────────────────────────────────┐
-     * │ PARAM / I/O RANGES                                         │
-     * ├───────────────────────────────────────────────────────────┤
-     * │ params.cutoff    0→1 (20Hz to 20kHz, exponential)         │
-     * │ params.resonance 0→1 (0% to self-oscillation)             │
-     * │ inputs.audio     ±5V audio input                          │
-     * │ inputs.cutoffCV  0→5V (adds to cutoff, 1V/oct)            │
-     * │ inputs.resCV     0→5V (adds to resonance)                 │
-     * │ outputs.lpf      ±5V 24dB/oct low-pass                    │
-     * │ outputs.bpf      ±5V 12dB/oct band-pass                   │
-     * │ outputs.hpf      ±5V 12dB/oct high-pass                   │
-     * └─────────────────────────────────────────────────────────────┘
-     * =========================================================== */
-    function createVCF({sampleRate = 44100, bufferSize = 512} = {}) {
-        const lpf = new Float32Array(bufferSize);
-        const bpf = new Float32Array(bufferSize);
-        const hpf = new Float32Array(bufferSize);
-
-        /* 4-pole ladder filter state */
-        let stage = [0, 0, 0, 0];
-        let delay = [0, 0, 0, 0];
-
-        /* Attempt to linearize cutoff CV input */
-        let cutoffSmooth = 0;
-        const cutoffSlew = 1 - Math.exp(-1000 / (sampleRate * 2));
-
-        return {
-            params: {cutoff: 0.5, resonance: 0.3},
-            inputs: {audio: new Float32Array(bufferSize), cutoffCV: 0, resCV: 0},
-            outputs: {lpf, bpf, hpf},
-            leds: {cutoff: 0},
-            process() {
-                /* Base cutoff frequency from knob (20Hz to 20kHz exponential) */
-                const cutoffKnob = clamp(this.params.cutoff);
-                const cutoffHz = 20 * Math.pow(1000, cutoffKnob);
-
-                /* CV modulation (1V/oct style) */
-                const cvMod = clamp(this.inputs.cutoffCV, 0, 5) / 5;
-                const modulatedHz = cutoffHz * Math.pow(4, cvMod); /* ~2 octaves per 5V */
-
-                /* Resonance with CV */
-                const res = clamp(this.params.resonance + this.inputs.resCV / 10, 0, 1.1);
-                const k = res * 4; /* Feedback amount (4 = self-oscillation threshold) */
-
-                for (let i = 0; i < bufferSize; i++) {
-                    /* Smooth cutoff to prevent zipper noise */
-                    cutoffSmooth += cutoffSlew * (modulatedHz - cutoffSmooth);
-
-                    /* Calculate filter coefficient */
-                    /* Attempt to linearize frequency response across range */
-                    const fc = clamp(cutoffSmooth / sampleRate, 0.0001, 0.45);
-                    const g = Math.tan(Math.PI * fc);
-                    const G = g / (1 + g);
-
-                    /* Input with resonance feedback */
-                    const input = this.inputs.audio[i] / 5; /* Normalize to ±1 */
-                    const feedback = delay[3];
-
-                    /* Soft clip the feedback for musical self-oscillation */
-                    const clipFeedback = Math.tanh(feedback * k);
-                    const u = input - clipFeedback;
-
-                    /* 4-pole cascade (each pole is a 1-pole lowpass) */
-                    for (let p = 0; p < 4; p++) {
-                        const prevStage = p === 0 ? u : stage[p - 1];
-                        const v = G * (prevStage - delay[p]);
-                        stage[p] = v + delay[p];
-                        delay[p] = stage[p] + v;
-                    }
-
-                    /* Outputs */
-                    lpf[i] = stage[3] * 5; /* 24dB LP from 4th pole */
-                    bpf[i] = (stage[1] - stage[3]) * 5; /* BP from difference */
-                    hpf[i] = (u - stage[1]) * 5; /* HP from input - 2nd pole */
-                }
-
-                /* LED shows cutoff frequency */
-                this.leds.cutoff = cutoffKnob;
-            }
-        };
-    }
-
-    /* =============================================================
-     * Noise / Sample & Hold Module
-     * -------------------------------------------------------------
-     * White/Pink noise generator with Sample & Hold circuit
-     * Based on classic analog noise sources and S&H designs
-     *
-     * ┌─────────────────────────────────────────────────────────────┐
-     * │ PARAM / I/O RANGES                                         │
-     * ├───────────────────────────────────────────────────────────┤
-     * │ params.rate      0→1 (internal clock 0.1Hz to 100Hz)      │
-     * │ params.slew      0→1 (S&H output smoothing)               │
-     * │ inputs.sample    ±5V (signal to sample)                   │
-     * │ inputs.trigger   0→5V (external trigger, ≥1V edge)        │
-     * │ outputs.white    ±5V white noise                          │
-     * │ outputs.pink     ±5V pink noise (-3dB/octave)             │
-     * │ outputs.sh       ±5V sampled & held value                 │
-     * └─────────────────────────────────────────────────────────────┘
-     * =========================================================== */
-    function createNoiseSH({sampleRate = 44100, bufferSize = 512} = {}) {
-        const white = new Float32Array(bufferSize);
-        const pink = new Float32Array(bufferSize);
-        const sh = new Float32Array(bufferSize);
-
-        /* Pink noise filter state (Paul Kellet's algorithm) */
-        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-
-        /* Sample & Hold state */
-        let heldValue = 0;
-        let lastTrig = 0;
-        let internalPhase = 0;
-
-        /* S&H output slew state */
-        let slewState = 0;
-
-        /* Track if external sample input is connected */
-        let sampleBuffer = null;
-
-        return {
-            params: {rate: 0.3, slew: 0},
-            inputs: {
-                get sample() { return sampleBuffer; },
-                set sample(buf) { sampleBuffer = buf; },
-                trigger: 0
-            },
-            outputs: {white, pink, sh},
-            leds: {sh: 0},
-            process() {
-                /* Internal clock rate (0.1Hz to 100Hz exponential) */
-                const clockHz = 0.1 * Math.pow(1000, clamp(this.params.rate));
-                const clockInc = clockHz / sampleRate;
-
-                /* Slew coefficient for S&H smoothing */
-                const slewTime = clamp(this.params.slew) * 50 + 0.5; /* 0.5ms to 50ms */
-                const slewCoeff = 1 - Math.exp(-1000 / (sampleRate * slewTime));
-
-                /* Check if external sample is connected (has non-zero signal) */
-                const useExternal = sampleBuffer && sampleBuffer.some(v => Math.abs(v) > 0.001);
-
-                for (let i = 0; i < bufferSize; i++) {
-                    /* White noise using fast xorshift */
-                    const w = (Math.random() * 2 - 1);
-                    white[i] = w * 5;
-
-                    /* Pink noise filter (Paul Kellet's economy method) */
-                    b0 = 0.99886 * b0 + w * 0.0555179;
-                    b1 = 0.99332 * b1 + w * 0.0750759;
-                    b2 = 0.96900 * b2 + w * 0.1538520;
-                    b3 = 0.86650 * b3 + w * 0.3104856;
-                    b4 = 0.55000 * b4 + w * 0.5329522;
-                    b5 = -0.7616 * b5 - w * 0.0168980;
-                    const pinkSample = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
-                    b6 = w * 0.115926;
-                    pink[i] = pinkSample * 5;
-
-                    /* Sample & Hold */
-                    /* Check for trigger (external or internal clock) */
-                    internalPhase += clockInc;
-                    const internalTrig = internalPhase >= 1 ? 5 : 0;
-                    if (internalPhase >= 1) internalPhase -= 1;
-
-                    const trigIn = Math.max(this.inputs.trigger, internalTrig);
-                    const trigEdge = trigIn >= 1 && lastTrig < 1;
-                    lastTrig = trigIn;
-
-                    if (trigEdge) {
-                        /* Sample from external input or internal white noise */
-                        heldValue = useExternal ? sampleBuffer[i] : white[i];
-                    }
-
-                    /* Apply slew to S&H output */
-                    slewState += slewCoeff * (heldValue - slewState);
-                    sh[i] = this.params.slew > 0.01 ? slewState : heldValue;
-                }
-
-                /* LED shows S&H activity (absolute level) */
-                this.leds.sh = Math.abs(heldValue) / 5;
-            }
-        };
-    }
-
-    /* =============================================================
-     * Clock / Divider Module
-     * -------------------------------------------------------------
-     * Master clock with multiple divided outputs
-     * Based on classic clock/divider designs like 4MS RCD
-     *
-     * ┌─────────────────────────────────────────────────────────────┐
-     * │ PARAM / I/O RANGES                                         │
-     * ├───────────────────────────────────────────────────────────┤
-     * │ params.bpm       0→1 (30 to 300 BPM, exponential)         │
-     * │ params.swing     0→1 (0% to 75% swing on /2 output)       │
-     * │ inputs.extClock  0→5V (external clock input)              │
-     * │ inputs.reset     0→5V (reset all dividers)                │
-     * │ outputs.clock    0/5V (main clock pulse)                  │
-     * │ outputs.div2     0/5V (/2 with swing)                     │
-     * │ outputs.div4     0/5V (/4)                                │
-     * │ outputs.div8     0/5V (/8)                                │
-     * └─────────────────────────────────────────────────────────────┘
-     * =========================================================== */
-    function createClockDiv({sampleRate = 44100, bufferSize = 512} = {}) {
-        const clock = new Float32Array(bufferSize);
-        const div2 = new Float32Array(bufferSize);
-        const div4 = new Float32Array(bufferSize);
-        const div8 = new Float32Array(bufferSize);
-
-        /* Clock state */
-        let phase = 0;
-        let counter = 0;           /* Counts clock pulses for divisions */
-        let lastExtClock = 0;
-        let lastReset = 0;
-
-        /* Pulse width (10ms typical for triggers) */
-        const pulseWidth = 0.01 * sampleRate;
-        let pulseSamples = [0, 0, 0, 0]; /* Remaining samples for each output pulse */
-
-        /* Swing timing state */
-        let swingPhase = false;    /* Toggle for swing timing */
-
-        return {
-            params: {bpm: 0.4, swing: 0},
-            inputs: {extClock: 0, reset: 0},
-            outputs: {clock, div2, div4, div8},
-            leds: {clock: 0},
-            process() {
-                /* BPM from knob (30 to 300 BPM) */
-                const bpm = 30 * Math.pow(10, clamp(this.params.bpm));
-                const clockHz = bpm / 60;
-                const clockInc = clockHz / sampleRate;
-
-                /* Swing amount (0 to 75%) */
-                const swingAmount = clamp(this.params.swing) * 0.75;
-
-                for (let i = 0; i < bufferSize; i++) {
-                    /* Check for reset */
-                    const resetEdge = this.inputs.reset >= 1 && lastReset < 1;
-                    lastReset = this.inputs.reset;
-                    if (resetEdge) {
-                        phase = 0;
-                        counter = 0;
-                        swingPhase = false;
-                        pulseSamples = [0, 0, 0, 0];
-                    }
-
-                    /* Check for external clock override */
-                    const extEdge = this.inputs.extClock >= 1 && lastExtClock < 1;
-                    lastExtClock = this.inputs.extClock;
-
-                    /* Internal clock tick detection */
-                    const prevPhase = phase;
-                    phase += clockInc;
-                    const internalTick = prevPhase < 1 && phase >= 1;
-                    if (phase >= 1) phase -= 1;
-
-                    /* Clock tick (internal or external) */
-                    const tick = extEdge || (this.inputs.extClock < 0.5 && internalTick);
-
-                    if (tick) {
-                        /* Main clock pulse */
-                        pulseSamples[0] = pulseWidth;
-                        counter++;
-
-                        /* /2 with swing */
-                        if (counter % 2 === 0) {
-                            swingPhase = !swingPhase;
-                            /* Swing delays alternate beats */
-                            if (!swingPhase || swingAmount < 0.01) {
-                                pulseSamples[1] = pulseWidth;
-                            }
-                        } else if (swingPhase && swingAmount >= 0.01) {
-                            /* Delayed swing beat - check if we should trigger now */
-                            /* (This is a simplified swing - ideally would be timing-based) */
-                            pulseSamples[1] = pulseWidth;
-                        }
-
-                        /* /4 */
-                        if (counter % 4 === 0) {
-                            pulseSamples[2] = pulseWidth;
-                        }
-
-                        /* /8 */
-                        if (counter % 8 === 0) {
-                            pulseSamples[3] = pulseWidth;
-                        }
-                    }
-
-                    /* Output pulses (decay) */
-                    clock[i] = pulseSamples[0] > 0 ? 5 : 0;
-                    div2[i] = pulseSamples[1] > 0 ? 5 : 0;
-                    div4[i] = pulseSamples[2] > 0 ? 5 : 0;
-                    div8[i] = pulseSamples[3] > 0 ? 5 : 0;
-
-                    /* Decrement pulse counters */
-                    for (let p = 0; p < 4; p++) {
-                        if (pulseSamples[p] > 0) pulseSamples[p]--;
-                    }
-                }
-
-                /* LED blinks with clock */
-                this.leds.clock = pulseSamples[0] > 0 ? 1 : 0;
-            }
-        };
-    }
+    import { createModuleDefs, MODULE_ORDER } from './js/config/module-defs.js';
+    import { SAMPLE_RATE, BUFFER, CABLE_COLORS } from './js/config/constants.js';
+    import { FACTORY_PATCHES } from './js/config/factory-patches.js';
+    import { clamp, expMap } from './js/utils/math.js';
+    import { adjustColor } from './js/utils/color.js';
+    import { getNestedValue, setNestedValue } from './js/utils/nested-access.js';
 
     /* =============================================================
      * Interactive Patcher System
@@ -1220,14 +492,7 @@
      * Renders modules with knobs and jacks, allows cable patching
      * =========================================================== */
 
-    const SAMPLE_RATE = 44100;
-    const BUFFER = 512;
-
-    /* Cable colors for visual distinction */
-    const CABLE_COLORS = [
-        '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
-        '#9b59b6', '#1abc9c', '#e91e63', '#00bcd4'
-    ];
+    /* Constants imported from js/config/constants.js */
     let colorIndex = 0;
 
     /* State */
@@ -1237,207 +502,10 @@
     let cables = [];
     let dragState = null;
 
-    /* Module definitions for UI rendering */
-    const MODULE_DEFS = {
-        lfo: {
-            name: 'LFO',
-            hp: 4,
-            color: '#2d5a27',
-            create: () => create2hpLFO({sampleRate: SAMPLE_RATE, bufferSize: BUFFER}),
-            knobs: [
-                {id: 'rateKnob', label: 'Rate', param: 'rateKnob', min: 0, max: 1, default: 0.3},
-                {id: 'waveKnob', label: 'Wave', param: 'waveKnob', min: 0, max: 1, default: 0}
-            ],
-            switches: [
-                {id: 'range', label: 'Fast', param: 'range', default: 0}
-            ],
-            inputs: [
-                {id: 'rateCV', label: 'Rate', input: 'rateCV', type: 'cv'},
-                {id: 'waveCV', label: 'Wave', input: 'waveCV', type: 'cv'},
-                {id: 'reset', label: 'Reset', input: 'reset', type: 'trigger'}
-            ],
-            outputs: [
-                {id: 'primary', label: 'Pri', output: 'primary', type: 'buffer'},
-                {id: 'secondary', label: 'Sec', output: 'secondary', type: 'buffer'}
-            ]
-        },
-        vco: {
-            name: 'VCO',
-            hp: 4,
-            color: '#8b4513',
-            create: () => create2hpVCO({sampleRate: SAMPLE_RATE, bufferSize: BUFFER}),
-            knobs: [
-                {id: 'coarse', label: 'Coarse', param: 'coarse', min: 0, max: 1, default: 0.4},
-                {id: 'fine', label: 'Fine', param: 'fine', min: -6, max: 6, default: 0},
-                {id: 'glide', label: 'Glide', param: 'glide', min: 0, max: 100, default: 5}
-            ],
-            inputs: [
-                {id: 'vOct', label: 'V/Oct', input: 'vOct', type: 'cv'},
-                {id: 'fm', label: 'FM', input: 'fm', type: 'cv'},
-                {id: 'pwm', label: 'PWM', input: 'pwm', type: 'cv'},
-                {id: 'sync', label: 'Sync', input: 'sync', type: 'trigger'}
-            ],
-            outputs: [
-                {id: 'triangle', label: 'Tri', output: 'triangle', type: 'buffer'},
-                {id: 'ramp', label: 'Saw', output: 'ramp', type: 'buffer'},
-                {id: 'pulse', label: 'Pls', output: 'pulse', type: 'buffer'}
-            ]
-        },
-        vca: {
-            name: 'VCA',
-            hp: 4,
-            color: '#4a4a8a',
-            create: () => create2hpDualVCA({sampleRate: SAMPLE_RATE, bufferSize: BUFFER}),
-            knobs: [
-                {id: 'ch1Gain', label: 'Ch1', param: 'ch1Gain', min: 0, max: 1, default: 0.8},
-                {id: 'ch2Gain', label: 'Ch2', param: 'ch2Gain', min: 0, max: 1, default: 0.8}
-            ],
-            inputs: [
-                {id: 'ch1In', label: 'In 1', input: 'ch1In', type: 'buffer'},
-                {id: 'ch2In', label: 'In 2', input: 'ch2In', type: 'buffer'},
-                {id: 'ch2CV', label: 'CV', input: 'ch2CV', type: 'cv'}
-            ],
-            outputs: [
-                {id: 'ch1Out', label: 'Out1', output: 'ch1Out', type: 'buffer'},
-                {id: 'ch2Out', label: 'Out2', output: 'ch2Out', type: 'buffer'}
-            ],
-            leds: ['ch1', 'ch2']
-        },
-        bard: {
-            name: 'QUANT',
-            hp: 8,
-            color: '#6b3a6b',
-            create: () => createBardQuartet({bufferSize: BUFFER}),
-            knobs: [
-                {id: 'scale', label: 'Scale', param: 'scale', min: 0, max: 15, default: 0, step: 1},
-                {id: 'root', label: 'Root', param: 'root', min: 0, max: 11, default: 0, step: 1}
-            ],
-            switches: [
-                {id: 'cont0', label: 'C1', param: 'continuous[0]', default: true},
-                {id: 'cont1', label: 'C2', param: 'continuous[1]', default: false},
-                {id: 'cont2', label: 'C3', param: 'continuous[2]', default: false},
-                {id: 'cont3', label: 'C4', param: 'continuous[3]', default: false}
-            ],
-            inputs: [
-                {id: 'cv0', label: 'CV1', input: 'cv[0]', type: 'buffer'},
-                {id: 'cv1', label: 'CV2', input: 'cv[1]', type: 'buffer'},
-                {id: 'cv2', label: 'CV3', input: 'cv[2]', type: 'buffer'},
-                {id: 'cv3', label: 'CV4', input: 'cv[3]', type: 'buffer'},
-                {id: 'trig0', label: 'T1', input: 'trig[0]', type: 'cv'},
-                {id: 'trig1', label: 'T2', input: 'trig[1]', type: 'cv'},
-                {id: 'trig2', label: 'T3', input: 'trig[2]', type: 'cv'},
-                {id: 'trig3', label: 'T4', input: 'trig[3]', type: 'cv'}
-            ],
-            outputs: [
-                {id: 'cvOut0', label: 'O1', output: 'cv[0]', type: 'buffer'},
-                {id: 'cvOut1', label: 'O2', output: 'cv[1]', type: 'buffer'},
-                {id: 'cvOut2', label: 'O3', output: 'cv[2]', type: 'buffer'},
-                {id: 'cvOut3', label: 'O4', output: 'cv[3]', type: 'buffer'}
-            ]
-        },
-        vcf: {
-            name: 'VCF',
-            hp: 4,
-            color: '#4a6a8a',
-            create: () => createVCF({sampleRate: SAMPLE_RATE, bufferSize: BUFFER}),
-            knobs: [
-                {id: 'cutoff', label: 'Freq', param: 'cutoff', min: 0, max: 1, default: 0.5},
-                {id: 'resonance', label: 'Res', param: 'resonance', min: 0, max: 1, default: 0.3}
-            ],
-            inputs: [
-                {id: 'audio', label: 'In', input: 'audio', type: 'buffer'},
-                {id: 'cutoffCV', label: 'Freq', input: 'cutoffCV', type: 'cv'},
-                {id: 'resCV', label: 'Res', input: 'resCV', type: 'cv'}
-            ],
-            outputs: [
-                {id: 'lpf', label: 'LP', output: 'lpf', type: 'buffer'},
-                {id: 'bpf', label: 'BP', output: 'bpf', type: 'buffer'},
-                {id: 'hpf', label: 'HP', output: 'hpf', type: 'buffer'}
-            ],
-            leds: ['cutoff']
-        },
-        adsr: {
-            name: 'ADSR',
-            hp: 4,
-            color: '#8a4a4a',
-            create: () => createADSR({sampleRate: SAMPLE_RATE, bufferSize: BUFFER}),
-            knobs: [
-                {id: 'attack', label: 'Atk', param: 'attack', min: 0, max: 1, default: 0.2},
-                {id: 'decay', label: 'Dec', param: 'decay', min: 0, max: 1, default: 0.3},
-                {id: 'sustain', label: 'Sus', param: 'sustain', min: 0, max: 1, default: 0.7},
-                {id: 'release', label: 'Rel', param: 'release', min: 0, max: 1, default: 0.4}
-            ],
-            inputs: [
-                {id: 'gate', label: 'Gate', input: 'gate', type: 'cv'},
-                {id: 'retrig', label: 'Retr', input: 'retrig', type: 'trigger'}
-            ],
-            outputs: [
-                {id: 'env', label: 'Env', output: 'env', type: 'buffer'},
-                {id: 'inv', label: 'Inv', output: 'inv', type: 'buffer'},
-                {id: 'eoc', label: 'EOC', output: 'eoc', type: 'buffer'}
-            ],
-            leds: ['env']
-        },
-        noise: {
-            name: 'NOISE',
-            hp: 4,
-            color: '#5a5a5a',
-            create: () => createNoiseSH({sampleRate: SAMPLE_RATE, bufferSize: BUFFER}),
-            knobs: [
-                {id: 'rate', label: 'Rate', param: 'rate', min: 0, max: 1, default: 0.3},
-                {id: 'slew', label: 'Slew', param: 'slew', min: 0, max: 1, default: 0}
-            ],
-            inputs: [
-                {id: 'sample', label: 'Samp', input: 'sample', type: 'buffer'},
-                {id: 'trigger', label: 'Trig', input: 'trigger', type: 'cv'}
-            ],
-            outputs: [
-                {id: 'white', label: 'Wht', output: 'white', type: 'buffer'},
-                {id: 'pink', label: 'Pink', output: 'pink', type: 'buffer'},
-                {id: 'sh', label: 'S&H', output: 'sh', type: 'buffer'}
-            ],
-            leds: ['sh']
-        },
-        clock: {
-            name: 'CLOCK',
-            hp: 4,
-            color: '#6a5a2a',
-            create: () => createClockDiv({sampleRate: SAMPLE_RATE, bufferSize: BUFFER}),
-            knobs: [
-                {id: 'bpm', label: 'BPM', param: 'bpm', min: 0, max: 1, default: 0.4},
-                {id: 'swing', label: 'Swng', param: 'swing', min: 0, max: 1, default: 0}
-            ],
-            inputs: [
-                {id: 'extClock', label: 'Ext', input: 'extClock', type: 'cv'},
-                {id: 'reset', label: 'Rst', input: 'reset', type: 'trigger'}
-            ],
-            outputs: [
-                {id: 'clock', label: 'Clk', output: 'clock', type: 'buffer'},
-                {id: 'div2', label: '/2', output: 'div2', type: 'buffer'},
-                {id: 'div4', label: '/4', output: 'div4', type: 'buffer'},
-                {id: 'div8', label: '/8', output: 'div8', type: 'buffer'}
-            ],
-            leds: ['clock']
-        },
-        out: {
-            name: 'OUT',
-            hp: 4,
-            color: '#333',
-            create: () => {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                return create2hpOut(audioCtx, {bufferSize: BUFFER});
-            },
-            knobs: [
-                {id: 'volume', label: 'Vol', param: 'volume', min: 0, max: 1, default: 0.7}
-            ],
-            inputs: [
-                {id: 'L', label: 'L', input: 'L', type: 'buffer'},
-                {id: 'R', label: 'R', input: 'R', type: 'buffer'}
-            ],
-            outputs: [],
-            leds: ['L', 'R']
-        }
-    };
+
+    /* Module definitions imported from js/config/module-defs.js */
+    let MODULE_DEFS = null;  // Initialized in init() with audioCtx
+
 
     /* =============================================================
      * UI Rendering
@@ -1490,6 +558,18 @@
                     </div>`;
             });
             html += '</div>';
+        }
+
+        /* Button banks (octave select) */
+        if (def.buttons && def.buttons.length > 0) {
+            def.buttons.forEach(btnGroup => {
+                html += `<div class="section-label">${btnGroup.label}</div><div class="button-bank" data-module="${id}" data-param="${btnGroup.param}">`;
+                btnGroup.values.forEach((val, idx) => {
+                    const isActive = val === btnGroup.default;
+                    html += `<button class="octave-btn${isActive ? ' active' : ''}" data-value="${val}">${val > 0 ? '+' + val : val}</button>`;
+                });
+                html += '</div>';
+            });
         }
 
         html += '<div class="spacer"></div>';
@@ -1569,14 +649,6 @@
         html += '</div>';
         el.innerHTML = html;
         return el;
-    }
-
-    function adjustColor(hex, amount) {
-        const num = parseInt(hex.slice(1), 16);
-        const r = Math.min(255, Math.max(0, (num >> 16) + amount));
-        const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amount));
-        const b = Math.min(255, Math.max(0, (num & 0x0000FF) + amount));
-        return `#${(1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1)}`;
     }
 
     function updateKnobRotation(knobEl) {
@@ -1757,11 +829,9 @@
         if (!isRunning) return;
 
         while (nextTime < audioCtx.currentTime + 0.1) {
-            /* Process modules in order */
-            const order = ['clock', 'lfo', 'noise', 'bard', 'vco', 'vcf', 'adsr', 'vca', 'out'];
-
-            order.forEach(id => {
-                if (!modules[id]) return;
+            /* Process modules in order (imported from module-defs.js) */
+            MODULE_ORDER.forEach(id => {
+                if (!modules[id]?.instance) return;
                 const mod = modules[id].instance;
 
                 /* Apply cable connections before processing */
@@ -1816,43 +886,16 @@
             const leds = modules.clock.instance.leds;
             document.getElementById('led-clock-clock')?.classList.toggle('active', leds.clock > 0.5);
         }
+        if (modules.quant?.instance?.leds) {
+            const leds = modules.quant.instance.leds;
+            document.getElementById('led-quant-active')?.classList.toggle('active', leds.active > 0.5);
+        }
+        if (modules.arp?.instance?.leds) {
+            const leds = modules.arp.instance.leds;
+            document.getElementById('led-arp-step')?.classList.toggle('active', leds.step > 0.5);
+        }
 
         setTimeout(processAudio, 20);
-    }
-
-    function getNestedValue(obj, path) {
-        const match = path.match(/(\w+)\[(\d+)\]/);
-        if (match) {
-            return obj[match[1]][parseInt(match[2])];
-        }
-        return obj[path];
-    }
-
-    function setNestedValue(obj, path, value) {
-        const match = path.match(/(\w+)\[(\d+)\]/);
-        if (match) {
-            const arr = obj[match[1]];
-            const idx = parseInt(match[2]);
-            if (value instanceof Float32Array) {
-                if (arr[idx] instanceof Float32Array) {
-                    arr[idx].set(value);
-                } else {
-                    arr[idx] = value[0];
-                }
-            } else {
-                arr[idx] = value;
-            }
-        } else {
-            if (obj[path] instanceof Float32Array && value instanceof Float32Array) {
-                obj[path].set(value);
-            } else if (obj[path] instanceof Float32Array) {
-                obj[path].fill(value);
-            } else if (value instanceof Float32Array) {
-                obj[path] = value[0];
-            } else {
-                obj[path] = value;
-            }
-        }
     }
 
     /* =============================================================
@@ -1862,267 +905,6 @@
      * =========================================================== */
     const PATCH_STORAGE_KEY = 'eurorack-patches';
 
-    /* Built-in factory patches */
-    const FACTORY_PATCHES = {
-        /* === Test Patches - Isolated module tests === */
-        'Test - VCO Only': {
-            name: 'Test - VCO Only',
-            factory: true,
-            state: {
-                knobs: {
-                    vco: { coarse: 0.35, fine: 0, glide: 5 },
-                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
-                    out: { volume: 0.5 }
-                },
-                switches: {},
-                cables: [
-                    { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
-                    { fromModule: 'vco', fromPort: 'ramp', toModule: 'vca', toPort: 'ch2In' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
-                    { fromModule: 'vca', fromPort: 'ch2Out', toModule: 'out', toPort: 'R' }
-                ]
-            }
-        },
-        'Test - LFO → VCO Pitch': {
-            name: 'Test - LFO → VCO Pitch',
-            factory: true,
-            state: {
-                knobs: {
-                    lfo: { rateKnob: 0.5, waveKnob: 0 },
-                    vco: { coarse: 0.35, fine: 0, glide: 5 },
-                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
-                    out: { volume: 0.5 }
-                },
-                switches: {
-                    lfo: { range: false }
-                },
-                cables: [
-                    { fromModule: 'lfo', fromPort: 'primary', toModule: 'vco', toPort: 'vOct' },
-                    { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
-                ]
-            }
-        },
-        'Test - VCF Resonance': {
-            name: 'Test - VCF Resonance',
-            factory: true,
-            state: {
-                knobs: {
-                    lfo: { rateKnob: 0.4, waveKnob: 0.5 },
-                    vco: { coarse: 0.25, fine: 0, glide: 5 },
-                    vcf: { cutoff: 0.4, resonance: 0.7 },
-                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
-                    out: { volume: 0.5 }
-                },
-                switches: {
-                    lfo: { range: false }
-                },
-                cables: [
-                    { fromModule: 'vco', fromPort: 'ramp', toModule: 'vcf', toPort: 'audio' },
-                    { fromModule: 'lfo', fromPort: 'primary', toModule: 'vcf', toPort: 'cutoffCV' },
-                    { fromModule: 'vcf', fromPort: 'lpf', toModule: 'vca', toPort: 'ch1In' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
-                ]
-            }
-        },
-        'Test - ADSR Envelope': {
-            name: 'Test - ADSR Envelope',
-            factory: true,
-            state: {
-                knobs: {
-                    clock: { bpm: 0.35, swing: 0 },
-                    vco: { coarse: 0.35, fine: 0, glide: 5 },
-                    adsr: { attack: 0.15, decay: 0.3, sustain: 0.5, release: 0.35 },
-                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
-                    out: { volume: 0.6 }
-                },
-                switches: {},
-                cables: [
-                    { fromModule: 'clock', fromPort: 'div2', toModule: 'adsr', toPort: 'gate' },
-                    { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
-                    { fromModule: 'adsr', fromPort: 'env', toModule: 'vca', toPort: 'ch2CV' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
-                ]
-            }
-        },
-        'Test - Noise Outputs': {
-            name: 'Test - Noise Outputs',
-            factory: true,
-            state: {
-                knobs: {
-                    noise: { rate: 0.5, slew: 0 },
-                    vca: { ch1Gain: 0.5, ch2Gain: 0.5 },
-                    out: { volume: 0.4 }
-                },
-                switches: {},
-                cables: [
-                    { fromModule: 'noise', fromPort: 'white', toModule: 'vca', toPort: 'ch1In' },
-                    { fromModule: 'noise', fromPort: 'pink', toModule: 'vca', toPort: 'ch2In' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
-                    { fromModule: 'vca', fromPort: 'ch2Out', toModule: 'out', toPort: 'R' }
-                ]
-            }
-        },
-        'Test - S&H → Pitch': {
-            name: 'Test - S&H → Pitch',
-            factory: true,
-            state: {
-                knobs: {
-                    noise: { rate: 0.4, slew: 0.2 },
-                    vco: { coarse: 0.35, fine: 0, glide: 10 },
-                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
-                    out: { volume: 0.5 }
-                },
-                switches: {},
-                cables: [
-                    { fromModule: 'noise', fromPort: 'sh', toModule: 'vco', toPort: 'vOct' },
-                    { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
-                ]
-            }
-        },
-        'Test - Clock Divisions': {
-            name: 'Test - Clock Divisions',
-            factory: true,
-            state: {
-                knobs: {
-                    clock: { bpm: 0.45, swing: 0 },
-                    vco: { coarse: 0.3, fine: 0, glide: 2 },
-                    adsr: { attack: 0.05, decay: 0.2, sustain: 0.0, release: 0.15 },
-                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
-                    out: { volume: 0.5 }
-                },
-                switches: {},
-                cables: [
-                    { fromModule: 'clock', fromPort: 'clock', toModule: 'adsr', toPort: 'gate' },
-                    { fromModule: 'clock', fromPort: 'div4', toModule: 'vco', toPort: 'vOct' },
-                    { fromModule: 'vco', fromPort: 'pulse', toModule: 'vca', toPort: 'ch1In' },
-                    { fromModule: 'adsr', fromPort: 'env', toModule: 'vca', toPort: 'ch2CV' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
-                ]
-            }
-        },
-        'Test - Quantizer Scales': {
-            name: 'Test - Quantizer Scales',
-            factory: true,
-            state: {
-                knobs: {
-                    lfo: { rateKnob: 0.45, waveKnob: 0.25 },
-                    bard: { scale: 0, root: 0 },
-                    vco: { coarse: 0.35, fine: 0, glide: 15 },
-                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
-                    out: { volume: 0.5 }
-                },
-                switches: {
-                    lfo: { range: false },
-                    bard: { 'continuous[0]': true, 'continuous[1]': false, 'continuous[2]': false, 'continuous[3]': false }
-                },
-                cables: [
-                    { fromModule: 'lfo', fromPort: 'primary', toModule: 'bard', toPort: 'cv[0]' },
-                    { fromModule: 'bard', fromPort: 'cv[0]', toModule: 'vco', toPort: 'vOct' },
-                    { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
-                ]
-            }
-        },
-        /* === Demo Patches === */
-        'Demo - Melodic Arp': {
-            name: 'Demo - Melodic Arp',
-            factory: true,
-            state: {
-                knobs: {
-                    clock: { bpm: 0.4, swing: 0 },
-                    lfo: { rateKnob: 0.5, waveKnob: 0.25 },
-                    noise: { rate: 0.3, slew: 0 },
-                    vco: { coarse: 0.35, fine: 0, glide: 15 },
-                    vcf: { cutoff: 0.5, resonance: 0.3 },
-                    bard: { scale: 9, root: 0 },
-                    adsr: { attack: 0.2, decay: 0.3, sustain: 0.7, release: 0.4 },
-                    vca: { ch1Gain: 0.6, ch2Gain: 0.3 },
-                    out: { volume: 0.7 }
-                },
-                switches: {
-                    lfo: { range: false },
-                    bard: { 'continuous[0]': true, 'continuous[1]': false, 'continuous[2]': false, 'continuous[3]': false }
-                },
-                cables: [
-                    { fromModule: 'lfo', fromPort: 'primary', toModule: 'bard', toPort: 'cv[0]' },
-                    { fromModule: 'bard', fromPort: 'cv[0]', toModule: 'vco', toPort: 'vOct' },
-                    { fromModule: 'lfo', fromPort: 'secondary', toModule: 'vco', toPort: 'pwm' },
-                    { fromModule: 'lfo', fromPort: 'secondary', toModule: 'vca', toPort: 'ch2CV' },
-                    { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
-                    { fromModule: 'vco', fromPort: 'pulse', toModule: 'vca', toPort: 'ch2In' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
-                    { fromModule: 'vca', fromPort: 'ch2Out', toModule: 'out', toPort: 'R' }
-                ]
-            }
-        },
-        'Demo - Filtered Bass': {
-            name: 'Demo - Filtered Bass',
-            factory: true,
-            state: {
-                knobs: {
-                    clock: { bpm: 0.35, swing: 0 },
-                    lfo: { rateKnob: 0.4, waveKnob: 0.5 },
-                    noise: { rate: 0.3, slew: 0 },
-                    vco: { coarse: 0.25, fine: 0, glide: 25 },
-                    vcf: { cutoff: 0.35, resonance: 0.6 },
-                    bard: { scale: 0, root: 0 },
-                    adsr: { attack: 0.1, decay: 0.4, sustain: 0.3, release: 0.3 },
-                    vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
-                    out: { volume: 0.7 }
-                },
-                switches: {
-                    lfo: { range: false },
-                    bard: { 'continuous[0]': true, 'continuous[1]': false, 'continuous[2]': false, 'continuous[3]': false }
-                },
-                cables: [
-                    { fromModule: 'lfo', fromPort: 'primary', toModule: 'bard', toPort: 'cv[0]' },
-                    { fromModule: 'bard', fromPort: 'cv[0]', toModule: 'vco', toPort: 'vOct' },
-                    { fromModule: 'lfo', fromPort: 'secondary', toModule: 'vcf', toPort: 'cutoffCV' },
-                    { fromModule: 'vco', fromPort: 'ramp', toModule: 'vcf', toPort: 'audio' },
-                    { fromModule: 'vcf', fromPort: 'lpf', toModule: 'vca', toPort: 'ch1In' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
-                ]
-            }
-        },
-        'Demo - S&H Random': {
-            name: 'Demo - S&H Random',
-            factory: true,
-            state: {
-                knobs: {
-                    clock: { bpm: 0.45, swing: 0 },
-                    lfo: { rateKnob: 0.4, waveKnob: 0 },
-                    noise: { rate: 0.35, slew: 0.25 },
-                    vco: { coarse: 0.35, fine: 0, glide: 20 },
-                    vcf: { cutoff: 0.5, resonance: 0.4 },
-                    bard: { scale: 12, root: 0 },
-                    adsr: { attack: 0.05, decay: 0.3, sustain: 0.5, release: 0.25 },
-                    vca: { ch1Gain: 0.7, ch2Gain: 0.7 },
-                    out: { volume: 0.65 }
-                },
-                switches: {
-                    lfo: { range: false },
-                    bard: { 'continuous[0]': true, 'continuous[1]': false, 'continuous[2]': false, 'continuous[3]': false }
-                },
-                cables: [
-                    { fromModule: 'noise', fromPort: 'sh', toModule: 'bard', toPort: 'cv[0]' },
-                    { fromModule: 'bard', fromPort: 'cv[0]', toModule: 'vco', toPort: 'vOct' },
-                    { fromModule: 'vco', fromPort: 'pulse', toModule: 'vcf', toPort: 'audio' },
-                    { fromModule: 'vcf', fromPort: 'lpf', toModule: 'vca', toPort: 'ch1In' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
-                    { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
-                ]
-            }
-        }
-    };
 
     function getPatchList() {
         try {
@@ -2148,6 +930,7 @@
         const state = {
             knobs: {},
             switches: {},
+            buttons: {},
             cables: []
         };
 
@@ -2167,6 +950,16 @@
             const isOn = sw.classList.contains('on');
             if (!state.switches[moduleId]) state.switches[moduleId] = {};
             state.switches[moduleId][param] = isOn;
+        });
+
+        /* Serialize all button bank states */
+        document.querySelectorAll('.button-bank').forEach(bank => {
+            const moduleId = bank.dataset.module;
+            const param = bank.dataset.param;
+            const activeBtn = bank.querySelector('.octave-btn.active');
+            const value = activeBtn ? parseInt(activeBtn.dataset.value) : 0;
+            if (!state.buttons[moduleId]) state.buttons[moduleId] = {};
+            state.buttons[moduleId][param] = value;
         });
 
         /* Serialize cable connections */
@@ -2224,12 +1017,29 @@
             });
         }
 
+        /* Apply button bank states */
+        if (state.buttons) {
+            Object.entries(state.buttons).forEach(([moduleId, params]) => {
+                Object.entries(params).forEach(([param, value]) => {
+                    const bank = document.querySelector(`.button-bank[data-module="${moduleId}"][data-param="${param}"]`);
+                    if (bank) {
+                        bank.querySelectorAll('.octave-btn').forEach(btn => {
+                            btn.classList.toggle('active', parseInt(btn.dataset.value) === value);
+                        });
+                        if (modules[moduleId]?.instance) {
+                            modules[moduleId].instance.params[param] = value;
+                        }
+                    }
+                });
+            });
+        }
+
         /* Apply cable connections */
         if (state.cables) {
             state.cables.forEach(conn => {
-                /* Find jacks by module and port */
-                const fromJack = document.querySelector(`.jack[data-module="${conn.fromModule}"][data-port="${conn.fromPort}"]`);
-                const toJack = document.querySelector(`.jack[data-module="${conn.toModule}"][data-port="${conn.toPort}"]`);
+                /* Find jacks by module, port, and direction (output→input) */
+                const fromJack = document.querySelector(`.jack.output[data-module="${conn.fromModule}"][data-port="${conn.fromPort}"]`);
+                const toJack = document.querySelector(`.jack.input[data-module="${conn.toModule}"][data-port="${conn.toPort}"]`);
                 if (fromJack && toJack) {
                     addCable(fromJack, toJack);
                 }
@@ -2287,6 +1097,20 @@
         localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(userPatches));
         updatePatchSelect();
         return true;
+    }
+
+    function copyPatchToClipboard() {
+        const state = serializeCurrentState();
+        const json = JSON.stringify(state, null, 4);
+        navigator.clipboard.writeText(json).then(() => {
+            const btn = document.getElementById('copyPatch');
+            const originalText = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = originalText, 1500);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            alert('Failed to copy to clipboard');
+        });
     }
 
     function updatePatchSelect() {
@@ -2381,10 +1205,13 @@
      * Initialization
      * =========================================================== */
     function init() {
+        /* Initialize module definitions from imported config */
+        MODULE_DEFS = createModuleDefs();
+
         const rack = document.getElementById('rack');
 
-        /* Create modules */
-        ['clock', 'lfo', 'noise', 'vco', 'vcf', 'bard', 'adsr', 'vca', 'out'].forEach(type => {
+        /* Create modules using imported MODULE_ORDER */
+        MODULE_ORDER.forEach(type => {
             const def = MODULE_DEFS[type];
             const el = renderModule(type, type);
             rack.appendChild(el);
@@ -2399,6 +1226,7 @@
             const jack = e.target.closest('.jack');
             const knob = e.target.closest('.knob');
             const sw = e.target.closest('.switch');
+            const octBtn = e.target.closest('.octave-btn');
 
             if (jack) {
                 e.preventDefault();
@@ -2424,6 +1252,19 @@
                     } else {
                         modules[moduleId].instance.params[param] = sw.classList.contains('on') ? 1 : 0;
                     }
+                }
+            } else if (octBtn) {
+                e.preventDefault();
+                const bank = octBtn.closest('.button-bank');
+                const moduleId = bank.dataset.module;
+                const param = bank.dataset.param;
+                const value = parseInt(octBtn.dataset.value);
+                /* Toggle active state */
+                bank.querySelectorAll('.octave-btn').forEach(b => b.classList.remove('active'));
+                octBtn.classList.add('active');
+                /* Update module param */
+                if (modules[moduleId]?.instance) {
+                    modules[moduleId].instance.params[param] = value;
                 }
             }
         });
@@ -2451,6 +1292,7 @@
         /* Control buttons */
         document.getElementById('startButton').addEventListener('click', toggleAudio);
         document.getElementById('clearCables').addEventListener('click', clearAllCables);
+        document.getElementById('copyPatch').addEventListener('click', copyPatchToClipboard);
 
         /* Initialize patch bank */
         initPatchBank();
@@ -2474,7 +1316,8 @@
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
             Object.keys(modules).forEach(id => {
-                modules[id].instance = modules[id].def.create();
+                /* Pass audioCtx to modules that need it (like 'out') */
+                modules[id].instance = modules[id].def.create(audioCtx);
                 /* Apply current knob values */
                 document.querySelectorAll(`.knob[data-module="${id}"]`).forEach(knob => {
                     const param = knob.dataset.param;
@@ -2490,6 +1333,14 @@
                         modules[id].instance.params[match[1]][parseInt(match[2])] = isOn;
                     } else {
                         modules[id].instance.params[param] = isOn ? 1 : 0;
+                    }
+                });
+                /* Apply current button bank values */
+                document.querySelectorAll(`.button-bank[data-module="${id}"]`).forEach(bank => {
+                    const param = bank.dataset.param;
+                    const activeBtn = bank.querySelector('.octave-btn.active');
+                    if (activeBtn) {
+                        modules[id].instance.params[param] = parseInt(activeBtn.dataset.value);
                     }
                 });
             });

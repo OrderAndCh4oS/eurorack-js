@@ -1,0 +1,16 @@
+{
+  "name": "eurorack-synth",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Eurorack synthesizer emulator",
+  "scripts": {
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0",
+    "jsdom": "^25.0.0"
+  }
+}

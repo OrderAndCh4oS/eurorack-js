@@ -23,7 +23,7 @@ export const DIV_RATIO_NAMES = [
 export default {
     id: 'div',
     name: 'DIV',
-    hp: 2,
+    hp: 4,
     color: '#5a6a2a',
     category: 'utility',
 

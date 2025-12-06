@@ -14,7 +14,7 @@ import { createSlew } from '../../utils/slew.js';
 export default {
     id: 'sh',
     name: 'S+H',
-    hp: 2,
+    hp: 4,
     color: '#5a6a5a',
     category: 'utility',
 

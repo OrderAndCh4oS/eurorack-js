@@ -8,7 +8,7 @@
 export default {
     id: 'out',
     name: 'OUT',
-    hp: 4,
+    hp: 3,
     color: '#333',
     category: 'output',
 

@@ -16,7 +16,7 @@ import { clamp } from '../../utils/math.js';
 export default {
     id: 'kick',
     name: 'KICK',
-    hp: 2,
+    hp: 4,
     color: '#8b4513',
     category: 'voice',
 

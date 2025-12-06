@@ -5,10 +5,11 @@
     <title>2HP Mini‑Rack – Interactive Patcher</title>
     <style>
         :root {
-            --hp: 12px;
+            --hp-unit: 18px;
             --module-height: 380px;
             --jack-size: 24px;
             --knob-size: 32px;
+            --knob-sm: 20px;
         }
 
         * {
@@ -26,30 +27,37 @@
 
         .rack {
             background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
-            padding: 20px;
+            padding: 0 20px;
             display: flex;
             gap: 4px;
-            border-top: 12px solid #444;
-            border-bottom: 12px solid #333;
             box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+            position: relative;
         }
 
         .module {
             background: linear-gradient(to bottom, #3a3a3a, #2a2a2a);
-            border: 1px solid #555;
-            border-radius: 3px;
+            border: none;
+            border-left: 1px solid #111;
+            border-radius: 0;
             height: var(--module-height);
             display: flex;
             flex-direction: column;
             align-items: center;
             padding: 8px 4px;
             position: relative;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            flex-shrink: 0;
+            flex-grow: 0;
         }
 
-        .module-2hp { width: calc(var(--hp) * 6); }
-        .module-4hp { width: calc(var(--hp) * 12); }
-        .module-8hp { width: calc(var(--hp) * 20); }
+        .module:last-child {
+            border-right: 1px solid #111;
+        }
+
+        .module-2hp { width: calc(var(--hp-unit) * 2); }
+        .module-3hp { width: calc(var(--hp-unit) * 3); }
+        .module-4hp { width: calc(var(--hp-unit) * 4); }
+        .module-6hp { width: calc(var(--hp-unit) * 6); }
+        .module-8hp { width: calc(var(--hp-unit) * 8); }
 
         .module-label {
             font-size: 9px;
@@ -111,6 +119,40 @@
             font-size: 7px;
             color: #999;
             text-transform: uppercase;
+        }
+
+        /* Small trimmer-style potentiometer */
+        .knob.knob-sm {
+            width: var(--knob-sm);
+            height: var(--knob-sm);
+            background:
+                radial-gradient(circle at 50% 50%, #4a4a4a 0%, #3a3a3a 60%, #2a2a2a 100%);
+            border: 1px solid #222;
+            box-shadow:
+                0 1px 3px rgba(0,0,0,0.5),
+                inset 0 1px 1px rgba(255,255,255,0.15),
+                inset 0 -1px 1px rgba(0,0,0,0.3);
+        }
+
+        /* Thin white line pointer with inset shading */
+        .knob.knob-sm::after {
+            width: 2px;
+            height: 7px;
+            background: linear-gradient(to bottom, #fff 0%, #ccc 100%);
+            border-radius: 1px;
+            top: 3px;
+            left: 50%;
+            transform-origin: bottom center;
+            transform: translateX(-50%);
+            box-shadow:
+                inset 1px 0 0 rgba(255,255,255,0.3),
+                inset -1px 0 0 rgba(0,0,0,0.2),
+                0 0 2px rgba(0,0,0,0.4);
+        }
+
+        .knob.knob-sm:hover {
+            background:
+                radial-gradient(circle at 50% 50%, #555 0%, #454545 60%, #353535 100%);
         }
 
         /* Jacks */
@@ -498,7 +540,9 @@
 
         /* Rack container - holds two rows */
         .rack-container {
-            flex: 1;
+            /* Fixed width: 84HP * 18px + rack padding (40px) + container padding (32px) */
+            width: calc(84 * var(--hp-unit) + 72px);
+            flex-shrink: 0;
             overflow-x: auto;
             overflow-y: auto;
             display: flex;
@@ -508,9 +552,47 @@
         }
 
         .rack-row {
+            /* Fixed width: 84HP exactly */
+            width: calc(84 * var(--hp-unit));
             margin-top: 0;
+            height: var(--module-height);
             min-height: var(--module-height);
             flex-shrink: 0;
+            display: flex;
+            align-items: stretch;
+            position: relative;
+            padding: 12px 0;
+            overflow: hidden;
+            /* Override .rack gap - modules sit flush like real Eurorack */
+            gap: 0;
+        }
+
+        /* Rack rails - the grey bars modules screw into */
+        .rack-row::before,
+        .rack-row::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 12px;
+            z-index: 0;
+        }
+
+        .rack-row::before {
+            top: 0;
+            background: linear-gradient(to bottom, #555, #444);
+        }
+
+        .rack-row::after {
+            bottom: 0;
+            background: linear-gradient(to bottom, #444, #333);
+        }
+
+        .rack-row .module {
+            height: calc(100% + 24px);
+            margin-top: -12px;
+            margin-bottom: -12px;
+            z-index: 1;
         }
 
         .rack-row.empty {
@@ -518,7 +600,7 @@
             border-radius: 4px;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             color: #555;
             font-size: 12px;
         }
@@ -539,9 +621,13 @@
         }
 
         .module.dragging {
-            opacity: 0.5;
-            cursor: grabbing;
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+            width: 0 !important;
+            overflow: hidden;
         }
+
 
         .module .remove-btn {
             position: absolute;
@@ -571,22 +657,18 @@
             background: #c44;
         }
 
-        .module.drag-over-left::before,
-        .module.drag-over-right::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            background: #4a4;
-        }
-
-        .module.drag-over-left::before {
-            left: -3px;
-        }
-
-        .module.drag-over-right::after {
-            right: -3px;
+        /* Drop zone indicator - ghost of dragged module */
+        .drop-indicator {
+            height: calc(100% + 24px);
+            margin-top: -12px;
+            margin-bottom: -12px;
+            flex-shrink: 0;
+            pointer-events: none;
+            z-index: 100;
+            opacity: 0.5;
+            border: 2px dashed #4a4;
+            border-radius: 4px;
+            box-sizing: border-box;
         }
 
         /* Row HP indicator */
@@ -643,7 +725,7 @@
 </div>
 
 <script type="module">
-    /* =============================================================
+    /* ========================================================
      * Import modular definitions
      * =========================================================== */
     import { loadModules, moduleRegistry, DEFAULT_MODULE_ORDER } from './js/index.js';
@@ -720,10 +802,11 @@
         if (knobs.length > 2) {
             html += '<div class="jack-row">';
         }
+        const knobSizeClass = def.hp === 2 ? ' knob-sm' : '';
         knobs.forEach(knob => {
             html += `
                 <div class="knob-container">
-                    <div class="knob" id="knob-${id}-${knob.id}"
+                    <div class="knob${knobSizeClass}" id="knob-${id}-${knob.id}"
                          data-module="${id}" data-param="${knob.param}"
                          data-min="${knob.min}" data-max="${knob.max}"
                          data-value="${knob.default}" data-step="${knob.step || 0}"></div>
@@ -932,23 +1015,18 @@
 
         // Determine which row to add to
         let row, rowModules, rowEl;
-        if (targetRow === 1 || (targetRow === null && row1HP + hp <= MAX_HP_PER_ROW)) {
+        const row1Fits = row1HP + hp <= MAX_HP_PER_ROW;
+        const row2Fits = row2HP + hp <= MAX_HP_PER_ROW;
+
+        if (row1Fits) {
             row = 1;
             rowModules = row1Modules;
             rowEl = document.getElementById('rack-row-1');
-        } else if (targetRow === 2 || (targetRow === null && row2HP + hp <= MAX_HP_PER_ROW)) {
+        } else if (row2Fits) {
             row = 2;
             rowModules = row2Modules;
             rowEl = document.getElementById('rack-row-2');
         } else {
-            console.warn('Both rows are full');
-            return null;
-        }
-
-        // Check if it fits
-        const currentHP = getRowHP(rowModules);
-        if (currentHP + hp > MAX_HP_PER_ROW) {
-            console.warn(`Row ${row} is full`);
             return null;
         }
 
@@ -957,7 +1035,6 @@
 
         // Create module element
         const el = renderModule(moduleType, instanceId);
-        el.draggable = true;
         el.dataset.instanceId = instanceId;
         el.dataset.row = row;
 
@@ -971,12 +1048,8 @@
         });
         el.appendChild(removeBtn);
 
-        // Add drag handlers
-        el.addEventListener('dragstart', handleModuleDragStart);
-        el.addEventListener('dragend', handleModuleDragEnd);
-        el.addEventListener('dragover', handleModuleDragOver);
-        el.addEventListener('dragleave', handleModuleDragLeave);
-        el.addEventListener('drop', handleModuleDrop);
+        // Add mouse-based drag handler
+        el.addEventListener('mousedown', handleModuleMouseDown);
 
         // Create DSP instance if audio is running
         let instance = null;
@@ -1062,198 +1135,227 @@
     }
 
     /* =============================================================
-     * Module Drag and Drop
+     * Module Drag and Drop (Mouse-based for full control)
      * =========================================================== */
 
-    function handleModuleDragStart(e) {
+    let dropIndicator = null;
+    let draggedModuleEl = null;
+    let isDragging = false;
+
+    function createDropIndicator(sourceModuleEl) {
+        if (dropIndicator) {
+            dropIndicator.remove();
+        }
+        dropIndicator = sourceModuleEl.cloneNode(true);
+        dropIndicator.className = 'module drop-indicator';
+        dropIndicator.id = '';
+        dropIndicator.style.width = sourceModuleEl.offsetWidth + 'px';
+        // Remove interactive elements
+        dropIndicator.querySelectorAll('.remove-btn').forEach(el => el.remove());
+        return dropIndicator;
+    }
+
+    function removeDropIndicator() {
+        if (dropIndicator && dropIndicator.parentNode) {
+            dropIndicator.parentNode.removeChild(dropIndicator);
+        }
+        dropIndicator = null;
+    }
+
+    // Find drop position in a row based on cursor X
+    function findDropPosition(rowEl, clientX, excludeId) {
+        let moduleEls = Array.from(rowEl.querySelectorAll('.module:not(.drop-indicator)'));
+        if (excludeId) {
+            moduleEls = moduleEls.filter(el => el.dataset.instanceId !== excludeId);
+        }
+
+        if (moduleEls.length === 0) {
+            return { beforeEl: null };
+        }
+
+        // Check if before first module
+        const firstRect = moduleEls[0].getBoundingClientRect();
+        if (clientX < firstRect.left + firstRect.width / 2) {
+            return { beforeEl: moduleEls[0] };
+        }
+
+        // Check each module
+        for (let i = 0; i < moduleEls.length; i++) {
+            const rect = moduleEls[i].getBoundingClientRect();
+            const midX = rect.left + rect.width / 2;
+
+            if (clientX < midX) {
+                return { beforeEl: moduleEls[i] };
+            }
+        }
+
+        // After last module
+        return { beforeEl: null };
+    }
+
+    function handleModuleMouseDown(e) {
+        // Only left click, and not on interactive elements
+        if (e.button !== 0) return;
+        if (e.target.closest('.jack, .knob, .switch, .remove-btn, .octave-btn')) return;
+
         const moduleEl = e.target.closest('.module');
         if (!moduleEl) return;
 
+        e.preventDefault();
+
         draggedModule = moduleEl.dataset.instanceId;
+        draggedModuleEl = moduleEl;
+        isDragging = true;
+
+        // Create the drop indicator and insert it at the original position
+        createDropIndicator(moduleEl);
+        moduleEl.parentNode.insertBefore(dropIndicator, moduleEl);
+
+        // Hide the original (it stays in DOM to maintain layout reference)
         moduleEl.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', draggedModule);
+
+        // Add move and up listeners to document
+        document.addEventListener('mousemove', handleDragMove);
+        document.addEventListener('mouseup', handleDragEnd);
     }
 
-    function handleModuleDragEnd(e) {
-        const moduleEl = e.target.closest('.module');
-        if (moduleEl) {
-            moduleEl.classList.remove('dragging');
-        }
-        draggedModule = null;
+    function handleDragMove(e) {
+        if (!isDragging || !draggedModuleEl) return;
 
-        // Clean up all drag-over states
-        document.querySelectorAll('.module').forEach(el => {
-            el.classList.remove('drag-over-left', 'drag-over-right');
-        });
+        // Find which row we're over
+        const rowEls = document.querySelectorAll('.rack-row');
+        let targetRow = null;
+
+        for (const rowEl of rowEls) {
+            const rect = rowEl.getBoundingClientRect();
+            if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                targetRow = rowEl;
+                break;
+            }
+        }
+
+        // Clear all drag-over states
+        rowEls.forEach(el => el.classList.remove('drag-over'));
+
+        if (!targetRow) {
+            // Not over any row - put ghost back in original position
+            const originalRow = draggedModuleEl.parentNode;
+            if (dropIndicator && dropIndicator.parentNode !== originalRow) {
+                originalRow.insertBefore(dropIndicator, draggedModuleEl);
+            }
+            return;
+        }
+
+        targetRow.classList.add('drag-over');
+
+        // Find where to show the drop indicator (don't exclude dragged module)
+        const { beforeEl } = findDropPosition(targetRow, e.clientX, null);
+
+        // Ensure indicator exists
+        if (!dropIndicator) {
+            createDropIndicator(draggedModuleEl);
+        }
+
+        // Insert indicator at position (it will replace the invisible original visually)
+        if (beforeEl) {
+            // Don't insert before the dragged element itself
+            if (beforeEl !== draggedModuleEl) {
+                targetRow.insertBefore(dropIndicator, beforeEl);
+            } else {
+                // Insert before the dragged element (which is invisible)
+                targetRow.insertBefore(dropIndicator, draggedModuleEl);
+            }
+        } else {
+            targetRow.appendChild(dropIndicator);
+        }
+
+        // Redraw cables to follow the ghost
+        cables.forEach(renderCable);
+    }
+
+    function handleDragEnd(e) {
+        if (!isDragging) return;
+
+        document.removeEventListener('mousemove', handleDragMove);
+        document.removeEventListener('mouseup', handleDragEnd);
+
+        // If we have a drop indicator, perform the drop
+        if (dropIndicator && dropIndicator.parentNode) {
+            const rowEl = dropIndicator.parentNode;
+            const targetRow = rowEl.id === 'rack-row-1' ? 1 : 2;
+            const draggedMod = modules[draggedModule];
+
+            if (draggedMod) {
+                const targetRowModules = targetRow === 1 ? row1Modules : row2Modules;
+                const fromRow = draggedMod.row;
+                const fromRowModules = fromRow === 1 ? row1Modules : row2Modules;
+
+                // Check if it fits in target row (if changing rows)
+                let canDrop = true;
+                if (fromRow !== targetRow) {
+                    const currentHP = getRowHP(targetRowModules);
+                    if (currentHP + draggedMod.def.hp > MAX_HP_PER_ROW) {
+                        canDrop = false;
+                    }
+                }
+
+                if (canDrop) {
+                    // Find the beforeEl from the drop indicator's current position
+                    const beforeEl = dropIndicator.nextElementSibling;
+
+                    // Remove from current position in array
+                    const fromIdx = fromRowModules.indexOf(draggedModule);
+                    if (fromIdx >= 0) {
+                        fromRowModules.splice(fromIdx, 1);
+                    }
+
+                    // Find where to insert based on beforeEl
+                    let insertIdx;
+                    if (beforeEl && beforeEl.classList.contains('module')) {
+                        const beforeId = beforeEl.dataset.instanceId;
+                        insertIdx = targetRowModules.indexOf(beforeId);
+                        if (insertIdx === -1) insertIdx = targetRowModules.length;
+                    } else {
+                        insertIdx = targetRowModules.length;
+                    }
+
+                    // Insert at new position
+                    targetRowModules.splice(insertIdx, 0, draggedModule);
+                    draggedMod.row = targetRow;
+                    draggedMod.el.dataset.row = targetRow;
+
+                    // Update DOM - insert at correct position
+                    if (beforeEl && beforeEl.classList.contains('module')) {
+                        rowEl.insertBefore(draggedMod.el, beforeEl);
+                    } else {
+                        rowEl.appendChild(draggedMod.el);
+                    }
+
+                    // Update empty states
+                    const fromRowEl = document.getElementById(`rack-row-${fromRow}`);
+                    if (fromRowModules.length === 0) {
+                        fromRowEl.classList.add('empty');
+                    }
+                    rowEl.classList.remove('empty');
+
+                    // Redraw cables
+                    cables.forEach(renderCable);
+                }
+            }
+        }
+
+        // Clean up
+        if (draggedModuleEl) {
+            draggedModuleEl.classList.remove('dragging');
+        }
+        removeDropIndicator();
         document.querySelectorAll('.rack-row').forEach(el => {
             el.classList.remove('drag-over');
         });
-    }
 
-    function handleModuleDragOver(e) {
-        e.preventDefault();
-        if (!draggedModule) return;
-
-        const moduleEl = e.target.closest('.module');
-        if (!moduleEl || moduleEl.dataset.instanceId === draggedModule) return;
-
-        // Determine if dropping left or right of this module
-        const rect = moduleEl.getBoundingClientRect();
-        const midX = rect.left + rect.width / 2;
-
-        moduleEl.classList.remove('drag-over-left', 'drag-over-right');
-        if (e.clientX < midX) {
-            moduleEl.classList.add('drag-over-left');
-        } else {
-            moduleEl.classList.add('drag-over-right');
-        }
-    }
-
-    function handleModuleDragLeave(e) {
-        const moduleEl = e.target.closest('.module');
-        if (moduleEl) {
-            moduleEl.classList.remove('drag-over-left', 'drag-over-right');
-        }
-    }
-
-    function handleModuleDrop(e) {
-        e.preventDefault();
-        if (!draggedModule) return;
-
-        const targetModuleEl = e.target.closest('.module');
-        if (!targetModuleEl) return;
-
-        const targetId = targetModuleEl.dataset.instanceId;
-        if (targetId === draggedModule) return;
-
-        const draggedMod = modules[draggedModule];
-        const targetMod = modules[targetId];
-        if (!draggedMod || !targetMod) return;
-
-        // Determine drop position (before or after target)
-        const rect = targetModuleEl.getBoundingClientRect();
-        const dropAfter = e.clientX >= rect.left + rect.width / 2;
-
-        // Remove from current position
-        const fromRow = draggedMod.row;
-        const fromRowModules = fromRow === 1 ? row1Modules : row2Modules;
-        const fromIdx = fromRowModules.indexOf(draggedModule);
-        if (fromIdx >= 0) {
-            fromRowModules.splice(fromIdx, 1);
-        }
-
-        // Determine target row and position
-        const toRow = targetMod.row;
-        const toRowModules = toRow === 1 ? row1Modules : row2Modules;
-        let toIdx = toRowModules.indexOf(targetId);
-        if (dropAfter) toIdx++;
-
-        // Check if it fits in target row (if changing rows)
-        if (fromRow !== toRow) {
-            const toRowHP = getRowHP(toRowModules);
-            if (toRowHP + draggedMod.def.hp > MAX_HP_PER_ROW) {
-                // Revert - doesn't fit
-                fromRowModules.splice(fromIdx, 0, draggedModule);
-                return;
-            }
-        }
-
-        // Insert at new position
-        toRowModules.splice(toIdx, 0, draggedModule);
-        draggedMod.row = toRow;
-        draggedMod.el.dataset.row = toRow;
-
-        // Update DOM
-        const toRowEl = document.getElementById(`rack-row-${toRow}`);
-        const fromRowEl = document.getElementById(`rack-row-${fromRow}`);
-
-        if (toIdx >= toRowModules.length - 1) {
-            toRowEl.appendChild(draggedMod.el);
-        } else {
-            const beforeEl = document.getElementById(`module-${toRowModules[toIdx + 1]}`);
-            if (beforeEl) {
-                toRowEl.insertBefore(draggedMod.el, beforeEl);
-            } else {
-                toRowEl.appendChild(draggedMod.el);
-            }
-        }
-
-        // Update empty states
-        if (fromRowModules.length === 0) {
-            fromRowEl.classList.add('empty');
-        }
-        toRowEl.classList.remove('empty');
-
-        // Clean up drag states
-        targetModuleEl.classList.remove('drag-over-left', 'drag-over-right');
-
-        // Redraw cables
-        cables.forEach(renderCable);
-    }
-
-    function handleRowDragOver(e) {
-        e.preventDefault();
-        if (!draggedModule) return;
-
-        const rowEl = e.target.closest('.rack-row');
-        if (rowEl && rowEl.children.length === 0) {
-            rowEl.classList.add('drag-over');
-        }
-    }
-
-    function handleRowDragLeave(e) {
-        const rowEl = e.target.closest('.rack-row');
-        if (rowEl) {
-            rowEl.classList.remove('drag-over');
-        }
-    }
-
-    function handleRowDrop(e) {
-        e.preventDefault();
-        if (!draggedModule) return;
-
-        const rowEl = e.target.closest('.rack-row');
-        if (!rowEl) return;
-
-        const targetRow = rowEl.id === 'rack-row-1' ? 1 : 2;
-        const draggedMod = modules[draggedModule];
-        if (!draggedMod) return;
-
-        // Check if dropping on empty row
-        const targetRowModules = targetRow === 1 ? row1Modules : row2Modules;
-
-        // Only handle if row is empty or dropping at end
-        if (targetRowModules.length > 0) return;
-
-        // Check if it fits
-        if (draggedMod.def.hp > MAX_HP_PER_ROW) return;
-
-        // Remove from current position
-        const fromRow = draggedMod.row;
-        const fromRowModules = fromRow === 1 ? row1Modules : row2Modules;
-        const fromIdx = fromRowModules.indexOf(draggedModule);
-        if (fromIdx >= 0) {
-            fromRowModules.splice(fromIdx, 1);
-        }
-
-        // Add to new row
-        targetRowModules.push(draggedModule);
-        draggedMod.row = targetRow;
-        draggedMod.el.dataset.row = targetRow;
-
-        // Update DOM
-        rowEl.appendChild(draggedMod.el);
-
-        // Update empty states
-        const fromRowEl = document.getElementById(`rack-row-${fromRow}`);
-        if (fromRowModules.length === 0) {
-            fromRowEl.classList.add('empty');
-        }
-        rowEl.classList.remove('drag-over', 'empty');
-
-        // Redraw cables
-        cables.forEach(renderCable);
+        draggedModule = null;
+        draggedModuleEl = null;
+        isDragging = false;
     }
 
     /* =============================================================
@@ -1263,8 +1365,24 @@
     const cableSvg = document.getElementById('cable-svg');
 
     function renderCable(cable) {
-        const from = getJackCenter(cable.fromEl);
-        const to = getJackCenter(cable.toEl);
+        // If a module is being dragged, use ghost jacks instead of original jacks
+        let fromEl = cable.fromEl;
+        let toEl = cable.toEl;
+
+        if (dropIndicator && draggedModuleEl) {
+            // Check if this cable connects to the dragged module
+            if (cable.fromModule === draggedModule) {
+                const ghostJack = dropIndicator.querySelector(`.jack[data-port="${cable.fromPort}"]`);
+                if (ghostJack) fromEl = ghostJack;
+            }
+            if (cable.toModule === draggedModule) {
+                const ghostJack = dropIndicator.querySelector(`.jack[data-port="${cable.toPort}"]`);
+                if (ghostJack) toEl = ghostJack;
+            }
+        }
+
+        const from = getJackCenter(fromEl);
+        const to = getJackCenter(toEl);
         cable.pathEl.setAttribute('d', createCablePath(from.x, from.y, to.x, to.y));
     }
 
@@ -1483,14 +1601,6 @@
         }
     }
 
-    function savePatchList(patches) {
-        try {
-            localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(patches));
-        } catch (e) {
-            console.error('Error saving patches:', e);
-        }
-    }
-
     function serializeCurrentState() {
         const state = {
             modules: [],   // Module layout: [{type, instanceId, row}]
@@ -1690,14 +1800,15 @@
         }
         name = name.trim();
 
-        const patches = getPatchList();
-        patches[name] = {
+        /* Only save to user patches, not the merged list */
+        const userPatches = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY) || '{}');
+        userPatches[name] = {
             name: name,
             created: new Date().toISOString(),
             state: serializeCurrentState()
         };
 
-        savePatchList(patches);
+        localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(userPatches));
         updatePatchSelect();
         return true;
     }
@@ -1751,11 +1862,10 @@
 
     function updatePatchSelect() {
         const select = document.getElementById('patchSelect');
-        const patches = getPatchList();
 
-        /* Clear existing options except the first placeholder */
-        while (select.options.length > 1) {
-            select.remove(1);
+        /* Clear all children except the first placeholder option */
+        while (select.children.length > 1) {
+            select.removeChild(select.lastChild);
         }
 
         /* Separate factory and user patches */
@@ -1855,12 +1965,6 @@
         row1.classList.add('empty');
         row2.classList.add('empty');
 
-        /* Set up drag handlers for empty row drops */
-        [row1, row2].forEach(rowEl => {
-            rowEl.addEventListener('dragover', handleRowDragOver);
-            rowEl.addEventListener('dragleave', handleRowDragLeave);
-            rowEl.addEventListener('drop', handleRowDrop);
-        });
 
         /* Event listeners */
         document.addEventListener('mousedown', e => {

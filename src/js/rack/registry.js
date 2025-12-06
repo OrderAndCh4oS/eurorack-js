@@ -55,8 +55,8 @@ class ModuleRegistry {
         }
 
         // Validate hp is a valid size
-        if (![2, 4, 8].includes(def.hp)) {
-            throw new Error(`Module "${def.id}" has invalid hp: ${def.hp}. Must be 2, 4, or 8.`);
+        if (![2, 3, 4, 6, 8].includes(def.hp)) {
+            throw new Error(`Module "${def.id}" has invalid hp: ${def.hp}. Must be 2, 3, 4, 6, or 8.`);
         }
 
         // Must have either ui definition or render function

@@ -438,6 +438,167 @@
         .rack {
             margin-top: 48px;
         }
+
+        /* App container - sidebar + rack area */
+        .app-container {
+            display: flex;
+            margin-top: 48px;
+            height: calc(100vh - 48px);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 180px;
+            min-width: 180px;
+            background: linear-gradient(to bottom, #252525, #1a1a1a);
+            border-right: 1px solid #444;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .sidebar-category {
+            padding: 8px 12px 4px;
+            font-size: 9px;
+            font-weight: bold;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-module {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .sidebar-module:hover {
+            background: #333;
+        }
+
+        .sidebar-module-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .sidebar-module-name {
+            flex: 1;
+            font-size: 11px;
+            color: #ccc;
+        }
+
+        .sidebar-module-hp {
+            font-size: 9px;
+            color: #666;
+        }
+
+        /* Rack container - holds two rows */
+        .rack-container {
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 16px;
+        }
+
+        .rack-row {
+            margin-top: 0;
+            min-height: var(--module-height);
+            flex-shrink: 0;
+        }
+
+        .rack-row.empty {
+            border: 2px dashed #444;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #555;
+            font-size: 12px;
+        }
+
+        .rack-row.drag-over {
+            background: rgba(100, 200, 100, 0.1);
+            border-color: #4a4;
+        }
+
+        /* Module drag and remove states */
+        .module {
+            position: relative;
+            cursor: grab;
+        }
+
+        .module:active {
+            cursor: grabbing;
+        }
+
+        .module.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .module .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 16px;
+            height: 16px;
+            background: rgba(180, 60, 60, 0.9);
+            border: none;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 10px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .module:hover .remove-btn {
+            opacity: 1;
+        }
+
+        .module .remove-btn:hover {
+            background: #c44;
+        }
+
+        .module.drag-over-left::before,
+        .module.drag-over-right::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: #4a4;
+        }
+
+        .module.drag-over-left::before {
+            left: -3px;
+        }
+
+        .module.drag-over-right::after {
+            right: -3px;
+        }
+
+        /* Row HP indicator */
+        .row-hp-indicator {
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 10px;
+            color: #555;
+        }
     </style>
 </head>
 <body>
@@ -471,8 +632,14 @@
 
 <svg id="cable-svg"></svg>
 
-<div class="rack" id="rack">
-    <!-- Modules will be rendered by JavaScript -->
+<div class="app-container">
+    <div class="sidebar" id="sidebar">
+        <!-- Module categories populated by JS -->
+    </div>
+    <div class="rack-container" id="rack-container">
+        <div class="rack rack-row" id="rack-row-1"></div>
+        <div class="rack rack-row" id="rack-row-2"></div>
+    </div>
 </div>
 
 <script type="module">
@@ -503,9 +670,27 @@
     let cables = [];
     let dragState = null;
 
+    /* New state for flexible rack */
+    const MAX_HP_PER_ROW = 84;
+    let instanceCounters = {};  // Counter per module type for unique IDs
+    let row1Modules = [];       // Instance IDs in row 1
+    let row2Modules = [];       // Instance IDs in row 2
+    let draggedModule = null;   // Currently dragged module ID
 
     /* Module definitions from the self-contained module system */
     const MODULE_ORDER = DEFAULT_MODULE_ORDER;
+
+    /* Category display order and labels */
+    const CATEGORY_ORDER = ['clock', 'modulation', 'quantizer', 'voice', 'effect', 'output', 'other'];
+    const CATEGORY_LABELS = {
+        'clock': 'Clock & Utility',
+        'modulation': 'Modulation',
+        'quantizer': 'Quantizer',
+        'voice': 'Voices',
+        'effect': 'Effects',
+        'output': 'Output',
+        'other': 'Other'
+    };
 
 
     /* =============================================================
@@ -668,6 +853,407 @@
         knobEl.style.setProperty('--rotation', `${rotation}deg`);
         const indicator = knobEl.querySelector('::after') || knobEl;
         knobEl.style.transform = `rotate(${rotation}deg)`;
+    }
+
+    /* =============================================================
+     * Sidebar & Module Management
+     * =========================================================== */
+
+    function populateSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        sidebar.innerHTML = '';
+
+        // Get all registered categories
+        const registeredCategories = moduleRegistry.getCategories();
+
+        // Build category -> modules map
+        const categoryModules = {};
+        CATEGORY_ORDER.forEach(cat => {
+            categoryModules[cat] = [];
+        });
+
+        // Populate with modules from registry
+        registeredCategories.forEach(cat => {
+            const targetCat = CATEGORY_ORDER.includes(cat) ? cat : 'other';
+            const mods = moduleRegistry.getByCategory(cat);
+            categoryModules[targetCat].push(...mods);
+        });
+
+        // Render each category
+        CATEGORY_ORDER.forEach(cat => {
+            const mods = categoryModules[cat];
+            if (mods.length === 0) return;
+
+            const categoryEl = document.createElement('div');
+            categoryEl.className = 'sidebar-category';
+            categoryEl.textContent = CATEGORY_LABELS[cat] || cat;
+            sidebar.appendChild(categoryEl);
+
+            mods.forEach(def => {
+                const modEl = document.createElement('div');
+                modEl.className = 'sidebar-module';
+                modEl.dataset.moduleType = def.id;
+                modEl.innerHTML = `
+                    <div class="sidebar-module-color" style="background: ${def.color}"></div>
+                    <div class="sidebar-module-name">${def.name}</div>
+                    <div class="sidebar-module-hp">${def.hp}hp</div>
+                `;
+                modEl.addEventListener('click', () => addModuleToRack(def.id));
+                sidebar.appendChild(modEl);
+            });
+        });
+    }
+
+    function getRowHP(rowModules) {
+        return rowModules.reduce((sum, id) => {
+            const mod = modules[id];
+            return sum + (mod ? mod.def.hp : 0);
+        }, 0);
+    }
+
+    function generateInstanceId(moduleType) {
+        if (!instanceCounters[moduleType]) {
+            instanceCounters[moduleType] = 0;
+        }
+        instanceCounters[moduleType]++;
+        return `${moduleType}_${instanceCounters[moduleType]}`;
+    }
+
+    function addModuleToRack(moduleType, targetRow = null, targetPosition = null, forceInstanceId = null) {
+        const def = moduleRegistry.get(moduleType);
+        if (!def) {
+            console.warn(`Module type "${moduleType}" not found`);
+            return null;
+        }
+
+        const hp = def.hp;
+        const row1HP = getRowHP(row1Modules);
+        const row2HP = getRowHP(row2Modules);
+
+        // Determine which row to add to
+        let row, rowModules, rowEl;
+        if (targetRow === 1 || (targetRow === null && row1HP + hp <= MAX_HP_PER_ROW)) {
+            row = 1;
+            rowModules = row1Modules;
+            rowEl = document.getElementById('rack-row-1');
+        } else if (targetRow === 2 || (targetRow === null && row2HP + hp <= MAX_HP_PER_ROW)) {
+            row = 2;
+            rowModules = row2Modules;
+            rowEl = document.getElementById('rack-row-2');
+        } else {
+            console.warn('Both rows are full');
+            return null;
+        }
+
+        // Check if it fits
+        const currentHP = getRowHP(rowModules);
+        if (currentHP + hp > MAX_HP_PER_ROW) {
+            console.warn(`Row ${row} is full`);
+            return null;
+        }
+
+        // Use provided instance ID or generate a new one
+        const instanceId = forceInstanceId || generateInstanceId(moduleType);
+
+        // Create module element
+        const el = renderModule(moduleType, instanceId);
+        el.draggable = true;
+        el.dataset.instanceId = instanceId;
+        el.dataset.row = row;
+
+        // Add remove button
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn';
+        removeBtn.innerHTML = '×';
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeModuleFromRack(instanceId);
+        });
+        el.appendChild(removeBtn);
+
+        // Add drag handlers
+        el.addEventListener('dragstart', handleModuleDragStart);
+        el.addEventListener('dragend', handleModuleDragEnd);
+        el.addEventListener('dragover', handleModuleDragOver);
+        el.addEventListener('dragleave', handleModuleDragLeave);
+        el.addEventListener('drop', handleModuleDrop);
+
+        // Create DSP instance if audio is running
+        let instance = null;
+        if (audioCtx) {
+            instance = def.createDSP({
+                sampleRate: audioCtx.sampleRate,
+                bufferSize: 512,
+                audioCtx: audioCtx
+            });
+        }
+
+        // Store in modules map
+        modules[instanceId] = { def, el, instance, type: moduleType, row };
+
+        // Add to row
+        if (targetPosition !== null && targetPosition < rowModules.length) {
+            const beforeEl = document.getElementById(`module-${rowModules[targetPosition]}`);
+            rowEl.insertBefore(el, beforeEl);
+            rowModules.splice(targetPosition, 0, instanceId);
+        } else {
+            rowEl.appendChild(el);
+            rowModules.push(instanceId);
+        }
+
+        // Update row empty state
+        rowEl.classList.remove('empty');
+
+        // Initialize knob rotations
+        el.querySelectorAll('.knob').forEach(updateKnobRotation);
+
+        // Update engine if running
+        updateEngineModules();
+
+        return instanceId;
+    }
+
+    function removeModuleFromRack(instanceId) {
+        const mod = modules[instanceId];
+        if (!mod) return;
+
+        // Remove connected cables
+        const connectedCables = cables.filter(c =>
+            c.fromModule === instanceId || c.toModule === instanceId
+        );
+        connectedCables.forEach(removeCable);
+
+        // Remove from DOM
+        mod.el.remove();
+
+        // Remove from row array
+        const row1Idx = row1Modules.indexOf(instanceId);
+        if (row1Idx >= 0) {
+            row1Modules.splice(row1Idx, 1);
+            if (row1Modules.length === 0) {
+                document.getElementById('rack-row-1').classList.add('empty');
+            }
+        }
+        const row2Idx = row2Modules.indexOf(instanceId);
+        if (row2Idx >= 0) {
+            row2Modules.splice(row2Idx, 1);
+            if (row2Modules.length === 0) {
+                document.getElementById('rack-row-2').classList.add('empty');
+            }
+        }
+
+        // Remove from modules map
+        delete modules[instanceId];
+
+        // Update engine
+        updateEngineModules();
+    }
+
+    function updateEngineModules() {
+        if (engine) {
+            engine.setModules(modules);
+            engine.setCables(cables.map(c => ({
+                fromModule: c.fromModule,
+                fromPort: c.fromPort,
+                toModule: c.toModule,
+                toPort: c.toPort
+            })));
+        }
+    }
+
+    /* =============================================================
+     * Module Drag and Drop
+     * =========================================================== */
+
+    function handleModuleDragStart(e) {
+        const moduleEl = e.target.closest('.module');
+        if (!moduleEl) return;
+
+        draggedModule = moduleEl.dataset.instanceId;
+        moduleEl.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedModule);
+    }
+
+    function handleModuleDragEnd(e) {
+        const moduleEl = e.target.closest('.module');
+        if (moduleEl) {
+            moduleEl.classList.remove('dragging');
+        }
+        draggedModule = null;
+
+        // Clean up all drag-over states
+        document.querySelectorAll('.module').forEach(el => {
+            el.classList.remove('drag-over-left', 'drag-over-right');
+        });
+        document.querySelectorAll('.rack-row').forEach(el => {
+            el.classList.remove('drag-over');
+        });
+    }
+
+    function handleModuleDragOver(e) {
+        e.preventDefault();
+        if (!draggedModule) return;
+
+        const moduleEl = e.target.closest('.module');
+        if (!moduleEl || moduleEl.dataset.instanceId === draggedModule) return;
+
+        // Determine if dropping left or right of this module
+        const rect = moduleEl.getBoundingClientRect();
+        const midX = rect.left + rect.width / 2;
+
+        moduleEl.classList.remove('drag-over-left', 'drag-over-right');
+        if (e.clientX < midX) {
+            moduleEl.classList.add('drag-over-left');
+        } else {
+            moduleEl.classList.add('drag-over-right');
+        }
+    }
+
+    function handleModuleDragLeave(e) {
+        const moduleEl = e.target.closest('.module');
+        if (moduleEl) {
+            moduleEl.classList.remove('drag-over-left', 'drag-over-right');
+        }
+    }
+
+    function handleModuleDrop(e) {
+        e.preventDefault();
+        if (!draggedModule) return;
+
+        const targetModuleEl = e.target.closest('.module');
+        if (!targetModuleEl) return;
+
+        const targetId = targetModuleEl.dataset.instanceId;
+        if (targetId === draggedModule) return;
+
+        const draggedMod = modules[draggedModule];
+        const targetMod = modules[targetId];
+        if (!draggedMod || !targetMod) return;
+
+        // Determine drop position (before or after target)
+        const rect = targetModuleEl.getBoundingClientRect();
+        const dropAfter = e.clientX >= rect.left + rect.width / 2;
+
+        // Remove from current position
+        const fromRow = draggedMod.row;
+        const fromRowModules = fromRow === 1 ? row1Modules : row2Modules;
+        const fromIdx = fromRowModules.indexOf(draggedModule);
+        if (fromIdx >= 0) {
+            fromRowModules.splice(fromIdx, 1);
+        }
+
+        // Determine target row and position
+        const toRow = targetMod.row;
+        const toRowModules = toRow === 1 ? row1Modules : row2Modules;
+        let toIdx = toRowModules.indexOf(targetId);
+        if (dropAfter) toIdx++;
+
+        // Check if it fits in target row (if changing rows)
+        if (fromRow !== toRow) {
+            const toRowHP = getRowHP(toRowModules);
+            if (toRowHP + draggedMod.def.hp > MAX_HP_PER_ROW) {
+                // Revert - doesn't fit
+                fromRowModules.splice(fromIdx, 0, draggedModule);
+                return;
+            }
+        }
+
+        // Insert at new position
+        toRowModules.splice(toIdx, 0, draggedModule);
+        draggedMod.row = toRow;
+        draggedMod.el.dataset.row = toRow;
+
+        // Update DOM
+        const toRowEl = document.getElementById(`rack-row-${toRow}`);
+        const fromRowEl = document.getElementById(`rack-row-${fromRow}`);
+
+        if (toIdx >= toRowModules.length - 1) {
+            toRowEl.appendChild(draggedMod.el);
+        } else {
+            const beforeEl = document.getElementById(`module-${toRowModules[toIdx + 1]}`);
+            if (beforeEl) {
+                toRowEl.insertBefore(draggedMod.el, beforeEl);
+            } else {
+                toRowEl.appendChild(draggedMod.el);
+            }
+        }
+
+        // Update empty states
+        if (fromRowModules.length === 0) {
+            fromRowEl.classList.add('empty');
+        }
+        toRowEl.classList.remove('empty');
+
+        // Clean up drag states
+        targetModuleEl.classList.remove('drag-over-left', 'drag-over-right');
+
+        // Redraw cables
+        cables.forEach(renderCable);
+    }
+
+    function handleRowDragOver(e) {
+        e.preventDefault();
+        if (!draggedModule) return;
+
+        const rowEl = e.target.closest('.rack-row');
+        if (rowEl && rowEl.children.length === 0) {
+            rowEl.classList.add('drag-over');
+        }
+    }
+
+    function handleRowDragLeave(e) {
+        const rowEl = e.target.closest('.rack-row');
+        if (rowEl) {
+            rowEl.classList.remove('drag-over');
+        }
+    }
+
+    function handleRowDrop(e) {
+        e.preventDefault();
+        if (!draggedModule) return;
+
+        const rowEl = e.target.closest('.rack-row');
+        if (!rowEl) return;
+
+        const targetRow = rowEl.id === 'rack-row-1' ? 1 : 2;
+        const draggedMod = modules[draggedModule];
+        if (!draggedMod) return;
+
+        // Check if dropping on empty row
+        const targetRowModules = targetRow === 1 ? row1Modules : row2Modules;
+
+        // Only handle if row is empty or dropping at end
+        if (targetRowModules.length > 0) return;
+
+        // Check if it fits
+        if (draggedMod.def.hp > MAX_HP_PER_ROW) return;
+
+        // Remove from current position
+        const fromRow = draggedMod.row;
+        const fromRowModules = fromRow === 1 ? row1Modules : row2Modules;
+        const fromIdx = fromRowModules.indexOf(draggedModule);
+        if (fromIdx >= 0) {
+            fromRowModules.splice(fromIdx, 1);
+        }
+
+        // Add to new row
+        targetRowModules.push(draggedModule);
+        draggedMod.row = targetRow;
+        draggedMod.el.dataset.row = targetRow;
+
+        // Update DOM
+        rowEl.appendChild(draggedMod.el);
+
+        // Update empty states
+        const fromRowEl = document.getElementById(`rack-row-${fromRow}`);
+        if (fromRowModules.length === 0) {
+            fromRowEl.classList.add('empty');
+        }
+        rowEl.classList.remove('drag-over', 'empty');
+
+        // Redraw cables
+        cables.forEach(renderCable);
     }
 
     /* =============================================================
@@ -907,11 +1493,26 @@
 
     function serializeCurrentState() {
         const state = {
+            modules: [],   // Module layout: [{type, instanceId, row}]
             knobs: {},
             switches: {},
             buttons: {},
             cables: []
         };
+
+        /* Serialize module layout */
+        row1Modules.forEach(instanceId => {
+            const mod = modules[instanceId];
+            if (mod) {
+                state.modules.push({ type: mod.type, instanceId, row: 1 });
+            }
+        });
+        row2Modules.forEach(instanceId => {
+            const mod = modules[instanceId];
+            if (mod) {
+                state.modules.push({ type: mod.type, instanceId, row: 2 });
+            }
+        });
 
         /* Serialize all knob values */
         document.querySelectorAll('.knob').forEach(knob => {
@@ -954,13 +1555,65 @@
         return state;
     }
 
+    function clearRack() {
+        /* Remove all modules from rack */
+        const allModuleIds = [...row1Modules, ...row2Modules];
+        allModuleIds.forEach(instanceId => {
+            const mod = modules[instanceId];
+            if (mod) {
+                mod.el.remove();
+                delete modules[instanceId];
+            }
+        });
+        row1Modules.length = 0;
+        row2Modules.length = 0;
+        instanceCounters = {};
+
+        /* Mark rows as empty */
+        document.getElementById('rack-row-1').classList.add('empty');
+        document.getElementById('rack-row-2').classList.add('empty');
+    }
+
     function applyPatchState(state) {
         /* Clear existing cables */
         clearAllCables();
 
+        /* Build ID mapping for old-style patches */
+        const idMapping = {};
+
+        /* Handle module layout - new format includes modules array */
+        if (state.modules && state.modules.length > 0) {
+            /* Clear existing rack and rebuild from saved layout */
+            clearRack();
+
+            state.modules.forEach(modInfo => {
+                const { type, instanceId, row } = modInfo;
+                /* Pass the saved instanceId to preserve exact IDs */
+                addModuleToRack(type, row, null, instanceId);
+            });
+        } else {
+            /* Legacy patch format - use MODULE_ORDER if no layout and rack is empty */
+            if (row1Modules.length === 0 && row2Modules.length === 0) {
+                MODULE_ORDER.forEach(type => {
+                    const newId = addModuleToRack(type);
+                    idMapping[type] = newId;
+                });
+            } else {
+                /* Keep current modules, map old type-based IDs to current instance IDs */
+                Object.keys(modules).forEach(instanceId => {
+                    const mod = modules[instanceId];
+                    idMapping[mod.type] = instanceId;
+                });
+            }
+        }
+
+        /* Helper to resolve module ID (handles both old and new formats) */
+        const resolveModuleId = (savedId) => idMapping[savedId] || savedId;
+
         /* Apply knob values */
         if (state.knobs) {
-            Object.entries(state.knobs).forEach(([moduleId, params]) => {
+            Object.entries(state.knobs).forEach(([savedId, params]) => {
+                const moduleId = resolveModuleId(savedId);
                 Object.entries(params).forEach(([param, value]) => {
                     const knob = document.querySelector(`.knob[data-module="${moduleId}"][data-param="${param}"]`);
                     if (knob) {
@@ -976,7 +1629,8 @@
 
         /* Apply switch states */
         if (state.switches) {
-            Object.entries(state.switches).forEach(([moduleId, params]) => {
+            Object.entries(state.switches).forEach(([savedId, params]) => {
+                const moduleId = resolveModuleId(savedId);
                 Object.entries(params).forEach(([param, isOn]) => {
                     const sw = document.querySelector(`.switch[data-module="${moduleId}"][data-param="${param}"]`);
                     if (sw) {
@@ -998,7 +1652,8 @@
 
         /* Apply button bank states */
         if (state.buttons) {
-            Object.entries(state.buttons).forEach(([moduleId, params]) => {
+            Object.entries(state.buttons).forEach(([savedId, params]) => {
+                const moduleId = resolveModuleId(savedId);
                 Object.entries(params).forEach(([param, value]) => {
                     const bank = document.querySelector(`.button-bank[data-module="${moduleId}"][data-param="${param}"]`);
                     if (bank) {
@@ -1016,9 +1671,11 @@
         /* Apply cable connections */
         if (state.cables) {
             state.cables.forEach(conn => {
+                const fromModule = resolveModuleId(conn.fromModule);
+                const toModule = resolveModuleId(conn.toModule);
                 /* Find jacks by module, port, and direction (output→input) */
-                const fromJack = document.querySelector(`.jack.output[data-module="${conn.fromModule}"][data-port="${conn.fromPort}"]`);
-                const toJack = document.querySelector(`.jack.input[data-module="${conn.toModule}"][data-port="${conn.toPort}"]`);
+                const fromJack = document.querySelector(`.jack.output[data-module="${fromModule}"][data-port="${conn.fromPort}"]`);
+                const toJack = document.querySelector(`.jack.input[data-module="${toModule}"][data-port="${conn.toPort}"]`);
                 if (fromJack && toJack) {
                     addCable(fromJack, toJack);
                 }
@@ -1187,18 +1844,23 @@
         /* Load all module definitions into registry */
         await loadModules();
 
-        const rack = document.getElementById('rack');
+        /* Populate sidebar with available modules */
+        populateSidebar();
 
-        /* Create modules using imported MODULE_ORDER */
-        MODULE_ORDER.forEach(type => {
-            const def = moduleRegistry.get(type);
-            const el = renderModule(type, type);
-            rack.appendChild(el);
-            modules[type] = {def, el, instance: null};
+        /* Set up rack rows */
+        const row1 = document.getElementById('rack-row-1');
+        const row2 = document.getElementById('rack-row-2');
+
+        /* Mark rows as empty initially */
+        row1.classList.add('empty');
+        row2.classList.add('empty');
+
+        /* Set up drag handlers for empty row drops */
+        [row1, row2].forEach(rowEl => {
+            rowEl.addEventListener('dragover', handleRowDragOver);
+            rowEl.addEventListener('dragleave', handleRowDragLeave);
+            rowEl.addEventListener('drop', handleRowDrop);
         });
-
-        /* Initialize knob rotations */
-        document.querySelectorAll('.knob').forEach(updateKnobRotation);
 
         /* Event listeners */
         document.addEventListener('mousedown', e => {

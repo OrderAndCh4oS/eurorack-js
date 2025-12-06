@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { create2hpLFO } from '../../src/js/dsp/lfo.js';
+import lfoModule from '../../src/js/modules/lfo/index.js';
+
+// Helper to create LFO instance using new module system
+const create2hpLFO = (options = {}) => lfoModule.createDSP(options);
 
 /**
  * 2hp LFO Specification Compliance Tests
@@ -32,9 +35,9 @@ describe('create2hpLFO', () => {
         });
 
         it('should create an LFO with default inputs', () => {
-            expect(lfo.inputs.rateCV).toBe(0);
-            expect(lfo.inputs.waveCV).toBe(0);
-            expect(lfo.inputs.reset).toBe(0);
+            expect(lfo.inputs.rateCV).toBeInstanceOf(Float32Array);
+            expect(lfo.inputs.waveCV).toBeInstanceOf(Float32Array);
+            expect(lfo.inputs.reset).toBeInstanceOf(Float32Array);
         });
 
         it('should create output buffers of correct size', () => {
@@ -151,11 +154,11 @@ describe('create2hpLFO', () => {
     describe('CV modulation', () => {
         it('should respond to rateCV', () => {
             const noCV = create2hpLFO({ bufferSize: 4410 });
-            noCV.inputs.rateCV = 0;
+            noCV.inputs.rateCV.fill(0);
             noCV.process();
 
             const withCV = create2hpLFO({ bufferSize: 4410 });
-            withCV.inputs.rateCV = 3; // +3 octaves
+            withCV.inputs.rateCV.fill(3); // +3 octaves
             withCV.process();
 
             // Both should produce valid output
@@ -165,12 +168,12 @@ describe('create2hpLFO', () => {
 
         it('should respond to waveCV', () => {
             const noCV = create2hpLFO();
-            noCV.inputs.waveCV = 0;
+            noCV.inputs.waveCV.fill(0);
             noCV.process();
             const output1 = [...noCV.outputs.primary];
 
             const withCV = create2hpLFO();
-            withCV.inputs.waveCV = 2.5;
+            withCV.inputs.waveCV.fill(2.5);
             withCV.process();
             const output2 = [...withCV.outputs.primary];
 
@@ -191,7 +194,7 @@ describe('create2hpLFO', () => {
             const beforeReset = [...lfo.outputs.primary];
 
             // Trigger reset
-            lfo.inputs.reset = 5;
+            lfo.inputs.reset.fill(5);
             lfo.process();
             const afterReset = [...lfo.outputs.primary];
 
@@ -355,13 +358,13 @@ describe('create2hpLFO', () => {
                 const lfoNoCV = create2hpLFO({ sampleRate, bufferSize });
                 lfoNoCV.params.rateKnob = 0.5; // Higher rate to ensure crossings
                 lfoNoCV.params.range = 0; // Slow mode
-                lfoNoCV.inputs.rateCV = 0;
+                lfoNoCV.inputs.rateCV.fill(0);
                 lfoNoCV.process();
 
                 const lfoWithCV = create2hpLFO({ sampleRate, bufferSize });
                 lfoWithCV.params.rateKnob = 0.5;
                 lfoWithCV.params.range = 0;
-                lfoWithCV.inputs.rateCV = 2; // +2V CV = +2 octaves (4x frequency)
+                lfoWithCV.inputs.rateCV.fill(2); // +2V CV = +2 octaves (4x frequency)
                 lfoWithCV.process();
 
                 // Count crossings to verify CV increases rate
@@ -384,7 +387,7 @@ describe('create2hpLFO', () => {
             it('should clamp CV input to 0-5V range', () => {
                 const lfo = create2hpLFO();
                 lfo.params.rateKnob = 0.5;
-                lfo.inputs.rateCV = 10; // Exceeds 5V
+                lfo.inputs.rateCV.fill(10); // Exceeds 5V
                 lfo.process();
 
                 // Should not crash and should produce valid output
@@ -396,13 +399,13 @@ describe('create2hpLFO', () => {
             it('should morph waveforms with CV', () => {
                 const lfoSine = create2hpLFO();
                 lfoSine.params.waveKnob = 0;
-                lfoSine.inputs.waveCV = 0;
+                lfoSine.inputs.waveCV.fill(0);
                 lfoSine.process();
                 const sineOut = [...lfoSine.outputs.primary];
 
                 const lfoMorphed = create2hpLFO();
                 lfoMorphed.params.waveKnob = 0;
-                lfoMorphed.inputs.waveCV = 2.5; // +2.5V = half morph
+                lfoMorphed.inputs.waveCV.fill(2.5); // +2.5V = half morph
                 lfoMorphed.process();
                 const morphedOut = [...lfoMorphed.outputs.primary];
 
@@ -424,9 +427,9 @@ describe('create2hpLFO', () => {
                 const beforeReset = lfo.outputs.primary[0];
 
                 // Trigger reset (rising edge from 0 to >=1V)
-                lfo.inputs.reset = 0;
+                lfo.inputs.reset.fill(0);
                 lfo.process();
-                lfo.inputs.reset = 5; // Rising edge
+                lfo.inputs.reset.fill(5); // Rising edge
                 lfo.process();
                 const afterReset = lfo.outputs.primary[0];
 
@@ -441,7 +444,7 @@ describe('create2hpLFO', () => {
                 lfo.params.rateKnob = 0.5;
 
                 // Set reset high first
-                lfo.inputs.reset = 5;
+                lfo.inputs.reset.fill(5);
                 lfo.process();
 
                 // Keep high and process more

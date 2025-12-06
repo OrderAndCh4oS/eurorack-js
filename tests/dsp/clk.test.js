@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createClk } from '../../src/js/dsp/clk.js';
+import clkModule from '../../src/js/modules/clk/index.js';
+
+// Helper to create CLK instance using new module system
+const createClk = (options = {}) => clkModule.createDSP(options);
 
 describe('createClk', () => {
     let clk;

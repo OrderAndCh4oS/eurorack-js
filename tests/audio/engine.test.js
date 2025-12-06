@@ -1,9 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createAudioEngine, createMockAudioContext, computeProcessOrder } from '../../src/js/audio/engine.js';
-import { create2hpLFO } from '../../src/js/dsp/lfo.js';
-import { create2hpVCO } from '../../src/js/dsp/vco.js';
-import { create2hpDualVCA } from '../../src/js/dsp/vca.js';
-import { create2hpOut } from '../../src/js/dsp/output.js';
+import lfoModule from '../../src/js/modules/lfo/index.js';
+import vcoModule from '../../src/js/modules/vco/index.js';
+import vcaModule from '../../src/js/modules/vca/index.js';
+import outModule from '../../src/js/modules/out/index.js';
+
+// Helper functions to create module instances
+const create2hpLFO = (options = {}) => lfoModule.createDSP(options);
+const create2hpVCO = (options = {}) => vcoModule.createDSP(options);
+const create2hpDualVCA = (options = {}) => vcaModule.createDSP(options);
+const create2hpOut = (audioCtx, options = {}) => outModule.createDSP({ audioCtx, ...options });
 
 // Mock AudioContext for output module
 class MockFullAudioContext {

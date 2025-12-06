@@ -1,9 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-    createKnobController,
-    setKnobValue,
-    getKnobValue
-} from '../../src/js/ui/knob-controller.js';
+import { createKnobController } from '../../src/js/ui/toolkit/interactions.js';
+import { setKnobValue, getKnobValue } from '../../src/js/ui/toolkit/components.js';
 
 describe('knob-controller', () => {
     describe('createKnobController', () => {

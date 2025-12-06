@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createSH } from '../../src/js/dsp/sh.js';
+import shModule from '../../src/js/modules/sh/index.js';
+
+// Helper to create SH instance using new module system
+const createSH = (options = {}) => shModule.createDSP(options);
 
 /**
  * 2hp S+H Specification Compliance Tests

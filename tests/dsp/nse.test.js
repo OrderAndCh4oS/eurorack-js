@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createNse } from '../../src/js/dsp/nse.js';
+import nseModule from '../../src/js/modules/nse/index.js';
+
+// Helper to create Nse instance using new module system
+const createNse = (options = {}) => nseModule.createDSP(options);
 
 /**
  * 2hp Nse Specification Compliance Tests

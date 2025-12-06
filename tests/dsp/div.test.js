@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createDiv, DIV_RATIO_NAMES } from '../../src/js/dsp/div.js';
+import divModule, { DIV_RATIO_NAMES } from '../../src/js/modules/div/index.js';
+
+// Helper to create Div instance using new module system
+const createDiv = (options = {}) => divModule.createDSP(options);
 
 describe('createDiv', () => {
     let div;

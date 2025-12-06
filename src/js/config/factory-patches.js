@@ -395,5 +395,246 @@ export const FACTORY_PATCHES = {
                 { fromModule: 'adsr', fromPort: 'env', toModule: 'vca', toPort: 'ch2CV' }
             ]
         }
+    },
+
+    /* === Drum Test Patches === */
+    'Test - Snare Only': {
+        name: 'Test - Snare Only',
+        factory: true,
+        // Simple snare test patch for tuning the sound
+        state: {
+            knobs: {
+                clk: { rate: 0.25 },
+                snare: { snap: 0.5, decay: 0.5, pitch: 0.5 },
+                mix: { lvl1: 1.0, lvl2: 0, lvl3: 0, lvl4: 0 },
+                out: { volume: 0.7 }
+            },
+            switches: {},
+            cables: [
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'snare', toPort: 'trigger' },
+                { fromModule: 'snare', fromPort: 'out', toModule: 'mix', toPort: 'in1' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'L' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'R' }
+            ]
+        }
+    },
+    'Test - Kick Only': {
+        name: 'Test - Kick Only',
+        factory: true,
+        state: {
+            knobs: {
+                clk: { rate: 0.25 },
+                kick: { pitch: 0.3, decay: 0.5, tone: 0.3 },
+                mix: { lvl1: 1.0, lvl2: 0, lvl3: 0, lvl4: 0 },
+                out: { volume: 0.7 }
+            },
+            switches: {},
+            cables: [
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'kick', toPort: 'trigger' },
+                { fromModule: 'kick', fromPort: 'out', toModule: 'mix', toPort: 'in1' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'L' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'R' }
+            ]
+        }
+    },
+    'Test - Hat Only': {
+        name: 'Test - Hat Only',
+        factory: true,
+        state: {
+            knobs: {
+                clk: { rate: 0.3 },
+                div: { rate1: 0.4375, rate2: 0.5 },  // /2 for open hat
+                hat: { decay: 0.5, sizzle: 0.5, blend: 0.5 },
+                mix: { lvl1: 1.0, lvl2: 0, lvl3: 0, lvl4: 0 },
+                out: { volume: 0.6 }
+            },
+            switches: {},
+            cables: [
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'div', toPort: 'clock' },
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'hat', toPort: 'trigClosed' },
+                { fromModule: 'div', fromPort: 'out1', toModule: 'hat', toPort: 'trigOpen' },
+                { fromModule: 'hat', fromPort: 'out', toModule: 'mix', toPort: 'in1' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'L' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'R' }
+            ]
+        }
+    },
+
+    /* === Drum Patches === */
+    'Drums - Basic Beat': {
+        name: 'Drums - Basic Beat',
+        factory: true,
+        // Simple 4/4 beat: kick on quarters, snare on 2&4, closed hat on 8ths
+        state: {
+            knobs: {
+                clk: { rate: 0.3 },
+                div: { rate1: 0.4375, rate2: 0.5 },  // rate1=/2 (half time for snare)
+                kick: { pitch: 0.3, decay: 0.5, tone: 0.3 },
+                snare: { snap: 0.6, decay: 0.4, pitch: 0.5 },
+                hat: { decay: 0.3, sizzle: 0.5, blend: 0.4 },
+                mix: { lvl1: 0.9, lvl2: 0.7, lvl3: 0.5, lvl4: 0 },
+                out: { volume: 0.6 }
+            },
+            switches: {},
+            cables: [
+                // Clock distribution
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'div', toPort: 'clock' },
+                // Kick on every beat (clock directly)
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'kick', toPort: 'trigger' },
+                // Snare on half time (/2)
+                { fromModule: 'div', fromPort: 'out1', toModule: 'snare', toPort: 'trigger' },
+                // Closed hat on clock (every beat for now)
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'hat', toPort: 'trigClosed' },
+                // Mix all drums
+                { fromModule: 'kick', fromPort: 'out', toModule: 'mix', toPort: 'in1' },
+                { fromModule: 'snare', fromPort: 'out', toModule: 'mix', toPort: 'in2' },
+                { fromModule: 'hat', fromPort: 'out', toModule: 'mix', toPort: 'in3' },
+                // Output
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'L' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'R' }
+            ]
+        }
+    },
+    'Drums - 808 Style': {
+        name: 'Drums - 808 Style',
+        factory: true,
+        // Classic 808 house beat with open/closed hats
+        state: {
+            knobs: {
+                clk: { rate: 0.28 },
+                div: { rate1: 0.4375, rate2: 0.625 },  // rate1=/2, rate2=x2 for double-time hats
+                kick: { pitch: 0.25, decay: 0.6, tone: 0.2 },
+                snare: { snap: 0.5, decay: 0.5, pitch: 0.45 },
+                hat: { decay: 0.4, sizzle: 0.6, blend: 0.3 },
+                mix: { lvl1: 1.0, lvl2: 0.7, lvl3: 0.4, lvl4: 0 },
+                out: { volume: 0.6 }
+            },
+            switches: {},
+            cables: [
+                // Clock distribution
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'div', toPort: 'clock' },
+                // Kick on every beat
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'kick', toPort: 'trigger' },
+                // Snare on half time
+                { fromModule: 'div', fromPort: 'out1', toModule: 'snare', toPort: 'trigger' },
+                // Hats on double time - closed on out2, open on half
+                { fromModule: 'div', fromPort: 'out2', toModule: 'hat', toPort: 'trigClosed' },
+                { fromModule: 'div', fromPort: 'out1', toModule: 'hat', toPort: 'trigOpen' },
+                // Mix
+                { fromModule: 'kick', fromPort: 'out', toModule: 'mix', toPort: 'in1' },
+                { fromModule: 'snare', fromPort: 'out', toModule: 'mix', toPort: 'in2' },
+                { fromModule: 'hat', fromPort: 'out', toModule: 'mix', toPort: 'in3' },
+                // Output
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'L' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'R' }
+            ]
+        }
+    },
+    'Drums - Punchy Kick': {
+        name: 'Drums - Punchy Kick',
+        factory: true,
+        // Focus on kick drum with pitch and tone modulation
+        state: {
+            knobs: {
+                clk: { rate: 0.32 },
+                lfo: { rateKnob: 0.2, waveKnob: 0.5 },
+                kick: { pitch: 0.35, decay: 0.55, tone: 0.5 },
+                mix: { lvl1: 1.0, lvl2: 0, lvl3: 0, lvl4: 0 },
+                out: { volume: 0.7 }
+            },
+            switches: {
+                lfo: { range: 0 }
+            },
+            cables: [
+                // Kick triggered by clock
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'kick', toPort: 'trigger' },
+                // LFO modulates tone for evolving character
+                { fromModule: 'lfo', fromPort: 'primary', toModule: 'kick', toPort: 'toneCV' },
+                // Output
+                { fromModule: 'kick', fromPort: 'out', toModule: 'mix', toPort: 'in1' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'L' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'R' }
+            ]
+        }
+    },
+    'Drums - Snare Roll': {
+        name: 'Drums - Snare Roll',
+        factory: true,
+        // Fast snare rolls - consistent pitch for realistic roll sound
+        state: {
+            knobs: {
+                clk: { rate: 0.4 },
+                div: { rate1: 0.485, rate2: 0.5 },
+                snare: { snap: 0.5, decay: 0.2, pitch: 0.4 },
+                mix: { lvl1: 0.9, lvl2: 0, lvl3: 0, lvl4: 0 },
+                out: { volume: 0.6 }
+            },
+            switches: {},
+            cables: [
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'div', toPort: 'clock' },
+                { fromModule: 'div', fromPort: 'out1', toModule: 'snare', toPort: 'trigger' },
+                { fromModule: 'snare', fromPort: 'out', toModule: 'mix', toPort: 'in1' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'L' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'R' }
+            ]
+        }
+    },
+    'Drums - Hat Patterns': {
+        name: 'Drums - Hat Patterns',
+        factory: true,
+        // Open and closed hat interplay
+        state: {
+            knobs: {
+                clk: { rate: 0.35 },
+                div: { rate1: 0.368, rate2: 0.505 },
+                hat: { decay: 0.333, sizzle: 0.42, blend: 0.32 },
+                mix: { lvl1: 0.8, lvl2: 0, lvl3: 0, lvl4: 0 },
+                out: { volume: 0.5 }
+            },
+            switches: {},
+            cables: [
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'div', toPort: 'clock' },
+                { fromModule: 'div', fromPort: 'out2', toModule: 'hat', toPort: 'trigClosed' },
+                { fromModule: 'div', fromPort: 'out1', toModule: 'hat', toPort: 'trigOpen' },
+                { fromModule: 'hat', fromPort: 'out', toModule: 'mix', toPort: 'in1' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'L' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'R' }
+            ]
+        }
+    },
+    'Drums - Full Kit': {
+        name: 'Drums - Full Kit',
+        factory: true,
+        // Complete drum kit with all percussion
+        state: {
+            knobs: {
+                clk: { rate: 0.28 },
+                div: { rate1: 0.4375, rate2: 0.625 },  // /2 and x2
+                kick: { pitch: 0.3, decay: 0.5, tone: 0.25 },
+                snare: { snap: 0.6, decay: 0.4, pitch: 0.5 },
+                hat: { decay: 0.35, sizzle: 0.5, blend: 0.4 },
+                mix: { lvl1: 1.0, lvl2: 0.65, lvl3: 0.4, lvl4: 0 },
+                out: { volume: 0.65 }
+            },
+            switches: {},
+            cables: [
+                // Clock distribution
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'div', toPort: 'clock' },
+                // Kick on quarter notes
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'kick', toPort: 'trigger' },
+                // Snare on backbeats (half time)
+                { fromModule: 'div', fromPort: 'out1', toModule: 'snare', toPort: 'trigger' },
+                // Hi-hats - closed on 8ths, open chokes on backbeat
+                { fromModule: 'div', fromPort: 'out2', toModule: 'hat', toPort: 'trigClosed' },
+                { fromModule: 'div', fromPort: 'out1', toModule: 'hat', toPort: 'trigOpen' },
+                // Mix all three
+                { fromModule: 'kick', fromPort: 'out', toModule: 'mix', toPort: 'in1' },
+                { fromModule: 'snare', fromPort: 'out', toModule: 'mix', toPort: 'in2' },
+                { fromModule: 'hat', fromPort: 'out', toModule: 'mix', toPort: 'in3' },
+                // Stereo output
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'L' },
+                { fromModule: 'mix', fromPort: 'out', toModule: 'out', toPort: 'R' }
+            ]
+        }
     }
 };

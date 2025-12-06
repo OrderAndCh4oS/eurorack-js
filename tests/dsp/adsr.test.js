@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createADSR } from '../../src/js/dsp/adsr.js';
+import adsrModule from '../../src/js/modules/adsr/index.js';
+
+// Helper to create ADSR instance using new module system
+const createADSR = (options = {}) => adsrModule.createDSP(options);
 
 describe('createADSR', () => {
     let adsr;

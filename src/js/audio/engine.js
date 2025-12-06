@@ -6,7 +6,7 @@
  */
 
 import { BUFFER, SAMPLE_RATE } from '../config/constants.js';
-import { MODULE_ORDER } from '../config/module-defs.js';
+import { DEFAULT_MODULE_ORDER as MODULE_ORDER } from '../index.js';
 import { getNestedValue, setNestedValue } from '../utils/nested-access.js';
 
 /**

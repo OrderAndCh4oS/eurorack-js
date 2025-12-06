@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import {
-    createArp,
+import arpModule, {
     buildArpSequence,
     CHORDS,
     CHORD_NAMES,
-    ARP_MODES,
     ARP_MODE_NAMES
-} from '../../src/js/dsp/arp.js';
+} from '../../src/js/modules/arp/index.js';
+import { ARP_MODES } from '../../src/js/modules/arp/chords.js';
+
+// Helper to create Arp instance using new module system
+const createArp = (options = {}) => arpModule.createDSP(options);
 
 describe('arp', () => {
     describe('CHORDS', () => {

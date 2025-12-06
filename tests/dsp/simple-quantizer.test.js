@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import {
-    createQuantizer,
+import quantModule, {
     quantizeVoltage,
     SCALES,
     SCALE_NAMES
-} from '../../src/js/dsp/quantizer.js';
+} from '../../src/js/modules/quant/index.js';
+
+// Helper to create Quantizer instance using new module system
+const createQuantizer = (options = {}) => quantModule.createDSP(options);
 
 describe('simple-quantizer', () => {
     describe('SCALES', () => {

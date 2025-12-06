@@ -8,7 +8,7 @@ import {
 } from '../../src/js/patches/patch-loader.js';
 
 // Mock updateKnobRotation
-vi.mock('../../src/js/ui/module-renderer.js', () => ({
+vi.mock('../../src/js/ui/toolkit/components.js', () => ({
     updateKnobRotation: vi.fn()
 }));
 

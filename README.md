@@ -2,6 +2,8 @@
 
 Browser-based Eurorack modular synthesizer emulator. Patch virtual modules together with cables to create sounds.
 
+![Evolving Drone Patch](screen-grab.png)
+
 ## Quick Start
 
 ```bash

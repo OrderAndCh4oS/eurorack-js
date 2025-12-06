@@ -34,6 +34,7 @@ import demoMelodicArp from './demo-melodic-arp.js';
 import demoPulsingBass from './demo-pulsing-bass.js';
 import demoShRandom from './demo-sh-random.js';
 import demoFilterEnvelope from './demo-filter-envelope.js';
+import demoEvolvingDrone from './demo-evolving-drone.js';
 
 // Drum patches
 import drumsBasicBeat from './drums-basic-beat.js';
@@ -73,6 +74,7 @@ export const FACTORY_PATCHES = {
     [demoPulsingBass.name]: demoPulsingBass,
     [demoShRandom.name]: demoShRandom,
     [demoFilterEnvelope.name]: demoFilterEnvelope,
+    [demoEvolvingDrone.name]: demoEvolvingDrone,
 
     // Drum patches
     [drumsBasicBeat.name]: drumsBasicBeat,

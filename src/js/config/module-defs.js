@@ -18,12 +18,14 @@ import { SAMPLE_RATE, BUFFER } from './constants.js';
 import { create2hpLFO } from '../dsp/lfo.js';
 import { create2hpVCO } from '../dsp/vco.js';
 import { create2hpDualVCA } from '../dsp/vca.js';
-import { createSimpleQuantizer, SCALE_NAMES } from '../dsp/simple-quantizer.js';
+import { createQuantizer, SCALE_NAMES } from '../dsp/quantizer.js';
 import { createArp, CHORD_NAMES, ARP_MODE_NAMES } from '../dsp/arp.js';
 import { createVCF } from '../dsp/vcf.js';
 import { createADSR } from '../dsp/adsr.js';
-import { createNoiseSH } from '../dsp/noise.js';
-import { createClockDiv } from '../dsp/clock.js';
+import { createNse } from '../dsp/nse.js';
+import { createSH } from '../dsp/sh.js';
+import { createClk } from '../dsp/clk.js';
+import { createDiv } from '../dsp/div.js';
 import { create2hpOut } from '../dsp/output.js';
 
 /**
@@ -101,7 +103,7 @@ export function createModuleDefs(audioCtx = null) {
             name: 'QUANT',
             hp: 4,
             color: '#6b3a6b',
-            create: () => createSimpleQuantizer({ bufferSize: BUFFER, sampleRate: SAMPLE_RATE }),
+            create: () => createQuantizer({ bufferSize: BUFFER, sampleRate: SAMPLE_RATE }),
             knobs: [
                 { id: 'scale', label: 'Scale', param: 'scale', min: 0, max: SCALE_NAMES.length - 1, default: 1, step: 1 },
                 { id: 'octave', label: 'Oct', param: 'octave', min: -2, max: 2, default: 0, step: 1 },
@@ -128,7 +130,7 @@ export function createModuleDefs(audioCtx = null) {
                 { id: 'mode', label: 'Mode', param: 'mode', min: 0, max: ARP_MODE_NAMES.length - 1, default: 0, step: 1 }
             ],
             switches: [
-                { id: 'octaves', label: 'Oct', param: 'octaves', positions: [1, 2, 3, 4], default: 1 }
+                { id: 'octaves', label: 'Oct', param: 'octaves', positions: [1, 2], default: 1 }
             ],
             inputs: [
                 { id: 'trigger', label: 'Trig', input: 'trigger', type: 'cv' },
@@ -184,46 +186,85 @@ export function createModuleDefs(audioCtx = null) {
             ],
             leds: ['env']
         },
-        noise: {
-            name: 'NOISE',
-            hp: 4,
+        nse: {
+            name: 'NSE',
+            hp: 2,
             color: '#5a5a5a',
-            create: () => createNoiseSH({ sampleRate: SAMPLE_RATE, bufferSize: BUFFER }),
+            create: () => createNse({ sampleRate: SAMPLE_RATE, bufferSize: BUFFER }),
             knobs: [
-                { id: 'rate', label: 'Rate', param: 'rate', min: 0, max: 1, default: 0.3 },
-                { id: 'slew', label: 'Slew', param: 'slew', min: 0, max: 1, default: 0 }
+                { id: 'rate', label: 'Rate', param: 'rate', min: 0, max: 1, default: 1 }
+            ],
+            switches: [
+                { id: 'vcaMode', label: 'VCA', param: 'vcaMode', default: 0 }
             ],
             inputs: [
-                { id: 'sample', label: 'Samp', input: 'sample', type: 'buffer' },
                 { id: 'trigger', label: 'Trig', input: 'trigger', type: 'cv' }
             ],
             outputs: [
-                { id: 'white', label: 'Wht', output: 'white', type: 'buffer' },
-                { id: 'pink', label: 'Pink', output: 'pink', type: 'buffer' },
-                { id: 'sh', label: 'S&H', output: 'sh', type: 'buffer' }
+                { id: 'noise', label: 'Out', output: 'noise', type: 'buffer' }
             ],
-            leds: ['sh']
+            leds: ['active']
         },
-        clock: {
-            name: 'CLOCK',
-            hp: 4,
-            color: '#6a5a2a',
-            create: () => createClockDiv({ sampleRate: SAMPLE_RATE, bufferSize: BUFFER }),
+        sh: {
+            name: 'S+H',
+            hp: 2,
+            color: '#5a6a5a',
+            create: () => createSH({ sampleRate: SAMPLE_RATE, bufferSize: BUFFER }),
             knobs: [
-                { id: 'bpm', label: 'BPM', param: 'bpm', min: 0, max: 1, default: 0.4 },
-                { id: 'swing', label: 'Swng', param: 'swing', min: 0, max: 1, default: 0 }
+                { id: 'slew1', label: 'Slew1', param: 'slew1', min: 0, max: 1, default: 0 },
+                { id: 'slew2', label: 'Slew2', param: 'slew2', min: 0, max: 1, default: 0 }
             ],
             inputs: [
-                { id: 'extClock', label: 'Ext', input: 'extClock', type: 'cv' },
-                { id: 'reset', label: 'Rst', input: 'reset', type: 'trigger' }
+                { id: 'in1', label: 'In1', input: 'in1', type: 'buffer' },
+                { id: 'in2', label: 'In2', input: 'in2', type: 'buffer' },
+                { id: 'trig1', label: 'Trg1', input: 'trig1', type: 'cv' },
+                { id: 'trig2', label: 'Trg2', input: 'trig2', type: 'cv' }
             ],
             outputs: [
-                { id: 'clock', label: 'Clk', output: 'clock', type: 'buffer' },
-                { id: 'div2', label: '/2', output: 'div2', type: 'buffer' },
-                { id: 'div4', label: '/4', output: 'div4', type: 'buffer' },
-                { id: 'div8', label: '/8', output: 'div8', type: 'buffer' }
+                { id: 'out1', label: 'Out1', output: 'out1', type: 'buffer' },
+                { id: 'out2', label: 'Out2', output: 'out2', type: 'buffer' }
+            ],
+            leds: ['ch1', 'ch2']
+        },
+        clk: {
+            name: 'CLK',
+            hp: 2,
+            color: '#6a5a2a',
+            create: () => createClk({ sampleRate: SAMPLE_RATE, bufferSize: BUFFER }),
+            knobs: [
+                { id: 'rate', label: 'Rate', param: 'rate', min: 0, max: 1, default: 0.3 }
+            ],
+            switches: [
+                { id: 'pause', label: 'Pause', param: 'pause', default: 0 }
+            ],
+            inputs: [
+                { id: 'rateCV', label: 'Rate', input: 'rateCV', type: 'cv' },
+                { id: 'pause', label: 'Pause', input: 'pause', type: 'trigger' }
+            ],
+            outputs: [
+                { id: 'clock', label: 'Out', output: 'clock', type: 'buffer' }
             ],
             leds: ['clock']
+        },
+        div: {
+            name: 'DIV',
+            hp: 2,
+            color: '#5a6a2a',
+            create: () => createDiv({ sampleRate: SAMPLE_RATE, bufferSize: BUFFER }),
+            knobs: [
+                { id: 'rate1', label: 'Rate1', param: 'rate1', min: 0, max: 1, default: 0.5 },
+                { id: 'rate2', label: 'Rate2', param: 'rate2', min: 0, max: 1, default: 0.5 }
+            ],
+            inputs: [
+                { id: 'clock', label: 'In', input: 'clock', type: 'cv' },
+                { id: 'rate1CV', label: 'CV1', input: 'rate1CV', type: 'cv' },
+                { id: 'rate2CV', label: 'CV2', input: 'rate2CV', type: 'cv' }
+            ],
+            outputs: [
+                { id: 'out1', label: 'Out1', output: 'out1', type: 'buffer' },
+                { id: 'out2', label: 'Out2', output: 'out2', type: 'buffer' }
+            ],
+            leds: ['ch1', 'ch2']
         },
         out: {
             name: 'OUT',
@@ -244,4 +285,4 @@ export function createModuleDefs(audioCtx = null) {
 }
 
 /** Default module processing order */
-export const MODULE_ORDER = ['clock', 'lfo', 'noise', 'quant', 'arp', 'vco', 'vcf', 'adsr', 'vca', 'out'];
+export const MODULE_ORDER = ['clk', 'div', 'lfo', 'nse', 'sh', 'quant', 'arp', 'vco', 'vcf', 'adsr', 'vca', 'out'];

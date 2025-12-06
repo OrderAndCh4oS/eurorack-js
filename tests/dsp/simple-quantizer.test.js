@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
-    createSimpleQuantizer,
+    createQuantizer,
     quantizeVoltage,
     SCALES,
     SCALE_NAMES
-} from '../../src/js/dsp/simple-quantizer.js';
+} from '../../src/js/dsp/quantizer.js';
 
 describe('simple-quantizer', () => {
     describe('SCALES', () => {
@@ -72,7 +72,7 @@ describe('simple-quantizer', () => {
         let quantizer;
 
         beforeEach(() => {
-            quantizer = createSimpleQuantizer({ bufferSize: 128, sampleRate: 48000 });
+            quantizer = createQuantizer({ bufferSize: 128, sampleRate: 48000 });
         });
 
         describe('initialization', () => {

@@ -40,7 +40,7 @@ export const FACTORY_PATCHES = {
                 out: { volume: 0.5 }
             },
             switches: {
-                lfo: { range: false }
+                lfo: { range: 0 }
             },
             cables: [
                 { fromModule: 'lfo', fromPort: 'primary', toModule: 'quant', toPort: 'cv' },
@@ -51,12 +51,13 @@ export const FACTORY_PATCHES = {
             ]
         }
     },
-    'Debug 3 - Clock→ADSR→VCA': {
-        name: 'Debug 3 - Clock→ADSR→VCA',
+    'Debug 3 - Clk→Div→ADSR→VCA': {
+        name: 'Debug 3 - Clk→Div→ADSR→VCA',
         factory: true,
         state: {
             knobs: {
-                clock: { bpm: 0.4, swing: 0 },
+                clk: { rate: 0.25 },
+                div: { rate1: 0.4375, rate2: 0.5 },  // rate1=/2, rate2=x1
                 vco: { coarse: 0.3, fine: 0, glide: 5 },
                 adsr: { attack: 0.1, decay: 0.3, sustain: 0.5, release: 0.3 },
                 vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
@@ -64,7 +65,8 @@ export const FACTORY_PATCHES = {
             },
             switches: {},
             cables: [
-                { fromModule: 'clock', fromPort: 'div2', toModule: 'adsr', toPort: 'gate' },
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'div', toPort: 'clock' },
+                { fromModule: 'div', fromPort: 'out1', toModule: 'adsr', toPort: 'gate' },
                 { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch2In' },
                 { fromModule: 'adsr', fromPort: 'env', toModule: 'vca', toPort: 'ch2CV' },
                 { fromModule: 'vca', fromPort: 'ch2Out', toModule: 'out', toPort: 'L' },
@@ -103,7 +105,7 @@ export const FACTORY_PATCHES = {
                 out: { volume: 0.5 }
             },
             switches: {
-                lfo: { range: false }
+                lfo: { range: 0 }
             },
             cables: [
                 { fromModule: 'lfo', fromPort: 'primary', toModule: 'vco', toPort: 'vOct' },
@@ -125,7 +127,7 @@ export const FACTORY_PATCHES = {
                 out: { volume: 0.5 }
             },
             switches: {
-                lfo: { range: false }
+                lfo: { range: 0 }
             },
             cables: [
                 { fromModule: 'vco', fromPort: 'ramp', toModule: 'vcf', toPort: 'audio' },
@@ -141,7 +143,8 @@ export const FACTORY_PATCHES = {
         factory: true,
         state: {
             knobs: {
-                clock: { bpm: 0.35, swing: 0 },
+                clk: { rate: 0.22 },
+                div: { rate1: 0.4375, rate2: 0.5 },  // rate1=/2
                 vco: { coarse: 0.35, fine: 0, glide: 5 },
                 adsr: { attack: 0.15, decay: 0.3, sustain: 0.5, release: 0.35 },
                 vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
@@ -149,7 +152,8 @@ export const FACTORY_PATCHES = {
             },
             switches: {},
             cables: [
-                { fromModule: 'clock', fromPort: 'div2', toModule: 'adsr', toPort: 'gate' },
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'div', toPort: 'clock' },
+                { fromModule: 'div', fromPort: 'out1', toModule: 'adsr', toPort: 'gate' },
                 { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
                 { fromModule: 'adsr', fromPort: 'env', toModule: 'vca', toPort: 'ch2CV' },
                 { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
@@ -157,19 +161,21 @@ export const FACTORY_PATCHES = {
             ]
         }
     },
-    'Test - Noise Outputs': {
-        name: 'Test - Noise Outputs',
+    'Test - Noise Output': {
+        name: 'Test - Noise Output',
         factory: true,
         state: {
             knobs: {
-                noise: { rate: 0.5, slew: 0 },
+                nse: { rate: 0.8 },
                 vca: { ch1Gain: 0.5, ch2Gain: 0.5 },
                 out: { volume: 0.4 }
             },
-            switches: {},
+            switches: {
+                nse: { vcaMode: 0 }
+            },
             cables: [
-                { fromModule: 'noise', fromPort: 'white', toModule: 'vca', toPort: 'ch1In' },
-                { fromModule: 'noise', fromPort: 'pink', toModule: 'vca', toPort: 'ch2In' },
+                { fromModule: 'nse', fromPort: 'noise', toModule: 'vca', toPort: 'ch1In' },
+                { fromModule: 'nse', fromPort: 'noise', toModule: 'vca', toPort: 'ch2In' },
                 { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
                 { fromModule: 'vca', fromPort: 'ch2Out', toModule: 'out', toPort: 'R' }
             ]
@@ -180,14 +186,18 @@ export const FACTORY_PATCHES = {
         factory: true,
         state: {
             knobs: {
-                noise: { rate: 0.4, slew: 0.2 },
+                nse: { rate: 1 },
+                sh: { slew1: 0.2, slew2: 0 },
+                clk: { rate: 0.25 },
                 vco: { coarse: 0.35, fine: 0, glide: 10 },
                 vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
                 out: { volume: 0.5 }
             },
             switches: {},
             cables: [
-                { fromModule: 'noise', fromPort: 'sh', toModule: 'vco', toPort: 'vOct' },
+                { fromModule: 'nse', fromPort: 'noise', toModule: 'sh', toPort: 'in1' },
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'sh', toPort: 'trig1' },
+                { fromModule: 'sh', fromPort: 'out1', toModule: 'vco', toPort: 'vOct' },
                 { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
                 { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
                 { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
@@ -199,7 +209,8 @@ export const FACTORY_PATCHES = {
         factory: true,
         state: {
             knobs: {
-                clock: { bpm: 0.45, swing: 0 },
+                clk: { rate: 0.28 },
+                div: { rate1: 0.5, rate2: 0.3125 },  // rate1=x1, rate2=/4
                 vco: { coarse: 0.3, fine: 0, glide: 2 },
                 adsr: { attack: 0.05, decay: 0.2, sustain: 0.0, release: 0.15 },
                 vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
@@ -207,8 +218,9 @@ export const FACTORY_PATCHES = {
             },
             switches: {},
             cables: [
-                { fromModule: 'clock', fromPort: 'clock', toModule: 'adsr', toPort: 'gate' },
-                { fromModule: 'clock', fromPort: 'div4', toModule: 'vco', toPort: 'vOct' },
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'div', toPort: 'clock' },
+                { fromModule: 'div', fromPort: 'out1', toModule: 'adsr', toPort: 'gate' },
+                { fromModule: 'div', fromPort: 'out2', toModule: 'vco', toPort: 'vOct' },
                 { fromModule: 'vco', fromPort: 'pulse', toModule: 'vca', toPort: 'ch1In' },
                 { fromModule: 'adsr', fromPort: 'env', toModule: 'vca', toPort: 'ch2CV' },
                 { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
@@ -228,7 +240,7 @@ export const FACTORY_PATCHES = {
                 out: { volume: 0.5 }
             },
             switches: {
-                lfo: { range: false }
+                lfo: { range: 0 }
             },
             cables: [
                 { fromModule: 'lfo', fromPort: 'primary', toModule: 'quant', toPort: 'cv' },
@@ -244,7 +256,7 @@ export const FACTORY_PATCHES = {
         factory: true,
         state: {
             knobs: {
-                clock: { bpm: 0.4, swing: 0 },
+                clk: { rate: 0.25 },
                 arp: { root: 0, chord: 1, mode: 0 },
                 vco: { coarse: 0.35, fine: 0, glide: 10 },
                 vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
@@ -254,7 +266,7 @@ export const FACTORY_PATCHES = {
                 arp: { octaves: 2 }
             },
             cables: [
-                { fromModule: 'clock', fromPort: 'clock', toModule: 'arp', toPort: 'trigger' },
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'arp', toPort: 'trigger' },
                 { fromModule: 'arp', fromPort: 'cv', toModule: 'vco', toPort: 'vOct' },
                 { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
                 { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
@@ -269,9 +281,8 @@ export const FACTORY_PATCHES = {
         factory: true,
         state: {
             knobs: {
-                clock: { bpm: 0.37, swing: 0 },
+                clk: { rate: 0.23 },
                 lfo: { rateKnob: 0.44, waveKnob: 0.66 },
-                noise: { rate: 0.31, slew: 0 },
                 quant: { scale: 8, octave: 0, semitone: 5 },
                 arp: { root: 2, chord: 3, mode: 2 },
                 vco: { coarse: 0.4, fine: -1.84, glide: 32 },
@@ -281,11 +292,11 @@ export const FACTORY_PATCHES = {
                 out: { volume: 0.67 }
             },
             switches: {
-                lfo: { range: false },
-                arp: { octaves: false }
+                lfo: { range: 0 },
+                arp: { octaves: 1 }
             },
             cables: [
-                { fromModule: 'clock', fromPort: 'clock', toModule: 'arp', toPort: 'trigger' },
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'arp', toPort: 'trigger' },
                 { fromModule: 'arp', fromPort: 'cv', toModule: 'vco', toPort: 'vOct' },
                 { fromModule: 'lfo', fromPort: 'secondary', toModule: 'vco', toPort: 'pwm' },
                 { fromModule: 'lfo', fromPort: 'secondary', toModule: 'vca', toPort: 'ch2CV' },
@@ -301,7 +312,8 @@ export const FACTORY_PATCHES = {
         factory: true,
         state: {
             knobs: {
-                clock: { bpm: 0.76, swing: 0 },
+                clk: { rate: 0.4 },
+                div: { rate1: 0.4375, rate2: 0.5 },  // rate1=/2
                 vco: { coarse: 0.3, fine: 0, glide: 5 },
                 vcf: { cutoff: 0.36, resonance: 0.69 },
                 adsr: { attack: 0, decay: 0.26, sustain: 0.71, release: 0.84 },
@@ -310,7 +322,8 @@ export const FACTORY_PATCHES = {
             },
             switches: {},
             cables: [
-                { fromModule: 'clock', fromPort: 'div2', toModule: 'adsr', toPort: 'gate' },
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'div', toPort: 'clock' },
+                { fromModule: 'div', fromPort: 'out1', toModule: 'adsr', toPort: 'gate' },
                 { fromModule: 'vco', fromPort: 'ramp', toModule: 'vcf', toPort: 'audio' },
                 { fromModule: 'vcf', fromPort: 'lpf', toModule: 'vca', toPort: 'ch2In' },
                 { fromModule: 'adsr', fromPort: 'env', toModule: 'vca', toPort: 'ch2CV' },
@@ -324,9 +337,10 @@ export const FACTORY_PATCHES = {
         factory: true,
         state: {
             knobs: {
-                clock: { bpm: 0.45, swing: 0 },
+                clk: { rate: 0.28 },
                 lfo: { rateKnob: 0.4, waveKnob: 0 },
-                noise: { rate: 0.35, slew: 0.25 },
+                nse: { rate: 1 },
+                sh: { slew1: 0.25, slew2: 0 },
                 quant: { scale: 10, octave: 0, semitone: 0 },
                 vco: { coarse: 0.35, fine: 0, glide: 20 },
                 vcf: { cutoff: 0.5, resonance: 0.4 },
@@ -335,15 +349,50 @@ export const FACTORY_PATCHES = {
                 out: { volume: 0.65 }
             },
             switches: {
-                lfo: { range: false }
+                lfo: { range: 0 }
             },
             cables: [
-                { fromModule: 'noise', fromPort: 'sh', toModule: 'quant', toPort: 'cv' },
+                { fromModule: 'nse', fromPort: 'noise', toModule: 'sh', toPort: 'in1' },
+                { fromModule: 'lfo', fromPort: 'primary', toModule: 'sh', toPort: 'trig1' },
+                { fromModule: 'sh', fromPort: 'out1', toModule: 'quant', toPort: 'cv' },
                 { fromModule: 'quant', fromPort: 'cv', toModule: 'vco', toPort: 'vOct' },
                 { fromModule: 'vco', fromPort: 'pulse', toModule: 'vcf', toPort: 'audio' },
                 { fromModule: 'vcf', fromPort: 'lpf', toModule: 'vca', toPort: 'ch1In' },
                 { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
                 { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
+            ]
+        }
+    },
+    'Demo - Filter Envelope': {
+        name: 'Demo - Filter Envelope',
+        factory: true,
+        // This patch demonstrates dynamic processing order:
+        // ADSR → VCF cutoff requires ADSR to process BEFORE VCF.
+        // Old fixed order: VCF processed before ADSR (12ms latency on filter response)
+        // New dynamic order: ADSR processes first because cable creates dependency
+        state: {
+            knobs: {
+                clk: { rate: 0.3 },
+                div: { rate1: 0.5, rate2: 0.5 },
+                vco: { coarse: 0.25, fine: 0, glide: 0 },
+                vcf: { cutoff: 0.15, resonance: 0.75 },  // Low cutoff, high res for obvious sweep
+                adsr: { attack: 0.0, decay: 0.35, sustain: 0.2, release: 0.4 },  // Snappy attack
+                vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
+                out: { volume: 0.6 }
+            },
+            switches: {},
+            cables: [
+                // Clock → ADSR gate
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'adsr', toPort: 'gate' },
+                // VCO → VCF → VCA → Out (audio path)
+                { fromModule: 'vco', fromPort: 'ramp', toModule: 'vcf', toPort: 'audio' },
+                { fromModule: 'vcf', fromPort: 'lpf', toModule: 'vca', toPort: 'ch1In' },
+                { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
+                { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' },
+                // ADSR → VCF cutoff (the key cable - creates ADSR before VCF dependency)
+                { fromModule: 'adsr', fromPort: 'env', toModule: 'vcf', toPort: 'cutoffCV' },
+                // ADSR → VCA (amplitude envelope)
+                { fromModule: 'adsr', fromPort: 'env', toModule: 'vca', toPort: 'ch2CV' }
             ]
         }
     }

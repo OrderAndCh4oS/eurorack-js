@@ -1,4 +1,5 @@
 import { clamp } from '../utils/math.js';
+import { createSlew } from '../utils/slew.js';
 
 /**
  * VCF - Moog-style Transistor Ladder Filter
@@ -30,20 +31,28 @@ export function createVCF({ sampleRate = 44100, bufferSize = 512 } = {}) {
     const bpf = new Float32Array(bufferSize);
     const hpf = new Float32Array(bufferSize);
 
+    // Own input buffer - reset after process() for silence when unpatched
+    const ownAudio = new Float32Array(bufferSize);
+
     /* 4-pole ladder filter state */
     let stage = [0, 0, 0, 0];
     let delay = [0, 0, 0, 0];
 
-    /* Attempt to linearize cutoff CV input */
-    let cutoffSmooth = 0;
-    const cutoffSlew = 1 - Math.exp(-1000 / (sampleRate * 2));
+    /* Cutoff smoothing using shared slew utility (2ms) */
+    const cutoffSlew = createSlew({ sampleRate, timeMs: 2 });
 
     return {
         params: { cutoff: 0.5, resonance: 0.3 },
-        inputs: { audio: new Float32Array(bufferSize), cutoffCV: 0, resCV: 0 },
+        inputs: { audio: ownAudio, cutoffCV: 0, resCV: 0 },
         outputs: { lpf, bpf, hpf },
         leds: { cutoff: 0 },
+        clearAudioInputs() {
+            ownAudio.fill(0);
+            this.inputs.audio = ownAudio;
+        },
         process() {
+            const audioIn = this.inputs.audio;
+
             /* Base cutoff frequency from knob (20Hz to 20kHz exponential) */
             const cutoffKnob = clamp(this.params.cutoff);
             const cutoffHz = 20 * Math.pow(1000, cutoffKnob);
@@ -58,7 +67,7 @@ export function createVCF({ sampleRate = 44100, bufferSize = 512 } = {}) {
 
             for (let i = 0; i < bufferSize; i++) {
                 /* Smooth cutoff to prevent zipper noise */
-                cutoffSmooth += cutoffSlew * (modulatedHz - cutoffSmooth);
+                const cutoffSmooth = cutoffSlew.process(modulatedHz);
 
                 /* Calculate filter coefficient */
                 /* Attempt to linearize frequency response across range */
@@ -67,7 +76,7 @@ export function createVCF({ sampleRate = 44100, bufferSize = 512 } = {}) {
                 const G = g / (1 + g);
 
                 /* Input with resonance feedback */
-                const input = this.inputs.audio[i] / 5; /* Normalize to +/-1 */
+                const input = audioIn[i] / 5; /* Normalize to +/-1 */
                 const feedback = delay[3];
 
                 /* Soft clip the feedback for musical self-oscillation */
@@ -90,6 +99,12 @@ export function createVCF({ sampleRate = 44100, bufferSize = 512 } = {}) {
 
             /* LED shows cutoff frequency */
             this.leds.cutoff = cutoffKnob;
+
+            // Reset to zeroed own buffer if input was replaced by routing
+            if (this.inputs.audio !== ownAudio) {
+                ownAudio.fill(0);
+                this.inputs.audio = ownAudio;
+            }
         }
     };
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createSlew } from '../../src/js/dsp/slew.js';
+import { createSlew } from '../../src/js/utils/slew.js';
 
 describe('createSlew', () => {
     describe('initialization', () => {

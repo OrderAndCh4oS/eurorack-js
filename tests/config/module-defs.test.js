@@ -10,7 +10,7 @@ describe('module-defs', () => {
 
         it('should include all expected modules', () => {
             const defs = createModuleDefs();
-            const expectedModules = ['lfo', 'vco', 'vca', 'quant', 'arp', 'vcf', 'adsr', 'noise', 'clock', 'out'];
+            const expectedModules = ['lfo', 'vco', 'vca', 'quant', 'arp', 'vcf', 'adsr', 'nse', 'sh', 'clk', 'div', 'out'];
 
             expectedModules.forEach(mod => {
                 expect(defs[mod]).toBeDefined();
@@ -195,7 +195,8 @@ describe('module-defs', () => {
 
     describe('MODULE_ORDER', () => {
         it('should include all modules in processing order', () => {
-            expect(MODULE_ORDER).toContain('clock');
+            expect(MODULE_ORDER).toContain('clk');
+            expect(MODULE_ORDER).toContain('div');
             expect(MODULE_ORDER).toContain('lfo');
             expect(MODULE_ORDER).toContain('quant');
             expect(MODULE_ORDER).toContain('arp');
@@ -203,8 +204,8 @@ describe('module-defs', () => {
             expect(MODULE_ORDER).toContain('out');
         });
 
-        it('should have clock first (master timing)', () => {
-            expect(MODULE_ORDER[0]).toBe('clock');
+        it('should have clk first (master timing)', () => {
+            expect(MODULE_ORDER[0]).toBe('clk');
         });
 
         it('should have out last (final output)', () => {

@@ -16,7 +16,7 @@ import { clamp } from '../../utils/math.js';
 export default {
     id: 'hat',
     name: 'HAT',
-    hp: 2,
+    hp: 3,
     color: '#8a7a20',
     category: 'voice',
 

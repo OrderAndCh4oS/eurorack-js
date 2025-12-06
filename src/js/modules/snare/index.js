@@ -16,7 +16,7 @@ import { clamp } from '../../utils/math.js';
 export default {
     id: 'snare',
     name: 'SNARE',
-    hp: 2,
+    hp: 4,
     color: '#a04030',
     category: 'voice',
 

@@ -13,7 +13,7 @@ import { clamp } from '../../utils/math.js';
 export default {
     id: 'mix',
     name: 'MIX',
-    hp: 2,
+    hp: 4,
     color: '#5a5a5a',
     category: 'utility',
 

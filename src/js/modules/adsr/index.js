@@ -10,7 +10,7 @@ import { clamp } from '../../utils/math.js';
 export default {
     id: 'adsr',
     name: 'ADSR',
-    hp: 4,
+    hp: 6,
     color: '#8a4a4a',
     category: 'modulation',
 

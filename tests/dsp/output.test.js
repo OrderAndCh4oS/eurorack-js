@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { create2hpOut } from '../../src/js/dsp/output.js';
+import outModule from '../../src/js/modules/out/index.js';
 
 // Mock AudioContext for testing
 class MockAudioContext {
@@ -36,6 +36,9 @@ class MockAudioContext {
 
 // Set up global mock
 global.window = { AudioContext: MockAudioContext };
+
+// Helper to create Out instance using new module system
+const create2hpOut = (audioCtx, options = {}) => outModule.createDSP({ audioCtx, ...options });
 
 describe('create2hpOut', () => {
     let output;

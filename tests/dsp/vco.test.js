@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { create2hpVCO } from '../../src/js/dsp/vco.js';
+import vcoModule from '../../src/js/modules/vco/index.js';
+
+// Helper to create VCO instance using new module system
+const create2hpVCO = (options = {}) => vcoModule.createDSP(options);
 
 describe('create2hpVCO', () => {
     let vco;
@@ -16,10 +19,10 @@ describe('create2hpVCO', () => {
         });
 
         it('should create a VCO with default inputs', () => {
-            expect(vco.inputs.vOct).toBe(0);
-            expect(vco.inputs.fm).toBe(0);
-            expect(vco.inputs.pwm).toBe(2.5);
-            expect(vco.inputs.sync).toBe(0);
+            expect(vco.inputs.vOct).toBeInstanceOf(Float32Array);
+            expect(vco.inputs.fm).toBeInstanceOf(Float32Array);
+            expect(vco.inputs.pwm).toBeInstanceOf(Float32Array);
+            expect(vco.inputs.sync).toBeInstanceOf(Float32Array);
         });
 
         it('should create output buffers of correct size', () => {
@@ -123,12 +126,12 @@ describe('create2hpVCO', () => {
 
         it('should change pulse width with PWM input', () => {
             const narrowPulse = create2hpVCO();
-            narrowPulse.inputs.pwm = 0.5; // ~15% duty
+            narrowPulse.inputs.pwm.fill(0.5); // ~15% duty
             narrowPulse.params.coarse = 0.6;
             narrowPulse.process();
 
             const widePulse = create2hpVCO();
-            widePulse.inputs.pwm = 4.5; // ~90% duty
+            widePulse.inputs.pwm.fill(4.5); // ~90% duty
             widePulse.params.coarse = 0.6;
             widePulse.process();
 
@@ -142,13 +145,13 @@ describe('create2hpVCO', () => {
     describe('V/Oct tracking', () => {
         it('should track V/Oct input', () => {
             const baseVco = create2hpVCO({ bufferSize: 4410 });
-            baseVco.inputs.vOct = 0;
+            baseVco.inputs.vOct.fill(0);
             baseVco.params.coarse = 0.5;
             baseVco.params.glide = 0.1; // Minimal glide
             baseVco.process();
 
             const octaveUpVco = create2hpVCO({ bufferSize: 4410 });
-            octaveUpVco.inputs.vOct = 1; // +1 octave
+            octaveUpVco.inputs.vOct.fill(1); // +1 octave
             octaveUpVco.params.coarse = 0.5;
             octaveUpVco.params.glide = 0.1;
             octaveUpVco.process();
@@ -173,12 +176,12 @@ describe('create2hpVCO', () => {
     describe('FM input', () => {
         it('should respond to FM input', () => {
             const noFM = create2hpVCO();
-            noFM.inputs.fm = 0;
+            noFM.inputs.fm.fill(0);
             noFM.process();
             const output1 = [...noFM.outputs.ramp];
 
             const withFM = create2hpVCO();
-            withFM.inputs.fm = 2; // +2V FM
+            withFM.inputs.fm.fill(2); // +2V FM
             withFM.process();
             const output2 = [...withFM.outputs.ramp];
 

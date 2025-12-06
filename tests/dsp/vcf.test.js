@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createVCF } from '../../src/js/dsp/vcf.js';
+import vcfModule from '../../src/js/modules/vcf/index.js';
+
+// Helper to create VCF instance using new module system
+const createVCF = (options = {}) => vcfModule.createDSP(options);
 
 describe('createVCF', () => {
     let vcf;
@@ -16,8 +19,8 @@ describe('createVCF', () => {
 
         it('should create input buffer and CV inputs', () => {
             expect(vcf.inputs.audio).toBeInstanceOf(Float32Array);
-            expect(vcf.inputs.cutoffCV).toBe(0);
-            expect(vcf.inputs.resCV).toBe(0);
+            expect(vcf.inputs.cutoffCV).toBeInstanceOf(Float32Array);
+            expect(vcf.inputs.resCV).toBeInstanceOf(Float32Array);
         });
 
         it('should create output buffers', () => {
@@ -166,7 +169,7 @@ describe('createVCF', () => {
             }
 
             vcf.params.cutoff = 0.3;
-            vcf.inputs.cutoffCV = 0;
+            vcf.inputs.cutoffCV.fill(0);
             for (let i = 0; i < 5; i++) vcf.process();
             const noCVOutput = Math.max(...vcf.outputs.lpf.map(Math.abs));
 
@@ -175,7 +178,7 @@ describe('createVCF', () => {
                 vcf2.inputs.audio[i] = Math.sin(i * 0.3) * 5;
             }
             vcf2.params.cutoff = 0.3;
-            vcf2.inputs.cutoffCV = 4; // +4V CV
+            vcf2.inputs.cutoffCV.fill(4); // +4V CV
             for (let i = 0; i < 5; i++) vcf2.process();
             const withCVOutput = Math.max(...vcf2.outputs.lpf.map(Math.abs));
 
@@ -189,7 +192,7 @@ describe('createVCF', () => {
             }
 
             vcf.params.resonance = 0;
-            vcf.inputs.resCV = 5; // +5V = +0.5 resonance
+            vcf.inputs.resCV.fill(5); // +5V = +0.5 resonance
             for (let i = 0; i < 5; i++) vcf.process();
 
             // Should have some resonance effect

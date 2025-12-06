@@ -479,7 +479,7 @@
     /* =============================================================
      * Import modular definitions
      * =========================================================== */
-    import { createModuleDefs, MODULE_ORDER } from './js/config/module-defs.js';
+    import { loadModules, moduleRegistry, DEFAULT_MODULE_ORDER } from './js/index.js';
     import { CABLE_COLORS } from './js/config/constants.js';
     import { FACTORY_PATCHES } from './js/config/factory-patches.js';
     import { adjustColor } from './js/utils/color.js';
@@ -504,15 +504,16 @@
     let dragState = null;
 
 
-    /* Module definitions imported from js/config/module-defs.js */
-    let MODULE_DEFS = null;  // Initialized in init() with audioCtx
+    /* Module definitions from the self-contained module system */
+    const MODULE_ORDER = DEFAULT_MODULE_ORDER;
 
 
     /* =============================================================
      * UI Rendering
      * =========================================================== */
     function renderModule(type, id) {
-        const def = MODULE_DEFS[type];
+        const def = moduleRegistry.get(type);
+        const ui = def.ui || {};
         const el = document.createElement('div');
         el.className = `module module-${def.hp}hp`;
         el.id = `module-${id}`;
@@ -521,19 +522,20 @@
         let html = `<div class="module-label">${def.name}</div><div class="module-content">`;
 
         /* LEDs */
-        if (def.leds) {
+        if (ui.leds && ui.leds.length > 0) {
             html += '<div class="jack-row">';
-            def.leds.forEach(led => {
+            ui.leds.forEach(led => {
                 html += `<div class="led green" id="led-${id}-${led}"></div>`;
             });
             html += '</div>';
         }
 
         /* Knobs - render in a row if more than 2 */
-        if (def.knobs.length > 2) {
+        const knobs = ui.knobs || [];
+        if (knobs.length > 2) {
             html += '<div class="jack-row">';
         }
-        def.knobs.forEach(knob => {
+        knobs.forEach(knob => {
             html += `
                 <div class="knob-container">
                     <div class="knob" id="knob-${id}-${knob.id}"
@@ -543,14 +545,15 @@
                     <div class="knob-label">${knob.label}</div>
                 </div>`;
         });
-        if (def.knobs.length > 2) {
+        if (knobs.length > 2) {
             html += '</div>';
         }
 
         /* Switches - render in a row */
-        if (def.switches && def.switches.length > 0) {
+        const switches = ui.switches || [];
+        if (switches.length > 0) {
             html += '<div class="jack-row">';
-            def.switches.forEach(sw => {
+            switches.forEach(sw => {
                 html += `
                     <div class="knob-container">
                         <div class="switch ${sw.default ? 'on' : ''}" id="switch-${id}-${sw.id}"
@@ -562,8 +565,9 @@
         }
 
         /* Button banks (octave select) */
-        if (def.buttons && def.buttons.length > 0) {
-            def.buttons.forEach(btnGroup => {
+        const buttons = ui.buttons || [];
+        if (buttons.length > 0) {
+            buttons.forEach(btnGroup => {
                 html += `<div class="section-label">${btnGroup.label}</div><div class="button-bank" data-module="${id}" data-param="${btnGroup.param}">`;
                 btnGroup.values.forEach((val, idx) => {
                     const isActive = val === btnGroup.default;
@@ -576,13 +580,14 @@
         html += '<div class="spacer"></div>';
 
         /* Outputs */
-        if (def.outputs.length > 0) {
+        const outputs = ui.outputs || [];
+        if (outputs.length > 0) {
             html += '<div class="section-label">Out</div><div class="jack-row">';
-            def.outputs.forEach(out => {
+            outputs.forEach(out => {
                 html += `
                     <div class="jack-container">
                         <div class="jack output" id="jack-${id}-${out.id}"
-                             data-module="${id}" data-port="${out.output}" data-dir="output" data-type="${out.type}"></div>
+                             data-module="${id}" data-port="${out.port}" data-dir="output" data-type="${out.type}"></div>
                         <div class="jack-label">${out.label}</div>
                     </div>`;
             });
@@ -590,12 +595,15 @@
         }
 
         /* Inputs - group by type for larger modules */
-        if (def.inputs.length > 0) {
-            if (def.inputs.length > 4) {
+        const inputs = ui.inputs || [];
+        if (inputs.length > 0) {
+            if (inputs.length > 4) {
                 /* Split inputs into groups (CV and triggers) */
-                const cvInputs = def.inputs.filter(i => i.id.startsWith('cv'));
-                const trigInputs = def.inputs.filter(i => i.id.startsWith('trig'));
-                const otherInputs = def.inputs.filter(i => !i.id.startsWith('cv') && !i.id.startsWith('trig'));
+                const cvInputs = inputs.filter(i => i.type === 'cv' || i.id.startsWith('cv'));
+                const trigInputs = inputs.filter(i => i.type === 'trigger' || i.id.startsWith('trig'));
+                const otherInputs = inputs.filter(i =>
+                    i.type !== 'cv' && i.type !== 'trigger' &&
+                    !i.id.startsWith('cv') && !i.id.startsWith('trig'));
 
                 if (cvInputs.length > 0) {
                     html += '<div class="section-label">CV In</div><div class="jack-row">';
@@ -603,7 +611,7 @@
                         html += `
                             <div class="jack-container">
                                 <div class="jack input" id="jack-${id}-${inp.id}"
-                                     data-module="${id}" data-port="${inp.input}" data-dir="input" data-type="${inp.type}"></div>
+                                     data-module="${id}" data-port="${inp.port}" data-dir="input" data-type="${inp.type}"></div>
                                 <div class="jack-label">${inp.label}</div>
                             </div>`;
                     });
@@ -615,7 +623,7 @@
                         html += `
                             <div class="jack-container">
                                 <div class="jack input" id="jack-${id}-${inp.id}"
-                                     data-module="${id}" data-port="${inp.input}" data-dir="input" data-type="${inp.type}"></div>
+                                     data-module="${id}" data-port="${inp.port}" data-dir="input" data-type="${inp.type}"></div>
                                 <div class="jack-label">${inp.label}</div>
                             </div>`;
                     });
@@ -627,7 +635,7 @@
                         html += `
                             <div class="jack-container">
                                 <div class="jack input" id="jack-${id}-${inp.id}"
-                                     data-module="${id}" data-port="${inp.input}" data-dir="input" data-type="${inp.type}"></div>
+                                     data-module="${id}" data-port="${inp.port}" data-dir="input" data-type="${inp.type}"></div>
                                 <div class="jack-label">${inp.label}</div>
                             </div>`;
                     });
@@ -635,11 +643,11 @@
                 }
             } else {
                 html += '<div class="section-label">In</div><div class="jack-row">';
-                def.inputs.forEach(inp => {
+                inputs.forEach(inp => {
                     html += `
                         <div class="jack-container">
                             <div class="jack input" id="jack-${id}-${inp.id}"
-                                 data-module="${id}" data-port="${inp.input}" data-dir="input" data-type="${inp.type}"></div>
+                                 data-module="${id}" data-port="${inp.port}" data-dir="input" data-type="${inp.type}"></div>
                             <div class="jack-label">${inp.label}</div>
                         </div>`;
                 });
@@ -1175,15 +1183,15 @@
     /* =============================================================
      * Initialization
      * =========================================================== */
-    function init() {
-        /* Initialize module definitions from imported config */
-        MODULE_DEFS = createModuleDefs();
+    async function init() {
+        /* Load all module definitions into registry */
+        await loadModules();
 
         const rack = document.getElementById('rack');
 
         /* Create modules using imported MODULE_ORDER */
         MODULE_ORDER.forEach(type => {
-            const def = MODULE_DEFS[type];
+            const def = moduleRegistry.get(type);
             const el = renderModule(type, type);
             rack.appendChild(el);
             modules[type] = {def, el, instance: null};
@@ -1305,8 +1313,12 @@
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
             Object.keys(modules).forEach(id => {
-                /* Pass audioCtx to modules that need it (like 'out') */
-                modules[id].instance = modules[id].def.create(audioCtx);
+                /* Create DSP instance using new module system */
+                modules[id].instance = modules[id].def.createDSP({
+                    sampleRate: audioCtx.sampleRate,
+                    bufferSize: 512,
+                    audioCtx: audioCtx
+                });
                 /* Apply current knob values */
                 document.querySelectorAll(`.knob[data-module="${id}"]`).forEach(knob => {
                     const param = knob.dataset.param;

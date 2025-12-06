@@ -8,12 +8,73 @@ Software Eurorack modular synthesizer. Modules pass voltages; sound only at outp
 - **Pitch CV**: 1V/octave (0V = base, +1V = +1 octave)
 - **Thresholds**: Gates ≥1V, Clock >2.5V, Arp >0.4V, Pause >2V
 
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         index.html                          │
+│                    (App initialization)                     │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+          ┌───────────┴───────────┐
+          ▼                       ▼
+┌─────────────────┐     ┌─────────────────────────────────────┐
+│  audio/engine   │     │            rack/rack.js             │
+│  (DSP loop)     │◄───►│    (Orchestrates UI + routing)      │
+└────────┬────────┘     └──────────────┬──────────────────────┘
+         │                             │
+         │              ┌──────────────┼──────────────┐
+         │              ▼              ▼              ▼
+         │      ┌───────────┐  ┌───────────┐  ┌───────────┐
+         └─────►│  modules/ │  │  modules/ │  │  modules/ │
+                │  vco/     │  │  vcf/     │  │  ...      │
+                │  index.js │  │  index.js │  │  index.js │
+                └───────────┘  └───────────┘  └───────────┘
+                     │              │              │
+                     └──────────────┴──────────────┘
+                                    │
+                     ┌──────────────┴──────────────┐
+                     ▼                             ▼
+              ┌─────────────┐              ┌─────────────┐
+              │rack/registry│              │ ui/renderer │
+              │  (lookup)   │              │  (UI gen)   │
+              └─────────────┘              └──────┬──────┘
+                                                  │
+                                           ┌──────┴──────┐
+                                           ▼             ▼
+                                    ┌────────────┐  ┌─────────────┐
+                                    │ui/toolkit/ │  │ ui/toolkit/ │
+                                    │ components │  │   layout    │
+                                    └────────────┘  └─────────────┘
+```
+
+**Self-contained modules**: Each module folder contains DSP + UI definition in one file. Modules export metadata, `createDSP()` factory, and declarative `ui` config.
+
+**Available modules**: `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `vco` · `vcf` · `adsr` · `vca` · `out`
+
 ## Project Structure
 
-- `src/js/dsp/{module}.js` — DSP implementations
-- `src/js/config/module-defs.js` — Module definitions (UI + DSP binding)
-- `src/js/config/factory-patches.js` — Preset patches
-- `tests/dsp/{module}.test.js` — Module tests
+```
+src/js/
+├── index.js               # Main entry point
+├── rack/                  # Rack infrastructure
+│   ├── rack.js            # Rack orchestration
+│   └── registry.js        # Module lookup & validation
+├── ui/
+│   ├── renderer.js        # Declarative UI → DOM
+│   └── toolkit/           # UI component factories
+│       ├── components.js  # Knobs, jacks, switches, LEDs
+│       ├── layout.js      # Panels, rows, sections
+│       └── interactions.js # Drag handling
+├── modules/               # Self-contained modules
+│   └── {moduleId}/
+│       └── index.js       # DSP + UI definition
+├── audio/engine.js        # DSP processing loop
+├── config/factory-patches.js
+└── patches/               # Patch serialization
+
+tests/dsp/{module}.test.js # Module tests
+```
 
 ## Module Processing Order
 
@@ -46,20 +107,43 @@ Tests go in `tests/dsp/{module}.test.js`. Test these categories:
 9. **Buffer integrity** — no NaN, fills entire buffer
 10. **Spec compliance** — matches manufacturer documentation
 
-## DSP Module Structure
+## Self-Contained Module Structure
 
 ```javascript
-export function createModule({ sampleRate = 44100, bufferSize = 512 } = {}) {
-    return {
-        params: { knob: 0.5, switch: 0 },
-        inputs: { cv: new Float32Array(bufferSize) },
-        outputs: { out: new Float32Array(bufferSize) },
-        leds: { active: 0 },
-        process() { /* fill outputs */ },
-        reset() { /* clear state */ }
-    };
-}
+// src/js/modules/{moduleId}/index.js
+export default {
+    // Metadata
+    id: 'moduleId',
+    name: 'Module Name',
+    hp: 4,                    // Panel width
+    color: '#8b4513',         // Header color
+    category: 'source',       // source | modulator | utility | effect
+
+    // DSP factory
+    createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const out = new Float32Array(bufferSize);
+        return {
+            params: { knob: 0.5, switch: 0 },
+            inputs: { cv: new Float32Array(bufferSize) },
+            outputs: { out },
+            leds: { active: 0 },
+            process() { /* fill outputs */ },
+            reset() { /* clear state */ }
+        };
+    },
+
+    // Declarative UI
+    ui: {
+        leds: ['active'],
+        knobs: [{ id: 'knob', label: 'Knob', param: 'knob', min: 0, max: 1, default: 0.5 }],
+        switches: [{ id: 'switch', label: 'Mode', param: 'switch', default: 0 }],
+        inputs: [{ id: 'cv', label: 'CV', port: 'cv', type: 'cv' }],
+        outputs: [{ id: 'out', label: 'Out', port: 'out', type: 'audio' }]
+    }
+};
 ```
+
+**Port types**: `audio` | `cv` | `gate` | `trigger` | `buffer`
 
 ## Common DSP Patterns
 

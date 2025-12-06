@@ -4,7 +4,7 @@
  * Applies saved patch state to UI elements and module instances.
  */
 
-import { updateKnobRotation } from '../ui/module-renderer.js';
+import { updateKnobRotation } from '../ui/toolkit/components.js';
 
 /**
  * Apply knob values to DOM and module instances

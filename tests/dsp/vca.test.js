@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { create2hpDualVCA } from '../../src/js/dsp/vca.js';
+import vcaModule from '../../src/js/modules/vca/index.js';
+
+// Helper to create VCA instance using new module system
+const create2hpDualVCA = (options = {}) => vcaModule.createDSP(options);
 
 describe('create2hpDualVCA', () => {
     let vca;
@@ -17,7 +20,7 @@ describe('create2hpDualVCA', () => {
         it('should create input buffers', () => {
             expect(vca.inputs.ch1In).toBeInstanceOf(Float32Array);
             expect(vca.inputs.ch2In).toBeInstanceOf(Float32Array);
-            expect(vca.inputs.ch2CV).toBe(5); // Default fully open
+            expect(vca.inputs.ch2CV).toBeInstanceOf(Float32Array);
         });
 
         it('should create output buffers', () => {
@@ -79,7 +82,7 @@ describe('create2hpDualVCA', () => {
                 vca.inputs.ch2In[i] = 5;
             }
             vca.params.ch2Gain = 1;
-            vca.inputs.ch2CV = 5; // Fully open
+            vca.inputs.ch2CV.fill(5); // Fully open
             vca.process();
 
             // Should be near full level (CV smoothing may affect exact value)
@@ -91,7 +94,7 @@ describe('create2hpDualVCA', () => {
                 vca.inputs.ch2In[i] = 5;
             }
             vca.params.ch2Gain = 1;
-            vca.inputs.ch2CV = 0;
+            vca.inputs.ch2CV.fill(0);
 
             // Process multiple times for CV slew to settle
             for (let i = 0; i < 10; i++) {
@@ -106,7 +109,7 @@ describe('create2hpDualVCA', () => {
                 vca.inputs.ch2In[i] = 10; // 10V signal
             }
             vca.params.ch2Gain = 1;
-            vca.inputs.ch2CV = 2.5; // 50% CV
+            vca.inputs.ch2CV.fill(2.5); // 50% CV
 
             // Process multiple times for CV slew to settle
             for (let i = 0; i < 10; i++) {
@@ -126,13 +129,13 @@ describe('create2hpDualVCA', () => {
             vca.params.ch2Gain = 1;
 
             // Start with low CV
-            vca.inputs.ch2CV = 0;
+            vca.inputs.ch2CV.fill(0);
             for (let i = 0; i < 5; i++) {
                 vca.process();
             }
 
             // Sudden jump to high CV
-            vca.inputs.ch2CV = 5;
+            vca.inputs.ch2CV.fill(5);
             vca.process();
 
             // First sample shouldn't immediately jump to full (smoothing)
@@ -148,7 +151,7 @@ describe('create2hpDualVCA', () => {
             }
             vca.params.ch1Gain = 1;
             vca.params.ch2Gain = 1;
-            vca.inputs.ch2CV = 5;
+            vca.inputs.ch2CV.fill(5);
             vca.process();
 
             expect(vca.leds.ch1).toBeGreaterThan(0);

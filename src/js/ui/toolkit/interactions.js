@@ -1,11 +1,11 @@
 /**
- * Knob Controller - Handles knob drag interactions
+ * Module Toolkit - Interactions
  *
- * Manages mouse/touch interactions for rotating knobs
- * and updating module parameters.
+ * Handles mouse/touch interactions for UI components like knobs.
+ * Provides both low-level controllers and high-level initialization helpers.
  */
 
-import { updateKnobRotation } from './module-renderer.js';
+import { updateKnobRotation } from './components.js';
 
 /**
  * Create a knob controller for handling drag interactions
@@ -137,26 +137,4 @@ export function initKnobInteractions(container, { onParamChange } = {}) {
         document.removeEventListener('touchmove', handleMouseMove);
         document.removeEventListener('touchend', handleMouseUp);
     };
-}
-
-/**
- * Set a knob's value programmatically
- * @param {HTMLElement} knobEl - Knob element
- * @param {number} value - New value
- */
-export function setKnobValue(knobEl, value) {
-    const min = parseFloat(knobEl.dataset.min);
-    const max = parseFloat(knobEl.dataset.max);
-    const clampedValue = Math.max(min, Math.min(max, value));
-    knobEl.dataset.value = clampedValue;
-    updateKnobRotation(knobEl);
-}
-
-/**
- * Get a knob's current value
- * @param {HTMLElement} knobEl - Knob element
- * @returns {number} Current value
- */
-export function getKnobValue(knobEl) {
-    return parseFloat(knobEl.dataset.value);
 }

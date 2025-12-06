@@ -1,5 +1,5 @@
 import { clamp } from '../utils/math.js';
-import { createSlew } from './slew.js';
+import { createSlew } from '../utils/slew.js';
 
 /**
  * 2HP Dual VCA – Linear Response (SSM2164 architecture)
@@ -32,6 +32,10 @@ export function create2hpDualVCA({ bufferSize = 512, sampleRate = 44100 } = {}) 
     const ch2Out = new Float32Array(bufferSize);
     const leds = { ch1: 0, ch2: 0 };
 
+    // Own input buffers - reset after process() for silence when unpatched
+    const ownCh1In = new Float32Array(bufferSize);
+    const ownCh2In = new Float32Array(bufferSize);
+
     /* CV smoothing: prevents clicks when CV changes abruptly (~3ms) */
     const cvSlew = createSlew({ sampleRate, timeMs: 3 });
 
@@ -48,25 +52,33 @@ export function create2hpDualVCA({ bufferSize = 512, sampleRate = 44100 } = {}) 
     return {
         params: { ch1Gain: 1, ch2Gain: 1 },
         inputs: {
-            ch1In: new Float32Array(bufferSize),
-            ch2In: new Float32Array(bufferSize),
+            ch1In: ownCh1In,
+            ch2In: ownCh2In,
             ch2CV: 5
         },
         outputs: { ch1Out, ch2Out },
         leds,
-
+        clearAudioInputs() {
+            ownCh1In.fill(0);
+            ownCh2In.fill(0);
+            this.inputs.ch1In = ownCh1In;
+            this.inputs.ch2In = ownCh2In;
+        },
         process() {
             const g1 = clamp(this.params.ch1Gain);
             const g2 = clamp(this.params.ch2Gain);
             let pk1 = 0, pk2 = 0;
+
+            const in1 = this.inputs.ch1In;
+            const in2 = this.inputs.ch2In;
 
             for (let i = 0; i < bufferSize; i++) {
                 /* Smooth CV per-sample to prevent clicks */
                 const smoothedCV = cvSlew.process(this.inputs.ch2CV);
                 const cvGain = linearResponse(smoothedCV);
 
-                const s1 = this.inputs.ch1In[i] * g1;
-                const s2 = this.inputs.ch2In[i] * g2 * cvGain;
+                const s1 = in1[i] * g1;
+                const s2 = in2[i] * g2 * cvGain;
                 ch1Out[i] = s1;
                 ch2Out[i] = s2;
                 pk1 = Math.max(pk1, Math.abs(s1));
@@ -76,6 +88,16 @@ export function create2hpDualVCA({ bufferSize = 512, sampleRate = 44100 } = {}) 
             /* LED smoothing with decay */
             leds.ch1 = Math.max(pk1 / 10, leds.ch1 * ledDecay);
             leds.ch2 = Math.max(pk2 / 10, leds.ch2 * ledDecay);
+
+            // Reset to zeroed own buffers if input was replaced by routing
+            if (this.inputs.ch1In !== ownCh1In) {
+                ownCh1In.fill(0);
+                this.inputs.ch1In = ownCh1In;
+            }
+            if (this.inputs.ch2In !== ownCh2In) {
+                ownCh2In.fill(0);
+                this.inputs.ch2In = ownCh2In;
+            }
         }
     };
 }

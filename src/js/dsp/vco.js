@@ -1,4 +1,5 @@
 import { clamp, expMap } from '../utils/math.js';
+import { createSlew } from '../utils/slew.js';
 
 /**
  * 2HP VCO – CEM3340 Analogue Oscillator (±5V outputs)
@@ -40,10 +41,9 @@ export function create2hpVCO({ sampleRate = 44100, bufferSize = 512, fmVoltsPerH
     const saw = new Float32Array(bufferSize);
     const sqr = new Float32Array(bufferSize);
 
-    /* CV smoothing state */
-    let pitchState = 0;
-    let pwmState = 0;
-    const pwmCoeff = 1 - Math.exp(-1000 / (sampleRate * 2)); /* 2ms for PWM */
+    /* CV smoothing using shared slew utility */
+    const pitchSlew = createSlew({ sampleRate, timeMs: 5 }); /* Dynamic, updated per-process */
+    const pwmSlew = createSlew({ sampleRate, timeMs: 2 }); /* Fixed 2ms for PWM */
 
     /**
      * PolyBLEP: softens discontinuities to reduce aliasing
@@ -67,16 +67,13 @@ export function create2hpVCO({ sampleRate = 44100, bufferSize = 512, fmVoltsPerH
         process() {
             const base = expMap(this.params.coarse, coarseHz.min, coarseHz.max);
             const targetDuty = 0.05 + clamp(this.inputs.pwm, 0, 5) / 5 * 0.90;
-            /* Dynamic glide coefficient based on glide param (0-100ms) */
-            const glideMs = Math.max(0.1, this.params.glide);
-            const pitchCoeff = 1 - Math.exp(-1000 / (sampleRate * glideMs));
+            /* Update glide time dynamically (0-100ms) */
+            pitchSlew.timeMs = Math.max(0.1, this.params.glide);
 
             for (let i = 0; i < bufferSize; i++) {
                 /* Smooth pitch CV per-sample for glide effect */
-                pitchState += pitchCoeff * (this.inputs.vOct - pitchState);
-                pwmState += pwmCoeff * (targetDuty - pwmState);
-                const smoothedVOct = pitchState;
-                const smoothedDuty = pwmState;
+                const smoothedVOct = pitchSlew.process(this.inputs.vOct);
+                const smoothedDuty = pwmSlew.process(targetDuty);
 
                 const freq = Math.max(0, base * 2 ** smoothedVOct * 2 ** (this.params.fine / 12) + this.inputs.fm * fmVoltsPerHz);
                 const inc = freq / sampleRate;

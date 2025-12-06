@@ -480,11 +480,11 @@
      * Import modular definitions
      * =========================================================== */
     import { createModuleDefs, MODULE_ORDER } from './js/config/module-defs.js';
-    import { SAMPLE_RATE, BUFFER, CABLE_COLORS } from './js/config/constants.js';
+    import { CABLE_COLORS } from './js/config/constants.js';
     import { FACTORY_PATCHES } from './js/config/factory-patches.js';
-    import { clamp, expMap } from './js/utils/math.js';
     import { adjustColor } from './js/utils/color.js';
-    import { getNestedValue, setNestedValue } from './js/utils/nested-access.js';
+    import { createAudioEngine } from './js/audio/engine.js';
+    import { createCablePath, getJackCenter } from './js/cables/cable-manager.js';
 
     /* =============================================================
      * Interactive Patcher System
@@ -497,6 +497,7 @@
 
     /* State */
     let audioCtx = null;
+    let engine = null;
     let isRunning = false;
     let modules = {};
     let cables = [];
@@ -667,19 +668,6 @@
     const svgNS = 'http://www.w3.org/2000/svg';
     const cableSvg = document.getElementById('cable-svg');
 
-    function getJackCenter(jackEl) {
-        const rect = jackEl.getBoundingClientRect();
-        return {x: rect.left + rect.width / 2, y: rect.top + rect.height / 2};
-    }
-
-    function createCablePath(x1, y1, x2, y2) {
-        const dy = y2 - y1;
-        const sag = Math.min(100, Math.abs(x2 - x1) * 0.3 + 30);
-        const cp1y = y1 + sag;
-        const cp2y = y2 + sag;
-        return `M ${x1} ${y1} C ${x1} ${cp1y}, ${x2} ${cp2y}, ${x2} ${y2}`;
-    }
-
     function renderCable(cable) {
         const from = getJackCenter(cable.fromEl);
         const to = getJackCenter(cable.toEl);
@@ -708,6 +696,17 @@
         fromJack.classList.add('connected');
         toJack.classList.add('connected');
         renderCable(cable);
+
+        /* Update engine with new cable state */
+        if (engine) {
+            engine.setCables(cables.map(c => ({
+                fromModule: c.fromModule,
+                fromPort: c.fromPort,
+                toModule: c.toModule,
+                toPort: c.toPort
+            })));
+        }
+
         return cable;
     }
 
@@ -716,6 +715,16 @@
         cable.fromEl.classList.remove('connected');
         cable.toEl.classList.remove('connected');
         cables = cables.filter(c => c !== cable);
+
+        /* Update engine with new cable state - handles audio input clearing */
+        if (engine) {
+            engine.setCables(cables.map(c => ({
+                fromModule: c.fromModule,
+                fromPort: c.fromPort,
+                toModule: c.toModule,
+                toPort: c.toPort
+            })));
+        }
     }
 
     function clearAllCables() {
@@ -725,6 +734,11 @@
             c.toEl.classList.remove('connected');
         });
         cables = [];
+
+        /* Update engine with empty cables - handles audio input clearing */
+        if (engine) {
+            engine.setCables([]);
+        }
     }
 
     /* Preview cable while dragging */
@@ -853,85 +867,6 @@
 
     function endKnobDrag() {
         knobDrag = null;
-    }
-
-    /* =============================================================
-     * Audio Processing Loop
-     * =========================================================== */
-    let nextTime = 0;
-    const BUF_DUR = BUFFER / SAMPLE_RATE;
-
-    function processAudio() {
-        if (!isRunning) return;
-
-        while (nextTime < audioCtx.currentTime + 0.1) {
-            /* Process modules in order (imported from module-defs.js) */
-            MODULE_ORDER.forEach(id => {
-                if (!modules[id]?.instance) return;
-                const mod = modules[id].instance;
-
-                /* Apply cable connections before processing */
-                cables.forEach(cable => {
-                    if (cable.toModule === id) {
-                        const srcMod = modules[cable.fromModule]?.instance;
-                        if (!srcMod) return;
-
-                        /* Get source value */
-                        let srcValue = getNestedValue(srcMod.outputs, cable.fromPort);
-
-                        /* Set destination value */
-                        setNestedValue(mod.inputs, cable.toPort, srcValue);
-                    }
-                });
-
-                /* Process the module */
-                if (id === 'out') {
-                    mod.process(nextTime);
-                } else {
-                    mod.process();
-                }
-            });
-
-            nextTime += BUF_DUR;
-        }
-
-        /* Update LEDs */
-        if (modules.out?.instance?.led) {
-            const leds = modules.out.instance.led;
-            document.getElementById('led-out-L')?.classList.toggle('active', leds.L > 0.1);
-            document.getElementById('led-out-R')?.classList.toggle('active', leds.R > 0.1);
-        }
-        if (modules.vca?.instance?.leds) {
-            const leds = modules.vca.instance.leds;
-            document.getElementById('led-vca-ch1')?.classList.toggle('active', leds.ch1 > 0.1);
-            document.getElementById('led-vca-ch2')?.classList.toggle('active', leds.ch2 > 0.1);
-        }
-        if (modules.adsr?.instance?.leds) {
-            const leds = modules.adsr.instance.leds;
-            document.getElementById('led-adsr-env')?.classList.toggle('active', leds.env > 0.1);
-        }
-        if (modules.vcf?.instance?.leds) {
-            const leds = modules.vcf.instance.leds;
-            document.getElementById('led-vcf-cutoff')?.classList.toggle('active', leds.cutoff > 0.3);
-        }
-        if (modules.noise?.instance?.leds) {
-            const leds = modules.noise.instance.leds;
-            document.getElementById('led-noise-sh')?.classList.toggle('active', leds.sh > 0.1);
-        }
-        if (modules.clock?.instance?.leds) {
-            const leds = modules.clock.instance.leds;
-            document.getElementById('led-clock-clock')?.classList.toggle('active', leds.clock > 0.5);
-        }
-        if (modules.quant?.instance?.leds) {
-            const leds = modules.quant.instance.leds;
-            document.getElementById('led-quant-active')?.classList.toggle('active', leds.active > 0.5);
-        }
-        if (modules.arp?.instance?.leds) {
-            const leds = modules.arp.instance.leds;
-            document.getElementById('led-arp-step')?.classList.toggle('active', leds.step > 0.5);
-        }
-
-        setTimeout(processAudio, 20);
     }
 
     /* =============================================================
@@ -1334,6 +1269,17 @@
         initPatchBank();
     }
 
+    function updateLeds(ledStates) {
+        Object.entries(ledStates).forEach(([moduleId, leds]) => {
+            Object.entries(leds).forEach(([ledId, value]) => {
+                const el = document.getElementById(`led-${moduleId}-${ledId}`);
+                if (el) {
+                    el.classList.toggle('active', value > 0.1);
+                }
+            });
+        });
+    }
+
     function toggleAudio() {
         const btn = document.getElementById('startButton');
 
@@ -1341,6 +1287,13 @@
             isRunning = false;
             btn.textContent = '▶ Start';
             btn.classList.remove('active');
+
+            /* Stop the engine */
+            if (engine) {
+                engine.stop();
+                engine = null;
+            }
+
             if (audioCtx) {
                 audioCtx.close();
                 audioCtx = null;
@@ -1381,11 +1334,23 @@
                 });
             });
 
-            nextTime = audioCtx.currentTime + 0.05;
+            /* Create engine with modules and cables */
+            engine = createAudioEngine({
+                modules,
+                cables: cables.map(c => ({
+                    fromModule: c.fromModule,
+                    fromPort: c.fromPort,
+                    toModule: c.toModule,
+                    toPort: c.toPort
+                })),
+                audioCtx,
+                onLedUpdate: updateLeds
+            });
+
             isRunning = true;
             btn.textContent = '⏹ Stop';
             btn.classList.add('active');
-            processAudio();
+            engine.start();
         }
     }
 

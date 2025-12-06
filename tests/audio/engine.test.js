@@ -1,8 +1,29 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createAudioEngine, createMockAudioContext } from '../../src/js/audio/engine.js';
+import { createAudioEngine, createMockAudioContext, computeProcessOrder } from '../../src/js/audio/engine.js';
 import { create2hpLFO } from '../../src/js/dsp/lfo.js';
 import { create2hpVCO } from '../../src/js/dsp/vco.js';
 import { create2hpDualVCA } from '../../src/js/dsp/vca.js';
+import { create2hpOut } from '../../src/js/dsp/output.js';
+
+// Mock AudioContext for output module
+class MockFullAudioContext {
+    constructor() {
+        this.currentTime = 0;
+        this.sampleRate = 44100;
+        this.destination = {};
+    }
+    createGain() {
+        return { connect: vi.fn(), gain: { setValueAtTime: vi.fn() } };
+    }
+    createBuffer(channels, length, sampleRate) {
+        const channelData = [new Float32Array(length), new Float32Array(length)];
+        return { getChannelData: (ch) => channelData[ch] };
+    }
+    createBufferSource() {
+        return { buffer: null, connect: vi.fn(), start: vi.fn() };
+    }
+    advanceTime(seconds) { this.currentTime += seconds; }
+}
 
 describe('createAudioEngine', () => {
     let engine;
@@ -169,6 +190,100 @@ describe('createAudioEngine', () => {
             // Should work with new cables
             expect(engine).toBeDefined();
         });
+
+        it('should zero audio inputs when cables are disconnected', () => {
+            // Connect VCO to VCA
+            cables.push({
+                fromModule: 'vco',
+                fromPort: 'triangle',
+                toModule: 'vca',
+                toPort: 'ch1In'
+            });
+            engine.setCables(cables);
+
+            // Process several cycles to get audio flowing
+            for (let i = 0; i < 5; i++) {
+                engine.tick();
+            }
+
+            // VCA should have received signal from VCO
+            const vcaInputBefore = modules.vca.instance.inputs.ch1In;
+            expect(vcaInputBefore.some(v => v !== 0)).toBe(true);
+
+            // Now disconnect all cables
+            engine.setCables([]);
+
+            // VCA audio input should be zeroed
+            const vcaInput = modules.vca.instance.inputs.ch1In;
+            expect(vcaInput.every(v => v === 0)).toBe(true);
+        });
+
+        it('should silence output when all cables removed', () => {
+            // Connect VCO to VCA
+            cables.push({
+                fromModule: 'vco',
+                fromPort: 'triangle',
+                toModule: 'vca',
+                toPort: 'ch1In'
+            });
+            engine.setCables(cables);
+
+            // Process to get audio
+            for (let i = 0; i < 5; i++) {
+                engine.tick();
+            }
+
+            // Remove cables
+            engine.setCables([]);
+
+            // Process again - output should be silent
+            engine.tick();
+
+            const vcaOutput = modules.vca.instance.outputs.ch1Out;
+            expect(vcaOutput.every(v => v === 0)).toBe(true);
+        });
+
+        it('should silence output module when cables disconnected', () => {
+            // Create engine with output module
+            const fullCtx = new MockFullAudioContext();
+            const modulesWithOut = {
+                vco: { instance: create2hpVCO(), type: 'vco' },
+                out: { instance: create2hpOut(fullCtx), type: 'out' }
+            };
+            const engWithOut = createAudioEngine({
+                modules: modulesWithOut,
+                cables: [],
+                audioCtx: fullCtx
+            });
+
+            // Connect VCO to output
+            engWithOut.setCables([{
+                fromModule: 'vco',
+                fromPort: 'triangle',
+                toModule: 'out',
+                toPort: 'L'
+            }]);
+
+            // Process to get audio flowing
+            for (let i = 0; i < 5; i++) {
+                engWithOut.tick();
+            }
+
+            // Output should have received audio
+            expect(modulesWithOut.out.instance.leds.L).toBeGreaterThan(0);
+
+            // Disconnect all cables
+            engWithOut.setCables([]);
+
+            // Output inputs should be zeroed
+            expect(modulesWithOut.out.instance.inputs.L.every(v => v === 0)).toBe(true);
+
+            // Process again
+            engWithOut.tick();
+
+            // LED should show silence
+            expect(modulesWithOut.out.instance.leds.L).toBe(0);
+        });
     });
 
     describe('LED callback', () => {
@@ -254,5 +369,198 @@ describe('createMockAudioContext', () => {
         const ctx = createMockAudioContext();
         ctx.advanceTime(1);
         expect(ctx.currentTime).toBe(1);
+    });
+});
+
+describe('computeProcessOrder', () => {
+    it('should return empty array for no modules', () => {
+        expect(computeProcessOrder({}, [])).toEqual([]);
+    });
+
+    it('should return modules in MODULE_ORDER when no cables', () => {
+        const modules = {
+            vco: { instance: {} },
+            lfo: { instance: {} },
+            vca: { instance: {} }
+        };
+        const order = computeProcessOrder(modules, []);
+
+        // Should follow MODULE_ORDER: lfo before vco before vca
+        expect(order.indexOf('lfo')).toBeLessThan(order.indexOf('vco'));
+        expect(order.indexOf('vco')).toBeLessThan(order.indexOf('vca'));
+    });
+
+    it('should process source before destination', () => {
+        const modules = {
+            vco: { instance: {} },
+            vca: { instance: {} }
+        };
+        const cables = [
+            { fromModule: 'vco', fromPort: 'out', toModule: 'vca', toPort: 'in' }
+        ];
+        const order = computeProcessOrder(modules, cables);
+
+        expect(order.indexOf('vco')).toBeLessThan(order.indexOf('vca'));
+    });
+
+    it('should handle chain of modules', () => {
+        const modules = {
+            lfo: { instance: {} },
+            vco: { instance: {} },
+            vcf: { instance: {} },
+            vca: { instance: {} }
+        };
+        const cables = [
+            { fromModule: 'lfo', fromPort: 'out', toModule: 'vco', toPort: 'fm' },
+            { fromModule: 'vco', fromPort: 'out', toModule: 'vcf', toPort: 'in' },
+            { fromModule: 'vcf', fromPort: 'out', toModule: 'vca', toPort: 'in' }
+        ];
+        const order = computeProcessOrder(modules, cables);
+
+        // Each source should be before its destination
+        expect(order.indexOf('lfo')).toBeLessThan(order.indexOf('vco'));
+        expect(order.indexOf('vco')).toBeLessThan(order.indexOf('vcf'));
+        expect(order.indexOf('vcf')).toBeLessThan(order.indexOf('vca'));
+    });
+
+    it('should handle multiple sources to one destination', () => {
+        const modules = {
+            lfo: { instance: {} },
+            nse: { instance: {} },
+            vco: { instance: {} }
+        };
+        const cables = [
+            { fromModule: 'lfo', fromPort: 'out', toModule: 'vco', toPort: 'fm' },
+            { fromModule: 'nse', fromPort: 'out', toModule: 'vco', toPort: 'pwm' }
+        ];
+        const order = computeProcessOrder(modules, cables);
+
+        // Both sources should be before destination
+        expect(order.indexOf('lfo')).toBeLessThan(order.indexOf('vco'));
+        expect(order.indexOf('nse')).toBeLessThan(order.indexOf('vco'));
+    });
+
+    it('should handle one source to multiple destinations', () => {
+        const modules = {
+            lfo: { instance: {} },
+            vco: { instance: {} },
+            vcf: { instance: {} }
+        };
+        const cables = [
+            { fromModule: 'lfo', fromPort: 'out', toModule: 'vco', toPort: 'fm' },
+            { fromModule: 'lfo', fromPort: 'out', toModule: 'vcf', toPort: 'cutoff' }
+        ];
+        const order = computeProcessOrder(modules, cables);
+
+        // LFO should be before both destinations
+        expect(order.indexOf('lfo')).toBeLessThan(order.indexOf('vco'));
+        expect(order.indexOf('lfo')).toBeLessThan(order.indexOf('vcf'));
+    });
+
+    it('should handle cycles gracefully (feedback patches)', () => {
+        const modules = {
+            vco: { instance: {} },
+            vcf: { instance: {} }
+        };
+        const cables = [
+            { fromModule: 'vco', fromPort: 'out', toModule: 'vcf', toPort: 'in' },
+            { fromModule: 'vcf', fromPort: 'out', toModule: 'vco', toPort: 'fm' }
+        ];
+        const order = computeProcessOrder(modules, cables);
+
+        // Should include both modules (cycle handled)
+        expect(order).toContain('vco');
+        expect(order).toContain('vcf');
+        expect(order.length).toBe(2);
+    });
+
+    it('should ignore self-loops', () => {
+        const modules = {
+            vco: { instance: {} }
+        };
+        const cables = [
+            { fromModule: 'vco', fromPort: 'out', toModule: 'vco', toPort: 'fm' }
+        ];
+        const order = computeProcessOrder(modules, cables);
+
+        expect(order).toEqual(['vco']);
+    });
+
+    it('should ignore cables with missing modules', () => {
+        const modules = {
+            vco: { instance: {} }
+        };
+        const cables = [
+            { fromModule: 'lfo', fromPort: 'out', toModule: 'vco', toPort: 'fm' }
+        ];
+        const order = computeProcessOrder(modules, cables);
+
+        expect(order).toEqual(['vco']);
+    });
+
+    it('should handle duplicate cables', () => {
+        const modules = {
+            lfo: { instance: {} },
+            vco: { instance: {} }
+        };
+        const cables = [
+            { fromModule: 'lfo', fromPort: 'out1', toModule: 'vco', toPort: 'fm' },
+            { fromModule: 'lfo', fromPort: 'out2', toModule: 'vco', toPort: 'pwm' }
+        ];
+        const order = computeProcessOrder(modules, cables);
+
+        expect(order.indexOf('lfo')).toBeLessThan(order.indexOf('vco'));
+        expect(order.length).toBe(2);
+    });
+});
+
+describe('engine processOrder integration', () => {
+    it('should expose processOrder', () => {
+        const modules = {
+            lfo: { instance: create2hpLFO(), type: 'lfo' },
+            vco: { instance: create2hpVCO(), type: 'vco' }
+        };
+        const engine = createAudioEngine({ modules, cables: [] });
+
+        expect(engine.processOrder).toBeDefined();
+        expect(Array.isArray(engine.processOrder)).toBe(true);
+    });
+
+    it('should update processOrder when cables change', () => {
+        const modules = {
+            lfo: { instance: create2hpLFO(), type: 'lfo' },
+            vco: { instance: create2hpVCO(), type: 'vco' },
+            vca: { instance: create2hpDualVCA(), type: 'vca' }
+        };
+        const engine = createAudioEngine({ modules, cables: [] });
+
+        const initialOrder = engine.processOrder;
+
+        // Add cable that creates dependency
+        engine.setCables([
+            { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' }
+        ]);
+
+        const newOrder = engine.processOrder;
+
+        // VCO should be before VCA
+        expect(newOrder.indexOf('vco')).toBeLessThan(newOrder.indexOf('vca'));
+    });
+
+    it('should update processOrder when modules change', () => {
+        const modules = {
+            lfo: { instance: create2hpLFO(), type: 'lfo' }
+        };
+        const engine = createAudioEngine({ modules, cables: [] });
+
+        expect(engine.processOrder).toEqual(['lfo']);
+
+        engine.setModules({
+            lfo: { instance: create2hpLFO(), type: 'lfo' },
+            vco: { instance: create2hpVCO(), type: 'vco' }
+        });
+
+        expect(engine.processOrder).toContain('lfo');
+        expect(engine.processOrder).toContain('vco');
     });
 });

@@ -58,8 +58,8 @@ describe('create2hpOut', () => {
         });
 
         it('should have LED outputs', () => {
-            expect(output.led.L).toBe(0);
-            expect(output.led.R).toBe(0);
+            expect(output.leds.L).toBe(0);
+            expect(output.leds.R).toBe(0);
         });
 
         it('should store AudioContext reference', () => {
@@ -92,8 +92,8 @@ describe('create2hpOut', () => {
 
             output.process();
 
-            expect(output.led.L).toBeCloseTo(0.5, 1);
-            expect(output.led.R).toBeCloseTo(0.25, 1);
+            expect(output.leds.L).toBeCloseTo(0.5, 1);
+            expect(output.leds.R).toBeCloseTo(0.25, 1);
         });
 
         it('should respond to silence with zero LED', () => {
@@ -105,8 +105,8 @@ describe('create2hpOut', () => {
 
             output.process();
 
-            expect(output.led.L).toBe(0);
-            expect(output.led.R).toBe(0);
+            expect(output.leds.L).toBe(0);
+            expect(output.leds.R).toBe(0);
         });
 
         it('should measure absolute peak level', () => {
@@ -118,8 +118,8 @@ describe('create2hpOut', () => {
 
             output.process();
 
-            expect(output.led.L).toBeCloseTo(0.6, 1); // |−3|/5
-            expect(output.led.R).toBeCloseTo(0.8, 1); // |−4|/5
+            expect(output.leds.L).toBeCloseTo(0.6, 1); // |−3|/5
+            expect(output.leds.R).toBeCloseTo(0.8, 1); // |−4|/5
         });
     });
 
@@ -143,8 +143,51 @@ describe('create2hpOut', () => {
 
             output.process();
 
-            expect(output.led.L).toBeCloseTo(1, 1);
-            expect(output.led.R).toBe(0);
+            expect(output.leds.L).toBeCloseTo(1, 1);
+            expect(output.leds.R).toBe(0);
+        });
+    });
+
+    describe('clearAudioInputs', () => {
+        it('should zero input buffers', () => {
+            // Fill with audio
+            for (let i = 0; i < 512; i++) {
+                output.inputs.L[i] = 5;
+                output.inputs.R[i] = 3;
+            }
+
+            output.clearAudioInputs();
+
+            expect(output.inputs.L.every(v => v === 0)).toBe(true);
+            expect(output.inputs.R.every(v => v === 0)).toBe(true);
+        });
+
+        it('should reset input references to own buffers', () => {
+            // Simulate routing replacing input with foreign buffer
+            const foreignBuffer = new Float32Array(512);
+            foreignBuffer.fill(5);
+            output.inputs.L = foreignBuffer;
+
+            output.clearAudioInputs();
+
+            // Should now point to internal zeroed buffer, not foreign buffer
+            expect(output.inputs.L).not.toBe(foreignBuffer);
+            expect(output.inputs.L.every(v => v === 0)).toBe(true);
+        });
+
+        it('should result in silence after process', () => {
+            // Fill with audio
+            for (let i = 0; i < 512; i++) {
+                output.inputs.L[i] = 5;
+                output.inputs.R[i] = 5;
+            }
+
+            output.clearAudioInputs();
+            output.process();
+
+            // LEDs should show zero (silence)
+            expect(output.leds.L).toBe(0);
+            expect(output.leds.R).toBe(0);
         });
     });
 
@@ -167,8 +210,8 @@ describe('create2hpOut', () => {
 
             output.process();
 
-            expect(output.led.L).toBeCloseTo(0, 2);
-            expect(output.led.R).toBeCloseTo(0, 2);
+            expect(output.leds.L).toBeCloseTo(0, 2);
+            expect(output.leds.R).toBeCloseTo(0, 2);
         });
     });
 });

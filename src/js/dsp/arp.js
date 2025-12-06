@@ -4,28 +4,35 @@
  * A gate-driven arpeggiator that cycles through chord notes.
  * Each trigger advances to the next note in the arpeggio pattern.
  *
- * Features:
- * - 8 chord types (single, maj, min, dim, aug, sus4, 7th, maj7)
- * - 4 arpeggio modes (up, down, up-down, random)
- * - 1-4 octave range
- * - Root note CV input
- * - Trigger input for advancing
+ * Features (per 2hp Arp spec):
+ * - 13 chord types (major, maj7, dom7, minor, min7, dim, halfDim7, fullDim7, aug, aug7, sus4, sus4Maj7, sus4Min7)
+ * - 4 arpeggio modes (up, down, up-down/pendulum, random)
+ * - 1-2 octave range
+ * - Root note CV input (V/Oct tracking)
+ * - Trigger input for advancing (0.4V threshold)
+ * - Reset input
  *
  * @module dsp/arp
  */
 
 /**
  * Chord definitions - semitone intervals from root
+ * Matches 2hp Arp: 13 chord types from Major to Sus4 Min7
  */
 export const CHORDS = {
-    single:   [0],                      // Just root
     major:    [0, 4, 7],                // Major triad
-    minor:    [0, 3, 7],                // Minor triad
-    dim:      [0, 3, 6],                // Diminished
-    aug:      [0, 4, 8],                // Augmented
-    sus4:     [0, 5, 7],                // Suspended 4th
+    maj7:     [0, 4, 7, 11],            // Major 7th
     dom7:     [0, 4, 7, 10],            // Dominant 7th
-    maj7:     [0, 4, 7, 11]             // Major 7th
+    minor:    [0, 3, 7],                // Minor triad
+    min7:     [0, 3, 7, 10],            // Minor 7th
+    dim:      [0, 3, 6],                // Diminished triad
+    halfDim7: [0, 3, 6, 10],            // Half Diminished 7th (m7b5)
+    fullDim7: [0, 3, 6, 9],             // Full Diminished 7th
+    aug:      [0, 4, 8],                // Augmented triad
+    aug7:     [0, 4, 8, 10],            // Augmented 7th
+    sus4:     [0, 5, 7],                // Suspended 4th
+    sus4Maj7: [0, 5, 7, 11],            // Sus4 Major 7th
+    sus4Min7: [0, 5, 7, 10]             // Sus4 Minor 7th
 };
 
 export const CHORD_NAMES = Object.keys(CHORDS);
@@ -95,6 +102,7 @@ export function createArp({ bufferSize = 128, sampleRate = 48000 } = {}) {
     // State
     let currentStep = 0;
     let lastTriggerState = false;
+    let lastResetState = false;
     let currentNote = 0;
     let sequence = [0];
 
@@ -140,8 +148,8 @@ export function createArp({ bufferSize = 128, sampleRate = 48000 } = {}) {
             const modeIndex = Math.floor(mode) % ARP_MODE_NAMES.length;
             const modeName = ARP_MODE_NAMES[modeIndex];
 
-            // Clamp octaves
-            octaves = Math.max(1, Math.min(4, Math.floor(octaves)));
+            // Clamp octaves (2hp Arp spec: 1-2 octaves)
+            octaves = Math.max(1, Math.min(2, Math.floor(octaves)));
 
             // Build sequence
             sequence = buildArpSequence(chordIntervals, octaves, modeName);
@@ -149,13 +157,15 @@ export function createArp({ bufferSize = 128, sampleRate = 48000 } = {}) {
             let stepped = false;
 
             for (let i = 0; i < bufferSize; i++) {
-                // Check for reset
-                if (resetIn[i] > 2.5 && !lastTriggerState) {
+                // Check for reset (rising edge, 2hp Arp spec: 0.4V threshold)
+                const resetActive = resetIn[i] > 0.4;
+                if (resetActive && !lastResetState) {
                     currentStep = 0;
                 }
+                lastResetState = resetActive;
 
-                // Check for trigger (rising edge)
-                const triggerActive = trigIn[i] > 2.5;
+                // Check for trigger (rising edge, 2hp Arp spec: 0.4V threshold)
+                const triggerActive = trigIn[i] > 0.4;
 
                 if (triggerActive && !lastTriggerState) {
                     // Advance step

@@ -4,15 +4,6 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 
 ![Evolving Drone Patch](screen-grab.png)
 
-## Quick Start
-
-```bash
-npm install
-npm run dev
-```
-
-Open `http://localhost:5173` in your browser.
-
 ## Modules
 
 | Module | Description |

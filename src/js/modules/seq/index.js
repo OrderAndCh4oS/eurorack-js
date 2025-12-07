@@ -24,9 +24,66 @@ const RANGE_MULTIPLIERS = [1, 2, 4]; // 1V, 2V, 4V
 export default {
     id: 'seq',
     name: 'SEQ',
-    hp: 10,
+    hp: 6,
     color: '#4a6b8a',
     category: 'sequencer',
+
+    css: `
+        .seq-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 4px 2px;
+            gap: 2px;
+        }
+        .seq-steps {
+            display: flex;
+            gap: 12px;
+            flex: 1;
+            justify-content: center;
+        }
+        .seq-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+        .seq-step-row {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .seq-step-row .knob-container {
+            flex-direction: row;
+            align-items: center;
+            gap: 3px;
+        }
+        .seq-step-row .knob-label {
+            width: 8px;
+            text-align: left;
+        }
+        .seq-controls {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            padding: 2px 0 8px 0;
+        }
+        .seq-io {
+            display: flex;
+            justify-content: space-around;
+            padding: 2px 0;
+        }
+        .seq-io-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1px;
+        }
+        .seq-io-label {
+            font-size: 6px;
+            color: #888;
+        }
+    `,
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         const cvOut = new Float32Array(bufferSize);
@@ -196,6 +253,124 @@ export default {
                 return currentStep;
             }
         };
+    },
+
+    render(container, { instance, toolkit, onParamChange }) {
+        const mainContainer = document.createElement('div');
+        mainContainer.className = 'seq-container';
+
+        // === Steps area: two columns (knobs | buttons) ===
+        const stepsArea = document.createElement('div');
+        stepsArea.className = 'seq-steps';
+
+        // Left column: LEDs + Knobs (vertical)
+        const knobColumn = document.createElement('div');
+        knobColumn.className = 'seq-column';
+
+        // Right column: Gate buttons (vertical)
+        const btnColumn = document.createElement('div');
+        btnColumn.className = 'seq-column';
+
+        // Create 8 step rows
+        for (let i = 1; i <= 8; i++) {
+            // LED + Knob
+            const stepRow = document.createElement('div');
+            stepRow.className = 'seq-step-row';
+
+            const led = toolkit.createLED({ id: `step${i}`, color: 'green' });
+            stepRow.appendChild(led);
+
+            const knob = toolkit.createKnob({
+                id: `step${i}`,
+                label: `${i}`,
+                param: `step${i}`,
+                value: 0,
+                min: 0,
+                max: 1,
+                step: 0,
+                small: true
+            });
+            stepRow.appendChild(knob);
+            knobColumn.appendChild(stepRow);
+
+            // Gate button
+            const gateBtn = document.createElement('button');
+            gateBtn.className = 'toggle-btn active';
+            gateBtn.dataset.module = instance.id;
+            gateBtn.dataset.param = `gate${i}`;
+            gateBtn.title = `G${i}`;
+            btnColumn.appendChild(gateBtn);
+        }
+
+        stepsArea.appendChild(knobColumn);
+        stepsArea.appendChild(btnColumn);
+        mainContainer.appendChild(stepsArea);
+
+        // === Control knobs: Len, Rng, Dir ===
+        const controls = document.createElement('div');
+        controls.className = 'seq-controls';
+
+        controls.appendChild(toolkit.createKnob({
+            id: 'length',
+            label: 'Len',
+            param: 'length',
+            value: 8,
+            min: 1,
+            max: 8,
+            step: 1,
+            small: true
+        }));
+        controls.appendChild(toolkit.createKnob({
+            id: 'range',
+            label: 'Rng',
+            param: 'range',
+            value: 1,
+            min: 0,
+            max: 2,
+            step: 1,
+            small: true
+        }));
+        controls.appendChild(toolkit.createKnob({
+            id: 'direction',
+            label: 'Dir',
+            param: 'direction',
+            value: 0,
+            min: 0,
+            max: 7,
+            step: 1,
+            small: true
+        }));
+
+        mainContainer.appendChild(controls);
+
+        // === I/O: Inputs and Outputs ===
+        const io = document.createElement('div');
+        io.className = 'seq-io';
+
+        // Inputs
+        const inGroup = document.createElement('div');
+        inGroup.className = 'seq-io-group';
+        const inLabel = document.createElement('div');
+        inLabel.className = 'seq-io-label';
+        inLabel.textContent = 'IN';
+        inGroup.appendChild(inLabel);
+        inGroup.appendChild(toolkit.createJack({ id: 'clock', label: 'Clk', direction: 'input', type: 'trigger' }));
+        inGroup.appendChild(toolkit.createJack({ id: 'reset', label: 'Rst', direction: 'input', type: 'trigger' }));
+        io.appendChild(inGroup);
+
+        // Outputs
+        const outGroup = document.createElement('div');
+        outGroup.className = 'seq-io-group';
+        const outLabel = document.createElement('div');
+        outLabel.className = 'seq-io-label';
+        outLabel.textContent = 'OUT';
+        outGroup.appendChild(outLabel);
+        outGroup.appendChild(toolkit.createJack({ id: 'cv', label: 'CV', direction: 'output', type: 'cv' }));
+        outGroup.appendChild(toolkit.createJack({ id: 'gate', label: 'Gate', direction: 'output', type: 'gate' }));
+        io.appendChild(outGroup);
+
+        mainContainer.appendChild(io);
+        container.appendChild(mainContainer);
     },
 
     ui: {

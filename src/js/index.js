@@ -79,14 +79,18 @@ export const DEFAULT_MODULE_ORDER = [
     'sh',
     'quant',
     'arp',
+    'seq',
     'vco',
     'vcf',
     'adsr',
     'vca',
+    'dly',
+    'verb',
     'kick',
     'snare',
     'hat',
     'mix',
+    'scope',
     'out'
 ];
 

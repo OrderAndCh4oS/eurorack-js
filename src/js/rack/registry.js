@@ -229,6 +229,8 @@ export async function loadModules() {
         import('../modules/adsr/index.js'),
         import('../modules/vca/index.js'),
         import('../modules/mix/index.js'),
+        import('../modules/dly/index.js'),
+        import('../modules/verb/index.js'),
         import('../modules/kick/index.js'),
         import('../modules/snare/index.js'),
         import('../modules/hat/index.js'),

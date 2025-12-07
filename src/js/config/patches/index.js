@@ -23,6 +23,7 @@ import testShPitch from './test-sh-pitch.js';
 import testClockDivisions from './test-clock-divisions.js';
 import testQuantizerScales from './test-quantizer-scales.js';
 import testArpeggiator from './test-arpeggiator.js';
+import testScopeSinewave from './test-scope-sinewave.js';
 
 // Test patches - Drums
 import testSnareOnly from './test-snare-only.js';
@@ -63,6 +64,7 @@ export const FACTORY_PATCHES = {
     [testClockDivisions.name]: testClockDivisions,
     [testQuantizerScales.name]: testQuantizerScales,
     [testArpeggiator.name]: testArpeggiator,
+    [testScopeSinewave.name]: testScopeSinewave,
 
     // Test patches - Drums
     [testSnareOnly.name]: testSnareOnly,

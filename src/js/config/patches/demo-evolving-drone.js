@@ -19,7 +19,6 @@ export default {
     factory: true,
     state: {
         modules: [
-            // Row 1: Clock, timing, and modulation
             { type: 'clk', instanceId: 'clk', row: 1 },
             { type: 'div', instanceId: 'div', row: 1 },
             { type: 'lfo', instanceId: 'lfo', row: 1 },
@@ -27,75 +26,41 @@ export default {
             { type: 'sh', instanceId: 'sh', row: 1 },
             { type: 'quant', instanceId: 'quant', row: 1 },
             { type: 'arp', instanceId: 'arp', row: 1 },
-
-            // Row 2: Voice 1 (lead) - filtered
-            { type: 'vco', instanceId: 'vco1', row: 2 },
-            { type: 'vcf', instanceId: 'vcf', row: 2 },
-            { type: 'adsr', instanceId: 'adsr1', row: 2 },
-            { type: 'vca', instanceId: 'vca1', row: 2 },
-
-            // Row 2: Voice 2 (bass) - unfiltered
-            { type: 'vco', instanceId: 'vco2', row: 2 },
-            { type: 'adsr', instanceId: 'adsr2', row: 2 },
-            { type: 'vca', instanceId: 'vca2', row: 2 },
-
-            // Row 2: Output
-            { type: 'mix', instanceId: 'mix', row: 2 },
-            { type: 'out', instanceId: 'out', row: 2 }
+            { type: 'vco', instanceId: 'vco1', row: 1 },
+            { type: 'vcf', instanceId: 'vcf', row: 1 },
+            { type: 'adsr', instanceId: 'adsr1', row: 1 },
+            { type: 'vca', instanceId: 'vca1', row: 1 },
+            { type: 'vco', instanceId: 'vco2', row: 1 },
+            { type: 'adsr', instanceId: 'adsr2', row: 1 },
+            { type: 'vca', instanceId: 'vca2', row: 1 },
+            { type: 'mix', instanceId: 'mix', row: 1 },
+            { type: 'out', instanceId: 'out', row: 1 }
         ],
         knobs: {
-            // Clock: moderate tempo (~3Hz)
-            clk: { rate: 0.35 },
-
-            // Divider: out1=/4 (quarter notes), out2=/8 (half notes for bass)
-            div: { rate1: 0.25, rate2: 0.125 },
-
-            // LFO: very slow for filter sweep
-            lfo: { rateKnob: 0.15, waveKnob: 0 },
-
-            // Noise: full rate for rich random
+            clk: { rate: 0.79 },
+            div: { rate1: 0.7833333333333333, rate2: 0.5516666666666666 },
+            lfo: { rateKnob: 0.27, waveKnob: 0.2733333333333333 },
             nse: { rate: 1 },
-
-            // S&H: no slew for stepped pitches
             sh: { slew1: 0, slew2: 0 },
-
-            // Quantizer: minor pentatonic scale for moody sound
             quant: { scale: 4, octave: 0, semitone: 0 },
-
-            // Arpeggiator: minor chord, up pattern, 2 octaves
             arp: { root: 0, chord: 3, mode: 0 },
-
-            // VCO1 (lead): mid-range saw
             vco1: { coarse: 0.45, fine: 0, glide: 15 },
-
-            // VCO2 (bass): lower octave, triangle for warmth
-            vco2: { coarse: 0.32, fine: 0, glide: 25 },
-
-            // Filter: mid cutoff with some resonance
-            vcf: { cutoff: 0.45, resonance: 0.35 },
-
-            // ADSR1 (lead): plucky
-            adsr1: { attack: 0.05, decay: 0.25, sustain: 0.4, release: 0.3 },
-
-            // ADSR2 (bass): slower, more sustained
-            adsr2: { attack: 0.15, decay: 0.35, sustain: 0.6, release: 0.45 },
-
-            // VCAs: balanced levels
+            vcf: { cutoff: 0.38333333333333336, resonance: 0.35 },
+            adsr1: { attack: 0.11, decay: 0.25, sustain: 0.4, release: 0.3933333333333333 },
             vca1: { ch1Gain: 0.8, ch2Gain: 0.8 },
+            vco2: { coarse: 0.32, fine: 0, glide: 25 },
+            adsr2: { attack: 0.09, decay: 0.35, sustain: 0.6, release: 0.6833333333333333 },
             vca2: { ch1Gain: 0.8, ch2Gain: 0.8 },
-
-            // Mixer: lead slightly louder than bass
             mix: { lvl1: 0.7, lvl2: 0.5, lvl3: 0, lvl4: 0 },
-
-            // Output: safe level
             out: { volume: 0.65 }
         },
         switches: {
-            clk: { pause: 0 },
-            lfo: { range: 0 },  // Slow range for filter sweep
-            nse: { vcaMode: 0 },
-            arp: { octaves: 2 }  // 2 octave range
+            clk: { pause: false },
+            lfo: { range: false },
+            nse: { vcaMode: false },
+            arp: { octaves: true }
         },
+        buttons: {},
         cables: [
             // Clock distribution
             { fromModule: 'clk', fromPort: 'clock', toModule: 'div', toPort: 'clock' },

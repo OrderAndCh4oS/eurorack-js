@@ -50,7 +50,7 @@ Software Eurorack modular synthesizer. Modules pass voltages; sound only at outp
 
 **Self-contained modules**: Each module folder contains DSP + UI definition in one file. Modules export metadata, `createDSP()` factory, and declarative `ui` config.
 
-**Available modules**: `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `vco` · `vcf` · `adsr` · `vca` · `out`
+**Available modules**: `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `vco` · `vcf` · `adsr` · `vca` · `mix` · `kick` · `snare` · `hat` · `scope` · `out`
 
 ## Project Structure
 
@@ -80,7 +80,7 @@ tests/dsp/{module}.test.js # Module tests
 
 Processing order is computed dynamically from cable connections using `computeProcessOrder()`:
 - Sources process before destinations (topological sort)
-- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → vco → vcf → adsr → vca → out`
+- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → seq → vco → vcf → adsr → vca → mix → kick → snare → hat → scope → out`
 - Cycles (feedback patches) fall back to `MODULE_ORDER`
 - Recomputed when cables or modules change
 

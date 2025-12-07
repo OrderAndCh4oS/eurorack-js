@@ -24,6 +24,7 @@ import testClockDivisions from './test-clock-divisions.js';
 import testQuantizerScales from './test-quantizer-scales.js';
 import testArpeggiator from './test-arpeggiator.js';
 import testScopeSinewave from './test-scope-sinewave.js';
+import testSequencer from './test-sequencer.js';
 
 // Test patches - Drums
 import testSnareOnly from './test-snare-only.js';
@@ -36,6 +37,7 @@ import demoPulsingBass from './demo-pulsing-bass.js';
 import demoShRandom from './demo-sh-random.js';
 import demoFilterEnvelope from './demo-filter-envelope.js';
 import demoEvolvingDrone from './demo-evolving-drone.js';
+import demoDrumAndBass from './demo-drum-and-bass.js';
 
 // Drum patches
 import drumsBasicBeat from './drums-basic-beat.js';
@@ -65,6 +67,7 @@ export const FACTORY_PATCHES = {
     [testQuantizerScales.name]: testQuantizerScales,
     [testArpeggiator.name]: testArpeggiator,
     [testScopeSinewave.name]: testScopeSinewave,
+    [testSequencer.name]: testSequencer,
 
     // Test patches - Drums
     [testSnareOnly.name]: testSnareOnly,
@@ -77,6 +80,7 @@ export const FACTORY_PATCHES = {
     [demoShRandom.name]: demoShRandom,
     [demoFilterEnvelope.name]: demoFilterEnvelope,
     [demoEvolvingDrone.name]: demoEvolvingDrone,
+    [demoDrumAndBass.name]: demoDrumAndBass,
 
     // Drum patches
     [drumsBasicBeat.name]: drumsBasicBeat,

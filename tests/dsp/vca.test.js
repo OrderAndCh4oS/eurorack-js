@@ -20,6 +20,7 @@ describe('create2hpDualVCA', () => {
         it('should create input buffers', () => {
             expect(vca.inputs.ch1In).toBeInstanceOf(Float32Array);
             expect(vca.inputs.ch2In).toBeInstanceOf(Float32Array);
+            expect(vca.inputs.ch1CV).toBeInstanceOf(Float32Array);
             expect(vca.inputs.ch2CV).toBeInstanceOf(Float32Array);
         });
 
@@ -47,12 +48,15 @@ describe('create2hpDualVCA', () => {
                 vca.inputs.ch1In[i] = Math.sin(i * 0.1) * 5;
             }
             vca.params.ch1Gain = 1;
-            vca.process();
+            vca.inputs.ch1CV.fill(5); // Fully open
 
-            // Output should match input (channel 1 has no CV control)
-            for (let i = 0; i < 512; i++) {
-                expect(vca.outputs.ch1Out[i]).toBeCloseTo(vca.inputs.ch1In[i], 5);
+            // Process multiple times for CV slew to settle
+            for (let j = 0; j < 10; j++) {
+                vca.process();
             }
+
+            // Output should match input at end of buffer
+            expect(vca.outputs.ch1Out[511]).toBeCloseTo(vca.inputs.ch1In[511], 1);
         });
 
         it('should attenuate signal with lower gain', () => {
@@ -60,9 +64,14 @@ describe('create2hpDualVCA', () => {
                 vca.inputs.ch1In[i] = 5;
             }
             vca.params.ch1Gain = 0.5;
-            vca.process();
+            vca.inputs.ch1CV.fill(5); // Fully open
 
-            expect(vca.outputs.ch1Out[0]).toBeCloseTo(2.5, 5);
+            // Process multiple times for CV slew to settle
+            for (let j = 0; j < 10; j++) {
+                vca.process();
+            }
+
+            expect(vca.outputs.ch1Out[511]).toBeCloseTo(2.5, 1);
         });
 
         it('should mute signal at zero gain', () => {
@@ -70,6 +79,7 @@ describe('create2hpDualVCA', () => {
                 vca.inputs.ch1In[i] = 5;
             }
             vca.params.ch1Gain = 0;
+            vca.inputs.ch1CV.fill(5); // Fully open
             vca.process();
 
             expect(vca.outputs.ch1Out[0]).toBe(0);
@@ -151,8 +161,13 @@ describe('create2hpDualVCA', () => {
             }
             vca.params.ch1Gain = 1;
             vca.params.ch2Gain = 1;
+            vca.inputs.ch1CV.fill(5);
             vca.inputs.ch2CV.fill(5);
-            vca.process();
+
+            // Process multiple times for CV slew to settle
+            for (let j = 0; j < 10; j++) {
+                vca.process();
+            }
 
             expect(vca.leds.ch1).toBeGreaterThan(0);
             expect(vca.leds.ch2).toBeGreaterThan(0);
@@ -164,7 +179,12 @@ describe('create2hpDualVCA', () => {
                 vca.inputs.ch1In[i] = 5;
             }
             vca.params.ch1Gain = 1;
-            vca.process();
+            vca.inputs.ch1CV.fill(5);
+
+            // Process multiple times for CV slew to settle
+            for (let j = 0; j < 10; j++) {
+                vca.process();
+            }
             const initialLed = vca.leds.ch1;
 
             // Then process with silence

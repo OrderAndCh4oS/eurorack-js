@@ -28,6 +28,7 @@ export default {
         let phase = 0;
         let ampEnv = 0;
         let pitchEnv = 0;
+        let clickEnv = 0;  // Click transient envelope
 
         // Trigger detection
         let lastTrig = 0;
@@ -39,18 +40,19 @@ export default {
         let ampDecayRate = 0;
         let pitchDecayRate = 0;
 
+        // Click transient decay rate (~1-2ms decay time)
+        const clickDecayRate = Math.exp(-1 / (sampleRate * 0.001));
+
         // Base frequencies for kick (Hz)
         const BASE_FREQ_MIN = 30;   // Low kick
         const BASE_FREQ_MAX = 150;  // High kick
-
-        // Pitch envelope settings
-        const PITCH_SWEEP_OCTAVES = 2; // How many octaves pitch sweeps down
 
         return {
             params: {
                 pitch: 0.3,   // Base pitch (0-1)
                 decay: 0.5,   // Decay time (0-1)
-                tone: 0.3     // Harmonic content / distortion (0-1)
+                tone: 0.3,    // Harmonic content / distortion (0-1)
+                click: 0.5    // Click/sweep amount (0-1): 0=subtle thump, 1=zappy 808
             },
             inputs: {
                 trigger: new Float32Array(bufferSize),
@@ -65,6 +67,11 @@ export default {
                 const basePitch = clamp(this.params.pitch, 0, 1);
                 const decayParam = clamp(this.params.decay, 0, 1);
                 const toneParam = clamp(this.params.tone, 0, 1);
+                const clickParam = clamp(this.params.click, 0, 1);
+
+                // Click knob controls pitch sweep (0-4 octaves) and click transient amount
+                const pitchSweepOctaves = clickParam * 4;
+                const clickAmount = clickParam * 0.3;  // Max 30% of signal
 
                 let peak = 0;
 
@@ -76,6 +83,7 @@ export default {
                         // Trigger new kick
                         ampEnv = 1;
                         pitchEnv = 1;
+                        clickEnv = 1;  // Trigger click transient
 
                         // Calculate decay rates based on decay param + CV
                         const decayCV = this.inputs.decayCV[i] / 5; // 0-5V -> 0-1
@@ -101,7 +109,7 @@ export default {
                     const freqWithCV = baseFreq * Math.pow(2, pitchCV);
 
                     // Apply pitch envelope (sweeps from higher to base)
-                    const pitchSweepMult = 1 + pitchEnv * PITCH_SWEEP_OCTAVES;
+                    const pitchSweepMult = 1 + pitchEnv * pitchSweepOctaves;
                     const freq = freqWithCV * pitchSweepMult;
 
                     // Sine oscillator
@@ -121,6 +129,10 @@ export default {
                         sample = Math.tanh(sample * drive) / Math.tanh(drive);
                     }
 
+                    // Add click transient (short noise burst for attack punch)
+                    const click = (Math.random() * 2 - 1) * clickEnv * clickAmount;
+                    sample += click;
+
                     // Apply amplitude envelope
                     sample *= ampEnv;
 
@@ -132,10 +144,12 @@ export default {
                     // Decay envelopes
                     ampEnv *= ampDecayRate;
                     pitchEnv *= pitchDecayRate;
+                    clickEnv *= clickDecayRate;
 
                     // Kill denormals
                     if (ampEnv < 1e-6) ampEnv = 0;
                     if (pitchEnv < 1e-6) pitchEnv = 0;
+                    if (clickEnv < 1e-6) clickEnv = 0;
                 }
 
                 // Update LED
@@ -147,6 +161,7 @@ export default {
                 phase = 0;
                 ampEnv = 0;
                 pitchEnv = 0;
+                clickEnv = 0;
                 lastTrig = 0;
                 leds.active = 0;
             }
@@ -158,7 +173,8 @@ export default {
         knobs: [
             { id: 'pitch', label: 'Pitch', param: 'pitch', min: 0, max: 1, default: 0.3 },
             { id: 'decay', label: 'Decay', param: 'decay', min: 0, max: 1, default: 0.5 },
-            { id: 'tone', label: 'Tone', param: 'tone', min: 0, max: 1, default: 0.3 }
+            { id: 'tone', label: 'Tone', param: 'tone', min: 0, max: 1, default: 0.3 },
+            { id: 'click', label: 'Click', param: 'click', min: 0, max: 1, default: 0.5 }
         ],
         inputs: [
             { id: 'trigger', label: 'Trig', port: 'trigger', type: 'trigger' },

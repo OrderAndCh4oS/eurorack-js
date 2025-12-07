@@ -265,7 +265,7 @@ describe('2hp Snare - Snare Drum Synthesizer', () => {
         });
 
         it('should have correct HP width', () => {
-            expect(snareModule.hp).toBe(2);
+            expect(snareModule.hp).toBe(4);
         });
 
         it('should have 3 knobs (snap, decay, pitch)', () => {

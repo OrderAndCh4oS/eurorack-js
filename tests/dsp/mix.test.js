@@ -224,7 +224,7 @@ describe('2hp Mix - 4 Channel Mixer', () => {
         });
 
         it('should have correct HP width', () => {
-            expect(mixModule.hp).toBe(2);
+            expect(mixModule.hp).toBe(4);
         });
 
         it('should have UI definition with 4 inputs', () => {

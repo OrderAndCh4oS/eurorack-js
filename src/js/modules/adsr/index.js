@@ -39,20 +39,23 @@ export default {
             params: { attack: 0.2, decay: 0.3, sustain: 0.7, release: 0.4 },
             inputs: {
                 gate: new Float32Array(bufferSize),
-                retrig: new Float32Array(bufferSize)
+                retrig: new Float32Array(bufferSize),
+                attackCV: new Float32Array(bufferSize),
+                decayCV: new Float32Array(bufferSize),
+                releaseCV: new Float32Array(bufferSize)
             },
             outputs: { env, inv, eoc },
             leds: { env: 0 },
 
             process() {
-                const attackTime = knobToTime(this.params.attack);
-                const decayTime = knobToTime(this.params.decay);
+                const baseAttack = this.params.attack;
+                const baseDecay = this.params.decay;
                 const sustainLevel = clamp(this.params.sustain) * 5;
-                const releaseTime = knobToTime(this.params.release);
+                const baseRelease = this.params.release;
 
-                const attackCoeff = calcCoeff(attackTime);
-                const decayCoeff = calcCoeff(decayTime);
-                const releaseCoeff = calcCoeff(releaseTime);
+                const attackCV = this.inputs.attackCV;
+                const decayCV = this.inputs.decayCV;
+                const releaseCV = this.inputs.releaseCV;
 
                 for (let i = 0; i < bufferSize; i++) {
                     const gateVal = this.inputs.gate[i];
@@ -71,6 +74,15 @@ export default {
 
                     lastGate = gateVal;
                     lastRetrig = retrigVal;
+
+                    // Per-sample CV modulation of times (±5V = ±0.5 range)
+                    const attackMod = clamp(baseAttack + (attackCV[i] || 0) / 10, 0, 1);
+                    const decayMod = clamp(baseDecay + (decayCV[i] || 0) / 10, 0, 1);
+                    const releaseMod = clamp(baseRelease + (releaseCV[i] || 0) / 10, 0, 1);
+
+                    const attackCoeff = calcCoeff(knobToTime(attackMod));
+                    const decayCoeff = calcCoeff(knobToTime(decayMod));
+                    const releaseCoeff = calcCoeff(knobToTime(releaseMod));
 
                     let eocTrig = 0;
                     switch (stage) {
@@ -136,7 +148,10 @@ export default {
         ],
         inputs: [
             { id: 'gate', label: 'Gate', port: 'gate', type: 'trigger' },
-            { id: 'retrig', label: 'Retr', port: 'retrig', type: 'trigger' }
+            { id: 'retrig', label: 'Retr', port: 'retrig', type: 'trigger' },
+            { id: 'attackCV', label: 'Atk', port: 'attackCV', type: 'cv' },
+            { id: 'decayCV', label: 'Dec', port: 'decayCV', type: 'cv' },
+            { id: 'releaseCV', label: 'Rel', port: 'releaseCV', type: 'cv' }
         ],
         outputs: [
             { id: 'env', label: 'Env', port: 'env', type: 'cv' },

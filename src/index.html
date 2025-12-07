@@ -763,13 +763,14 @@
     const MODULE_ORDER = DEFAULT_MODULE_ORDER;
 
     /* Category display order and labels */
-    const CATEGORY_ORDER = ['clock', 'modulation', 'quantizer', 'voice', 'effect', 'output', 'other'];
+    const CATEGORY_ORDER = ['clock', 'modulation', 'quantizer', 'voice', 'effect', 'utility', 'output', 'other'];
     const CATEGORY_LABELS = {
         'clock': 'Clock & Utility',
         'modulation': 'Modulation',
         'quantizer': 'Quantizer',
         'voice': 'Voices',
         'effect': 'Effects',
+        'utility': 'Utility',
         'output': 'Output',
         'other': 'Other'
     };
@@ -778,6 +779,137 @@
     /* =============================================================
      * UI Rendering
      * =========================================================== */
+
+    /* Track injected custom CSS to avoid duplicates */
+    const injectedModuleCSS = new Set();
+
+    /**
+     * Inject custom CSS for a module (only once per module type)
+     * @param {string} moduleType - Module type ID
+     * @param {string} css - CSS string to inject
+     */
+    function injectModuleCSS(moduleType, css) {
+        if (injectedModuleCSS.has(moduleType)) return;
+        const style = document.createElement('style');
+        style.id = `module-css-${moduleType}`;
+        style.textContent = css;
+        document.head.appendChild(style);
+        injectedModuleCSS.add(moduleType);
+    }
+
+    /**
+     * Create toolkit object for custom render functions
+     * Provides helper methods for building module UI
+     */
+    function createRenderToolkit(moduleId, def) {
+        const knobSizeClass = def.hp === 2 ? ' knob-sm' : '';
+
+        return {
+            createRow() {
+                const row = document.createElement('div');
+                row.className = 'jack-row';
+                return row;
+            },
+            createSection(label) {
+                const section = document.createElement('div');
+                section.className = 'section-label';
+                section.textContent = label;
+                return section;
+            },
+            createSpacer() {
+                const spacer = document.createElement('div');
+                spacer.className = 'spacer';
+                return spacer;
+            },
+            createLED({ id, color = 'green' }) {
+                const led = document.createElement('div');
+                led.className = `led ${color}`;
+                led.id = `led-${moduleId}-${id}`;
+                return led;
+            },
+            createKnob({ id, label, value = 0.5, min = 0, max = 1, step = 0, param, onChange }) {
+                const container = document.createElement('div');
+                container.className = 'knob-container';
+
+                const knob = document.createElement('div');
+                knob.className = `knob${knobSizeClass}`;
+                knob.id = `knob-${moduleId}-${id}`;
+                knob.dataset.module = moduleId;
+                knob.dataset.param = param || id;
+                knob.dataset.min = min;
+                knob.dataset.max = max;
+                knob.dataset.value = value;
+                knob.dataset.step = step;
+
+                const labelEl = document.createElement('div');
+                labelEl.className = 'knob-label';
+                labelEl.textContent = label;
+
+                container.appendChild(knob);
+                container.appendChild(labelEl);
+
+                // Store onChange callback for later binding
+                if (onChange) {
+                    knob._onChange = onChange;
+                }
+
+                return container;
+            },
+            createSwitch({ id, label, value = 0, param, onChange }) {
+                const container = document.createElement('div');
+                container.className = 'knob-container';
+
+                const sw = document.createElement('div');
+                sw.className = `switch ${value ? 'on' : ''}`;
+                sw.id = `switch-${moduleId}-${id}`;
+                sw.dataset.module = moduleId;
+                sw.dataset.param = param || id;
+
+                const labelEl = document.createElement('div');
+                labelEl.className = 'knob-label';
+                labelEl.textContent = label;
+
+                container.appendChild(sw);
+                container.appendChild(labelEl);
+
+                // Store onChange callback
+                if (onChange) {
+                    sw._onChange = onChange;
+                }
+
+                return container;
+            },
+            createJack({ id, label, direction, type = 'buffer' }) {
+                const container = document.createElement('div');
+                container.className = 'jack-container';
+
+                const jack = document.createElement('div');
+                jack.className = `jack ${direction}`;
+                jack.id = `jack-${moduleId}-${id}`;
+                jack.dataset.module = moduleId;
+                jack.dataset.port = id;
+                jack.dataset.dir = direction;
+                jack.dataset.type = type;
+
+                const labelEl = document.createElement('div');
+                labelEl.className = 'jack-label';
+                labelEl.textContent = label;
+
+                container.appendChild(jack);
+                container.appendChild(labelEl);
+
+                return container;
+            },
+            createCanvas({ width = 100, height = 60, className = 'module-canvas' }) {
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                canvas.className = className;
+                return canvas;
+            }
+        };
+    }
+
     function renderModule(type, id) {
         const def = moduleRegistry.get(type);
         const ui = def.ui || {};
@@ -786,6 +918,34 @@
         el.id = `module-${id}`;
         el.style.background = `linear-gradient(to bottom, ${def.color}, ${adjustColor(def.color, -30)})`;
 
+        // Inject custom CSS if module defines it
+        if (def.css) {
+            injectModuleCSS(def.id, def.css);
+        }
+
+        // Check if module has custom render function
+        if (def.render) {
+            // Create basic structure
+            const label = document.createElement('div');
+            label.className = 'module-label';
+            label.textContent = def.name;
+            el.appendChild(label);
+
+            const content = document.createElement('div');
+            content.className = 'module-content';
+            el.appendChild(content);
+
+            // Store render info for later execution (after DSP is created)
+            el._customRender = {
+                render: def.render,
+                content: content,
+                toolkit: createRenderToolkit(id, def)
+            };
+
+            return el;
+        }
+
+        // Standard declarative rendering
         let html = `<div class="module-label">${def.name}</div><div class="module-content">`;
 
         /* LEDs */
@@ -1063,6 +1223,29 @@
 
         // Store in modules map
         modules[instanceId] = { def, el, instance, type: moduleType, row };
+
+        // Execute custom render function if present
+        if (el._customRender) {
+            const { render, content, toolkit } = el._customRender;
+            const mod = modules[instanceId];
+            render(content, {
+                instance: {
+                    id: instanceId,
+                    type: moduleType,
+                    def: def,
+                    dsp: instance, // May be null if audio not started
+                    element: el,
+                    getModule: () => mod // Allow render to access updated module state
+                },
+                toolkit,
+                onParamChange: (param, value) => {
+                    if (mod.instance) {
+                        mod.instance.params[param] = value;
+                    }
+                }
+            });
+            delete el._customRender;
+        }
 
         // Add to row
         if (targetPosition !== null && targetPosition < rowModules.length) {
@@ -2079,17 +2262,40 @@
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
             Object.keys(modules).forEach(id => {
+                const mod = modules[id];
                 /* Create DSP instance using new module system */
-                modules[id].instance = modules[id].def.createDSP({
+                mod.instance = mod.def.createDSP({
                     sampleRate: audioCtx.sampleRate,
                     bufferSize: 512,
                     audioCtx: audioCtx
                 });
+
+                /* Execute custom render function if not already done */
+                if (mod.el._customRender) {
+                    const { render, content, toolkit } = mod.el._customRender;
+                    render(content, {
+                        instance: {
+                            id: id,
+                            type: mod.type,
+                            def: mod.def,
+                            dsp: mod.instance,
+                            element: mod.el
+                        },
+                        toolkit,
+                        onParamChange: (param, value) => {
+                            mod.instance.params[param] = value;
+                        }
+                    });
+                    delete mod.el._customRender;
+                    /* Initialize knob rotations for custom-rendered knobs */
+                    mod.el.querySelectorAll('.knob').forEach(updateKnobRotation);
+                }
+
                 /* Apply current knob values */
                 document.querySelectorAll(`.knob[data-module="${id}"]`).forEach(knob => {
                     const param = knob.dataset.param;
                     const value = parseFloat(knob.dataset.value);
-                    modules[id].instance.params[param] = value;
+                    mod.instance.params[param] = value;
                 });
                 /* Apply current switch values */
                 document.querySelectorAll(`.switch[data-module="${id}"]`).forEach(sw => {
@@ -2097,9 +2303,9 @@
                     const isOn = sw.classList.contains('on');
                     if (param.includes('[')) {
                         const match = param.match(/(\w+)\[(\d+)\]/);
-                        modules[id].instance.params[match[1]][parseInt(match[2])] = isOn;
+                        mod.instance.params[match[1]][parseInt(match[2])] = isOn;
                     } else {
-                        modules[id].instance.params[param] = isOn ? 1 : 0;
+                        mod.instance.params[param] = isOn ? 1 : 0;
                     }
                 });
                 /* Apply current button bank values */
@@ -2107,7 +2313,7 @@
                     const param = bank.dataset.param;
                     const activeBtn = bank.querySelector('.octave-btn.active');
                     if (activeBtn) {
-                        modules[id].instance.params[param] = parseInt(activeBtn.dataset.value);
+                        mod.instance.params[param] = parseInt(activeBtn.dataset.value);
                     }
                 });
             });

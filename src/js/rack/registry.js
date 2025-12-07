@@ -55,8 +55,8 @@ class ModuleRegistry {
         }
 
         // Validate hp is a valid size
-        if (![2, 3, 4, 6, 8].includes(def.hp)) {
-            throw new Error(`Module "${def.id}" has invalid hp: ${def.hp}. Must be 2, 3, 4, 6, or 8.`);
+        if (![2, 3, 4, 6, 8, 10, 12, 14, 16].includes(def.hp)) {
+            throw new Error(`Module "${def.id}" has invalid hp: ${def.hp}. Must be 2, 3, 4, 6, 8, 10, 12, 14, or 16.`);
         }
 
         // Must have either ui definition or render function
@@ -231,6 +231,7 @@ export async function loadModules() {
         import('../modules/kick/index.js'),
         import('../modules/snare/index.js'),
         import('../modules/hat/index.js'),
+        import('../modules/scope/index.js'),
         import('../modules/out/index.js'),
     ]);
 

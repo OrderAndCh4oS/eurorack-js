@@ -6,19 +6,41 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 
 ## Modules
 
+### Sources
 | Module | Description |
 |--------|-------------|
 | CLK | Master clock with adjustable BPM |
-| DIV | Clock divider (÷2 to ÷32) |
+| VCO | Voltage-controlled oscillator (triangle, saw, pulse) |
 | LFO | Low frequency oscillator with multiple waveforms |
 | NSE | White/pink noise generator |
-| S&H | Dual sample & hold |
+
+### Modulators
+| Module | Description |
+|--------|-------------|
+| DIV | Clock divider (÷2 to ÷32) |
+| S+H | Dual sample & hold |
 | QUANT | Pitch quantizer with selectable scales |
 | ARP | Arpeggiator with chord patterns |
-| VCO | Voltage-controlled oscillator (triangle, saw, pulse) |
-| VCF | State-variable filter (LP, BP, HP) |
 | ADSR | Envelope generator |
+
+### Processors
+| Module | Description |
+|--------|-------------|
+| VCF | State-variable filter (LP, BP, HP) |
 | VCA | Dual voltage-controlled amplifier |
+| MIX | 4-channel mixer with level controls |
+
+### Drums
+| Module | Description |
+|--------|-------------|
+| KICK | Analog-style kick drum synthesizer |
+| SNARE | Analog-style snare drum synthesizer |
+| HAT | Analog-style hi-hat synthesizer |
+
+### Utility
+| Module | Description |
+|--------|-------------|
+| SCOPE | Dual-channel oscilloscope (Scope, X-Y, Tune modes) |
 | OUT | Stereo output to speakers |
 
 ## Architecture

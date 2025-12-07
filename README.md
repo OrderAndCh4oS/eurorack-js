@@ -33,6 +33,7 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 | Module | Description |
 |--------|-------------|
 | VCF | State-variable filter (LP, BP, HP) |
+| FOLD | Wavefolder for harmonic complexity |
 | VCA | Dual voltage-controlled amplifier |
 | MIX | 4-channel mixer with level controls |
 | DLY | Stereo delay with time, feedback, mix |

@@ -50,7 +50,7 @@ Software Eurorack modular synthesizer. Modules pass voltages; sound only at outp
 
 **Self-contained modules**: Each module folder contains DSP + UI definition in one file. Modules export metadata, `createDSP()` factory, and declarative `ui` config.
 
-**Available modules**: `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `euclid` (euclidean rhythm) · `logic` (AND/OR gates) · `mult` (signal splitter) · `vco` · `vcf` · `adsr` · `vca` · `atten` (attenuverter) · `slew` · `mix` · `dly` (delay) · `verb` (reverb) · `kick` · `snare` · `hat` · `scope` · `out`
+**Available modules**: `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `euclid` (euclidean rhythm) · `logic` (AND/OR gates) · `mult` (signal splitter) · `vco` · `vcf` · `fold` (wavefolder) · `adsr` · `vca` · `atten` (attenuverter) · `slew` · `mix` · `dly` (delay) · `verb` (reverb) · `kick` · `snare` · `hat` · `scope` · `out`
 
 ## Project Structure
 
@@ -80,7 +80,7 @@ tests/dsp/{module}.test.js # Module tests
 
 Processing order is computed dynamically from cable connections using `computeProcessOrder()`:
 - Sources process before destinations (topological sort)
-- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → seq → euclid → logic → mult → vco → vcf → adsr → vca → atten → slew → mix → dly → verb → kick → snare → hat → scope → out`
+- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → seq → euclid → logic → mult → vco → vcf → fold → adsr → vca → atten → slew → mix → dly → verb → kick → snare → hat → scope → out`
 - Cycles (feedback patches) fall back to `MODULE_ORDER`
 - Recomputed when cables or modules change
 
@@ -241,7 +241,8 @@ export default {
 | logic | in1, in2 | and, or |
 | mult | in1, in2 | out1a, out1b, out1c, out2a, out2b, out2c |
 | vco | vOct, fm, pwm, sync | triangle, ramp, pulse |
-| vcf | audio, cutoffCV, resCV | lp, bp, hp |
+| vcf | audio, cutoffCV, resCV | lpf, bpf, hpf |
+| fold | audio, foldCV, symCV | out |
 | adsr | gate, retrig | env |
 | vca | ch1In, ch2In, ch1CV, ch2CV | ch1Out, ch2Out |
 | mix | in1, in2, in3, in4 | out |

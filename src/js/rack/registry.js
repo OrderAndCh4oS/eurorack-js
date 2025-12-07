@@ -229,6 +229,7 @@ export async function loadModules() {
         import('../modules/mult/index.js'),
         import('../modules/vco/index.js'),
         import('../modules/vcf/index.js'),
+        import('../modules/fold/index.js'),
         import('../modules/adsr/index.js'),
         import('../modules/vca/index.js'),
         import('../modules/atten/index.js'),

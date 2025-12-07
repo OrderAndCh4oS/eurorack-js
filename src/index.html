@@ -586,6 +586,14 @@
             padding: 16px;
         }
 
+        .cable-hints {
+            font-size: 11px;
+            color: #666;
+            text-align: left;
+            padding: 8px 0;
+            width: 100%;
+        }
+
         .rack-row {
             /* Fixed width: 84HP exactly */
             width: calc(84 * var(--hp-unit));
@@ -756,13 +764,19 @@
     <div class="rack-container" id="rack-container">
         <div class="rack rack-row" id="rack-row-1"></div>
         <div class="rack rack-row" id="rack-row-2"></div>
+        <div class="cable-hints">
+            Click and drag on sockets to add cables |
+            Shift+click to add additional cables |
+            Ctrl+click to cycle cables |
+            Right-click or drop on empty space to remove
+        </div>
     </div>
 </div>
 
 <script type="module">
     /* ========================================================
      * Import modular definitions
-     * =§we ========================================================== */
+     * =§we w========================================================== */
     import { loadModules, moduleRegistry, DEFAULT_MODULE_ORDER } from './js/index.js';
     import { CABLE_COLORS } from './js/config/constants.js';
     import { FACTORY_PATCHES } from './js/config/factory-patches.js';
@@ -1689,18 +1703,52 @@
     /* Preview cable while dragging */
     let previewPath = null;
 
-    function startDrag(jackEl, e) {
-        /* Check if this jack has an existing cable connected */
-        const existingCable = cables.find(c => c.fromEl === jackEl || c.toEl === jackEl);
+    /* Track which cable index to pick up when ctrl+clicking (for cycling through stacked cables) */
+    let lastCtrlClickJack = null;
+    let ctrlClickCycleIndex = 0;
 
-        if (existingCable) {
+    function startDrag(jackEl, e) {
+        /* Get all cables connected to this jack */
+        const existingCables = cables.filter(c => c.fromEl === jackEl || c.toEl === jackEl);
+
+        /* Shift+click: always start a new cable (for stacking multiple cables) */
+        if (e.shiftKey || existingCables.length === 0) {
+            /* Start new connection */
+            dragState = {
+                startJack: jackEl,
+                startDir: jackEl.dataset.dir,
+                reconnecting: false
+            };
+            previewPath = document.createElementNS(svgNS, 'path');
+            previewPath.classList.add('cable', 'cable-preview');
+            previewPath.style.stroke = CABLE_COLORS[colorIndex++ % CABLE_COLORS.length];
+            cableSvg.appendChild(previewPath);
+        } else {
+            /* Pick up existing cable - ctrl+click cycles through multiple cables */
+            let cableToPickUp;
+            if (e.ctrlKey || e.metaKey) {
+                /* Ctrl/Cmd+click: cycle through cables at this jack */
+                if (lastCtrlClickJack === jackEl) {
+                    ctrlClickCycleIndex = (ctrlClickCycleIndex + 1) % existingCables.length;
+                } else {
+                    lastCtrlClickJack = jackEl;
+                    ctrlClickCycleIndex = 0;
+                }
+                cableToPickUp = existingCables[ctrlClickCycleIndex];
+            } else {
+                /* Normal click: pick up the first cable */
+                cableToPickUp = existingCables[0];
+                lastCtrlClickJack = null;
+                ctrlClickCycleIndex = 0;
+            }
+
             /* Detach the cable from this jack, drag from the other end */
-            const isFromEnd = existingCable.fromEl === jackEl;
-            const anchorJack = isFromEnd ? existingCable.toEl : existingCable.fromEl;
-            const cableColor = existingCable.pathEl.style.stroke;
+            const isFromEnd = cableToPickUp.fromEl === jackEl;
+            const anchorJack = isFromEnd ? cableToPickUp.toEl : cableToPickUp.fromEl;
+            const cableColor = cableToPickUp.pathEl.style.stroke;
 
             /* Remove the existing cable */
-            removeCable(existingCable);
+            removeCable(cableToPickUp);
 
             /* Start dragging from the anchor (the other end) */
             dragState = {
@@ -1712,17 +1760,6 @@
             previewPath = document.createElementNS(svgNS, 'path');
             previewPath.classList.add('cable', 'cable-preview');
             previewPath.style.stroke = cableColor;
-            cableSvg.appendChild(previewPath);
-        } else {
-            /* No existing cable - start new connection */
-            dragState = {
-                startJack: jackEl,
-                startDir: jackEl.dataset.dir,
-                reconnecting: false
-            };
-            previewPath = document.createElementNS(svgNS, 'path');
-            previewPath.classList.add('cable', 'cable-preview');
-            previewPath.style.stroke = CABLE_COLORS[colorIndex++ % CABLE_COLORS.length];
             cableSvg.appendChild(previewPath);
         }
         updatePreview(e);

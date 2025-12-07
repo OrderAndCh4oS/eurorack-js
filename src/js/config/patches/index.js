@@ -8,11 +8,6 @@
  *   - state: Patch state object with modules, knobs, switches, buttons, cables
  */
 
-// Debug patches
-import debug1VcoVcfOut from './debug-1-vco-vcf-out.js';
-import debug2LfoQuantVco from './debug-2-lfo-quant-vco.js';
-import debug3ClkDivAdsrVca from './debug-3-clk-div-adsr-vca.js';
-
 // Test patches - Modules
 import testVcoOnly from './test-vco-only.js';
 import testLfoVcoPitch from './test-lfo-vco-pitch.js';
@@ -25,8 +20,11 @@ import testQuantizerScales from './test-quantizer-scales.js';
 import testArpeggiator from './test-arpeggiator.js';
 import testScopeSinewave from './test-scope-sinewave.js';
 import testSequencer from './test-sequencer.js';
+import testEuclid from './test-euclid.js';
 import testDelay from './test-delay.js';
 import testReverb from './test-reverb.js';
+import testAttenuverter from './test-attenuverter.js';
+import testSlew from './test-slew.js';
 
 // Test patches - Drums
 import testSnareOnly from './test-snare-only.js';
@@ -55,11 +53,6 @@ import drumsFullKit from './drums-full-kit.js';
  * All factory patches keyed by name
  */
 export const FACTORY_PATCHES = {
-    // Debug patches
-    [debug1VcoVcfOut.name]: debug1VcoVcfOut,
-    [debug2LfoQuantVco.name]: debug2LfoQuantVco,
-    [debug3ClkDivAdsrVca.name]: debug3ClkDivAdsrVca,
-
     // Test patches - Modules
     [testVcoOnly.name]: testVcoOnly,
     [testLfoVcoPitch.name]: testLfoVcoPitch,
@@ -72,8 +65,11 @@ export const FACTORY_PATCHES = {
     [testArpeggiator.name]: testArpeggiator,
     [testScopeSinewave.name]: testScopeSinewave,
     [testSequencer.name]: testSequencer,
+    [testEuclid.name]: testEuclid,
     [testDelay.name]: testDelay,
     [testReverb.name]: testReverb,
+    [testAttenuverter.name]: testAttenuverter,
+    [testSlew.name]: testSlew,
 
     // Test patches - Drums
     [testSnareOnly.name]: testSnareOnly,

@@ -1,7 +1,7 @@
 /**
  * Demo - Dub Delay
  * Classic dub-style delay with tempo-synced echoes.
- * Features rich feedback and mixing for spacious sound.
+ * Features rich feedback, filter envelope sweep, and spacious mixing.
  */
 export default {
     name: 'Demo - Dub Delay',
@@ -13,8 +13,8 @@ export default {
             { type: 'seq', instanceId: 'seq', row: 1 },
             { type: 'vco', instanceId: 'vco', row: 1 },
             { type: 'vcf', instanceId: 'vcf', row: 1 },
-            { type: 'vca', instanceId: 'vca', row: 1 },
             { type: 'adsr', instanceId: 'adsr', row: 1 },
+            { type: 'vca', instanceId: 'vca', row: 1 },
             { type: 'dly', instanceId: 'dly', row: 1 },
             { type: 'mix', instanceId: 'mix', row: 1 },
             { type: 'out', instanceId: 'out', row: 1 }
@@ -29,10 +29,10 @@ export default {
             },
             vco: { coarse: 0.3, fine: 0.5, glide: 0.15 },
             vcf: { cutoff: 0.55, resonance: 0.35 },
-            vca: { ch1Gain: 0, ch2Gain: 0.75 },
             adsr: { attack: 0.02, decay: 0.35, sustain: 0.3, release: 0.61 },
-            dly: { time: 0.61, feedback: 0.43, mix: 0.59 },
-            mix: { lvl1: 0.8, lvl2: 0.8, lvl3: 0.8, lvl4: 0.8 },
+            vca: { ch1Gain: 0, ch2Gain: 0.75 },
+            dly: { time: 0.197, feedback: 0.76, mix: 0.5 },
+            mix: { lvl1: 0.6, lvl2: 0.7, lvl3: 0, lvl4: 0 },
             out: { volume: 0.55 }
         },
         switches: {

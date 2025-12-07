@@ -159,12 +159,12 @@ export default {
                     lastClockState = clockActive;
 
                     // Output current step CV and gate
-                    // Gate follows clock AND step gate setting (so ADSR re-triggers each step)
+                    // Gate is high while on a step with gate enabled (stays high for step duration)
                     const stepCV = stepValues[currentStep] || 0;
                     const stepGate = gateValues[currentStep] || 0;
 
                     cvOut[i] = stepCV * rangeMultiplier;
-                    gateOut[i] = (clockActive && stepGate) ? 10 : 0;
+                    gateOut[i] = stepGate ? 10 : 0;
                 }
 
                 // Update LEDs

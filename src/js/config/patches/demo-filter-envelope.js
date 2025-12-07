@@ -30,7 +30,7 @@ export default {
             { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
             { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' },
             { fromModule: 'adsr', fromPort: 'env', toModule: 'vcf', toPort: 'cutoffCV' },
-            { fromModule: 'adsr', fromPort: 'env', toModule: 'vca', toPort: 'ch2CV' }
+            { fromModule: 'adsr', fromPort: 'env', toModule: 'vca', toPort: 'ch1CV' }
         ]
     }
 };

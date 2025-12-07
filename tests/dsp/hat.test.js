@@ -245,7 +245,7 @@ describe('2hp Hat - Hi-Hat Cymbal Synthesizer', () => {
         });
 
         it('should have correct HP width', () => {
-            expect(hatModule.hp).toBe(2);
+            expect(hatModule.hp).toBe(3);
         });
 
         it('should have 3 knobs (decay, sizzle, blend)', () => {

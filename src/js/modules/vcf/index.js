@@ -44,26 +44,32 @@ export default {
 
             process() {
                 const audioIn = this.inputs.audio;
+                const cutoffCV = this.inputs.cutoffCV;
+                const resCV = this.inputs.resCV;
 
                 const cutoffKnob = clamp(this.params.cutoff);
                 const cutoffHz = 20 * Math.pow(1000, cutoffKnob);
-
-                const cvModVal = this.inputs.cutoffCV[0] || 0;
-                const cvMod = clamp(cvModVal, 0, 5) / 5;
-                const modulatedHz = cutoffHz * Math.pow(4, cvMod);
-
-                const resCVVal = this.inputs.resCV[0] || 0;
-                const res = clamp(this.params.resonance + resCVVal / 10, 0, 1.1);
-                const k = res * 4;
+                const baseRes = this.params.resonance;
 
                 for (let i = 0; i < bufferSize; i++) {
+                    // Per-sample CV tracking for audio-rate filter modulation
+                    const cvModVal = cutoffCV[i] || 0;
+                    const cvMod = clamp(cvModVal, 0, 5) / 5;
+                    const modulatedHz = cutoffHz * Math.pow(4, cvMod);
+
+                    const resCVVal = resCV[i] || 0;
+                    const res = clamp(baseRes + resCVVal / 10, 0, 1.1);
+                    const k = res * 4;
+
                     const cutoffSmooth = cutoffSlew.process(modulatedHz);
 
                     const fc = clamp(cutoffSmooth / sampleRate, 0.0001, 0.45);
                     const g = Math.tan(Math.PI * fc);
                     const G = g / (1 + g);
 
-                    const input = audioIn[i] / 5;
+                    // Resonance gain compensation - boost input to maintain level at high resonance
+                    const compensation = 1 + k * 0.5;
+                    const input = (audioIn[i] / 5) * compensation;
                     const feedback = delay[3];
 
                     const clipFeedback = Math.tanh(feedback * k);

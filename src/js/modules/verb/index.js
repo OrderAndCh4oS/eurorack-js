@@ -19,6 +19,13 @@ const ALLPASS_DELAYS = [556, 441, 341, 225];
 // Stereo spread (offset for right channel)
 const STEREO_SPREAD = 23;
 
+// Early reflection tap times (in seconds) - creates spatial cues
+// These are prime-ish numbers to avoid modal buildup
+const EARLY_TAPS_L = [0.011, 0.017, 0.023, 0.031, 0.041, 0.053];
+const EARLY_TAPS_R = [0.013, 0.019, 0.029, 0.037, 0.047, 0.059];
+// Gain per tap (decreasing with time)
+const EARLY_GAINS = [0.35, 0.30, 0.25, 0.20, 0.15, 0.10];
+
 export default {
     id: 'verb',
     name: 'VERB',
@@ -56,6 +63,17 @@ export default {
             buffer: new Float32Array(Math.floor((delay + STEREO_SPREAD) * rateScale) + 1),
             index: 0
         }));
+
+        // Early reflections delay line (shared buffer for multi-tap read)
+        const maxEarlyDelay = Math.max(...EARLY_TAPS_L, ...EARLY_TAPS_R);
+        const earlyBufferSize = Math.floor(maxEarlyDelay * sampleRate) + 1;
+        const earlyBufferL = new Float32Array(earlyBufferSize);
+        const earlyBufferR = new Float32Array(earlyBufferSize);
+        let earlyWriteIndex = 0;
+
+        // Pre-calculate tap positions in samples
+        const earlyTapSamplesL = EARLY_TAPS_L.map(t => Math.floor(t * sampleRate));
+        const earlyTapSamplesR = EARLY_TAPS_R.map(t => Math.floor(t * sampleRate));
 
         // Own input buffers (for reset pattern)
         const ownAudioL = new Float32Array(bufferSize);
@@ -112,10 +130,27 @@ export default {
                     // Mix modulation
                     const modulatedMix = Math.max(0, Math.min(1, mix + (mixCV[i] / 10)));
 
-                    // Scale input for reverb (prevent clipping in feedback)
-                    const inputScaled = (inputL + inputR) * 0.015;
+                    // --- Early Reflections (multi-tap delay) ---
+                    // Write current input to early reflection buffers
+                    earlyBufferL[earlyWriteIndex] = inputL;
+                    earlyBufferR[earlyWriteIndex] = inputR;
 
-                    // Process through parallel comb filters
+                    // Read from multiple tap positions for early reflections
+                    let earlyL = 0;
+                    let earlyR = 0;
+                    for (let t = 0; t < earlyTapSamplesL.length; t++) {
+                        const readIdxL = (earlyWriteIndex - earlyTapSamplesL[t] + earlyBufferSize) % earlyBufferSize;
+                        const readIdxR = (earlyWriteIndex - earlyTapSamplesR[t] + earlyBufferSize) % earlyBufferSize;
+                        earlyL += earlyBufferL[readIdxL] * EARLY_GAINS[t];
+                        earlyR += earlyBufferR[readIdxR] * EARLY_GAINS[t];
+                    }
+                    earlyWriteIndex = (earlyWriteIndex + 1) % earlyBufferSize;
+
+                    // Scale input for late reverb (prevent clipping in feedback)
+                    // Mix dry input with early reflections for late reverb input
+                    const inputScaled = ((inputL + inputR) * 0.5 + (earlyL + earlyR) * 0.3) * 0.015;
+
+                    // Process through parallel comb filters (late reverb)
                     let wetL = 0;
                     let wetR = 0;
 
@@ -163,13 +198,17 @@ export default {
                         apR.index = (apR.index + 1) % bufLenR;
                     }
 
-                    // Scale wet output
+                    // Scale wet output (late reverb)
                     wetL *= 1.5;
                     wetR *= 1.5;
 
-                    // Mix dry and wet
-                    outL[i] = inputL * (1 - modulatedMix) + wetL * modulatedMix;
-                    outR[i] = inputR * (1 - modulatedMix) + wetR * modulatedMix;
+                    // Combine early reflections with late reverb for full wet signal
+                    const fullWetL = earlyL + wetL;
+                    const fullWetR = earlyR + wetR;
+
+                    // Mix dry and wet (early + late)
+                    outL[i] = inputL * (1 - modulatedMix) + fullWetL * modulatedMix;
+                    outR[i] = inputR * (1 - modulatedMix) + fullWetR * modulatedMix;
 
                     // Soft clip to prevent excessive levels
                     if (Math.abs(outL[i]) > 5) {
@@ -219,6 +258,11 @@ export default {
                     ap.buffer.fill(0);
                     ap.index = 0;
                 }
+
+                // Clear early reflection buffers
+                earlyBufferL.fill(0);
+                earlyBufferR.fill(0);
+                earlyWriteIndex = 0;
 
                 outL.fill(0);
                 outR.fill(0);

@@ -25,7 +25,8 @@ export default {
         const ownCh1In = new Float32Array(bufferSize);
         const ownCh2In = new Float32Array(bufferSize);
 
-        const cvSlew = createSlew({ sampleRate, timeMs: 3 });
+        const cv1Slew = createSlew({ sampleRate, timeMs: 3 });
+        const cv2Slew = createSlew({ sampleRate, timeMs: 3 });
         const ledDecay = Math.exp(-1 / (sampleRate * 0.1) * bufferSize);
 
         function linearResponse(cv) {
@@ -37,7 +38,8 @@ export default {
             inputs: {
                 ch1In: ownCh1In,
                 ch2In: ownCh2In,
-                ch2CV: new Float32Array(bufferSize).fill(5)  // Default to fully open
+                ch1CV: new Float32Array(bufferSize).fill(5),  // Default to fully open
+                ch2CV: new Float32Array(bufferSize).fill(5)   // Default to fully open
             },
             outputs: { ch1Out, ch2Out },
             leds,
@@ -58,12 +60,15 @@ export default {
                 const in2 = this.inputs.ch2In;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    const cvVal = this.inputs.ch2CV[i];
-                    const smoothedCV = cvSlew.process(cvVal);
-                    const cvGain = linearResponse(smoothedCV);
+                    const cv1Val = this.inputs.ch1CV[i];
+                    const cv2Val = this.inputs.ch2CV[i];
+                    const smoothedCV1 = cv1Slew.process(cv1Val);
+                    const smoothedCV2 = cv2Slew.process(cv2Val);
+                    const cv1Gain = linearResponse(smoothedCV1);
+                    const cv2Gain = linearResponse(smoothedCV2);
 
-                    const s1 = in1[i] * g1;
-                    const s2 = in2[i] * g2 * cvGain;
+                    const s1 = in1[i] * g1 * cv1Gain;
+                    const s2 = in2[i] * g2 * cv2Gain;
                     ch1Out[i] = s1;
                     ch2Out[i] = s2;
                     pk1 = Math.max(pk1, Math.abs(s1));
@@ -100,8 +105,9 @@ export default {
         ],
         inputs: [
             { id: 'ch1In', label: 'In 1', port: 'ch1In', type: 'buffer' },
+            { id: 'ch1CV', label: 'CV 1', port: 'ch1CV', type: 'cv' },
             { id: 'ch2In', label: 'In 2', port: 'ch2In', type: 'buffer' },
-            { id: 'ch2CV', label: 'CV', port: 'ch2CV', type: 'cv' }
+            { id: 'ch2CV', label: 'CV 2', port: 'ch2CV', type: 'cv' }
         ],
         outputs: [
             { id: 'ch1Out', label: 'Out1', port: 'ch1Out', type: 'buffer' },

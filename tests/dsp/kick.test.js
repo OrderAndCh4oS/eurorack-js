@@ -318,11 +318,11 @@ describe('2hp Kick - Bass Drum Synthesizer', () => {
         });
 
         it('should have correct HP width', () => {
-            expect(kickModule.hp).toBe(2);
+            expect(kickModule.hp).toBe(4);
         });
 
-        it('should have 3 knobs (pitch, decay, tone)', () => {
-            expect(kickModule.ui.knobs.length).toBe(3);
+        it('should have 4 knobs (pitch, decay, tone, click)', () => {
+            expect(kickModule.ui.knobs.length).toBe(4);
         });
 
         it('should have trigger and CV inputs', () => {

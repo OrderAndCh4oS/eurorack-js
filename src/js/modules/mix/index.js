@@ -46,6 +46,17 @@ export default {
             outputs: { out },
             leds,
 
+            clearAudioInputs() {
+                ownIn1.fill(0);
+                ownIn2.fill(0);
+                ownIn3.fill(0);
+                ownIn4.fill(0);
+                this.inputs.in1 = ownIn1;
+                this.inputs.in2 = ownIn2;
+                this.inputs.in3 = ownIn3;
+                this.inputs.in4 = ownIn4;
+            },
+
             process() {
                 const l1 = clamp(this.params.lvl1, 0, 1);
                 const l2 = clamp(this.params.lvl2, 0, 1);

@@ -197,3 +197,30 @@ When module specs change (renamed/removed params, inputs, outputs, switches):
 - [ModularGrid](https://modulargrid.net) — Module database
 - [2hp](https://www.twohp.com/modules) — Official manuals
 - [Mutable Instruments GitHub](https://github.com/pichenettes/eurorack) — Open source DSP
+
+## Research
+
+Module documentation and DSP references are maintained in `/research/`:
+- `research/modules/` — Per-module specs, manuals, and implementation references
+- `research/topics/` — Cross-cutting DSP topics (filters, anti-aliasing, etc.)
+- `research/sound-engineering-review.md` — Sound quality improvements and recommendations
+
+When implementing or modifying modules, consult and update the relevant research docs to maintain a trail of source material.
+
+## Sound Engineering Philosophy
+
+We balance hardware authenticity with optimal sound quality. When making DSP decisions:
+
+1. **Document the options** — Record what approaches exist (e.g., linear vs allpass interpolation)
+2. **Explain the trade-offs** — Note CPU cost, sound quality, complexity
+3. **Reference the research** — Link to papers, code, or forum discussions that informed the choice
+4. **Make the decision visible** — Comment in code why a particular approach was chosen
+
+Before implementing improvements, check `research/sound-engineering-review.md` for prioritized recommendations. After implementing, update the review document with results and any new findings.
+
+### Quality Priorities
+1. **No audible artifacts** — Eliminate aliasing, clicks, zipper noise
+2. **Musical parameter ranges** — Knobs should feel useful across their full range
+3. **Analog character** — Capture warmth, nonlinearity, and behavior of hardware
+4. **Modulation response** — CV inputs should respond musically at audio rates
+5. **CPU efficiency** — Good enough quality at acceptable performance cost

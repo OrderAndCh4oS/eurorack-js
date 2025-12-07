@@ -85,6 +85,7 @@ export const DEFAULT_MODULE_ORDER = [
     'mult',
     'vco',
     'vcf',
+    'fold',
     'adsr',
     'vca',
     'atten',

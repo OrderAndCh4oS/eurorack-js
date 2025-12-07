@@ -2,6 +2,8 @@
 
 Browser-based Eurorack modular synthesizer emulator. Patch virtual modules together with cables to create sounds.
 
+**[Try it live](https://orderandch4os.github.io/eurorack-js/)**
+
 ![Evolving Drone Patch](screen-grab.png)
 
 ## Modules
@@ -21,6 +23,8 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 | S+H | Dual sample & hold |
 | QUANT | Pitch quantizer with selectable scales |
 | ARP | Arpeggiator with chord patterns |
+| SEQ | 8-step CV/gate sequencer with direction modes |
+| EUCLID | Euclidean rhythm generator (evenly distributed triggers) |
 | ADSR | Envelope generator |
 
 ### Processors
@@ -29,6 +33,8 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 | VCF | State-variable filter (LP, BP, HP) |
 | VCA | Dual voltage-controlled amplifier |
 | MIX | 4-channel mixer with level controls |
+| DLY | Stereo delay with time, feedback, mix |
+| VERB | Stereo reverb with size, damping, mix |
 
 ### Drums
 | Module | Description |
@@ -40,6 +46,8 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 ### Utility
 | Module | Description |
 |--------|-------------|
+| ATTN | Dual attenuverter with offset (scale, invert, shift CV) |
+| SLEW | Dual slew limiter (portamento, CV smoothing) |
 | SCOPE | Dual-channel oscilloscope (Scope, X-Y, Tune modes) |
 | OUT | Stereo output to speakers |
 
@@ -118,11 +126,9 @@ export default {
 - **Triggers**: 5-10ms pulse at 5-10V
 - **Pitch CV**: 1V/octave
 
-## Scripts
+## Development
 
 ```bash
-npm run dev      # Development server
-npm run build    # Production build
 npm test         # Run tests
 ```
 

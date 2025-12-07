@@ -50,7 +50,7 @@ Software Eurorack modular synthesizer. Modules pass voltages; sound only at outp
 
 **Self-contained modules**: Each module folder contains DSP + UI definition in one file. Modules export metadata, `createDSP()` factory, and declarative `ui` config.
 
-**Available modules**: `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `vco` · `vcf` · `adsr` · `vca` · `mix` · `kick` · `snare` · `hat` · `scope` · `out`
+**Available modules**: `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `euclid` (euclidean rhythm) · `vco` · `vcf` · `adsr` · `vca` · `atten` (attenuverter) · `slew` · `mix` · `dly` (delay) · `verb` (reverb) · `kick` · `snare` · `hat` · `scope` · `out`
 
 ## Project Structure
 
@@ -80,7 +80,7 @@ tests/dsp/{module}.test.js # Module tests
 
 Processing order is computed dynamically from cable connections using `computeProcessOrder()`:
 - Sources process before destinations (topological sort)
-- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → seq → vco → vcf → adsr → vca → mix → kick → snare → hat → scope → out`
+- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → seq → euclid → vco → vcf → adsr → vca → atten → slew → mix → dly → verb → kick → snare → hat → scope → out`
 - Cycles (feedback patches) fall back to `MODULE_ORDER`
 - Recomputed when cables or modules change
 
@@ -145,6 +145,24 @@ export default {
 
 **Port types**: `audio` | `cv` | `gate` | `trigger` | `buffer`
 
+## Registering a New Module
+
+After creating `src/js/modules/{moduleId}/index.js`, register it in two places:
+
+1. **Add import to `src/js/rack/registry.js`** in `loadModules()`:
+```javascript
+import('../modules/{moduleId}/index.js'),
+```
+
+2. **Add to `src/js/index.js`** in `DEFAULT_MODULE_ORDER` array (determines processing order and sidebar position)
+
+3. **Update documentation**:
+   - Add to `CLAUDE.md` available modules list
+   - Add to `CLAUDE.md` port reference table
+   - Add to `README.md` module table
+
+4. **Create test patch** in `src/js/config/patches/test-{moduleId}.js`
+
 ## Common DSP Patterns
 
 **Edge detection:**
@@ -165,6 +183,82 @@ freq = baseFreq * Math.pow(2, vOct) * Math.pow(2, fine / 12);
 **Unpatched audio silence:** Two-part pattern ensures silence when cables are removed:
 1. Module-level: Audio-path modules (output, VCA, VCF) reset inputs after `process()` IF replaced by routing: `if (this.inputs.x !== ownX) { ownX.fill(0); this.inputs.x = ownX; }`
 2. Engine-level: `setCables()` zeroes disconnected audio inputs immediately when cables change
+
+## Writing Patches
+
+Patches are stored in `src/js/config/patches/`. Each patch file exports:
+
+```javascript
+export default {
+    name: 'Patch Name',
+    factory: true,
+    state: {
+        modules: [
+            // type = module id (e.g., 'lfo', 'vco')
+            // instanceId = your chosen name for THIS instance (used in knobs/cables)
+            { type: 'lfo', instanceId: 'lfo1', row: 1 },
+            { type: 'lfo', instanceId: 'lfo2', row: 1 },  // Can have multiple of same type
+            { type: 'vco', instanceId: 'vco', row: 1 },
+        ],
+        knobs: {
+            // Keys match instanceId, not type
+            lfo1: { rateKnob: 0.5 },
+            lfo2: { rateKnob: 0.2 },
+            vco: { coarse: 0.35, fine: 0 }
+        },
+        switches: {
+            lfo1: { range: 0 }
+        },
+        cables: [
+            // fromModule/toModule = instanceId
+            // fromPort/toPort = port name from module definition
+            { fromModule: 'lfo1', fromPort: 'primary', toModule: 'vco', toPort: 'vOct' }
+        ]
+    }
+};
+```
+
+**Key distinctions:**
+- `type` = Module id (from module's `id` field, e.g., `'lfo'`, `'vco'`)
+- `instanceId` = Your name for this instance (used in `knobs`, `switches`, `cables`)
+- `fromPort`/`toPort` = Port name from module's `ui.inputs[]` or `ui.outputs[]`
+
+**IMPORTANT**: Cable port names must match the `port` field in each module's `ui.inputs[]` and `ui.outputs[]`. Always check the module's index.js for exact port names.
+
+### Module Port Reference
+
+| Module | Inputs | Outputs |
+|--------|--------|---------|
+| clk | — | clock |
+| div | clock | div2, div4, div8, div16, div32 |
+| lfo | rateCV, waveCV, reset | primary, secondary |
+| nse | — | white, pink |
+| sh | in1, in2, trig1, trig2 | out1, out2 |
+| quant | cvIn, trigIn | cvOut, trigOut |
+| arp | clock, cvIn, gateIn, hold, pause | cvOut, gateOut |
+| seq | clock, reset | cv, gate |
+| euclid | clock, reset, lenCV, hitsCV | trig |
+| vco | vOct, fm, pwm, sync | triangle, ramp, pulse |
+| vcf | audio, cutoffCV, resCV | lp, bp, hp |
+| adsr | gate, retrig | env |
+| vca | ch1In, ch2In, ch1CV, ch2CV | ch1Out, ch2Out |
+| mix | ch1, ch2, ch3, ch4 | main |
+| atten | in1, in2 | out1, out2 |
+| slew | in1, cv1, in2, cv2 | out1, out2 |
+| dly | inL, inR, timeCV, feedbackCV | outL, outR |
+| verb | inL, inR, sizeCV, dampCV | outL, outR |
+| kick | trigger, pitchCV, decayCV, toneCV | out |
+| snare | trigger, toneCV, decayCV | out |
+| hat | trigger, decayCV | out |
+| scope | ch1, ch2 | — |
+| out | L, R | — |
+
+### Adding a New Patch
+
+1. Create file: `src/js/config/patches/{name}.js`
+2. Import in `src/js/config/patches/index.js`
+3. Add to `FACTORY_PATCHES` export
+4. Run tests: `npm test -- tests/config/factory-patches.test.js`
 
 ## Updating Patches
 

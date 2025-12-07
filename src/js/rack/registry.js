@@ -225,6 +225,8 @@ export async function loadModules() {
         import('../modules/arp/index.js'),
         import('../modules/seq/index.js'),
         import('../modules/euclid/index.js'),
+        import('../modules/logic/index.js'),
+        import('../modules/mult/index.js'),
         import('../modules/vco/index.js'),
         import('../modules/vcf/index.js'),
         import('../modules/adsr/index.js'),

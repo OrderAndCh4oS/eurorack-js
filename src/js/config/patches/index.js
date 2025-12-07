@@ -21,6 +21,8 @@ import testArpeggiator from './test-arpeggiator.js';
 import testScopeSinewave from './test-scope-sinewave.js';
 import testSequencer from './test-sequencer.js';
 import testEuclid from './test-euclid.js';
+import testLogic from './test-logic.js';
+import testMult from './test-mult.js';
 import testDelay from './test-delay.js';
 import testReverb from './test-reverb.js';
 import testAttenuverter from './test-attenuverter.js';
@@ -66,6 +68,8 @@ export const FACTORY_PATCHES = {
     [testScopeSinewave.name]: testScopeSinewave,
     [testSequencer.name]: testSequencer,
     [testEuclid.name]: testEuclid,
+    [testLogic.name]: testLogic,
+    [testMult.name]: testMult,
     [testDelay.name]: testDelay,
     [testReverb.name]: testReverb,
     [testAttenuverter.name]: testAttenuverter,

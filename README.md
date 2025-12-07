@@ -25,6 +25,8 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 | ARP | Arpeggiator with chord patterns |
 | SEQ | 8-step CV/gate sequencer with direction modes |
 | EUCLID | Euclidean rhythm generator (evenly distributed triggers) |
+| LOGIC | Boolean gate operator (AND/OR) |
+| MULT | 2-in, 6-out signal splitter |
 | ADSR | Envelope generator |
 
 ### Processors

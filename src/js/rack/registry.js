@@ -223,6 +223,7 @@ export async function loadModules() {
         import('../modules/sh/index.js'),
         import('../modules/quant/index.js'),
         import('../modules/arp/index.js'),
+        import('../modules/seq/index.js'),
         import('../modules/vco/index.js'),
         import('../modules/vcf/index.js'),
         import('../modules/adsr/index.js'),

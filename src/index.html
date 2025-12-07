@@ -331,6 +331,41 @@
             box-shadow: 0 0 6px rgba(139, 92, 246, 0.5);
         }
 
+        /* Toggle buttons (gate on/off) */
+        .toggle-row {
+            display: flex;
+            gap: 2px;
+            padding: 2px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .toggle-btn {
+            width: 12px;
+            height: 12px;
+            font-size: 6px;
+            background: linear-gradient(to bottom, #333, #222);
+            border: 1px solid #444;
+            border-radius: 2px;
+            color: #666;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toggle-btn:hover {
+            background: linear-gradient(to bottom, #444, #333);
+        }
+
+        .toggle-btn.active {
+            background: linear-gradient(to bottom, #22c55e, #16a34a);
+            border-color: #4ade80;
+            color: #fff;
+            box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
+        }
+
         /* Cable SVG overlay */
         #cable-svg {
             position: fixed;
@@ -992,17 +1027,29 @@
             html += '</div>';
         }
 
-        /* Button banks (octave select) */
+        /* Button banks (octave select) or toggle buttons (gate on/off) */
         const buttons = ui.buttons || [];
         if (buttons.length > 0) {
-            buttons.forEach(btnGroup => {
-                html += `<div class="section-label">${btnGroup.label}</div><div class="button-bank" data-module="${id}" data-param="${btnGroup.param}">`;
-                btnGroup.values.forEach((val, idx) => {
-                    const isActive = val === btnGroup.default;
-                    html += `<button class="octave-btn${isActive ? ' active' : ''}" data-value="${val}">${val > 0 ? '+' + val : val}</button>`;
+            // Check if first button has 'values' array (octave-style) or 'param' (toggle-style)
+            if (buttons[0].values) {
+                // Octave-select style button banks
+                buttons.forEach(btnGroup => {
+                    html += `<div class="section-label">${btnGroup.label}</div><div class="button-bank" data-module="${id}" data-param="${btnGroup.param}">`;
+                    btnGroup.values.forEach((val, idx) => {
+                        const isActive = val === btnGroup.default;
+                        html += `<button class="octave-btn${isActive ? ' active' : ''}" data-value="${val}">${val > 0 ? '+' + val : val}</button>`;
+                    });
+                    html += '</div>';
+                });
+            } else {
+                // Toggle-style buttons (gate on/off)
+                html += `<div class="section-label">Gates</div><div class="toggle-row">`;
+                buttons.forEach(btn => {
+                    const isActive = btn.default === 1;
+                    html += `<button class="toggle-btn${isActive ? ' active' : ''}" data-module="${id}" data-param="${btn.param}" title="${btn.label}"></button>`;
                 });
                 html += '</div>';
-            });
+            }
         }
 
         html += '<div class="spacer"></div>';
@@ -1303,6 +1350,9 @@
 
         // Update engine
         updateEngineModules();
+
+        // Redraw remaining cables (modules shifted positions)
+        requestAnimationFrame(() => cables.forEach(renderCable));
     }
 
     function updateEngineModules() {
@@ -1379,7 +1429,7 @@
     function handleModuleMouseDown(e) {
         // Only left click, and not on interactive elements
         if (e.button !== 0) return;
-        if (e.target.closest('.jack, .knob, .switch, .remove-btn, .octave-btn')) return;
+        if (e.target.closest('.jack, .knob, .switch, .remove-btn, .octave-btn, .toggle-btn')) return;
 
         const moduleEl = e.target.closest('.module');
         if (!moduleEl) return;
@@ -1606,9 +1656,9 @@
     }
 
     function removeCable(cable) {
-        cable.pathEl.remove();
-        cable.fromEl.classList.remove('connected');
-        cable.toEl.classList.remove('connected');
+        if (cable.pathEl) cable.pathEl.remove();
+        if (cable.fromEl) cable.fromEl.classList.remove('connected');
+        if (cable.toEl) cable.toEl.classList.remove('connected');
         cables = cables.filter(c => c !== cable);
 
         /* Update engine with new cable state - handles audio input clearing */
@@ -1685,7 +1735,7 @@
         previewPath.setAttribute('d', createCablePath(start.x, start.y, end.x, end.y));
     }
 
-    function endDrag(targetJack) {
+    function endDrag(targetJack, e) {
         if (!dragState) return;
 
         const cableColor = previewPath ? previewPath.style.stroke : CABLE_COLORS[colorIndex % CABLE_COLORS.length];
@@ -1706,9 +1756,9 @@
                 const fromJack = startDir === 'output' ? dragState.startJack : targetJack;
                 const toJack = startDir === 'input' ? dragState.startJack : targetJack;
 
-                /* Remove existing cable to this input */
+                /* Remove existing cable to this input (unless shift is held for stacking) */
                 const existing = cables.find(c => c.toEl === toJack);
-                if (existing) removeCable(existing);
+                if (existing && !(e && e.shiftKey)) removeCable(existing);
 
                 addCable(fromJack, toJack, cableColor);
                 connected = true;
@@ -1835,6 +1885,15 @@
             state.buttons[moduleId][param] = value;
         });
 
+        /* Serialize all toggle button states */
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+            const moduleId = btn.dataset.module;
+            const param = btn.dataset.param;
+            const isActive = btn.classList.contains('active');
+            if (!state.buttons[moduleId]) state.buttons[moduleId] = {};
+            state.buttons[moduleId][param] = isActive ? 1 : 0;
+        });
+
         /* Serialize cable connections */
         cables.forEach(cable => {
             state.cables.push({
@@ -1943,11 +2002,12 @@
             });
         }
 
-        /* Apply button bank states */
+        /* Apply button bank and toggle button states */
         if (state.buttons) {
             Object.entries(state.buttons).forEach(([savedId, params]) => {
                 const moduleId = resolveModuleId(savedId);
                 Object.entries(params).forEach(([param, value]) => {
+                    // Try button bank first
                     const bank = document.querySelector(`.button-bank[data-module="${moduleId}"][data-param="${param}"]`);
                     if (bank) {
                         bank.querySelectorAll('.octave-btn').forEach(btn => {
@@ -1955,6 +2015,15 @@
                         });
                         if (modules[moduleId]?.instance) {
                             modules[moduleId].instance.params[param] = value;
+                        }
+                    } else {
+                        // Try toggle button
+                        const toggleBtn = document.querySelector(`.toggle-btn[data-module="${moduleId}"][data-param="${param}"]`);
+                        if (toggleBtn) {
+                            toggleBtn.classList.toggle('active', value === 1);
+                            if (modules[moduleId]?.instance) {
+                                modules[moduleId].instance.params[param] = value;
+                            }
                         }
                     }
                 });
@@ -2155,6 +2224,7 @@
             const knob = e.target.closest('.knob');
             const sw = e.target.closest('.switch');
             const octBtn = e.target.closest('.octave-btn');
+            const toggleBtn = e.target.closest('.toggle-btn');
 
             if (jack) {
                 e.preventDefault();
@@ -2194,6 +2264,15 @@
                 if (modules[moduleId]?.instance) {
                     modules[moduleId].instance.params[param] = value;
                 }
+            } else if (toggleBtn) {
+                e.preventDefault();
+                toggleBtn.classList.toggle('active');
+                const moduleId = toggleBtn.dataset.module;
+                const param = toggleBtn.dataset.param;
+                /* Update module param */
+                if (modules[moduleId]?.instance) {
+                    modules[moduleId].instance.params[param] = toggleBtn.classList.contains('active') ? 1 : 0;
+                }
             }
         });
 
@@ -2205,7 +2284,7 @@
         document.addEventListener('mouseup', e => {
             if (dragState) {
                 const jack = e.target.closest('.jack');
-                endDrag(jack);
+                endDrag(jack, e);
             }
             if (knobDrag) endKnobDrag();
         });

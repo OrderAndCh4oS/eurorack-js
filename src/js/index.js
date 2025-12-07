@@ -81,6 +81,8 @@ export const DEFAULT_MODULE_ORDER = [
     'arp',
     'seq',
     'euclid',
+    'logic',
+    'mult',
     'vco',
     'vcf',
     'adsr',

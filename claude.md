@@ -50,7 +50,7 @@ Software Eurorack modular synthesizer. Modules pass voltages; sound only at outp
 
 **Self-contained modules**: Each module folder contains DSP + UI definition in one file. Modules export metadata, `createDSP()` factory, and declarative `ui` config.
 
-**Available modules**: `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `euclid` (euclidean rhythm) · `vco` · `vcf` · `adsr` · `vca` · `atten` (attenuverter) · `slew` · `mix` · `dly` (delay) · `verb` (reverb) · `kick` · `snare` · `hat` · `scope` · `out`
+**Available modules**: `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `euclid` (euclidean rhythm) · `logic` (AND/OR gates) · `mult` (signal splitter) · `vco` · `vcf` · `adsr` · `vca` · `atten` (attenuverter) · `slew` · `mix` · `dly` (delay) · `verb` (reverb) · `kick` · `snare` · `hat` · `scope` · `out`
 
 ## Project Structure
 
@@ -80,7 +80,7 @@ tests/dsp/{module}.test.js # Module tests
 
 Processing order is computed dynamically from cable connections using `computeProcessOrder()`:
 - Sources process before destinations (topological sort)
-- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → seq → euclid → vco → vcf → adsr → vca → atten → slew → mix → dly → verb → kick → snare → hat → scope → out`
+- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → seq → euclid → logic → mult → vco → vcf → adsr → vca → atten → slew → mix → dly → verb → kick → snare → hat → scope → out`
 - Cycles (feedback patches) fall back to `MODULE_ORDER`
 - Recomputed when cables or modules change
 
@@ -230,7 +230,7 @@ export default {
 | Module | Inputs | Outputs |
 |--------|--------|---------|
 | clk | — | clock |
-| div | clock | div2, div4, div8, div16, div32 |
+| div | clock, rate1CV, rate2CV | out1, out2 |
 | lfo | rateCV, waveCV, reset | primary, secondary |
 | nse | — | white, pink |
 | sh | in1, in2, trig1, trig2 | out1, out2 |
@@ -238,11 +238,13 @@ export default {
 | arp | clock, cvIn, gateIn, hold, pause | cvOut, gateOut |
 | seq | clock, reset | cv, gate |
 | euclid | clock, reset, lenCV, hitsCV | trig |
+| logic | in1, in2 | and, or |
+| mult | in1, in2 | out1a, out1b, out1c, out2a, out2b, out2c |
 | vco | vOct, fm, pwm, sync | triangle, ramp, pulse |
 | vcf | audio, cutoffCV, resCV | lp, bp, hp |
 | adsr | gate, retrig | env |
 | vca | ch1In, ch2In, ch1CV, ch2CV | ch1Out, ch2Out |
-| mix | ch1, ch2, ch3, ch4 | main |
+| mix | in1, in2, in3, in4 | out |
 | atten | in1, in2 | out1, out2 |
 | slew | in1, cv1, in2, cv2 | out1, out2 |
 | dly | inL, inR, timeCV, feedbackCV | outL, outR |

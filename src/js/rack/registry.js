@@ -249,6 +249,7 @@ export async function loadModules() {
         import('../modules/pwm/index.js'),
         import('../modules/turing/index.js'),
         import('../modules/ochd/index.js'),
+        import('../modules/cmp2/index.js'),
         import('../modules/kick/index.js'),
         import('../modules/snare/index.js'),
         import('../modules/hat/index.js'),

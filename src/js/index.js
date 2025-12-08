@@ -104,6 +104,7 @@ export const DEFAULT_MODULE_ORDER = [
     'pwm',
     'turing',
     'ochd',
+    'cmp2',
     'kick',
     'snare',
     'hat',

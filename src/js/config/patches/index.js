@@ -43,6 +43,7 @@ import testDb from './test-db.js';
 import testPwm from './test-pwm.js';
 import testTuring from './test-turing.js';
 import testOchd from './test-ochd.js';
+import testCmp2 from './test-cmp2.js';
 import testAttenuverter from './test-attenuverter.js';
 import testSlew from './test-slew.js';
 
@@ -108,6 +109,7 @@ export const FACTORY_PATCHES = {
     [testPwm.name]: testPwm,
     [testTuring.name]: testTuring,
     [testOchd.name]: testOchd,
+    [testCmp2.name]: testCmp2,
     [testAttenuverter.name]: testAttenuverter,
     [testSlew.name]: testSlew,
 

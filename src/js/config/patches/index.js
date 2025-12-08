@@ -61,6 +61,7 @@ import demoEvolvingDrone from './demo-evolving-drone.js';
 import demoDrumAndBass from './demo-drum-and-bass.js';
 import demoDubDelay from './demo-dub-delay.js';
 import demoAmbientPad from './demo-ambient-pad.js';
+import demoTripHop from './demo-trip-hop.js';
 
 // Drum patches
 import drumsBasicBeat from './drums-basic-beat.js';
@@ -127,6 +128,7 @@ export const FACTORY_PATCHES = {
     [demoDrumAndBass.name]: demoDrumAndBass,
     [demoDubDelay.name]: demoDubDelay,
     [demoAmbientPad.name]: demoAmbientPad,
+    [demoTripHop.name]: demoTripHop,
 
     // Drum patches
     [drumsBasicBeat.name]: drumsBasicBeat,

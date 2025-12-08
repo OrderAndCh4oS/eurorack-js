@@ -80,7 +80,7 @@ tests/dsp/{module}.test.js # Module tests
 
 Processing order is computed dynamically from cable connections using `computeProcessOrder()`:
 - Sources process before destinations (topological sort)
-- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → seq → euclid → logic → mult → vco → vcf → fold → ring → rnd → envf → func → adsr → vca → atten → slew → mix → dly → verb → kick → snare → hat → scope → out`
+- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → seq → euclid → logic → mult → vco → vcf → fold → ring → rnd → envf → func → adsr → vca → atten → slew → dly → verb → chorus → phaser → flanger → crush → db → pwm → turing → ochd → cmp2 → kick → snare → hat → mix → scope → out`
 - Cycles (feedback patches) fall back to `MODULE_ORDER`
 - Recomputed when cables or modules change
 
@@ -253,7 +253,7 @@ export default {
 | atten | in1, in2 | out1, out2 |
 | slew | in1, cv1, in2, cv2 | out1, out2 |
 | dly | inL, inR, timeCV, feedbackCV | outL, outR |
-| verb | inL, inR, sizeCV, dampCV | outL, outR |
+| verb | audioL, audioR, mixCV | outL, outR |
 | chorus | inL, inR, rateCV, depthCV | outL, outR |
 | phaser | inL, inR, rateCV, depthCV | outL, outR |
 | flanger | inL, inR, rateCV, depthCV | outL, outR |

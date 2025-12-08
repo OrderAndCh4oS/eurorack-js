@@ -15,6 +15,7 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 | VCO | Voltage-controlled oscillator (triangle, saw, pulse) |
 | LFO | Low frequency oscillator with multiple waveforms |
 | NSE | White/pink noise generator |
+| ØCHD | 8x free-running triangle LFOs (based on Instruo øchd) |
 
 ### Modulators
 | Module | Description |
@@ -25,11 +26,14 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 | ARP | Arpeggiator with chord patterns |
 | SEQ | 8-step CV/gate sequencer with direction modes |
 | EUCLID | Euclidean rhythm generator (evenly distributed triggers) |
+| TURING | Turing Machine - random looping sequencer (based on Music Thing) |
 | LOGIC | Boolean gate operator (AND/OR) |
 | MULT | 2-in, 6-out signal splitter |
 | RND | Random voltage generator (stepped/smooth outputs) |
 | ENVF | Envelope follower (audio to CV) |
+| FUNC | Function generator - AR envelope, LFO, slew (based on Make Noise Maths/Function) |
 | ADSR | Envelope generator |
+| CMP2 | Dual window comparator with logic (based on Joranalogue Compare 2) |
 
 ### Processors
 | Module | Description |
@@ -41,6 +45,11 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 | MIX | 4-channel mixer with level controls |
 | DLY | Stereo delay with time, feedback, mix |
 | VERB | Stereo reverb with size, damping, mix |
+| CHORUS | Stereo chorus effect |
+| PHASER | Stereo phaser effect |
+| FLANGER | Stereo flanger effect |
+| CRUSH | Bit crusher / sample rate reducer |
+| PWM | Pulse width modulator with complementary outputs |
 
 ### Drums
 | Module | Description |
@@ -54,6 +63,7 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 |--------|-------------|
 | ATTN | Dual attenuverter with offset (scale, invert, shift CV) |
 | SLEW | Dual slew limiter (portamento, CV smoothing) |
+| DB | Stereo VU meter with dB readout |
 | SCOPE | Dual-channel oscilloscope (Scope, X-Y, Tune modes) |
 | OUT | Stereo output to speakers |
 

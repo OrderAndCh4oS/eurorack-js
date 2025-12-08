@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Eurorack synthesizer emulator",
   "scripts": {
-    "test": "vitest",
+    "test": "vitest run",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"

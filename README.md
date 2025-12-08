@@ -19,7 +19,7 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 ### Modulators
 | Module | Description |
 |--------|-------------|
-| DIV | Clock divider (÷2 to ÷32) |
+| DIV | Clock divider/multiplier (÷16 to x16) |
 | S+H | Dual sample & hold |
 | QUANT | Pitch quantizer with selectable scales |
 | ARP | Arpeggiator with chord patterns |
@@ -27,6 +27,8 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 | EUCLID | Euclidean rhythm generator (evenly distributed triggers) |
 | LOGIC | Boolean gate operator (AND/OR) |
 | MULT | 2-in, 6-out signal splitter |
+| RND | Random voltage generator (stepped/smooth outputs) |
+| ENVF | Envelope follower (audio to CV) |
 | ADSR | Envelope generator |
 
 ### Processors
@@ -34,6 +36,7 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 |--------|-------------|
 | VCF | State-variable filter (LP, BP, HP) |
 | FOLD | Wavefolder for harmonic complexity |
+| RING | Ring modulator (signal multiplication) |
 | VCA | Dual voltage-controlled amplifier |
 | MIX | 4-channel mixer with level controls |
 | DLY | Stereo delay with time, feedback, mix |

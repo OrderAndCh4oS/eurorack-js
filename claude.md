@@ -50,7 +50,7 @@ Software Eurorack modular synthesizer. Modules pass voltages; sound only at outp
 
 **Self-contained modules**: Each module folder contains DSP + UI definition in one file. Modules export metadata, `createDSP()` factory, and declarative `ui` config.
 
-**Available modules**: `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `euclid` (euclidean rhythm) · `logic` (AND/OR gates) · `mult` (signal splitter) · `vco` · `vcf` · `fold` (wavefolder) · `adsr` · `vca` · `atten` (attenuverter) · `slew` · `mix` · `dly` (delay) · `verb` (reverb) · `kick` · `snare` · `hat` · `scope` · `out`
+**Available modules**: `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `euclid` (euclidean rhythm) · `logic` (AND/OR gates) · `mult` (signal splitter) · `vco` · `vcf` · `fold` (wavefolder) · `ring` (ring mod) · `rnd` (random) · `envf` (envelope follower) · `func` (function generator) · `adsr` · `vca` · `atten` (attenuverter) · `slew` · `mix` · `dly` (delay) · `verb` (reverb) · `chorus` · `phaser` · `flanger` · `crush` (bit crusher) · `db` (VU meter) · `pwm` (pulse width mod) · `turing` (random looping seq) · `ochd` (8x LFO) · `kick` · `snare` · `hat` · `scope` · `out`
 
 ## Project Structure
 
@@ -80,7 +80,7 @@ tests/dsp/{module}.test.js # Module tests
 
 Processing order is computed dynamically from cable connections using `computeProcessOrder()`:
 - Sources process before destinations (topological sort)
-- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → seq → euclid → logic → mult → vco → vcf → fold → adsr → vca → atten → slew → mix → dly → verb → kick → snare → hat → scope → out`
+- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → seq → euclid → logic → mult → vco → vcf → fold → ring → rnd → envf → func → adsr → vca → atten → slew → mix → dly → verb → kick → snare → hat → scope → out`
 - Cycles (feedback patches) fall back to `MODULE_ORDER`
 - Recomputed when cables or modules change
 
@@ -234,7 +234,7 @@ export default {
 | lfo | rateCV, waveCV, reset | primary, secondary |
 | nse | — | white, pink |
 | sh | in1, in2, trig1, trig2 | out1, out2 |
-| quant | cvIn, trigIn | cvOut, trigOut |
+| quant | cv | cv, trigger |
 | arp | clock, cvIn, gateIn, hold, pause | cvOut, gateOut |
 | seq | clock, reset | cv, gate |
 | euclid | clock, reset, lenCV, hitsCV | trig |
@@ -243,6 +243,10 @@ export default {
 | vco | vOct, fm, pwm, sync | triangle, ramp, pulse |
 | vcf | audio, cutoffCV, resCV | lpf, bpf, hpf |
 | fold | audio, foldCV, symCV | out |
+| ring | x, y | out |
+| rnd | clock | step, smooth, gate |
+| envf | audio | env, inv |
+| func | in, trig, riseCV, fallCV, cycleCV | out, inv, eor, eoc |
 | adsr | gate, retrig | env |
 | vca | ch1In, ch2In, ch1CV, ch2CV | ch1Out, ch2Out |
 | mix | in1, in2, in3, in4 | out |
@@ -250,6 +254,14 @@ export default {
 | slew | in1, cv1, in2, cv2 | out1, out2 |
 | dly | inL, inR, timeCV, feedbackCV | outL, outR |
 | verb | inL, inR, sizeCV, dampCV | outL, outR |
+| chorus | inL, inR, rateCV, depthCV | outL, outR |
+| phaser | inL, inR, rateCV, depthCV | outL, outR |
+| flanger | inL, inR, rateCV, depthCV | outL, outR |
+| crush | inL, inR, bitsCV, rateCV | outL, outR |
+| db | L, R | outL, outR |
+| pwm | in, pwmCV | out, inv |
+| turing | clock, lockCV | cv, pulse |
+| ochd | rateCV | out1, out2, out3, out4, out5, out6, out7, out8 |
 | kick | trigger, pitchCV, decayCV, toneCV | out |
 | snare | trigger, toneCV, decayCV | out |
 | hat | trigger, decayCV | out |

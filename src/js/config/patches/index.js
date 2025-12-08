@@ -24,8 +24,25 @@ import testEuclid from './test-euclid.js';
 import testLogic from './test-logic.js';
 import testMult from './test-mult.js';
 import testFold from './test-fold.js';
+import testRing from './test-ring.js';
+import testRnd from './test-rnd.js';
+import testEnvf from './test-envf.js';
+import testEnvfSidechain from './test-envf-sidechain.js';
+import testFunc from './test-func.js';
+import testFuncEnvelope from './test-func-envelope.js';
+import testFuncLfo from './test-func-lfo.js';
+import testFuncSlew from './test-func-slew.js';
+import testFuncEoc from './test-func-eoc.js';
 import testDelay from './test-delay.js';
 import testReverb from './test-reverb.js';
+import testChorus from './test-chorus.js';
+import testPhaser from './test-phaser.js';
+import testFlanger from './test-flanger.js';
+import testCrush from './test-crush.js';
+import testDb from './test-db.js';
+import testPwm from './test-pwm.js';
+import testTuring from './test-turing.js';
+import testOchd from './test-ochd.js';
 import testAttenuverter from './test-attenuverter.js';
 import testSlew from './test-slew.js';
 
@@ -72,8 +89,25 @@ export const FACTORY_PATCHES = {
     [testLogic.name]: testLogic,
     [testMult.name]: testMult,
     [testFold.name]: testFold,
+    [testRing.name]: testRing,
+    [testRnd.name]: testRnd,
+    [testEnvf.name]: testEnvf,
+    [testEnvfSidechain.name]: testEnvfSidechain,
+    [testFunc.name]: testFunc,
+    [testFuncEnvelope.name]: testFuncEnvelope,
+    [testFuncLfo.name]: testFuncLfo,
+    [testFuncSlew.name]: testFuncSlew,
+    [testFuncEoc.name]: testFuncEoc,
     [testDelay.name]: testDelay,
     [testReverb.name]: testReverb,
+    [testChorus.name]: testChorus,
+    [testPhaser.name]: testPhaser,
+    [testFlanger.name]: testFlanger,
+    [testCrush.name]: testCrush,
+    [testDb.name]: testDb,
+    [testPwm.name]: testPwm,
+    [testTuring.name]: testTuring,
+    [testOchd.name]: testOchd,
     [testAttenuverter.name]: testAttenuverter,
     [testSlew.name]: testSlew,
 

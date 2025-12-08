@@ -765,10 +765,11 @@
         <div class="rack rack-row" id="rack-row-1"></div>
         <div class="rack rack-row" id="rack-row-2"></div>
         <div class="cable-hints">
-            Click and drag on sockets to add cables |
-            Shift+click to add additional cables |
-            Ctrl+click to cycle cables |
-            Right-click or drop on empty space to remove
+            Click and drag modules to reorder them or move between racks<br>
+            Click and drag on sockets to add cables<br>
+            Shift+click to add additional cables<br>
+            Ctrl+click to cycle cables<br>
+            Right-click or drop cable on empty space to remove
         </div>
     </div>
 </div>
@@ -776,7 +777,7 @@
 <script type="module">
     /* ========================================================
      * Import modular definitions
-     * =§we w========================================================== */
+     * =========================================================== */
     import { loadModules, moduleRegistry, DEFAULT_MODULE_ORDER } from './js/index.js';
     import { CABLE_COLORS } from './js/config/constants.js';
     import { FACTORY_PATCHES } from './js/config/factory-patches.js';

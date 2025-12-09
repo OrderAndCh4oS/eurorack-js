@@ -72,6 +72,12 @@ export { SAMPLE_RATE, BUFFER, CABLE_COLORS } from './config/constants.js';
  * Default module order (can be customized)
  */
 export const DEFAULT_MODULE_ORDER = [
+    // MIDI input modules (process first)
+    'midi-cv',
+    'midi-4',
+    'midi-cc',
+    'midi-clk',
+    // Clock and utility
     'clk',
     'div',
     'lfo',

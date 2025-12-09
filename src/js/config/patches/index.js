@@ -47,6 +47,12 @@ import testCmp2 from './test-cmp2.js';
 import testAttenuverter from './test-attenuverter.js';
 import testSlew from './test-slew.js';
 
+// Test patches - MIDI
+import testMidiCv from './test-midi-cv.js';
+import testMidi4 from './test-midi-4.js';
+import testMidiCc from './test-midi-cc.js';
+import testMidiClk from './test-midi-clk.js';
+
 // Test patches - Drums
 import testSnareOnly from './test-snare-only.js';
 import testKickOnly from './test-kick-only.js';
@@ -113,6 +119,12 @@ export const FACTORY_PATCHES = {
     [testCmp2.name]: testCmp2,
     [testAttenuverter.name]: testAttenuverter,
     [testSlew.name]: testSlew,
+
+    // Test patches - MIDI
+    [testMidiCv.name]: testMidiCv,
+    [testMidi4.name]: testMidi4,
+    [testMidiCc.name]: testMidiCc,
+    [testMidiClk.name]: testMidiClk,
 
     // Test patches - Drums
     [testSnareOnly.name]: testSnareOnly,

@@ -255,6 +255,11 @@ export async function loadModules() {
         import('../modules/hat/index.js'),
         import('../modules/scope/index.js'),
         import('../modules/out/index.js'),
+        // MIDI modules
+        import('../modules/midi-cv/index.js'),
+        import('../modules/midi-4/index.js'),
+        import('../modules/midi-cc/index.js'),
+        import('../modules/midi-clk/index.js'),
     ]);
 
     // Register each module

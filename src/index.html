@@ -504,6 +504,51 @@
             background: #4a4;
         }
 
+        /* MIDI Learn styles */
+        #toolbar button.midi-learn-active {
+            background: #c9a227;
+            animation: midi-pulse 1s infinite;
+        }
+
+        @keyframes midi-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .knob.midi-learning {
+            box-shadow: 0 0 10px 3px #c9a227 !important;
+            animation: knob-pulse 0.5s infinite;
+        }
+
+        @keyframes knob-pulse {
+            0%, 100% { box-shadow: 0 0 10px 3px #c9a227; }
+            50% { box-shadow: 0 0 15px 5px #c9a227; }
+        }
+
+        .knob.midi-mapped {
+            position: relative;
+        }
+
+        .knob.midi-mapped::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 6px;
+            height: 6px;
+            background: #c9a227;
+            border-radius: 50%;
+            z-index: 10;
+        }
+
+        body.midi-learn-mode {
+            cursor: crosshair;
+        }
+
+        body.midi-learn-mode .knob {
+            cursor: pointer;
+        }
+
         .toolbar-label {
             font-size: 10px;
             color: #888;
@@ -751,6 +796,10 @@
     </div>
     <div class="toolbar-spacer"></div>
     <div class="toolbar-section">
+        <button id="midiLearnBtn" title="Click to enter learn mode, then click a knob">MIDI Learn</button>
+    </div>
+    <div class="toolbar-divider"></div>
+    <div class="toolbar-section">
         <button id="clearCables">Clear Cables</button>
     </div>
 </div>
@@ -784,6 +833,7 @@
     import { adjustColor } from './js/utils/color.js';
     import { createAudioEngine } from './js/audio/engine.js';
     import { createCablePath, getJackCenter } from './js/cables/cable-manager.js';
+    import { createMidiManager } from './js/midi/midi-manager.js';
 
     /* =============================================================
      * Interactive Patcher System
@@ -801,6 +851,7 @@
     let modules = {};
     let cables = [];
     let dragState = null;
+    let midiManager = null;
 
     /* New state for flexible rack */
     const MAX_HP_PER_ROW = 84;
@@ -813,8 +864,9 @@
     const MODULE_ORDER = DEFAULT_MODULE_ORDER;
 
     /* Category display order and labels */
-    const CATEGORY_ORDER = ['clock', 'modulation', 'quantizer', 'voice', 'effect', 'utility', 'output', 'other'];
+    const CATEGORY_ORDER = ['midi', 'clock', 'modulation', 'quantizer', 'voice', 'effect', 'utility', 'output', 'other'];
     const CATEGORY_LABELS = {
+        'midi': 'MIDI',
         'clock': 'Clock & Utility',
         'modulation': 'Modulation',
         'quantizer': 'Quantizer',
@@ -1281,6 +1333,10 @@
                 bufferSize: 512,
                 audioCtx: audioCtx
             });
+            // Provide MIDI manager reference to MIDI modules
+            if (instance && midiManager) {
+                instance.midiManager = midiManager;
+            }
         }
 
         // Store in modules map
@@ -1942,6 +1998,11 @@
             });
         });
 
+        /* Serialize MIDI mappings */
+        if (midiManager) {
+            state.midiMappings = midiManager.getMappings();
+        }
+
         return state;
     }
 
@@ -1962,6 +2023,14 @@
         /* Mark rows as empty */
         document.getElementById('rack-row-1').classList.add('empty');
         document.getElementById('rack-row-2').classList.add('empty');
+
+        /* Clear MIDI mappings */
+        if (midiManager) {
+            midiManager.clearMappings();
+            document.querySelectorAll('.knob.midi-mapped').forEach(k => {
+                k.classList.remove('midi-mapped');
+            });
+        }
     }
 
     function applyPatchState(state) {
@@ -2080,6 +2149,12 @@
                     addCable(fromJack, toJack);
                 }
             });
+        }
+
+        /* Apply MIDI mappings */
+        if (state.midiMappings && midiManager) {
+            midiManager.setMappings(state.midiMappings);
+            updateMidiMappedIndicators();
         }
     }
 
@@ -2238,6 +2313,121 @@
     }
 
     /* =============================================================
+     * MIDI Learn System
+     * =========================================================== */
+
+    async function initMidi() {
+        midiManager = createMidiManager();
+
+        // Expose globally for MIDI modules that may not have direct reference
+        window.midiManager = midiManager;
+
+        const success = await midiManager.init();
+        const btn = document.getElementById('midiLearnBtn');
+
+        if (!success) {
+            // Hide MIDI Learn button if not supported
+            btn.style.display = 'none';
+            console.log('MIDI not available in this browser');
+            return;
+        }
+
+        // Set up callbacks
+        midiManager.setOnMidiLearnComplete((key, knobInfo) => {
+            // Remove learning highlight
+            knobInfo.element.classList.remove('midi-learning');
+            knobInfo.element.classList.add('midi-mapped');
+
+            console.log(`MIDI mapped ${key} to ${knobInfo.moduleId}.${knobInfo.paramId}`);
+        });
+
+        midiManager.setOnMidiMessage(({ moduleId, paramId, value }) => {
+            // Update knob value
+            const knob = document.querySelector(
+                `.knob[data-module="${moduleId}"][data-param="${paramId}"]`
+            );
+
+            if (knob) {
+                knob.dataset.value = value;
+                updateKnobRotation(knob);
+
+                // Update module param
+                if (modules[moduleId]?.instance) {
+                    modules[moduleId].instance.params[paramId] = value;
+                }
+            }
+        });
+
+        midiManager.setOnConnectionChange((connected, devices) => {
+            btn.title = connected
+                ? `MIDI Learn - Connected: ${devices.join(', ')}`
+                : 'MIDI Learn - No devices connected';
+        });
+    }
+
+    function toggleMidiLearnMode() {
+        if (!midiManager) return;
+
+        const btn = document.getElementById('midiLearnBtn');
+        const isActive = btn.classList.toggle('midi-learn-active');
+
+        midiManager.setLearnMode(isActive);
+        document.body.classList.toggle('midi-learn-mode', isActive);
+
+        if (!isActive) {
+            // Clean up any learning state
+            document.querySelectorAll('.knob.midi-learning').forEach(k => {
+                k.classList.remove('midi-learning');
+            });
+        }
+    }
+
+    function handleKnobMidiLearn(knob, e) {
+        if (!midiManager?.isLearnMode) return false;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        // If already learning a different knob, cancel that
+        document.querySelectorAll('.knob.midi-learning').forEach(k => {
+            k.classList.remove('midi-learning');
+        });
+
+        // Start learning this knob
+        knob.classList.add('midi-learning');
+
+        midiManager.startLearning({
+            element: knob,
+            moduleId: knob.dataset.module,
+            paramId: knob.dataset.param,
+            min: parseFloat(knob.dataset.min),
+            max: parseFloat(knob.dataset.max)
+        });
+
+        return true;  // Indicate we handled the click
+    }
+
+    function updateMidiMappedIndicators() {
+        // Clear existing indicators
+        document.querySelectorAll('.knob.midi-mapped').forEach(k => {
+            k.classList.remove('midi-mapped');
+        });
+
+        if (!midiManager) return;
+
+        // Add indicators for mapped knobs
+        const mappings = midiManager.getMappings();
+        Object.values(mappings).forEach(mapping => {
+            const knob = document.querySelector(
+                `.knob[data-module="${mapping.moduleId}"][data-param="${mapping.paramId}"]`
+            );
+            if (knob) {
+                knob.classList.add('midi-mapped');
+            }
+        });
+    }
+
+    /* =============================================================
      * Initialization
      * =========================================================== */
     async function init() {
@@ -2274,6 +2464,10 @@
                     startDrag(jack, e);
                 }
             } else if (knob) {
+                // Check for MIDI learn mode first
+                if (handleKnobMidiLearn(knob, e)) {
+                    return;  // Don't start normal knob drag
+                }
                 e.preventDefault();
                 startKnobDrag(knob, e);
             } else if (sw) {
@@ -2338,6 +2532,17 @@
         document.getElementById('startButton').addEventListener('click', toggleAudio);
         document.getElementById('clearCables').addEventListener('click', clearAllCables);
         document.getElementById('copyPatch').addEventListener('click', copyPatchToClipboard);
+        document.getElementById('midiLearnBtn').addEventListener('click', toggleMidiLearnMode);
+
+        /* ESC key to exit MIDI learn mode */
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && midiManager?.isLearnMode) {
+                toggleMidiLearnMode();
+            }
+        });
+
+        /* Initialize MIDI */
+        await initMidi();
 
         /* Initialize patch bank */
         initPatchBank();
@@ -2386,6 +2591,10 @@
                     bufferSize: 512,
                     audioCtx: audioCtx
                 });
+                /* Provide MIDI manager reference to MIDI modules */
+                if (mod.instance && midiManager) {
+                    mod.instance.midiManager = midiManager;
+                }
 
                 /* Execute custom render function if not already done */
                 if (mod.el._customRender) {

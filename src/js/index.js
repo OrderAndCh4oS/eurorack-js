@@ -77,6 +77,7 @@ export const DEFAULT_MODULE_ORDER = [
     'midi-4',
     'midi-cc',
     'midi-clk',
+    'midi-drum',
     // Clock and utility
     'clk',
     'div',

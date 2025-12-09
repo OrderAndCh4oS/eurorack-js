@@ -260,6 +260,7 @@ export async function loadModules() {
         import('../modules/midi-4/index.js'),
         import('../modules/midi-cc/index.js'),
         import('../modules/midi-clk/index.js'),
+        import('../modules/midi-drum/index.js'),
     ]);
 
     // Register each module

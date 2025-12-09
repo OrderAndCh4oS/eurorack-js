@@ -52,6 +52,7 @@ import testMidiCv from './test-midi-cv.js';
 import testMidi4 from './test-midi-4.js';
 import testMidiCc from './test-midi-cc.js';
 import testMidiClk from './test-midi-clk.js';
+import testMidiDrum from './test-midi-drum.js';
 
 // Test patches - Drums
 import testSnareOnly from './test-snare-only.js';
@@ -125,6 +126,7 @@ export const FACTORY_PATCHES = {
     [testMidi4.name]: testMidi4,
     [testMidiCc.name]: testMidiCc,
     [testMidiClk.name]: testMidiClk,
+    [testMidiDrum.name]: testMidiDrum,
 
     // Test patches - Drums
     [testSnareOnly.name]: testSnareOnly,

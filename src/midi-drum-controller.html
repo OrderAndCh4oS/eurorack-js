@@ -1,0 +1,527 @@
+git<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MIDI Drum Controller</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        h1 {
+            text-align: center;
+            color: #c9a227;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 8px;
+            background: #2a2a4e;
+        }
+
+        .status.connected {
+            background: #1a4a2a;
+        }
+
+        .status.error {
+            background: #4a1a1a;
+        }
+
+        .channel-selector {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .channel-selector label {
+            margin-right: 10px;
+        }
+
+        .channel-selector select,
+        .channel-selector input {
+            background: #2a2a4e;
+            color: #eee;
+            border: 1px solid #444;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .channel-selector input[type="number"] {
+            width: 70px;
+        }
+
+        /* Drum Pad styles */
+        .drum-section {
+            max-width: 600px;
+            margin: 0 auto 30px;
+        }
+
+        .drum-section h2 {
+            text-align: center;
+            color: #c9a227;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .drum-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            padding: 20px;
+            background: #2a2a4e;
+            border-radius: 8px;
+        }
+
+        .drum-pad {
+            aspect-ratio: 1;
+            background: linear-gradient(145deg, #3a3a5e, #22223a);
+            border: 2px solid #444;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            transition: transform 0.05s, background 0.1s;
+            min-height: 80px;
+        }
+
+        .drum-pad:hover {
+            border-color: #666;
+        }
+
+        .drum-pad:active,
+        .drum-pad.active {
+            transform: scale(0.95);
+            background: linear-gradient(145deg, #c9a227, #a88620);
+            border-color: #c9a227;
+        }
+
+        .drum-pad .pad-name {
+            font-size: 14px;
+            font-weight: bold;
+            color: #eee;
+            margin-bottom: 4px;
+        }
+
+        .drum-pad .pad-note {
+            font-size: 10px;
+            color: #888;
+        }
+
+        .drum-pad .pad-key {
+            font-size: 9px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .drum-pad.active .pad-name,
+        .drum-pad.active .pad-note,
+        .drum-pad.active .pad-key {
+            color: #1a1a2e;
+        }
+
+        .drum-hint {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 11px;
+            color: #666;
+        }
+
+        /* CC Knobs section */
+        .controller-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            max-width: 600px;
+            margin: 30px auto;
+        }
+
+        .knob-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            background: #2a2a4e;
+            border-radius: 12px;
+        }
+
+        .knob-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .knob {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #3a3a5e, #22223a);
+            box-shadow:
+                4px 4px 8px #15152a,
+                -4px -4px 8px #3f3f6a;
+            position: relative;
+            cursor: grab;
+            user-select: none;
+        }
+
+        .knob:active {
+            cursor: grabbing;
+        }
+
+        .knob::before {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 12px;
+            background: #c9a227;
+            border-radius: 2px;
+        }
+
+        .knob-value {
+            margin-top: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #c9a227;
+        }
+
+        .cc-number {
+            font-size: 10px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .instructions {
+            max-width: 600px;
+            margin: 30px auto 0;
+            padding: 15px;
+            background: #2a2a4e;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .instructions h3 {
+            margin-top: 0;
+            color: #c9a227;
+        }
+
+        .instructions code {
+            background: #1a1a2e;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>MIDI Drum Controller</h1>
+
+    <div id="status" class="status">Initializing MIDI...</div>
+
+    <div class="channel-selector">
+        <label for="channel">MIDI Channel:</label>
+        <select id="channel">
+            <option value="9">Channel 10 (GM Drums)</option>
+            <option value="0">Channel 1</option>
+            <option value="1">Channel 2</option>
+            <option value="2">Channel 3</option>
+            <option value="3">Channel 4</option>
+            <option value="4">Channel 5</option>
+            <option value="5">Channel 6</option>
+            <option value="6">Channel 7</option>
+            <option value="7">Channel 8</option>
+            <option value="8">Channel 9</option>
+            <option value="10">Channel 11</option>
+            <option value="11">Channel 12</option>
+            <option value="12">Channel 13</option>
+            <option value="13">Channel 14</option>
+            <option value="14">Channel 15</option>
+            <option value="15">Channel 16</option>
+        </select>
+        <label for="velocity" style="margin-left: 20px;">Velocity:</label>
+        <input type="number" id="velocity" value="100" min="1" max="127">
+    </div>
+
+    <div class="drum-section">
+        <h2>Drum Pads</h2>
+        <div class="drum-grid" id="drumPads"></div>
+        <div class="drum-hint">Click pads or use keyboard: 1-8 for top row, Q-I for bottom row</div>
+    </div>
+
+    <div class="controller-grid" id="knobs"></div>
+
+    <div class="instructions">
+        <h3>How to Use</h3>
+        <p>1. Open <strong>Audio MIDI Setup</strong> (in /Applications/Utilities/)</p>
+        <p>2. Go to <strong>Window → Show MIDI Studio</strong></p>
+        <p>3. Double-click <strong>IAC Driver</strong> and check <strong>"Device is online"</strong></p>
+        <p>4. Refresh this page - you should see "IAC Driver" in the connected devices</p>
+        <p>5. Click pads or use keyboard shortcuts to trigger drums</p>
+        <p>6. In the Eurorack app: Add a <strong>MIDI-DRUM</strong> module and connect triggers to drum modules</p>
+        <p><br>Default GM drum notes: Kick (C1), Snare (D1), Closed Hat (F#1), Open Hat (A#1), etc.</p>
+    </div>
+
+    <script>
+        let midiOutput = null;
+        const knobValues = {};
+        const CC_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+        // GM drum mapping
+        const DRUM_PADS = [
+            { name: 'Kick', note: 36, key: '1' },
+            { name: 'Snare', note: 38, key: '2' },
+            { name: 'C.Hat', note: 42, key: '3' },
+            { name: 'O.Hat', note: 46, key: '4' },
+            { name: 'L.Tom', note: 41, key: 'q' },
+            { name: 'M.Tom', note: 47, key: 'w' },
+            { name: 'Clap', note: 39, key: 'e' },
+            { name: 'Ride', note: 51, key: 'r' }
+        ];
+
+        const activePads = new Set();
+        const padElements = {};
+
+        async function initMIDI() {
+            const statusEl = document.getElementById('status');
+
+            if (!navigator.requestMIDIAccess) {
+                statusEl.textContent = 'Web MIDI not supported in this browser. Use Chrome or Edge.';
+                statusEl.classList.add('error');
+                return;
+            }
+
+            try {
+                const midiAccess = await navigator.requestMIDIAccess();
+
+                // Find available outputs
+                const outputs = Array.from(midiAccess.outputs.values());
+
+                if (outputs.length === 0) {
+                    statusEl.textContent = 'No MIDI outputs found. Enable IAC Driver in Audio MIDI Setup.';
+                    statusEl.classList.add('error');
+                    return;
+                }
+
+                // Prefer IAC Driver, otherwise use first output
+                midiOutput = outputs.find(o => o.name.includes('IAC')) || outputs[0];
+
+                const outputNames = outputs.map(o => o.name).join(', ');
+                statusEl.textContent = `Connected to: ${midiOutput.name} (Available: ${outputNames})`;
+                statusEl.classList.add('connected');
+
+                // Listen for device changes
+                midiAccess.onstatechange = () => {
+                    const newOutputs = Array.from(midiAccess.outputs.values());
+                    midiOutput = newOutputs.find(o => o.name.includes('IAC')) || newOutputs[0];
+                    if (midiOutput) {
+                        statusEl.textContent = `Connected to: ${midiOutput.name}`;
+                        statusEl.classList.remove('error');
+                        statusEl.classList.add('connected');
+                    }
+                };
+
+            } catch (err) {
+                statusEl.textContent = `MIDI Error: ${err.message}`;
+                statusEl.classList.add('error');
+            }
+        }
+
+        function sendCC(cc, value) {
+            if (!midiOutput) return;
+
+            const channel = parseInt(document.getElementById('channel').value);
+            const status = 0xB0 + channel;
+
+            midiOutput.send([status, cc, value]);
+            console.log(`Sent CC ${cc} = ${value} on channel ${channel + 1}`);
+        }
+
+        function sendNoteOn(note, velocity) {
+            if (!midiOutput) return;
+
+            const channel = parseInt(document.getElementById('channel').value);
+            const status = 0x90 + channel;
+
+            midiOutput.send([status, note, velocity]);
+            console.log(`Note On: ${note} vel=${velocity} ch=${channel + 1}`);
+        }
+
+        function sendNoteOff(note) {
+            if (!midiOutput) return;
+
+            const channel = parseInt(document.getElementById('channel').value);
+            const status = 0x80 + channel;
+
+            midiOutput.send([status, note, 0]);
+            console.log(`Note Off: ${note} ch=${channel + 1}`);
+        }
+
+        function createDrumPads() {
+            const container = document.getElementById('drumPads');
+
+            DRUM_PADS.forEach((pad, index) => {
+                const padEl = document.createElement('div');
+                padEl.className = 'drum-pad';
+                padEl.dataset.note = pad.note;
+                padEl.dataset.index = index;
+
+                padEl.innerHTML = `
+                    <span class="pad-name">${pad.name}</span>
+                    <span class="pad-note">Note ${pad.note}</span>
+                    <span class="pad-key">[${pad.key.toUpperCase()}]</span>
+                `;
+
+                padElements[index] = padEl;
+                container.appendChild(padEl);
+
+                // Mouse events
+                padEl.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    triggerPad(index);
+                });
+
+                padEl.addEventListener('mouseup', () => {
+                    releasePad(index);
+                });
+
+                padEl.addEventListener('mouseleave', () => {
+                    if (activePads.has(index)) {
+                        releasePad(index);
+                    }
+                });
+            });
+        }
+
+        function triggerPad(index) {
+            if (activePads.has(index)) return;
+
+            const pad = DRUM_PADS[index];
+            const velocity = parseInt(document.getElementById('velocity').value);
+
+            sendNoteOn(pad.note, velocity);
+            activePads.add(index);
+            padElements[index].classList.add('active');
+        }
+
+        function releasePad(index) {
+            if (!activePads.has(index)) return;
+
+            const pad = DRUM_PADS[index];
+
+            sendNoteOff(pad.note);
+            activePads.delete(index);
+            padElements[index].classList.remove('active');
+        }
+
+        // Keyboard support
+        const KEY_TO_PAD = {};
+        DRUM_PADS.forEach((pad, index) => {
+            KEY_TO_PAD[pad.key.toLowerCase()] = index;
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.repeat) return;
+            const padIndex = KEY_TO_PAD[e.key.toLowerCase()];
+            if (padIndex !== undefined) {
+                e.preventDefault();
+                triggerPad(padIndex);
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            const padIndex = KEY_TO_PAD[e.key.toLowerCase()];
+            if (padIndex !== undefined) {
+                releasePad(padIndex);
+            }
+        });
+
+        function createKnobs() {
+            const container = document.getElementById('knobs');
+
+            CC_NUMBERS.forEach((cc, index) => {
+                knobValues[cc] = 64;
+
+                const knobContainer = document.createElement('div');
+                knobContainer.className = 'knob-container';
+
+                knobContainer.innerHTML = `
+                    <div class="knob-label">Knob ${index + 1}</div>
+                    <div class="knob" data-cc="${cc}" style="transform: rotate(${valueToAngle(64)}deg)"></div>
+                    <div class="knob-value" id="value-${cc}">64</div>
+                    <div class="cc-number">CC ${cc}</div>
+                `;
+
+                container.appendChild(knobContainer);
+
+                const knob = knobContainer.querySelector('.knob');
+                setupKnobDrag(knob, cc);
+            });
+        }
+
+        function valueToAngle(value) {
+            return (value / 127) * 270 - 135;
+        }
+
+        function setupKnobDrag(knob, cc) {
+            let isDragging = false;
+            let startY = 0;
+            let startValue = 0;
+
+            knob.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startY = e.clientY;
+                startValue = knobValues[cc];
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+
+                const deltaY = startY - e.clientY;
+                const deltaValue = Math.round(deltaY / 2);
+                let newValue = Math.max(0, Math.min(127, startValue + deltaValue));
+
+                if (newValue !== knobValues[cc]) {
+                    knobValues[cc] = newValue;
+                    knob.style.transform = `rotate(${valueToAngle(newValue)}deg)`;
+                    document.getElementById(`value-${cc}`).textContent = newValue;
+                    sendCC(cc, newValue);
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            knob.addEventListener('dblclick', () => {
+                knobValues[cc] = 64;
+                knob.style.transform = `rotate(${valueToAngle(64)}deg)`;
+                document.getElementById(`value-${cc}`).textContent = 64;
+                sendCC(cc, 64);
+            });
+        }
+
+        // Initialize
+        createDrumPads();
+        createKnobs();
+        initMIDI();
+    </script>
+</body>
+</html>

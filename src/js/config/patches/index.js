@@ -39,6 +39,7 @@ import testChorus from './test-chorus.js';
 import testPhaser from './test-phaser.js';
 import testFlanger from './test-flanger.js';
 import testCrush from './test-crush.js';
+import testGranulita from './test-granulita.js';
 import testDb from './test-db.js';
 import testPwm from './test-pwm.js';
 import testTuring from './test-turing.js';
@@ -69,6 +70,8 @@ import demoDrumAndBass from './demo-drum-and-bass.js';
 import demoDubDelay from './demo-dub-delay.js';
 import demoAmbientPad from './demo-ambient-pad.js';
 import demoTripHop from './demo-trip-hop.js';
+import demoTechno from './demo-techno.js';
+import scifiShooter from './scifi-shooter.js';
 
 // Drum patches
 import drumsBasicBeat from './drums-basic-beat.js';
@@ -113,6 +116,7 @@ export const FACTORY_PATCHES = {
     [testPhaser.name]: testPhaser,
     [testFlanger.name]: testFlanger,
     [testCrush.name]: testCrush,
+    [testGranulita.name]: testGranulita,
     [testDb.name]: testDb,
     [testPwm.name]: testPwm,
     [testTuring.name]: testTuring,
@@ -143,6 +147,8 @@ export const FACTORY_PATCHES = {
     [demoDubDelay.name]: demoDubDelay,
     [demoAmbientPad.name]: demoAmbientPad,
     [demoTripHop.name]: demoTripHop,
+    [demoTechno.name]: demoTechno,
+    [scifiShooter.name]: scifiShooter,
 
     // Drum patches
     [drumsBasicBeat.name]: drumsBasicBeat,

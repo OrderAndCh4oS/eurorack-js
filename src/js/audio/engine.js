@@ -150,7 +150,9 @@ export function createAudioEngine({
 
             // Process the module
             const mod = modules[id].instance;
-            if (id === 'out') {
+            const modType = modules[id].type;
+            // Output module needs scheduled time for buffer playback
+            if (modType === 'out') {
                 mod.process(nextTime);
             } else {
                 mod.process();

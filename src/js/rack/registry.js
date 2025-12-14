@@ -245,6 +245,7 @@ export async function loadModules() {
         import('../modules/phaser/index.js'),
         import('../modules/flanger/index.js'),
         import('../modules/crush/index.js'),
+        import('../modules/granulita/index.js'),
         import('../modules/db/index.js'),
         import('../modules/pwm/index.js'),
         import('../modules/turing/index.js'),

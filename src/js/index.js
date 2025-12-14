@@ -107,6 +107,7 @@ export const DEFAULT_MODULE_ORDER = [
     'phaser',
     'flanger',
     'crush',
+    'granulita',
     'db',
     'pwm',
     'turing',

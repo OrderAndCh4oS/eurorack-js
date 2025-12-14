@@ -50,7 +50,7 @@ Software Eurorack modular synthesizer. Modules pass voltages; sound only at outp
 
 **Self-contained modules**: Each module folder contains DSP + UI definition in one file. Modules export metadata, `createDSP()` factory, and declarative `ui` config.
 
-**Available modules**: `midi-cv` (mono MIDI-CV) · `midi-4` (4-voice poly MIDI) · `midi-cc` (CC to CV) · `midi-clk` (MIDI clock) · `midi-drum` (drum pads to triggers) · `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `euclid` (euclidean rhythm) · `logic` (AND/OR gates) · `mult` (signal splitter) · `vco` · `vcf` · `fold` (wavefolder) · `ring` (ring mod) · `rnd` (random) · `envf` (envelope follower) · `func` (function generator) · `adsr` · `vca` · `atten` (attenuverter) · `slew` · `mix` · `dly` (delay) · `verb` (reverb) · `chorus` · `phaser` · `flanger` · `crush` (bit crusher) · `db` (VU meter) · `pwm` (pulse width mod) · `turing` (random looping seq) · `ochd` (8x LFO) · `cmp2` (window comparator) · `kick` · `snare` · `hat` · `scope` · `out`
+**Available modules**: `midi-cv` (mono MIDI-CV) · `midi-4` (4-voice poly MIDI) · `midi-cc` (CC to CV) · `midi-clk` (MIDI clock) · `midi-drum` (drum pads to triggers) · `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `euclid` (euclidean rhythm) · `logic` (AND/OR gates) · `mult` (signal splitter) · `vco` · `vcf` · `fold` (wavefolder) · `ring` (ring mod) · `rnd` (random) · `envf` (envelope follower) · `func` (function generator) · `adsr` · `vca` · `atten` (attenuverter) · `slew` · `mix` · `dly` (delay) · `verb` (reverb) · `chorus` · `phaser` · `flanger` · `crush` (bit crusher) · `granulita` (granular chord) · `db` (VU meter) · `pwm` (pulse width mod) · `turing` (random looping seq) · `ochd` (8x LFO) · `cmp2` (window comparator) · `kick` · `snare` · `hat` · `scope` · `out`
 
 ## Project Structure
 
@@ -80,7 +80,7 @@ tests/dsp/{module}.test.js # Module tests
 
 Processing order is computed dynamically from cable connections using `computeProcessOrder()`:
 - Sources process before destinations (topological sort)
-- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → seq → euclid → logic → mult → vco → vcf → fold → ring → rnd → envf → func → adsr → vca → atten → slew → dly → verb → chorus → phaser → flanger → crush → db → pwm → turing → ochd → cmp2 → kick → snare → hat → mix → scope → out`
+- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → seq → euclid → logic → mult → vco → vcf → fold → ring → rnd → envf → func → adsr → vca → atten → slew → dly → verb → chorus → phaser → flanger → crush → granulita → db → pwm → turing → ochd → cmp2 → kick → snare → hat → mix → scope → out`
 - Cycles (feedback patches) fall back to `MODULE_ORDER`
 - Recomputed when cables or modules change
 
@@ -263,6 +263,7 @@ export default {
 | phaser | inL, inR, rateCV, depthCV | outL, outR |
 | flanger | inL, inR, rateCV, depthCV | outL, outR |
 | crush | inL, inR, bitsCV, rateCV | outL, outR |
+| granulita | inL, inR, hit, blendCV, pitchCV, chordCV, voiceCV, verbCV, countCV, lengthCV | outL, outR |
 | db | L, R | outL, outR |
 | pwm | in, pwmCV | out, inv |
 | turing | clock, lockCV | cv, pulse |

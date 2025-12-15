@@ -118,6 +118,8 @@ export const DEFAULT_MODULE_ORDER = [
     'hat',
     'mix',
     'scope',
+    'spectrum',
+    'rec',
     'out'
 ];
 

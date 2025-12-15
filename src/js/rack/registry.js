@@ -255,6 +255,8 @@ export async function loadModules() {
         import('../modules/snare/index.js'),
         import('../modules/hat/index.js'),
         import('../modules/scope/index.js'),
+        import('../modules/spectrum/index.js'),
+        import('../modules/rec/index.js'),
         import('../modules/out/index.js'),
         // MIDI modules
         import('../modules/midi-cv/index.js'),

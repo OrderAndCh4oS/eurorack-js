@@ -119,6 +119,7 @@ export const DEFAULT_MODULE_ORDER = [
     'mix',
     'scope',
     'spectrum',
+    'plot',
     'rec',
     'out'
 ];

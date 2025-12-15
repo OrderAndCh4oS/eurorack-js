@@ -48,6 +48,7 @@ import testCmp2 from './test-cmp2.js';
 import testAttenuverter from './test-attenuverter.js';
 import testSlew from './test-slew.js';
 import testSpectrum from './test-spectrum.js';
+import testPlot from './test-plot.js';
 
 // Test patches - MIDI
 import testMidiCv from './test-midi-cv.js';
@@ -126,6 +127,7 @@ export const FACTORY_PATCHES = {
     [testAttenuverter.name]: testAttenuverter,
     [testSlew.name]: testSlew,
     [testSpectrum.name]: testSpectrum,
+    [testPlot.name]: testPlot,
 
     // Test patches - MIDI
     [testMidiCv.name]: testMidiCv,

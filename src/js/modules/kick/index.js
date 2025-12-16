@@ -28,7 +28,6 @@ export default {
         let phase = 0;
         let ampEnv = 0;
         let pitchEnv = 0;
-        let clickEnv = 0;  // Click transient envelope
 
         // Trigger detection
         let lastTrig = 0;
@@ -39,9 +38,6 @@ export default {
         // Envelope rates (calculated per trigger)
         let ampDecayRate = 0;
         let pitchDecayRate = 0;
-
-        // Click transient decay rate (~1-2ms decay time)
-        const clickDecayRate = Math.exp(-1 / (sampleRate * 0.001));
 
         // Base frequencies for kick (Hz)
         const BASE_FREQ_MIN = 30;   // Low kick
@@ -69,9 +65,9 @@ export default {
                 const toneParam = clamp(this.params.tone, 0, 1);
                 const clickParam = clamp(this.params.click, 0, 1);
 
-                // Click knob controls pitch sweep (0-4 octaves) and click transient amount
+                // Click knob controls pitch sweep (0-4 octaves)
+                // Higher values = more "zappy" attack, lower = mellow thump
                 const pitchSweepOctaves = clickParam * 4;
-                const clickAmount = clickParam * 0.3;  // Max 30% of signal
 
                 let peak = 0;
 
@@ -81,9 +77,9 @@ export default {
                     // Rising edge detection (threshold ~1V)
                     if (trig >= 1 && lastTrig < 1) {
                         // Trigger new kick
+                        phase = 0;     // Reset phase for consistent attack
                         ampEnv = 1;
                         pitchEnv = 1;
-                        clickEnv = 1;  // Trigger click transient
 
                         // Calculate decay rates based on decay param + CV
                         const decayCV = this.inputs.decayCV[i] / 5; // 0-5V -> 0-1
@@ -129,10 +125,6 @@ export default {
                         sample = Math.tanh(sample * drive) / Math.tanh(drive);
                     }
 
-                    // Add click transient (short noise burst for attack punch)
-                    const click = (Math.random() * 2 - 1) * clickEnv * clickAmount;
-                    sample += click;
-
                     // Apply amplitude envelope
                     sample *= ampEnv;
 
@@ -144,12 +136,10 @@ export default {
                     // Decay envelopes
                     ampEnv *= ampDecayRate;
                     pitchEnv *= pitchDecayRate;
-                    clickEnv *= clickDecayRate;
 
                     // Kill denormals
                     if (ampEnv < 1e-6) ampEnv = 0;
                     if (pitchEnv < 1e-6) pitchEnv = 0;
-                    if (clickEnv < 1e-6) clickEnv = 0;
                 }
 
                 // Update LED
@@ -161,7 +151,6 @@ export default {
                 phase = 0;
                 ampEnv = 0;
                 pitchEnv = 0;
-                clickEnv = 0;
                 lastTrig = 0;
                 leds.active = 0;
             }

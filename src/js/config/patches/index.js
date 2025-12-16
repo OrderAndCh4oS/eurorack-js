@@ -49,6 +49,7 @@ import testAttenuverter from './test-attenuverter.js';
 import testSlew from './test-slew.js';
 import testSpectrum from './test-spectrum.js';
 import testPlot from './test-plot.js';
+import testSpectrogram from './test-spectrogram.js';
 
 // Test patches - MIDI
 import testMidiCv from './test-midi-cv.js';
@@ -128,6 +129,7 @@ export const FACTORY_PATCHES = {
     [testSlew.name]: testSlew,
     [testSpectrum.name]: testSpectrum,
     [testPlot.name]: testPlot,
+    [testSpectrogram.name]: testSpectrogram,
 
     // Test patches - MIDI
     [testMidiCv.name]: testMidiCv,

@@ -32,6 +32,36 @@
 
 ## TR-808 Hi-Hat Theory
 
+### Oscillator Phase: Free-Running (NOT Reset)
+
+**Critical difference from kick/snare**: Hi-hat oscillators should be FREE-RUNNING, not phase-reset on trigger.
+
+The 808's 6 square wave oscillators run continuously. The trigger only opens the VCA/envelope - it does NOT reset oscillator phases. This is intentional:
+
+From [Mod Wiggler - Synthesizing 808 Hi-Hats](https://www.modwiggler.com/forum/viewtopic.php?t=120280):
+> "The high hat sample is constantly playing in loop and that when the sound is triggered an envelope is applied to the looped sample. Therefore, the hi hat sounds different each time it is triggered."
+> "Because the oscillators are free-running, each triggered hit sounds slightly different."
+
+**Why free-running works for hi-hats but not kicks:**
+
+| Aspect | Kick/Snare | Hi-Hat |
+|--------|------------|--------|
+| Oscillators | 1 (tonal) | 6 (inharmonic noise) |
+| Goal | Identical hits | Natural variation |
+| Phase reset | Yes | No |
+| Reasoning | Consistent punch | Metallic shimmer varies |
+
+The 6 inharmonic oscillators already create complex, noise-like timbres. Capturing them at random phase relationships adds organic variation that makes the hi-hat sound more natural and less "machine-like."
+
+```javascript
+// On trigger - do NOT reset oscillator phases
+if (trigOpen >= 1 && lastTrigOpen < 1) {
+    // oscPhases NOT reset - intentionally free-running
+    ampEnv = 1;
+    isOpen = true;
+}
+```
+
 ### Why 6 Square Wave Oscillators?
 The metallic, shimmering sound of cymbals comes from **inharmonic spectra** - frequencies that are not simple integer multiples. The 808 achieves this by mixing six square waves at carefully chosen non-harmonic frequencies.
 

@@ -237,7 +237,7 @@ export default {
 | clk | — | clock |
 | div | clock, rate1CV, rate2CV | out1, out2 |
 | lfo | rateCV, waveCV, reset | primary, secondary |
-| nse | — | white, pink |
+| nse | trigger | noise |
 | sh | in1, in2, trig1, trig2 | out1, out2 |
 | quant | cv | cv, trigger |
 | arp | clock, cvIn, gateIn, hold, pause | cvOut, gateOut |

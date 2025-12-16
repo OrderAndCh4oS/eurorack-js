@@ -75,6 +75,8 @@ import demoAmbientPad from './demo-ambient-pad.js';
 import demoTripHop from './demo-trip-hop.js';
 import demoTechno from './demo-techno.js';
 import scifiShooter from './scifi-shooter.js';
+import whaleSong from './whale-song.js';
+import deepAbyss from './deep-abyss.js';
 
 // Drum patches
 import drumsBasicBeat from './drums-basic-beat.js';
@@ -155,6 +157,8 @@ export const FACTORY_PATCHES = {
     [demoTripHop.name]: demoTripHop,
     [demoTechno.name]: demoTechno,
     [scifiShooter.name]: scifiShooter,
+    [whaleSong.name]: whaleSong,
+    [deepAbyss.name]: deepAbyss,
 
     // Drum patches
     [drumsBasicBeat.name]: drumsBasicBeat,

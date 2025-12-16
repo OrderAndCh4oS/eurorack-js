@@ -11,7 +11,7 @@
  * - Reverb and delay for space
  */
 export default {
-    name: 'Whale Song',
+    name: 'Demo - Whale Song',
     factory: true,
     state: {
         modules: [

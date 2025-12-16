@@ -10,7 +10,7 @@
  * - Cavernous reverb, long delay trails
  */
 export default {
-    name: 'Deep Abyss',
+    name: 'Demo - Deep Abyss',
     factory: true,
     state: {
         modules: [

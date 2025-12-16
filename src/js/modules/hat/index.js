@@ -89,6 +89,8 @@ export default {
                     const trigClosed = this.inputs.trigClosed[i];
 
                     // Open hat trigger
+                    // Note: oscillators are intentionally free-running (not phase-reset)
+                    // This matches 808 behavior where slight variation per hit is desirable
                     if (trigOpen >= 1 && lastTrigOpen < 1) {
                         ampEnv = 1;
                         isOpen = true;

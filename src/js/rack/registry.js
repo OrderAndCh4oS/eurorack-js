@@ -257,6 +257,7 @@ export async function loadModules() {
         import('../modules/scope/index.js'),
         import('../modules/spectrum/index.js'),
         import('../modules/plot/index.js'),
+        import('../modules/spectrogram/index.js'),
         import('../modules/rec/index.js'),
         import('../modules/out/index.js'),
         // MIDI modules

@@ -120,6 +120,7 @@ export const DEFAULT_MODULE_ORDER = [
     'scope',
     'spectrum',
     'plot',
+    'spectrogram',
     'rec',
     'out'
 ];

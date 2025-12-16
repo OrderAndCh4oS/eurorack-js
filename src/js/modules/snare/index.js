@@ -77,6 +77,7 @@ export default {
 
                     // Rising edge detection
                     if (trig >= 1 && lastTrig < 1) {
+                        phase = 0;     // Reset phase for consistent attack
                         ampEnv = 1;
                         noiseEnv = 1;
 

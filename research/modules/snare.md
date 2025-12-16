@@ -70,9 +70,30 @@ Trigger ────►│ Noise Env │──►└─────────�
 
 ## DSP Implementation
 
+### Oscillator Phase Reset on Trigger
+
+**Critical**: The body oscillator phase MUST be reset to 0 on each trigger for consistent attack.
+
+The snare body uses a triangle oscillator. Without phase reset:
+- Random starting phase = inconsistent body tone on attack
+- Some hits start at peak, others at zero-crossing
+- Affects perceived punch and consistency
+
+This follows the same principle as kick drums - single-oscillator tonal percussion needs phase sync.
+
+```javascript
+// On trigger - ALWAYS reset phase
+if (trig >= 1 && lastTrig < 1) {
+    phase = 0;   // Reset phase for consistent attack
+    ampEnv = 1;
+    noiseEnv = 1;
+}
+```
+
 ### Dual Envelope System
 ```javascript
 // On trigger
+phase = 0;      // Reset oscillator phase
 ampEnv = 1;     // Body envelope
 noiseEnv = 1;   // Noise envelope (faster decay)
 

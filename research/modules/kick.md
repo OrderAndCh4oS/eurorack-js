@@ -63,9 +63,32 @@ The defining characteristic of 808-style kicks:
 
 ## DSP Implementation
 
+### Oscillator Phase Reset on Trigger
+
+**Critical**: The oscillator phase MUST be reset to 0 on each trigger for consistent attack transients.
+
+Without phase reset, the sine oscillator continues from wherever it was, causing:
+- Random phase at attack = inconsistent high-frequency transients
+- Some hits have bright "spike" in spectrogram, others don't
+- Perceived volume inconsistency
+
+From [Perfect Circuit - Kick Drum Synthesis](https://www.perfectcircuit.com/signal/kick-drum-synthesis):
+> "When using a free-running oscillator, its phase is inconsistent. This can not only lead to annoying clicks and pops but can also lead to inconsistency in the perceived volume of the sub kick."
+> "The solution is to sync the phase when the gate is high... Every time a gate-on is received, the oscillator's phase is reset to 0°."
+
+```javascript
+// On trigger - ALWAYS reset phase
+if (trig >= 1 && lastTrig < 1) {
+    phase = 0;  // Reset phase for consistent attack
+    ampEnv = 1;
+    pitchEnv = 1;
+}
+```
+
 ### Dual Envelope System
 ```javascript
 // On trigger
+phase = 0;       // Reset oscillator phase
 ampEnv = 1;      // Start amplitude envelope at max
 pitchEnv = 1;    // Start pitch envelope at max
 

@@ -75,6 +75,10 @@ import demoAmbientPad from './demo-ambient-pad.js';
 import demoTripHop from './demo-trip-hop.js';
 import demoTechno from './demo-techno.js';
 import scifiShooter from './scifi-shooter.js';
+import sfxLaser from './sfx-laser.js';
+import sfxExplosion from './sfx-explosion.js';
+import sfxShield from './sfx-shield.js';
+import sfxPowerup from './sfx-powerup.js';
 import whaleSong from './whale-song.js';
 import deepAbyss from './deep-abyss.js';
 
@@ -157,6 +161,10 @@ export const FACTORY_PATCHES = {
     [demoTripHop.name]: demoTripHop,
     [demoTechno.name]: demoTechno,
     [scifiShooter.name]: scifiShooter,
+    [sfxLaser.name]: sfxLaser,
+    [sfxExplosion.name]: sfxExplosion,
+    [sfxShield.name]: sfxShield,
+    [sfxPowerup.name]: sfxPowerup,
     [whaleSong.name]: whaleSong,
     [deepAbyss.name]: deepAbyss,
 

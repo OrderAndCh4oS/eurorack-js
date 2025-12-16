@@ -1,7 +1,7 @@
 // Sci-Fi Space Shooter Soundtrack
 // Evolving generative soundtrack with drums, bass, and lead
 export default {
-    name: 'Sci-Fi Shooter',
+    name: 'Demo - Sci-Fi Shooter',
     factory: true,
     state: {
         modules: [

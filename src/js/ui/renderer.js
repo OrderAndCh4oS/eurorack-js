@@ -24,6 +24,57 @@ import {
     groupInRow
 } from './toolkit/layout.js';
 
+const injectedModuleCSS = new Set();
+
+export function injectModuleCSS(moduleType, css) {
+    if (!css || injectedModuleCSS.has(moduleType)) return;
+    const style = document.createElement('style');
+    style.id = `module-css-${moduleType}`;
+    style.textContent = css;
+    document.head.appendChild(style);
+    injectedModuleCSS.add(moduleType);
+}
+
+function createBoundToolkit(moduleId, onParamChange) {
+    const toolkit = createModuleToolkit();
+    return {
+        ...toolkit,
+        createKnob(options) {
+            const param = options.param || options.id;
+            return toolkit.createKnob({
+                ...options,
+                moduleId,
+                param,
+                onChange: options.onChange || ((value) => onParamChange?.(param, value))
+            });
+        },
+        createSwitch(options) {
+            const param = options.param || options.id;
+            return toolkit.createSwitch({
+                ...options,
+                moduleId,
+                param,
+                onChange: options.onChange || ((value) => onParamChange?.(param, value))
+            });
+        },
+        createJack(options) {
+            return toolkit.createJack({ ...options, moduleId });
+        },
+        createLED(options) {
+            return toolkit.createLED({ ...options, moduleId });
+        },
+        createButtonBank(options) {
+            const param = options.param || options.id;
+            return toolkit.createButtonBank({
+                ...options,
+                moduleId,
+                param,
+                onChange: options.onChange || ((value) => onParamChange?.(param, value))
+            });
+        }
+    };
+}
+
 /**
  * Render a module to DOM
  * @param {Object} definition - Module definition
@@ -34,7 +85,12 @@ import {
  * @returns {HTMLElement} Rendered module element
  */
 export function renderModule(definition, moduleId, context) {
-    const toolkit = createModuleToolkit();
+    const handleParamChange = (param, value) => {
+        if (context.dsp?.params) context.dsp.params[param] = value;
+        context.onParamChange?.(moduleId, param, value);
+    };
+    const toolkit = createBoundToolkit(moduleId, handleParamChange);
+    injectModuleCSS(definition.id, definition.css);
 
     // Create module panel
     const panel = createPanel({
@@ -57,13 +113,11 @@ export function renderModule(definition, moduleId, context) {
                 type: definition.id,
                 def: definition,
                 dsp: context.dsp,
-                element: panel
+                element: panel,
+                getModule: context.getModule
             },
             toolkit,
-            onParamChange: (param, value) => {
-                context.dsp.params[param] = value;
-                context.onParamChange?.(moduleId, param, value);
-            }
+            onParamChange: handleParamChange
         });
     } else if (definition.ui) {
         // Declarative mode - render from UI definition
@@ -113,8 +167,10 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit) {
                 min: knobDef.min,
                 max: knobDef.max,
                 step: knobDef.step || 0,
+                param: knobDef.param,
+                small: knobDef.small || false,
                 onChange: (value) => {
-                    dsp.params[knobDef.param] = value;
+                    if (dsp?.params) dsp.params[knobDef.param] = value;
                     onParamChange?.(moduleId, knobDef.param, value);
                 }
             });
@@ -135,8 +191,9 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit) {
                 label: swDef.label,
                 moduleId,
                 value: swDef.default || 0,
+                param: swDef.param,
                 onChange: (value) => {
-                    dsp.params[swDef.param] = value;
+                    if (dsp?.params) dsp.params[swDef.param] = value;
                     onParamChange?.(moduleId, swDef.param, value);
                 }
             });
@@ -147,20 +204,41 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit) {
 
     // Button banks
     if (ui.buttons?.length) {
-        ui.buttons.forEach(btnDef => {
-            const bankEl = createButtonBank({
-                id: btnDef.id,
-                label: btnDef.label,
-                moduleId,
-                values: btnDef.values,
-                defaultValue: btnDef.default,
-                onChange: (value) => {
-                    dsp.params[btnDef.param] = value;
-                    onParamChange?.(moduleId, btnDef.param, value);
-                }
+        if (ui.buttons[0]?.values) {
+            ui.buttons.forEach(btnDef => {
+                const bankEl = createButtonBank({
+                    id: btnDef.id,
+                    label: btnDef.label,
+                    moduleId,
+                    values: btnDef.values,
+                    defaultValue: btnDef.default,
+                    param: btnDef.param,
+                    onChange: (value) => {
+                        if (dsp?.params) dsp.params[btnDef.param] = value;
+                        onParamChange?.(moduleId, btnDef.param, value);
+                    }
+                });
+                container.appendChild(bankEl);
             });
-            container.appendChild(bankEl);
-        });
+        } else {
+            container.appendChild(createSection('Gates'));
+            const row = createRow('toggle-row');
+            ui.buttons.forEach(btnDef => {
+                const btn = document.createElement('button');
+                btn.className = `toggle-btn${btnDef.default ? ' active' : ''}`;
+                btn.dataset.module = moduleId;
+                btn.dataset.param = btnDef.param;
+                btn.dataset.rendererManaged = 'true';
+                btn.title = btnDef.label;
+                btn.addEventListener('click', () => {
+                    const value = btn.classList.toggle('active') ? 1 : 0;
+                    if (dsp?.params) dsp.params[btnDef.param] = value;
+                    onParamChange?.(moduleId, btnDef.param, value);
+                });
+                row.appendChild(btn);
+            });
+            container.appendChild(row);
+        }
     }
 
     // Spacer

@@ -26,16 +26,18 @@ export function createKnob({
     min = 0,
     max = 1,
     step = 0,
+    param = id,
+    small = false,
     onChange
 }) {
     const container = document.createElement('div');
     container.className = 'knob-container';
 
     const knob = document.createElement('div');
-    knob.className = 'knob';
+    knob.className = `knob${small ? ' knob-sm' : ''}`;
     knob.id = `knob-${moduleId}-${id}`;
     knob.dataset.module = moduleId;
-    knob.dataset.param = id;
+    knob.dataset.param = param;
     knob.dataset.value = value;
     knob.dataset.min = min;
     knob.dataset.max = max;
@@ -110,6 +112,7 @@ export function createSwitch({
     label,
     moduleId,
     value = 0,
+    param = id,
     onChange
 }) {
     const container = document.createElement('div');
@@ -119,7 +122,7 @@ export function createSwitch({
     sw.className = `switch ${value ? 'on' : ''}`;
     sw.id = `switch-${moduleId}-${id}`;
     sw.dataset.module = moduleId;
-    sw.dataset.param = id;
+    sw.dataset.param = param;
 
     sw.addEventListener('click', () => {
         const isOn = sw.classList.toggle('on');
@@ -175,6 +178,7 @@ export function createButtonBank({
     moduleId,
     values,
     defaultValue,
+    param = id,
     onChange
 }) {
     const container = document.createElement('div');
@@ -187,7 +191,7 @@ export function createButtonBank({
     const bank = document.createElement('div');
     bank.className = 'button-bank';
     bank.dataset.module = moduleId;
-    bank.dataset.param = id;
+    bank.dataset.param = param;
 
     values.forEach(val => {
         const btn = document.createElement('button');

@@ -11,54 +11,33 @@ Software Eurorack modular synthesizer. Modules pass voltages; sound only at outp
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                         index.html                          │
-│                    (App initialization)                     │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-          ┌───────────┴───────────┐
-          ▼                       ▼
-┌─────────────────┐     ┌─────────────────────────────────────┐
-│  audio/engine   │     │            rack/rack.js             │
-│  (DSP loop)     │◄───►│    (Orchestrates UI + routing)      │
-└────────┬────────┘     └──────────────┬──────────────────────┘
-         │                             │
-         │              ┌──────────────┼──────────────┐
-         │              ▼              ▼              ▼
-         │      ┌───────────┐  ┌───────────┐  ┌───────────┐
-         └─────►│  modules/ │  │  modules/ │  │  modules/ │
-                │  vco/     │  │  vcf/     │  │  ...      │
-                │  index.js │  │  index.js │  │  index.js │
-                └───────────┘  └───────────┘  └───────────┘
-                     │              │              │
-                     └──────────────┴──────────────┘
-                                    │
-                     ┌──────────────┴──────────────┐
-                     ▼                             ▼
-              ┌─────────────┐              ┌─────────────┐
-              │rack/registry│              │ ui/renderer │
-              │  (lookup)   │              │  (UI gen)   │
-              └─────────────┘              └──────┬──────┘
-                                                  │
-                                           ┌──────┴──────┐
-                                           ▼             ▼
-                                    ┌────────────┐  ┌─────────────┐
-                                    │ui/toolkit/ │  │ ui/toolkit/ │
-                                    │ components │  │   layout    │
-                                    └────────────┘  └─────────────┘
+index.html
+└── js/app/app.js                 Browser bootstrap, DOM events, audio lifecycle
+    ├── app/rack-state.js         Source of truth for modules, params, rows, cables
+    ├── app/patch-format.js       v2 patch normalization and legacy migration
+    ├── audio/engine.js           DSP processing loop and cable routing
+    ├── rack/module-manifest.js   Module imports, category labels, default order
+    ├── rack/registry.js          Module lookup and validation
+    ├── ui/renderer.js            Declarative/custom module UI rendering
+    └── modules/{module}/index.js Self-contained DSP + UI definitions
 ```
 
 **Self-contained modules**: Each module folder contains DSP + UI definition in one file. Modules export metadata, `createDSP()` factory, and declarative `ui` config.
 
-**Available modules**: `midi-cv` (mono MIDI-CV) · `midi-4` (4-voice poly MIDI) · `midi-cc` (CC to CV) · `midi-clk` (MIDI clock) · `midi-drum` (drum pads to triggers) · `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `euclid` (euclidean rhythm) · `logic` (AND/OR gates) · `mult` (signal splitter) · `vco` · `vcf` · `fold` (wavefolder) · `ring` (ring mod) · `rnd` (random) · `envf` (envelope follower) · `func` (function generator) · `adsr` · `vca` · `atten` (attenuverter) · `slew` · `mix` · `dly` (delay) · `verb` (reverb) · `chorus` · `phaser` · `flanger` · `crush` (bit crusher) · `granulita` (granular chord) · `db` (VU meter) · `pwm` (pulse width mod) · `turing` (random looping seq) · `ochd` (8x LFO) · `cmp2` (window comparator) · `kick` · `snare` · `hat` · `scope` · `spectrum` (FFT analyzer) · `plot` (waveform plotter) · `spectrogram` (freq over time) · `out`
+**Available modules**: `midi-cv` (mono MIDI-CV) · `midi-4` (4-voice poly MIDI) · `midi-cc` (CC to CV) · `midi-clk` (MIDI clock) · `midi-drum` (drum pads to triggers) · `clk` (clock) · `div` (divider) · `lfo` · `nse` (noise) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `euclid` (euclidean rhythm) · `logic` (AND/OR gates) · `mult` (signal splitter) · `vco` · `vcf` · `fold` (wavefolder) · `ring` (ring mod) · `rnd` (random) · `envf` (envelope follower) · `func` (function generator) · `adsr` · `vca` · `atten` (attenuverter) · `slew` · `mix` · `dly` (delay) · `verb` (reverb) · `chorus` · `phaser` · `flanger` · `crush` (bit crusher) · `loop` (minimal looper) · `granulita` (granular chord) · `db` (VU meter) · `pwm` (pulse width mod) · `turing` (random looping seq) · `ochd` (8x LFO) · `cmp2` (window comparator) · `kick` · `snare` · `hat` · `scope` · `spectrum` (FFT analyzer) · `plot` (waveform plotter) · `spectrogram` (freq over time) · `rec` (WAV recorder) · `out`
 
 ## Project Structure
 
 ```
 src/js/
-├── index.js               # Main entry point
+├── index.js               # Public exports
+├── app/                   # Browser app state/controllers
+│   ├── app.js             # App bootstrap and event orchestration
+│   ├── rack-state.js      # Modules, rows, params, cables, patch state
+│   └── patch-format.js    # v2 patch normalization/migration
 ├── rack/                  # Rack infrastructure
-│   ├── rack.js            # Rack orchestration
+│   ├── module-manifest.js # Module imports, order, category labels
+│   ├── rack.js            # Legacy/simple rack helper
 │   └── registry.js        # Module lookup & validation
 ├── ui/
 │   ├── renderer.js        # Declarative UI → DOM
@@ -70,7 +49,9 @@ src/js/
 │   └── {moduleId}/
 │       └── index.js       # DSP + UI definition
 ├── audio/engine.js        # DSP processing loop
-├── config/factory-patches.js
+├── config/
+│   ├── factory-patches.js # Aggregate factory patch export
+│   └── patches/           # Factory patch definitions
 └── patches/               # Patch serialization
 
 tests/dsp/{module}.test.js # Module tests
@@ -80,7 +61,7 @@ tests/dsp/{module}.test.js # Module tests
 
 Processing order is computed dynamically from cable connections using `computeProcessOrder()`:
 - Sources process before destinations (topological sort)
-- Ties broken by `MODULE_ORDER`: `clk → div → lfo → nse → sh → quant → arp → seq → euclid → logic → mult → vco → vcf → fold → ring → rnd → envf → func → adsr → vca → atten → slew → dly → verb → chorus → phaser → flanger → crush → granulita → db → pwm → turing → ochd → cmp2 → kick → snare → hat → mix → scope → out`
+- Ties are broken by `MODULE_ORDER` from `src/js/rack/module-manifest.js`
 - Cycles (feedback patches) fall back to `MODULE_ORDER`
 - Recomputed when cables or modules change
 
@@ -117,7 +98,7 @@ export default {
     name: 'Module Name',
     hp: 4,                    // Panel width
     color: '#8b4513',         // Header color
-    category: 'source',       // source | modulator | utility | effect
+    category: 'source',       // See CATEGORY_ORDER in rack/module-manifest.js
 
     // DSP factory
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
@@ -147,21 +128,21 @@ export default {
 
 ## Registering a New Module
 
-After creating `src/js/modules/{moduleId}/index.js`, register it in two places:
+After creating `src/js/modules/{moduleId}/index.js`, register it in the manifest:
 
-1. **Add import to `src/js/rack/registry.js`** in `loadModules()`:
 ```javascript
-import('../modules/{moduleId}/index.js'),
+// src/js/rack/module-manifest.js
+{ id: '{moduleId}', category: 'utility', load: () => import('../modules/{moduleId}/index.js') },
 ```
 
-2. **Add to `src/js/index.js`** in `DEFAULT_MODULE_ORDER` array (determines processing order and sidebar position)
+The manifest controls dynamic imports, sidebar category grouping, and default processing-order tie breaks.
 
-3. **Update documentation**:
-   - Add to `CLAUDE.md` available modules list
-   - Add to `CLAUDE.md` port reference table
-   - Add to `README.md` module table
+Update documentation:
+- Add to `AGENTS.md` available modules list and port reference table
+- Add to `README.md` module table
+- Add or update `docs/creating-modules.md` if the module introduces a new pattern
 
-4. **Create test patch** in `src/js/config/patches/test-{moduleId}.js`
+Create a focused DSP test in `tests/dsp/{moduleId}.test.js` and, when useful, a test patch in `src/js/config/patches/test-{moduleId}.js`.
 
 ## Common DSP Patterns
 
@@ -193,35 +174,35 @@ export default {
     name: 'Patch Name',
     factory: true,
     state: {
+        version: 2,
         modules: [
-            // type = module id (e.g., 'lfo', 'vco')
-            // instanceId = your chosen name for THIS instance (used in knobs/cables)
-            { type: 'lfo', instanceId: 'lfo1', row: 1 },
-            { type: 'lfo', instanceId: 'lfo2', row: 1 },  // Can have multiple of same type
-            { type: 'vco', instanceId: 'vco', row: 1 },
+            // id = your chosen name for this instance
+            // type = module id from the module definition
+            { id: 'lfo1', type: 'lfo', row: 1, index: 0 },
+            { id: 'lfo2', type: 'lfo', row: 1, index: 1 },
+            { id: 'vco1', type: 'vco', row: 1, index: 2 }
         ],
-        knobs: {
-            // Keys match instanceId, not type
+        params: {
+            // Keys match module instance ids
             lfo1: { rateKnob: 0.5 },
             lfo2: { rateKnob: 0.2 },
-            vco: { coarse: 0.35, fine: 0 }
-        },
-        switches: {
-            lfo1: { range: 0 }
+            vco1: { coarse: 0.35, fine: 0 }
         },
         cables: [
-            // fromModule/toModule = instanceId
+            // fromModule/toModule = module instance id
             // fromPort/toPort = port name from module definition
-            { fromModule: 'lfo1', fromPort: 'primary', toModule: 'vco', toPort: 'vOct' }
-        ]
+            { fromModule: 'lfo1', fromPort: 'primary', toModule: 'vco1', toPort: 'vOct' }
+        ],
+        midiMappings: {}
     }
 };
 ```
 
 **Key distinctions:**
 - `type` = Module id (from module's `id` field, e.g., `'lfo'`, `'vco'`)
-- `instanceId` = Your name for this instance (used in `knobs`, `switches`, `cables`)
+- `id` = Your name for this instance (used in `params` and `cables`)
 - `fromPort`/`toPort` = Port name from module's `ui.inputs[]` or `ui.outputs[]`
+- Legacy patches using `instanceId`, `knobs`, `switches`, and `buttons` are normalized by `src/js/app/patch-format.js`, but new patches should use version 2.
 
 **IMPORTANT**: Cable port names must match the `port` field in each module's `ui.inputs[]` and `ui.outputs[]`. Always check the module's index.js for exact port names.
 
@@ -263,6 +244,7 @@ export default {
 | phaser | inL, inR, rateCV, depthCV | outL, outR |
 | flanger | inL, inR, rateCV, depthCV | outL, outR |
 | crush | inL, inR, bitsCV, rateCV | outL, outR |
+| loop | in, recTrig, reverseTrig | out |
 | granulita | inL, inR, hit, blendCV, pitchCV, chordCV, voiceCV, verbCV, countCV, lengthCV | outL, outR |
 | db | L, R | outL, outR |
 | pwm | in, pwmCV | out, inv |
@@ -276,6 +258,7 @@ export default {
 | spectrum | audio | out |
 | plot | audio, trig | out |
 | spectrogram | audio | out |
+| rec | L, R | outL, outR |
 | out | L, R | — |
 
 ### Adding a New Patch
@@ -283,13 +266,14 @@ export default {
 1. Create file: `src/js/config/patches/{name}.js`
 2. Import in `src/js/config/patches/index.js`
 3. Add to `FACTORY_PATCHES` export
-4. Run tests: `npm test -- tests/config/factory-patches.test.js`
+4. Run focused tests: `npm test -- tests/config/factory-patches.test.js tests/app/patch-format.test.js`
 
 ## Updating Patches
 
 When module specs change (renamed/removed params, inputs, outputs, switches):
-1. Search: `grep -n "moduleName" src/js/config/factory-patches.js`
-2. Update all `knobs`, `switches`, and `cables` references
+1. Search: `rg "moduleName|paramName|portName" src/js/config/patches tests`
+2. Update all `params` and `cables` references
+3. Add migration support in `src/js/app/patch-format.js` if persisted legacy/user patches need compatibility
 
 ## Troubleshooting
 

@@ -27,10 +27,7 @@ export default {
         const ownL = new Float32Array(bufferSize);
         const ownR = new Float32Array(bufferSize);
 
-        // Use 44100 Hz for buffer creation to match engine's BUFFER_DURATION scheduling
-        // This ensures buffers are scheduled without gaps
-        // WebAudio will resample to device rate if different
-        const bufferSampleRate = 44100;
+        const bufferSampleRate = ctx?.sampleRate || sampleRate;
 
         return {
             audioCtx: ctx,
@@ -53,7 +50,6 @@ export default {
                 const inputL = this.inputs.L;
                 const inputR = this.inputs.R;
 
-                // Create buffer at 44100 Hz to match engine scheduling (BUFFER_DURATION = 512/44100)
                 const buf = ctx.createBuffer(2, bufferSize, bufferSampleRate);
                 buf.getChannelData(0).set(inputL);
                 buf.getChannelData(1).set(inputR);

@@ -49,6 +49,7 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 | PHASER | Stereo phaser effect |
 | FLANGER | Stereo flanger effect |
 | CRUSH | Bit crusher / sample rate reducer |
+| LOOP | Minimal looper with four record modes (based on 2hp Loop) |
 | PWM | Pulse width modulator with complementary outputs |
 
 ### Drums
@@ -65,29 +66,39 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 | SLEW | Dual slew limiter (portamento, CV smoothing) |
 | DB | Stereo VU meter with dB readout |
 | SCOPE | Dual-channel oscilloscope (Scope, X-Y, Tune modes) |
+| SPECTRUM | Real-time FFT spectrum analyzer |
+| PLOT | Waveform plotter / signal monitor |
+| SPECTRO | Scrolling spectrogram analyzer |
+| REC | WAV recorder |
 | OUT | Stereo output to speakers |
 
 ## Architecture
 
-Self-contained module system where each module is a folder containing DSP + UI:
+Self-contained module system where each module is a folder containing DSP + UI. The browser app is a thin HTML shell backed by a state-driven app layer:
 
 ```
 src/js/
-├── index.js              # Main entry point
+├── index.js              # Public exports
+├── app/                  # Browser app state/controllers
+│   ├── app.js            # App bootstrap and event orchestration
+│   ├── rack-state.js     # Modules, rows, params, cables, patch state
+│   └── patch-format.js   # v2 patch normalization/migration
 ├── audio/
 │   └── engine.js         # DSP processing loop
 ├── cables/
 │   └── cable-manager.js  # Cable rendering & connections
 ├── config/
 │   ├── constants.js      # System constants
-│   └── factory-patches.js
+│   ├── factory-patches.js # Aggregate factory patch export
+│   └── patches/           # Factory patch definitions
 ├── modules/              # Module definitions
 │   └── {moduleId}/
 │       └── index.js      # DSP + UI
 ├── patches/              # Patch serialization
 ├── rack/                 # Rack infrastructure
-│   ├── rack.js           # Orchestration
-│   └── registry.js       # Module lookup
+│   ├── module-manifest.js # Module order, category labels, dynamic imports
+│   ├── rack.js           # Legacy/simple rack helper
+│   └── registry.js       # Module lookup/validation
 ├── ui/
 │   ├── renderer.js       # Module UI generation
 │   └── toolkit/          # UI components
@@ -134,6 +145,24 @@ export default {
     }
 };
 ```
+
+Register new modules in `src/js/rack/module-manifest.js`; the registry and default processing order are derived from that manifest.
+
+## Patch Format
+
+Patch state is canonicalized to version 2:
+
+```javascript
+{
+    version: 2,
+    modules: [{ id: 'vco_1', type: 'vco', row: 1, index: 0 }],
+    params: { vco_1: { coarse: 0.35 } },
+    cables: [{ fromModule: 'vco_1', fromPort: 'triangle', toModule: 'out_1', toPort: 'L' }],
+    midiMappings: {}
+}
+```
+
+Older factory/user patches with `knobs`, `switches`, `buttons`, and `instanceId` are normalized through `src/js/app/patch-format.js`.
 
 ## Voltage Standards
 

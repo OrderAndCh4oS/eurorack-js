@@ -16,6 +16,14 @@
  * - Track and hold with strong negative CV
  */
 
+let ochdInstanceCounter = 0;
+
+function nextPhaseOffset() {
+    const offset = ((ochdInstanceCounter % 17) - 8) * 0.006;
+    ochdInstanceCounter++;
+    return offset;
+}
+
 export default {
     id: 'ochd',
     name: 'OCHD',
@@ -38,9 +46,12 @@ export default {
             0.014     // Output 8: Slowest (~1/70th of base)
         ];
 
-        // Initialize with random phases (organic behavior)
-        const phases = new Array(8).fill(0).map(() => Math.random());
-        const directions = new Array(8).fill(0).map(() => Math.random() > 0.5 ? 1 : -1);
+        // Initialize with an organic per-instance offset while preserving a
+        // deterministic fastest-to-slowest phase relationship.
+        const phaseTemplate = [0.49, 0.25, 0.20, 0.15, 0.10, 0.08, 0.06, 0.04];
+        let phaseOffset = nextPhaseOffset();
+        const phases = phaseTemplate.map(phase => Math.max(0.01, Math.min(0.99, phase + phaseOffset)));
+        const directions = new Array(8).fill(1);
 
         // Frequency range (faithful to original øchd spec)
         const minBaseFreq = 0.0007;  // At knob=0, output 8 = ~25 min cycle
@@ -134,10 +145,10 @@ export default {
             },
 
             reset() {
-                // Reinitialize with new random phases
+                phaseOffset = nextPhaseOffset();
                 for (let lfo = 0; lfo < 8; lfo++) {
-                    phases[lfo] = Math.random();
-                    directions[lfo] = Math.random() > 0.5 ? 1 : -1;
+                    phases[lfo] = Math.max(0.01, Math.min(0.99, phaseTemplate[lfo] + phaseOffset));
+                    directions[lfo] = 1;
                     this.outputs[`out${lfo + 1}`].fill(0);
                     this.leds[`led${lfo + 1}`] = 0;
                 }

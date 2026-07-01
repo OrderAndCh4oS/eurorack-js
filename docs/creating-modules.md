@@ -36,9 +36,9 @@ export default {
 |-------|------|-------------|
 | `id` | string | Unique identifier (lowercase, no spaces) |
 | `name` | string | Display name shown in UI |
-| `hp` | number | Panel width (2, 4, 6, or 8) |
+| `hp` | number | Panel width (2, 3, 4, 6, 8, 10, 12, 14, or 16) |
 | `color` | string | Header color (hex) |
-| `category` | string | `source` \| `modulator` \| `utility` \| `effect` |
+| `category` | string | Manifest/sidebar category. Prefer one from `CATEGORY_ORDER` in `src/js/rack/module-manifest.js`: `midi`, `clock`, `source`, `voice`, `modulation`, `sequencer`, `quantizer`, `filter`, `effect`, `utility`, `output`, `other` |
 
 ## The DSP Factory
 
@@ -116,6 +116,8 @@ ui: {
     ]
 }
 ```
+
+For a bespoke panel, export a `render(container, { instance, toolkit, onParamChange })` function instead of relying only on declarative `ui`. Use `toolkit.createKnob`, `toolkit.createSwitch`, `toolkit.createButtonBank`, and `toolkit.createJack` where possible; those helpers are bound to the module id and forward param changes to the app. If you create controls manually, call `onParamChange(param, value)` whenever a value changes. Custom renderers can read live DSP/UI state with `instance.getModule()` and can register teardown work by assigning `instance.cleanup`.
 
 ### Knob Properties
 
@@ -422,19 +424,16 @@ export default {
 
 ## Registering Your Module
 
-Add your module to the `loadModules()` function in `src/js/rack/registry.js`:
+Add your module to `MODULE_MANIFEST` in `src/js/rack/module-manifest.js`:
 
 ```javascript
-export async function loadModules() {
-    const moduleImports = await Promise.all([
-        // ... existing modules
-        import('../modules/mymodule/index.js'),  // Add your module here
-    ]);
-    // ...
-}
+export const MODULE_MANIFEST = [
+    // ... existing modules
+    { id: 'mymodule', category: 'utility', load: () => import('../modules/mymodule/index.js') }
+];
 ```
 
-Then add it to the rack order in `src/index.html` or your rack configuration.
+The registry loads modules from the manifest, and `MODULE_ORDER` is derived from manifest order. That order controls sidebar grouping/order and processing-order tie breaks.
 
 ## Testing Your Module
 

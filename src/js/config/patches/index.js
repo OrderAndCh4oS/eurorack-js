@@ -39,6 +39,7 @@ import testChorus from './test-chorus.js';
 import testPhaser from './test-phaser.js';
 import testFlanger from './test-flanger.js';
 import testCrush from './test-crush.js';
+import testLoop from './test-loop.js';
 import testGranulita from './test-granulita.js';
 import testDb from './test-db.js';
 import testPwm from './test-pwm.js';
@@ -125,6 +126,7 @@ export const FACTORY_PATCHES = {
     [testPhaser.name]: testPhaser,
     [testFlanger.name]: testFlanger,
     [testCrush.name]: testCrush,
+    [testLoop.name]: testLoop,
     [testGranulita.name]: testGranulita,
     [testDb.name]: testDb,
     [testPwm.name]: testPwm,

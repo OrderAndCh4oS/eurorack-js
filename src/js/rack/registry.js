@@ -1,3 +1,5 @@
+import { MODULE_MANIFEST } from './module-manifest.js';
+
 /**
  * Module Registry
  *
@@ -214,59 +216,7 @@ export const moduleRegistry = new ModuleRegistry();
  * @returns {Promise<ModuleRegistry>}
  */
 export async function loadModules() {
-    // Import all module definitions
-    const moduleImports = await Promise.all([
-        import('../modules/clk/index.js'),
-        import('../modules/div/index.js'),
-        import('../modules/lfo/index.js'),
-        import('../modules/nse/index.js'),
-        import('../modules/sh/index.js'),
-        import('../modules/quant/index.js'),
-        import('../modules/arp/index.js'),
-        import('../modules/seq/index.js'),
-        import('../modules/euclid/index.js'),
-        import('../modules/logic/index.js'),
-        import('../modules/mult/index.js'),
-        import('../modules/vco/index.js'),
-        import('../modules/vcf/index.js'),
-        import('../modules/fold/index.js'),
-        import('../modules/ring/index.js'),
-        import('../modules/rnd/index.js'),
-        import('../modules/envf/index.js'),
-        import('../modules/func/index.js'),
-        import('../modules/adsr/index.js'),
-        import('../modules/vca/index.js'),
-        import('../modules/atten/index.js'),
-        import('../modules/slew/index.js'),
-        import('../modules/mix/index.js'),
-        import('../modules/dly/index.js'),
-        import('../modules/verb/index.js'),
-        import('../modules/chorus/index.js'),
-        import('../modules/phaser/index.js'),
-        import('../modules/flanger/index.js'),
-        import('../modules/crush/index.js'),
-        import('../modules/granulita/index.js'),
-        import('../modules/db/index.js'),
-        import('../modules/pwm/index.js'),
-        import('../modules/turing/index.js'),
-        import('../modules/ochd/index.js'),
-        import('../modules/cmp2/index.js'),
-        import('../modules/kick/index.js'),
-        import('../modules/snare/index.js'),
-        import('../modules/hat/index.js'),
-        import('../modules/scope/index.js'),
-        import('../modules/spectrum/index.js'),
-        import('../modules/plot/index.js'),
-        import('../modules/spectrogram/index.js'),
-        import('../modules/rec/index.js'),
-        import('../modules/out/index.js'),
-        // MIDI modules
-        import('../modules/midi-cv/index.js'),
-        import('../modules/midi-4/index.js'),
-        import('../modules/midi-cc/index.js'),
-        import('../modules/midi-clk/index.js'),
-        import('../modules/midi-drum/index.js'),
-    ]);
+    const moduleImports = await Promise.all(MODULE_MANIFEST.map(mod => mod.load()));
 
     // Register each module
     moduleImports.forEach(mod => {

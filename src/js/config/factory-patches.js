@@ -5,8 +5,9 @@
  * Each patch file contains:
  *   - name: Display name
  *   - factory: true (marks as read-only factory patch)
- *   - state: Patch state object with modules, knobs, switches, buttons, cables
- *     - modules: Array of {type, instanceId, row} defining rack layout
+ *   - state: Patch state object. New patches should use v2
+ *     {version, modules, params, cables, midiMappings}; legacy
+ *     {modules, knobs, switches, buttons, cables} is normalized at load time.
  */
 
 export { FACTORY_PATCHES } from './patches/index.js';

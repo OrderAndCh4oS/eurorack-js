@@ -50,7 +50,7 @@ Inspired by: Yarns clock output
 - **Controls**: Division (1/1, 1/2, 1/4, 1/8, 1/16)
 - **Use case**: Sync sequencers to DAW
 
-## Voltage Standards (from CLAUDE.md)
+## Voltage Standards (from AGENTS.md)
 
 | Signal | Range | Notes |
 |--------|-------|-------|

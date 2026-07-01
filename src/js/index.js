@@ -15,6 +15,8 @@
  *   rack.render();
  */
 
+import { MODULE_ORDER as DEFAULT_MODULE_ORDER } from './rack/module-manifest.js';
+
 // Registry exports
 export {
     moduleRegistry,
@@ -25,6 +27,7 @@ export {
 
 // Rack exports
 export { createRack } from './rack/rack.js';
+export { MODULE_MANIFEST, MODULE_ORDER, CATEGORY_ORDER, CATEGORY_LABELS } from './rack/module-manifest.js';
 
 // Renderer exports
 export {
@@ -71,59 +74,7 @@ export { SAMPLE_RATE, BUFFER, CABLE_COLORS } from './config/constants.js';
 /**
  * Default module order (can be customized)
  */
-export const DEFAULT_MODULE_ORDER = [
-    // MIDI input modules (process first)
-    'midi-cv',
-    'midi-4',
-    'midi-cc',
-    'midi-clk',
-    'midi-drum',
-    // Clock and utility
-    'clk',
-    'div',
-    'lfo',
-    'nse',
-    'sh',
-    'quant',
-    'arp',
-    'seq',
-    'euclid',
-    'logic',
-    'mult',
-    'vco',
-    'vcf',
-    'fold',
-    'ring',
-    'rnd',
-    'envf',
-    'func',
-    'adsr',
-    'vca',
-    'atten',
-    'slew',
-    'dly',
-    'verb',
-    'chorus',
-    'phaser',
-    'flanger',
-    'crush',
-    'granulita',
-    'db',
-    'pwm',
-    'turing',
-    'ochd',
-    'cmp2',
-    'kick',
-    'snare',
-    'hat',
-    'mix',
-    'scope',
-    'spectrum',
-    'plot',
-    'spectrogram',
-    'rec',
-    'out'
-];
+export { MODULE_ORDER as DEFAULT_MODULE_ORDER } from './rack/module-manifest.js';
 
 /**
  * Convenience function to set up a complete rack

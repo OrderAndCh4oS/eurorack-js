@@ -6,7 +6,7 @@
  */
 
 import { BUFFER, SAMPLE_RATE } from '../config/constants.js';
-import { DEFAULT_MODULE_ORDER as MODULE_ORDER } from '../index.js';
+import { MODULE_ORDER } from '../rack/module-manifest.js';
 import { getNestedValue, setNestedValue } from '../utils/nested-access.js';
 
 /**
@@ -95,9 +95,6 @@ export function computeProcessOrder(modules, cables) {
     return result;
 }
 
-/** Buffer duration in seconds */
-const BUFFER_DURATION = BUFFER / SAMPLE_RATE;
-
 /**
  * Create an audio engine instance
  * @param {Object} options
@@ -111,13 +108,14 @@ export function createAudioEngine({
     modules = {},
     cables = [],
     audioCtx = null,
+    sampleRate = audioCtx?.sampleRate || SAMPLE_RATE,
     onLedUpdate = null
 } = {}) {
     let isRunning = false;
     let nextTime = 0;
-    let animationId = null;
     let timeoutId = null;
     let processOrder = computeProcessOrder(modules, cables);
+    let bufferDuration = BUFFER / sampleRate;
 
     /**
      * Route signals from source modules to destination inputs
@@ -159,7 +157,7 @@ export function createAudioEngine({
             }
         });
 
-        nextTime += BUFFER_DURATION;
+        nextTime += bufferDuration;
     }
 
     /**
@@ -281,6 +279,8 @@ export function createAudioEngine({
          */
         setAudioContext(ctx) {
             audioCtx = ctx;
+            sampleRate = ctx?.sampleRate || SAMPLE_RATE;
+            bufferDuration = BUFFER / sampleRate;
         },
 
         /**

@@ -16,12 +16,14 @@ class MockFullAudioContext {
     constructor() {
         this.currentTime = 0;
         this.sampleRate = 44100;
+        this.createdBuffers = [];
         this.destination = {};
     }
     createGain() {
         return { connect: vi.fn(), gain: { setValueAtTime: vi.fn() } };
     }
     createBuffer(channels, length, sampleRate) {
+        this.createdBuffers.push({ channels, length, sampleRate });
         const channelData = [new Float32Array(length), new Float32Array(length)];
         return { getChannelData: (ch) => channelData[ch] };
     }
@@ -289,6 +291,30 @@ describe('createAudioEngine', () => {
 
             // LED should show silence
             expect(modulesWithOut.out.instance.leds.L).toBe(0);
+        });
+
+        it('should create output buffers at the active audio context sample rate', () => {
+            const fullCtx = new MockFullAudioContext();
+            fullCtx.sampleRate = 48000;
+            const modulesWithOut = {
+                vco: { instance: create2hpVCO({ sampleRate: 48000 }), type: 'vco' },
+                out: { instance: create2hpOut(fullCtx, { sampleRate: 48000 }), type: 'out' }
+            };
+            const engWithOut = createAudioEngine({
+                modules: modulesWithOut,
+                cables: [{
+                    fromModule: 'vco',
+                    fromPort: 'triangle',
+                    toModule: 'out',
+                    toPort: 'L'
+                }],
+                audioCtx: fullCtx,
+                sampleRate: 48000
+            });
+
+            engWithOut.tick();
+
+            expect(fullCtx.createdBuffers[0].sampleRate).toBe(48000);
         });
     });
 

@@ -64,7 +64,7 @@ export function createModuleLabel(name) {
  * Create a module panel container
  * @param {Object} options
  * @param {string} options.id - Module ID
- * @param {number} options.hp - Width in HP units (2, 4, or 8)
+ * @param {number} options.hp - Width in HP units supported by the registry
  * @param {string} options.color - Background color (hex)
  * @param {string} options.className - Additional CSS class
  * @returns {HTMLElement} Module panel element

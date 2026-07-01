@@ -101,6 +101,30 @@ describe('LOOP - Minimal Looper', () => {
             expect(loop.params.record).toBe(0);
         });
 
+        it('manual overdub keeps recording after a loop exists', () => {
+            recordSamples(loop, [1, 1, 1, 1]);
+            loop.params.record = 1;
+            loop.inputs.in.fill(1);
+            loop.process();
+
+            expect(loop.getLoopInfo().recording).toBe(true);
+            expect(loop.params.record).toBe(1);
+        });
+
+        it('cuts recording at the length limit in every record mode', () => {
+            for (const mode of [0, 1, 2, 3]) {
+                const modeLoop = createLoop();
+                modeLoop.params.mode = mode;
+                modeLoop.params.length = 4 / modeLoop.getLoopInfo().maxSamples;
+                modeLoop.params.record = 1;
+                modeLoop.inputs.in.set([1, 1, 1, 1]);
+                modeLoop.process();
+
+                expect(modeLoop.getLoopInfo().recording).toBe(false);
+                expect(modeLoop.params.record).toBe(0);
+            }
+        });
+
         it('records nothing when length knob is 0%', () => {
             loop.params.length = 0;
             loop.params.record = 1;

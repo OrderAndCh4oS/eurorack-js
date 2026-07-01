@@ -161,4 +161,37 @@ describe('renderModule', () => {
         expect(onParamChange).toHaveBeenNthCalledWith(1, 'loop_1', 'record', 1);
         expect(onParamChange).toHaveBeenNthCalledWith(2, 'loop_1', 'record', 0);
     });
+
+    it('syncs LOOP record button off when DSP auto-stops recording', () => {
+        let frameCallback;
+        const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+            frameCallback = callback;
+            return 1;
+        });
+        const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+        const onParamChange = vi.fn((moduleId, param, value) => {
+            moduleState.params[param] = value;
+        });
+        const dsp = loopModule.createDSP({ sampleRate: 100, bufferSize: 4 });
+        dsp.params.record = 1;
+        const moduleState = { instance: dsp, params: { record: 1 } };
+
+        const panel = renderModule(loopModule, 'loop_1', {
+            dsp,
+            getModule: () => moduleState,
+            onParamChange
+        });
+        const recordButton = panel.querySelector('.loop-record-button');
+
+        expect(recordButton.classList.contains('recording')).toBe(true);
+
+        dsp.params.record = 0;
+        frameCallback();
+
+        expect(recordButton.classList.contains('recording')).toBe(false);
+        expect(onParamChange).toHaveBeenCalledWith('loop_1', 'record', 0);
+
+        requestFrame.mockRestore();
+        cancelFrame.mockRestore();
+    });
 });

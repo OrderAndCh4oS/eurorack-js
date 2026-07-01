@@ -46,7 +46,7 @@ From 2hp Loop:
 | **Replace** | New input replaces existing buffer while recording | Write input directly to buffer |
 | **Infinite / Frippertronics** | Long feedback decay for evolving tape-loop textures | Keep loop running and write input with feedback decay |
 
-The exact hardware gain/feedback curves are not published on the product page. Use musical approximations and document them in code/tests.
+The four modes are 2hp-inspired write modes used when recording after a loop already exists. First-pass recording always stops at the selected length limit, then manual recording can be enabled again for overdub or replacement. The exact hardware gain/feedback curves are not published on the product page. Use musical approximations and document them in code/tests.
 
 ## Proposed eurorack-js Module
 
@@ -71,7 +71,7 @@ Keep the panel small, but use 6HP in the browser implementation so the record bu
 | **Record** | `record` | 0/1 | Toggle recording/overdub |
 | **Reverse** | `reverse` | 0/1 | Reverse playback direction |
 | **Half** | `halfSpeed` | 0/1 | Half-speed playback, one octave down |
-| **Length** | `length` | 0-1 | First-pass recording limit; 100% is 60 seconds |
+| **Length** | `length` | 0-1 | First-pass recording cutoff; 100% is 60 seconds |
 | **Mix** | `mix` | 0-1 | Dry/wet blend |
 | **Level** | `level` | 0-1 | Output level |
 
@@ -109,9 +109,9 @@ Keep the panel small, but use 6HP in the browser implementation so the record bu
 
 1. Press **Record** or receive `Rec` trigger.
 2. Input is written from buffer position 0.
-3. Press **Record** again to stop.
+3. Press **Record** again to stop, or wait for the `length` cutoff.
 4. The recorded length becomes the active loop length.
-5. Playback starts automatically.
+5. Recording turns off and playback starts automatically.
 
 ### Playback
 

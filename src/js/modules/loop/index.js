@@ -207,6 +207,7 @@ export default {
             }
             recording = false;
             dsp.params.record = 0;
+            lastRecordParam = 0;
         }
 
         function syncRecordState(dsp) {
@@ -397,6 +398,7 @@ export default {
 
     render(container, { instance, toolkit, onParamChange }) {
         const dsp = instance.dsp;
+        const getModule = instance.getModule;
         const main = document.createElement('div');
         main.className = 'loop-container';
 
@@ -528,6 +530,32 @@ export default {
         main.appendChild(inRow);
 
         container.appendChild(main);
+
+        let animationId = null;
+
+        function syncRecordButton() {
+            const mod = getModule ? getModule() : null;
+            const liveDsp = mod?.instance || dsp;
+            const liveValue = liveDsp?.params?.record ?? mod?.params?.record ?? 0;
+            const value = liveValue ? 1 : 0;
+
+            recordButton.classList.toggle('recording', value === 1);
+
+            if (mod?.params && mod.params.record !== value) {
+                onParamChange('record', value);
+            }
+        }
+
+        function animate() {
+            syncRecordButton();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        instance.cleanup = () => {
+            if (animationId) cancelAnimationFrame(animationId);
+        };
     },
 
     ui: {

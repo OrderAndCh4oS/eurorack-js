@@ -13,8 +13,137 @@ import { createMidiManager } from '../midi/midi-manager.js';
 import { renderModule, updateModuleLEDs } from '../ui/renderer.js';
 import { updateKnobRotation } from '../ui/toolkit/components.js';
 import { RackState } from './rack-state.js';
-import { migratePatchCollection, normalizePatch } from './patch-format.js';
+import { PATCH_VERSION, migratePatchCollection, normalizePatch } from './patch-format.js';
 import { setNestedValue } from '../utils/nested-access.js';
+
+export const PATCH_EXPORT_SCHEMA = 'eurorack-js/patch-export';
+export const PATCH_EXPORT_VERSION = 1;
+
+function isPlainObject(value) {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isPatchStateLike(value) {
+    return isPlainObject(value) && (
+        value.version !== undefined ||
+        Array.isArray(value.modules) ||
+        value.params !== undefined ||
+        value.knobs !== undefined ||
+        value.switches !== undefined ||
+        value.buttons !== undefined ||
+        Array.isArray(value.cables)
+    );
+}
+
+function isPatchLike(value) {
+    return isPlainObject(value) && (isPatchStateLike(value.state) || isPatchStateLike(value));
+}
+
+function stripJsonExtension(filename) {
+    return (filename || '').replace(/\.json$/i, '');
+}
+
+function normalizePatchName(name, fallback = 'Imported Patch') {
+    const trimmed = stripJsonExtension(name).trim();
+    return trimmed || fallback;
+}
+
+function sanitizeFilename(name) {
+    return normalizePatchName(name, 'eurorack-patch')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'eurorack-patch';
+}
+
+function createUserPatch(name, rawPatch, moduleOrder) {
+    const patchName = normalizePatchName(rawPatch?.name || name);
+    return {
+        name: patchName,
+        factory: false,
+        created: rawPatch?.created || new Date().toISOString(),
+        state: normalizePatch(rawPatch?.state || rawPatch, { moduleOrder })
+    };
+}
+
+function assertSupportedPatchExport(parsed) {
+    const version = parsed.version ?? 1;
+    if (!Number.isInteger(version) || version < 1) {
+        throw new Error(`Invalid patch export version: ${parsed.version}`);
+    }
+    if (version > PATCH_EXPORT_VERSION) {
+        throw new Error(`Unsupported patch export version: ${version}`);
+    }
+}
+
+function parseVersionedPatchExport(parsed, options) {
+    assertSupportedPatchExport(parsed);
+
+    if (isPatchLike(parsed.patch)) {
+        const name = normalizePatchName(parsed.patch.name || options.suggestedName);
+        const patch = createUserPatch(name, parsed.patch, options.moduleOrder);
+        return {
+            type: 'single',
+            patches: { [patch.name]: patch },
+            names: [patch.name]
+        };
+    }
+
+    if (isPlainObject(parsed.patches)) {
+        return parsePatchCollection(parsed.patches, options);
+    }
+
+    throw new Error('Patch export must contain a patch or patch collection');
+}
+
+function parsePatchCollection(collection, { moduleOrder }) {
+    const entries = Object.entries(collection);
+    if (entries.length === 0 || entries.some(([, patch]) => !isPatchLike(patch))) {
+        throw new Error('Patch JSON must contain a patch or patch collection');
+    }
+
+    const patches = {};
+    const names = [];
+    entries.forEach(([key, rawPatch]) => {
+        const patch = createUserPatch(rawPatch.name || key, rawPatch, moduleOrder);
+        patches[patch.name] = patch;
+        names.push(patch.name);
+    });
+
+    return { type: 'collection', patches, names };
+}
+
+export function createPatchExport(patch, { exportedAt = new Date().toISOString() } = {}) {
+    return {
+        schema: PATCH_EXPORT_SCHEMA,
+        version: PATCH_EXPORT_VERSION,
+        patchVersion: PATCH_VERSION,
+        exportedAt,
+        patch
+    };
+}
+
+export function parseImportedPatchJson(json, { suggestedName = '', moduleOrder = [] } = {}) {
+    const parsed = JSON.parse(json);
+    if (!isPlainObject(parsed)) {
+        throw new Error('Patch JSON must contain an object');
+    }
+
+    if (parsed.schema === PATCH_EXPORT_SCHEMA) {
+        return parseVersionedPatchExport(parsed, { suggestedName, moduleOrder });
+    }
+
+    if (isPatchLike(parsed)) {
+        const name = normalizePatchName(parsed.name || suggestedName);
+        const patch = createUserPatch(name, parsed, moduleOrder);
+        return {
+            type: 'single',
+            patches: { [patch.name]: patch },
+            names: [patch.name]
+        };
+    }
+
+    return parsePatchCollection(parsed, { moduleOrder });
+}
 
 export class EurorackApp {
     constructor(documentRef = document) {
@@ -50,6 +179,7 @@ export class EurorackApp {
             2: this.document.getElementById('rack-row-2')
         };
         this.cableSvg = this.document.getElementById('cable-svg');
+        this.rackContainer = this.document.getElementById('rack-container');
         this.startButton = this.document.getElementById('startButton');
     }
 
@@ -104,10 +234,20 @@ export class EurorackApp {
         });
 
         window.addEventListener('resize', () => this.renderAllCables());
+        this.rackContainer?.addEventListener('scroll', () => this.renderAllCables(), { passive: true });
 
         this.startButton.addEventListener('click', () => this.toggleAudio());
         this.document.getElementById('clearCables').addEventListener('click', () => this.clearAllCables());
         this.document.getElementById('copyPatch').addEventListener('click', () => this.copyPatchToClipboard());
+        this.document.getElementById('exportPatch')?.addEventListener('click', () => this.exportCurrentPatchToFile());
+        this.document.getElementById('importPatch')?.addEventListener('click', () => {
+            this.document.getElementById('patchFileInput')?.click();
+        });
+        this.document.getElementById('patchFileInput')?.addEventListener('change', event => {
+            const file = event.target.files?.[0];
+            if (file) this.importPatchFile(file);
+            event.target.value = '';
+        });
         this.document.getElementById('midiLearnBtn').addEventListener('click', () => this.toggleMidiLearnMode());
         this.document.getElementById('midiControllerBtn').addEventListener('click', () => this.openMidiTool('midi-controller.html'));
         this.document.getElementById('midiDrumControllerBtn').addEventListener('click', () => this.openMidiTool('midi-drum-controller.html'));
@@ -640,6 +780,25 @@ export class EurorackApp {
         return true;
     }
 
+    loadPatchState(patchState) {
+        const previous = this.state.serializePatch();
+        try {
+            this.state.loadPatch(patchState, moduleRegistry);
+            if (this.audioCtx) {
+                this.state.modules.forEach(moduleState => this.createDSP(moduleState));
+            }
+            this.rerenderRack();
+            return true;
+        } catch (error) {
+            this.state.loadPatch(previous, moduleRegistry);
+            if (this.audioCtx) {
+                this.state.modules.forEach(moduleState => this.createDSP(moduleState));
+            }
+            this.rerenderRack();
+            throw error;
+        }
+    }
+
     loadPatch(name) {
         const patch = this.getPatchList()[name];
         if (!patch) {
@@ -647,12 +806,7 @@ export class EurorackApp {
             return false;
         }
         const normalized = normalizePatch(patch, { moduleOrder: DEFAULT_MODULE_ORDER });
-        this.state.loadPatch(normalized, moduleRegistry);
-        if (this.audioCtx) {
-            this.state.modules.forEach(moduleState => this.createDSP(moduleState));
-        }
-        this.rerenderRack();
-        return true;
+        return this.loadPatchState(normalized);
     }
 
     deletePatch(name) {
@@ -698,6 +852,70 @@ export class EurorackApp {
             btn.textContent = 'Copied!';
             setTimeout(() => { btn.textContent = oldText; }, 1500);
         }).catch(() => alert('Failed to copy to clipboard'));
+    }
+
+    getCurrentPatchName() {
+        const inputName = this.document.getElementById('patchName')?.value;
+        const selectedName = this.document.getElementById('patchSelect')?.value;
+        return normalizePatchName(inputName || selectedName || 'Untitled Patch');
+    }
+
+    exportCurrentPatchToFile() {
+        const name = this.getCurrentPatchName();
+        const patch = {
+            name,
+            factory: false,
+            created: new Date().toISOString(),
+            state: this.state.serializePatch()
+        };
+        const json = JSON.stringify(createPatchExport(patch), null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = this.document.createElement('a');
+        link.href = url;
+        link.download = `${sanitizeFilename(name)}.json`;
+        this.document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    async importPatchFile(file) {
+        try {
+            return this.importPatchJson(await file.text(), { suggestedName: file.name });
+        } catch (error) {
+            alert(`Failed to import patch JSON: ${error.message}`);
+            return { importedCount: 0, error };
+        }
+    }
+
+    importPatchJson(json, { suggestedName = '' } = {}) {
+        try {
+            const imported = parseImportedPatchJson(json, {
+                suggestedName,
+                moduleOrder: DEFAULT_MODULE_ORDER
+            });
+
+            if (imported.type === 'single') {
+                this.loadPatchState(imported.patches[imported.names[0]].state);
+            }
+
+            const patches = { ...this.getUserPatches(), ...imported.patches };
+            this.saveUserPatches(patches);
+            this.updatePatchSelect();
+
+            const select = this.document.getElementById('patchSelect');
+            if (select) select.value = '';
+
+            return {
+                importedCount: imported.names.length,
+                loadedName: imported.type === 'single' ? imported.names[0] : null,
+                type: imported.type
+            };
+        } catch (error) {
+            alert(`Failed to import patch JSON: ${error.message}`);
+            return { importedCount: 0, error };
+        }
     }
 
     async initMidi() {

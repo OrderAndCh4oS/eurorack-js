@@ -643,6 +643,25 @@
             width: 100%;
         }
 
+        .app-footer {
+            position: fixed;
+            right: 16px;
+            bottom: 10px;
+            z-index: 150;
+            font-size: 11px;
+            color: #666;
+        }
+
+        .app-footer a {
+            color: #999;
+            text-decoration: none;
+        }
+
+        .app-footer a:hover {
+            color: #ccc;
+            text-decoration: underline;
+        }
+
         .rack-row {
             /* Fixed width: 84HP exactly */
             width: calc(84 * var(--hp-unit));
@@ -797,6 +816,9 @@
     <div class="toolbar-divider"></div>
     <div class="toolbar-section">
         <button id="copyPatch">Copy</button>
+        <button id="exportPatch">Export</button>
+        <button id="importPatch">Import</button>
+        <input type="file" id="patchFileInput" accept="application/json,.json" hidden>
     </div>
     <div class="toolbar-spacer"></div>
     <div class="toolbar-section">
@@ -826,6 +848,9 @@
             Ctrl+click to cycle cables<br>
             Right-click or drop cable on empty space to remove
         </div>
+        <footer class="app-footer">
+            <a href="https://github.com/OrderAndCh4oS/eurorack-js" target="_blank" rel="noopener noreferrer">GitHub repo</a>
+        </footer>
     </div>
 </div>
 

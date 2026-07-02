@@ -295,7 +295,7 @@ export default {
 
             // Gate button
             const gateBtn = document.createElement('button');
-            gateBtn.className = 'toggle-btn active';
+            gateBtn.className = 'toggle-btn seq-gate-btn active';
             gateBtn.dataset.module = instance.id;
             gateBtn.dataset.param = `gate${i}`;
             gateBtn.title = `G${i}`;

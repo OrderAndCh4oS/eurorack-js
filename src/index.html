@@ -374,6 +374,12 @@
             box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
         }
 
+        .seq-gate-btn.active {
+            background: #4f4;
+            border-color: #4f4;
+            box-shadow: 0 0 8px #4f4;
+        }
+
         /* Cable SVG overlay */
         #cable-svg {
             position: fixed;
@@ -1137,6 +1143,13 @@
             box-shadow: 0 0 4px rgba(31, 143, 79, 0.38);
         }
 
+        body.theme-classic.theme-light .seq-gate-btn.active {
+            background: #4f4;
+            border-color: #3f8a4f;
+            color: #171713;
+            box-shadow: 0 0 8px #4f4;
+        }
+
         /* Factory skin - technical deployment sheet / terminal console */
         body.skin-factory {
             --factory-black: #171813;
@@ -1649,6 +1662,14 @@
 
         body.skin-factory .led.active,
         body.skin-factory .led.green.active {
+            background: var(--factory-orange);
+            border-color: var(--factory-ink);
+            box-shadow:
+                inset 0 0 0 1px color-mix(in srgb, var(--factory-paper) 42%, transparent),
+                0 0 5px color-mix(in srgb, var(--factory-orange) 42%, transparent);
+        }
+
+        body.skin-factory .seq-gate-btn.active {
             background: var(--factory-orange);
             border-color: var(--factory-ink);
             box-shadow:

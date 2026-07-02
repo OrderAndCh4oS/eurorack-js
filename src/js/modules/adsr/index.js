@@ -11,7 +11,7 @@ export default {
     id: 'adsr',
     name: 'ADSR',
     hp: 6,
-    color: '#8a4a4a',
+    color: 'module-color-eight',
     category: 'modulation',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

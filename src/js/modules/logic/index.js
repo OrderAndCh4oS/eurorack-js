@@ -23,7 +23,7 @@ export default {
     id: 'logic',
     name: 'LOGIC',
     hp: 4,
-    color: '#4a7c59',
+    color: 'module-color-four',
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

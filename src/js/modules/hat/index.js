@@ -17,7 +17,7 @@ export default {
     id: 'hat',
     name: 'HAT',
     hp: 3,
-    color: '#8a7a20',
+    color: 'module-color-five',
     category: 'voice',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

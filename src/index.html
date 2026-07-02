@@ -35,7 +35,11 @@
         }
 
         .module {
-            background: linear-gradient(to bottom, #3a3a3a, #2a2a2a);
+            background: linear-gradient(
+                to bottom,
+                var(--module-color, #3a3a3a),
+                var(--module-color-dark, #2a2a2a)
+            );
             border: none;
             border-left: 1px solid #111;
             border-radius: 0;
@@ -607,6 +611,7 @@
         .sidebar-module-color {
             width: 12px;
             height: 12px;
+            background: var(--module-color, #555);
             border-radius: 2px;
             border: 1px solid rgba(255,255,255,0.2);
         }
@@ -825,6 +830,66 @@
             text-align: center;
             font-size: 10px;
             color: #555;
+        }
+
+        .module-color-one {
+            --module-color: #5a5a5a;
+            --module-color-dark: #3c3c3c;
+        }
+
+        .module-color-two {
+            --module-color: #1a2a4a;
+            --module-color-dark: #0d172d;
+        }
+
+        .module-color-three {
+            --module-color: #4a6a8a;
+            --module-color-dark: #2f4b68;
+        }
+
+        .module-color-four {
+            --module-color: #2d5a27;
+            --module-color-dark: #193c16;
+        }
+
+        .module-color-five {
+            --module-color: #8a7a20;
+            --module-color-dark: #5e5415;
+        }
+
+        .module-color-six {
+            --module-color: #8b4513;
+            --module-color-dark: #63300b;
+        }
+
+        .module-color-seven {
+            --module-color: #9f6a3a;
+            --module-color-dark: #734722;
+        }
+
+        .module-color-eight {
+            --module-color: #a04030;
+            --module-color-dark: #74271c;
+        }
+
+        .module-color-nine {
+            --module-color: #6a2a4a;
+            --module-color-dark: #43172d;
+        }
+
+        .module-color-ten {
+            --module-color: #5a4a7b;
+            --module-color-dark: #3a2e55;
+        }
+
+        .module-color-eleven {
+            --module-color: #5a4a8a;
+            --module-color-dark: #382d61;
+        }
+
+        .module-color-twelve {
+            --module-color: #8f7968;
+            --module-color-dark: #655141;
         }
 
         body.theme-classic.theme-dark {
@@ -1096,6 +1161,66 @@
             letter-spacing: 0;
         }
 
+        body.skin-factory .module-color-one {
+            --factory-module-bg: #f0eee2;
+            --factory-module-header: #f7f4e9;
+        }
+
+        body.skin-factory .module-color-two {
+            --factory-module-bg: #ebe7da;
+            --factory-module-header: #f3efe3;
+        }
+
+        body.skin-factory .module-color-three {
+            --factory-module-bg: #e3ded1;
+            --factory-module-header: #ece7da;
+        }
+
+        body.skin-factory .module-color-four {
+            --factory-module-bg: #d9d2c2;
+            --factory-module-header: #e4ddcd;
+        }
+
+        body.skin-factory .module-color-five {
+            --factory-module-bg: #cec6b6;
+            --factory-module-header: #d9d2c2;
+        }
+
+        body.skin-factory .module-color-six {
+            --factory-module-bg: #c3baaa;
+            --factory-module-header: #d0c7b6;
+        }
+
+        body.skin-factory .module-color-seven {
+            --factory-module-bg: #ddddd6;
+            --factory-module-header: #e8e8df;
+        }
+
+        body.skin-factory .module-color-eight {
+            --factory-module-bg: #d2d1c8;
+            --factory-module-header: #deddd3;
+        }
+
+        body.skin-factory .module-color-nine {
+            --factory-module-bg: #c8c7be;
+            --factory-module-header: #d5d3c9;
+        }
+
+        body.skin-factory .module-color-ten {
+            --factory-module-bg: #e8e4d5;
+            --factory-module-header: #f0ecde;
+        }
+
+        body.skin-factory .module-color-eleven {
+            --factory-module-bg: #d5cdbc;
+            --factory-module-header: #e0d8c8;
+        }
+
+        body.skin-factory .module-color-twelve {
+            --factory-module-bg: #bfbaae;
+            --factory-module-header: #cbc6ba;
+        }
+
         body.theme-industrial.theme-dark {
             --factory-black: #080907;
             --factory-ink: #b7b3a8;
@@ -1108,6 +1233,66 @@
             --factory-panel-dark: #232923;
             --factory-panel-cool: #171d1c;
             --factory-grid: rgba(183,179,168,0.12);
+        }
+
+        body.theme-industrial.theme-dark .module-color-one {
+            --factory-module-dark-bg: #0d0e0d;
+            --factory-module-dark-header: #20211f;
+        }
+
+        body.theme-industrial.theme-dark .module-color-two {
+            --factory-module-dark-bg: #121312;
+            --factory-module-dark-header: #252622;
+        }
+
+        body.theme-industrial.theme-dark .module-color-three {
+            --factory-module-dark-bg: #171817;
+            --factory-module-dark-header: #2b2c28;
+        }
+
+        body.theme-industrial.theme-dark .module-color-four {
+            --factory-module-dark-bg: #1c1d1b;
+            --factory-module-dark-header: #30312c;
+        }
+
+        body.theme-industrial.theme-dark .module-color-five {
+            --factory-module-dark-bg: #22221f;
+            --factory-module-dark-header: #363630;
+        }
+
+        body.theme-industrial.theme-dark .module-color-six {
+            --factory-module-dark-bg: #151615;
+            --factory-module-dark-header: #292a26;
+        }
+
+        body.theme-industrial.theme-dark .module-color-seven {
+            --factory-module-dark-bg: #1a1b1a;
+            --factory-module-dark-header: #2e2f2a;
+        }
+
+        body.theme-industrial.theme-dark .module-color-eight {
+            --factory-module-dark-bg: #242421;
+            --factory-module-dark-header: #383832;
+        }
+
+        body.theme-industrial.theme-dark .module-color-nine {
+            --factory-module-dark-bg: #191a19;
+            --factory-module-dark-header: #2d2e29;
+        }
+
+        body.theme-industrial.theme-dark .module-color-ten {
+            --factory-module-dark-bg: #20201e;
+            --factory-module-dark-header: #34342f;
+        }
+
+        body.theme-industrial.theme-dark .module-color-eleven {
+            --factory-module-dark-bg: #161817;
+            --factory-module-dark-header: #2a2c28;
+        }
+
+        body.theme-industrial.theme-dark .module-color-twelve {
+            --factory-module-dark-bg: #262623;
+            --factory-module-dark-header: #3a3933;
         }
 
         body.skin-factory::before {

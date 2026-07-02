@@ -28,7 +28,7 @@ export default {
     id: 'midi-drum',
     name: 'MIDI-DRUM',
     hp: 8,
-    color: '#6a4c93',
+    color: 'module-color-eleven',
     category: 'midi',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

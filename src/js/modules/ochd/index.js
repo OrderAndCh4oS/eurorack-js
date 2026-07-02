@@ -28,7 +28,7 @@ export default {
     id: 'ochd',
     name: 'OCHD',
     hp: 4,
-    color: '#1a3a4a',
+    color: 'module-color-two',
     category: 'modulator',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

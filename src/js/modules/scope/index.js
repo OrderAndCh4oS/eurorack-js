@@ -17,7 +17,7 @@ export default {
     id: 'scope',
     name: 'SCOPE',
     hp: 16,
-    color: '#1a3a1a',
+    color: 'module-color-four',
     category: 'utility',
 
     // Custom CSS for scope display

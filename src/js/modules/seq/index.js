@@ -25,7 +25,7 @@ export default {
     id: 'seq',
     name: 'SEQ',
     hp: 6,
-    color: '#4a6b8a',
+    color: 'module-color-three',
     category: 'sequencer',
 
     css: `

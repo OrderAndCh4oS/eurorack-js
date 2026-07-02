@@ -25,7 +25,7 @@ export default {
     id: 'ring',
     name: 'RING',
     hp: 4,
-    color: '#7b3f00',
+    color: 'module-color-six',
     category: 'effect',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

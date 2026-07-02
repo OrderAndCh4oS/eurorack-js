@@ -16,7 +16,7 @@ export default {
     id: 'lfo',
     name: 'LFO',
     hp: 4,
-    color: '#2d5a27',
+    color: 'module-color-four',
     category: 'modulation',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

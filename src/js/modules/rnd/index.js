@@ -26,7 +26,7 @@ export default {
     id: 'rnd',
     name: 'RND',
     hp: 4,
-    color: '#4a5568',
+    color: 'module-color-twelve',
     category: 'modulator',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

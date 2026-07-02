@@ -19,7 +19,7 @@ export default {
     id: 'dly',
     name: 'DLY',
     hp: 4,
-    color: '#2d5a7b',
+    color: 'module-color-three',
     category: 'effect',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

@@ -16,7 +16,7 @@ export default {
     id: 'vco',
     name: 'VCO',
     hp: 4,
-    color: '#8b4513',
+    color: 'module-color-six',
     category: 'source',
 
     createDSP({ sampleRate = 44100, bufferSize = 512, fmVoltsPerHz = 200 } = {}) {

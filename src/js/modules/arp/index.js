@@ -22,7 +22,7 @@ export default {
     id: 'arp',
     name: 'ARP',
     hp: 4,
-    color: '#3a6b5a',
+    color: 'module-color-four',
     category: 'sequencer',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

@@ -21,7 +21,7 @@ export default {
     id: 'quant',
     name: 'QUANT',
     hp: 4,
-    color: '#6b3a6b',
+    color: 'module-color-nine',
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

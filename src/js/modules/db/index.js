@@ -17,7 +17,7 @@ export default {
     id: 'db',
     name: 'DB',
     hp: 4,
-    color: '#1a1a1a',
+    color: 'module-color-one',
     category: 'utility',
 
     // Custom CSS for VU meter display

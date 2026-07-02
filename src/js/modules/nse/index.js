@@ -17,7 +17,7 @@ export default {
     id: 'nse',
     name: 'NSE',
     hp: 2,
-    color: '#5a5a5a',
+    color: 'module-color-one',
     category: 'source',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

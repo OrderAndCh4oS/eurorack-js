@@ -25,7 +25,7 @@ export default {
     id: 'atten',
     name: 'ATTN',
     hp: 4,
-    color: '#6a5a6a',
+    color: 'module-color-eleven',
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

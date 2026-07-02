@@ -12,7 +12,7 @@ export default {
     id: 'vcf',
     name: 'VCF',
     hp: 4,
-    color: '#4a6a8a',
+    color: 'module-color-three',
     category: 'filter',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

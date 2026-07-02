@@ -32,7 +32,7 @@ export default {
     id: 'func',
     name: 'FUNC',
     hp: 8,
-    color: '#4a6741',
+    color: 'module-color-four',
     category: 'modulator',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

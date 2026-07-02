@@ -29,7 +29,7 @@ export default {
     id: 'fold',
     name: 'FOLD',
     hp: 4,
-    color: '#8b5a2b',
+    color: 'module-color-six',
     category: 'effect',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

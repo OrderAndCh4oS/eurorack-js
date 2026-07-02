@@ -30,7 +30,7 @@ export default {
     id: 'verb',
     name: 'VERB',
     hp: 4,
-    color: '#5a4a7b',
+    color: 'module-color-ten',
     category: 'effect',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

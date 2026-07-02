@@ -15,12 +15,7 @@ import { updateKnobRotation } from '../ui/toolkit/components.js';
 import { RackState } from './rack-state.js';
 import { PATCH_VERSION, migratePatchCollection, normalizePatch } from './patch-format.js';
 import { setNestedValue } from '../utils/nested-access.js';
-import {
-    getFactoryModuleDarkHeaderShade,
-    getFactoryModuleDarkShade,
-    getFactoryModuleHeaderShade,
-    getFactoryModuleShade
-} from '../utils/color.js';
+import { adjustColor, getModuleColorToken, isHexColor } from '../utils/color.js';
 
 export const PATCH_EXPORT_SCHEMA = 'eurorack-js/patch-export';
 export const PATCH_EXPORT_VERSION = 1;
@@ -281,14 +276,19 @@ export class EurorackApp {
 
             defs.forEach(def => {
                 const item = this.document.createElement('div');
-                item.className = 'sidebar-module';
+                const colorToken = getModuleColorToken(def.color);
+                item.className = ['sidebar-module', colorToken].filter(Boolean).join(' ');
                 item.dataset.moduleType = def.id;
-                item.style.setProperty('--factory-module-bg', getFactoryModuleShade(def.id));
-                item.style.setProperty('--factory-module-header', getFactoryModuleHeaderShade(def.id));
-                item.style.setProperty('--factory-module-dark-bg', getFactoryModuleDarkShade(def.id));
-                item.style.setProperty('--factory-module-dark-header', getFactoryModuleDarkHeaderShade(def.id));
+                if (!colorToken && isHexColor(def.color)) {
+                    item.style.setProperty('--module-color', def.color);
+                    item.style.setProperty('--module-color-dark', adjustColor(def.color, -30));
+                    item.style.setProperty('--factory-module-bg', def.color);
+                    item.style.setProperty('--factory-module-header', adjustColor(def.color, 18));
+                    item.style.setProperty('--factory-module-dark-bg', adjustColor(def.color, -30));
+                    item.style.setProperty('--factory-module-dark-header', def.color);
+                }
                 item.innerHTML = `
-                    <div class="sidebar-module-color" style="background: ${def.color}"></div>
+                    <div class="sidebar-module-color"></div>
                     <div class="sidebar-module-name">${def.name}</div>
                     <div class="sidebar-module-hp">${def.hp}hp</div>
                 `;

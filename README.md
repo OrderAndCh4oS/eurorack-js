@@ -120,7 +120,7 @@ export default {
     id: 'mymodule',
     name: 'My Module',
     hp: 4,
-    color: '#8b4513',
+    color: 'module-color-six',
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

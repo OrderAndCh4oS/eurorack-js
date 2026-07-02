@@ -1,4 +1,5 @@
 import { MODULE_MANIFEST } from './module-manifest.js';
+import { isHexColor, isModuleColorToken } from '../utils/color.js';
 
 /**
  * Module Registry
@@ -59,6 +60,11 @@ class ModuleRegistry {
         // Validate hp is a valid size
         if (![2, 3, 4, 6, 8, 10, 12, 14, 16].includes(def.hp)) {
             throw new Error(`Module "${def.id}" has invalid hp: ${def.hp}. Must be 2, 3, 4, 6, 8, 10, 12, 14, or 16.`);
+        }
+
+        // Built-in modules use theme color tokens; hex remains supported for custom modules.
+        if (!isModuleColorToken(def.color) && !isHexColor(def.color)) {
+            throw new Error(`Module "${def.id}" has invalid color: ${def.color}. Use a module color token or #rrggbb hex value.`);
         }
 
         // Must have either ui definition or render function

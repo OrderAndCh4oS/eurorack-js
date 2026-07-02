@@ -21,7 +21,7 @@ export default {
     id: 'turing',
     name: 'TURING',
     hp: 8,
-    color: '#2a4a2a',
+    color: 'module-color-four',
     category: 'sequencer',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

@@ -97,7 +97,7 @@ export default {
     id: 'moduleId',
     name: 'Module Name',
     hp: 4,                    // Panel width
-    color: '#8b4513',         // Header color
+    color: 'module-color-six', // Theme color token
     category: 'source',       // See CATEGORY_ORDER in rack/module-manifest.js
 
     // DSP factory
@@ -125,6 +125,8 @@ export default {
 ```
 
 **Port types**: `audio` | `cv` | `gate` | `trigger` | `buffer`
+
+**Module colors**: Built-in modules should use one of the shared theme tokens in the `color` field: `module-color-one` through `module-color-twelve`. Themes map those tokens to their own light/dark palettes; six-digit hex colors are only a custom-module compatibility fallback.
 
 ## Registering a New Module
 

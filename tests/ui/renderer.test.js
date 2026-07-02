@@ -2,15 +2,28 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderModule } from '../../src/js/ui/renderer.js';
 import { EurorackApp } from '../../src/js/app/app.js';
 import loopModule from '../../src/js/modules/loop/index.js';
-import {
-    getFactoryModuleDarkHeaderShade,
-    getFactoryModuleDarkShade,
-    getFactoryModuleHeaderShade,
-    getFactoryModuleShade
-} from '../../src/js/utils/color.js';
 
 describe('renderModule', () => {
-    it('exposes factory skin shade variables on rendered panels', () => {
+    it('adds module color token classes to rendered panels', () => {
+        const panel = renderModule({
+            id: 'visual',
+            name: 'VIS',
+            hp: 4,
+            color: 'module-color-four',
+            createDSP: () => ({}),
+            ui: {}
+        }, 'visual_1', {
+            dsp: null,
+            onParamChange: vi.fn()
+        });
+
+        expect(panel.classList.contains('module-color-four')).toBe(true);
+        expect(panel.style.getPropertyValue('--module-color')).toBe('');
+        expect(panel.style.getPropertyValue('--factory-module-bg')).toBe('');
+        expect(panel.style.background).toBe('');
+    });
+
+    it('keeps raw hex module colors as a compatibility fallback', () => {
         const panel = renderModule({
             id: 'visual',
             name: 'VIS',
@@ -23,10 +36,13 @@ describe('renderModule', () => {
             onParamChange: vi.fn()
         });
 
-        expect(panel.style.getPropertyValue('--factory-module-bg')).toBe(getFactoryModuleShade('visual'));
-        expect(panel.style.getPropertyValue('--factory-module-header')).toBe(getFactoryModuleHeaderShade('visual'));
-        expect(panel.style.getPropertyValue('--factory-module-dark-bg')).toBe(getFactoryModuleDarkShade('visual'));
-        expect(panel.style.getPropertyValue('--factory-module-dark-header')).toBe(getFactoryModuleDarkHeaderShade('visual'));
+        expect(panel.classList.contains('module-color-four')).toBe(false);
+        expect(panel.style.getPropertyValue('--module-color')).toBe('#222222');
+        expect(panel.style.getPropertyValue('--module-color-dark')).toBe('#040404');
+        expect(panel.style.getPropertyValue('--factory-module-bg')).toBe('#222222');
+        expect(panel.style.getPropertyValue('--factory-module-header')).toBe('#343434');
+        expect(panel.style.getPropertyValue('--factory-module-dark-bg')).toBe('#040404');
+        expect(panel.style.getPropertyValue('--factory-module-dark-header')).toBe('#222222');
     });
 
     it('passes getModule to custom render functions', () => {

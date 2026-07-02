@@ -16,7 +16,7 @@ export default {
     id: 'crush',
     name: 'CRUSH',
     hp: 4,
-    color: '#5a4a3a',
+    color: 'module-color-six',
     category: 'effect',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

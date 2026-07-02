@@ -22,7 +22,7 @@ export default {
     id: 'cmp2',
     name: 'CMP2',
     hp: 8,
-    color: '#4a3a6a',
+    color: 'module-color-eleven',
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

@@ -18,7 +18,7 @@ export default {
     id: 'pwm',
     name: 'PWM',
     hp: 4,
-    color: '#4a2c6a',
+    color: 'module-color-nine',
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

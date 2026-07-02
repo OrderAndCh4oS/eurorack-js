@@ -24,7 +24,7 @@ export default {
     id: 'div',
     name: 'DIV',
     hp: 4,
-    color: '#5a6a2a',
+    color: 'module-color-five',
     category: 'utility',
 
     /**

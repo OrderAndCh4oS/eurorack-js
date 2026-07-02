@@ -21,7 +21,7 @@ export default {
     id: 'chorus',
     name: 'CHORUS',
     hp: 6,
-    color: '#6b8e9f',
+    color: 'module-color-three',
     category: 'effect',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

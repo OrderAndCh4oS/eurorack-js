@@ -14,7 +14,7 @@ export default {
     id: 'mix',
     name: 'MIX',
     hp: 4,
-    color: '#5a5a5a',
+    color: 'module-color-one',
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

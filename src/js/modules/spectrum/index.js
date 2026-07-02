@@ -16,7 +16,7 @@ export default {
     id: 'spectrum',
     name: 'SPECTRUM',
     hp: 12,
-    color: '#2a1a4a',
+    color: 'module-color-two',
     category: 'utility',
 
     css: `

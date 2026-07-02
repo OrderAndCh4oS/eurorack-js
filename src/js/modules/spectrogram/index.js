@@ -16,7 +16,7 @@ export default {
     id: 'spectrogram',
     name: 'SPECTRO',
     hp: 14,
-    color: '#4a1a2a',
+    color: 'module-color-nine',
     category: 'utility',
 
     css: `

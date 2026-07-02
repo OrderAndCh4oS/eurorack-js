@@ -39,7 +39,7 @@ export default {
     id: 'loop',
     name: 'LOOP',
     hp: 6,
-    color: '#6f4a8e',
+    color: 'module-color-ten',
     category: 'effect',
 
     css: `

@@ -15,7 +15,7 @@ export default {
     id: 'sh',
     name: 'S+H',
     hp: 4,
-    color: '#5a6a5a',
+    color: 'module-color-twelve',
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

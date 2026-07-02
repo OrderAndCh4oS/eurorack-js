@@ -25,7 +25,7 @@ export default {
     id: 'envf',
     name: 'ENVF',
     hp: 4,
-    color: '#6b5b95',
+    color: 'module-color-ten',
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

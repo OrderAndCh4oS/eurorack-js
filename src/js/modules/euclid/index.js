@@ -27,7 +27,7 @@ export default {
     id: 'euclid',
     name: 'EUCLID',
     hp: 4,
-    color: '#6b4c8a',
+    color: 'module-color-eleven',
     category: 'sequencer',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

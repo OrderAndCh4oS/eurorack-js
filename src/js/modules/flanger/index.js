@@ -22,7 +22,7 @@ export default {
     id: 'flanger',
     name: 'FLANGER',
     hp: 6,
-    color: '#9f7b6b',
+    color: 'module-color-seven',
     category: 'effect',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

@@ -20,7 +20,7 @@ export default {
     id: 'phaser',
     name: 'PHASER',
     hp: 6,
-    color: '#7b6b9f',
+    color: 'module-color-ten',
     category: 'effect',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

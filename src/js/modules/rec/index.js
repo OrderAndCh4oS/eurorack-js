@@ -17,7 +17,7 @@ export default {
     id: 'rec',
     name: 'REC',
     hp: 4,
-    color: '#8b0000',
+    color: 'module-color-eight',
     category: 'utility',
 
     css: `

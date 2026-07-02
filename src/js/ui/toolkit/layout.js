@@ -1,9 +1,4 @@
-import {
-    getFactoryModuleDarkHeaderShade,
-    getFactoryModuleDarkShade,
-    getFactoryModuleHeaderShade,
-    getFactoryModuleShade
-} from '../../utils/color.js';
+import { adjustColor, getModuleColorToken, isHexColor } from '../../utils/color.js';
 
 /**
  * Module Toolkit - Layout Helpers
@@ -72,7 +67,7 @@ export function createModuleLabel(name) {
  * @param {Object} options
  * @param {string} options.id - Module ID
  * @param {number} options.hp - Width in HP units supported by the registry
- * @param {string} options.color - Background color (hex)
+ * @param {string} options.color - Module color token or legacy hex color
  * @param {string} options.className - Additional CSS class
  * @returns {HTMLElement} Module panel element
  */
@@ -80,48 +75,26 @@ export function createPanel({
     id,
     hp,
     color,
-    type = id,
     className = ''
 }) {
     const panel = document.createElement('div');
-    panel.className = `module module-${hp}hp ${className}`.trim();
+    const colorToken = getModuleColorToken(color);
+    panel.className = ['module', `module-${hp}hp`, colorToken, className].filter(Boolean).join(' ');
     panel.id = `module-${id}`;
 
-    // Apply gradient background
-    const darkerColor = adjustColorBrightness(color, -30);
-    panel.style.setProperty('--module-color', color);
-    panel.style.setProperty('--module-color-dark', darkerColor);
-    panel.style.setProperty('--factory-module-bg', getFactoryModuleShade(type));
-    panel.style.setProperty('--factory-module-header', getFactoryModuleHeaderShade(type));
-    panel.style.setProperty('--factory-module-dark-bg', getFactoryModuleDarkShade(type));
-    panel.style.setProperty('--factory-module-dark-header', getFactoryModuleDarkHeaderShade(type));
-    panel.style.background = `linear-gradient(to bottom, ${color}, ${darkerColor})`;
+    if (!colorToken && isHexColor(color)) {
+        const darkerColor = adjustColor(color, -30);
+        const lighterColor = adjustColor(color, 18);
+        panel.style.setProperty('--module-color', color);
+        panel.style.setProperty('--module-color-dark', darkerColor);
+        panel.style.setProperty('--factory-module-bg', color);
+        panel.style.setProperty('--factory-module-header', lighterColor);
+        panel.style.setProperty('--factory-module-dark-bg', darkerColor);
+        panel.style.setProperty('--factory-module-dark-header', color);
+        panel.style.background = `linear-gradient(to bottom, ${color}, ${darkerColor})`;
+    }
 
     return panel;
-}
-
-/**
- * Adjust color brightness
- * @param {string} hex - Hex color string
- * @param {number} amount - Brightness adjustment (-255 to 255)
- * @returns {string} Adjusted hex color
- */
-function adjustColorBrightness(hex, amount) {
-    // Remove # if present
-    hex = hex.replace(/^#/, '');
-
-    // Parse RGB values
-    let r = parseInt(hex.substring(0, 2), 16);
-    let g = parseInt(hex.substring(2, 4), 16);
-    let b = parseInt(hex.substring(4, 6), 16);
-
-    // Adjust brightness
-    r = Math.max(0, Math.min(255, r + amount));
-    g = Math.max(0, Math.min(255, g + amount));
-    b = Math.max(0, Math.min(255, b + amount));
-
-    // Convert back to hex
-    return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
 }
 
 /**

@@ -19,7 +19,7 @@ export default {
     id: 'midi-4',
     name: 'MIDI-4',
     hp: 6,
-    color: '#5a4a8a',
+    color: 'module-color-eleven',
     category: 'midi',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

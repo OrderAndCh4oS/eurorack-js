@@ -9,7 +9,7 @@ export default {
     id: 'out',
     name: 'OUT',
     hp: 3,
-    color: '#333',
+    color: 'module-color-one',
     category: 'output',
 
     createDSP({ sampleRate = 44100, bufferSize = 512, audioCtx = null } = {}) {

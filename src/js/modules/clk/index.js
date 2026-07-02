@@ -16,7 +16,7 @@ export default {
     id: 'clk',
     name: 'CLK',
     hp: 2,
-    color: '#6a5a2a',
+    color: 'module-color-five',
     category: 'utility',
 
     /**

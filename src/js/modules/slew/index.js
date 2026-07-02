@@ -25,7 +25,7 @@ export default {
     id: 'slew',
     name: 'SLEW',
     hp: 4,
-    color: '#5a6a7a',
+    color: 'module-color-three',
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

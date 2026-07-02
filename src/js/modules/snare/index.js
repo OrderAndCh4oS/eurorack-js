@@ -17,7 +17,7 @@ export default {
     id: 'snare',
     name: 'SNARE',
     hp: 4,
-    color: '#a04030',
+    color: 'module-color-eight',
     category: 'voice',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

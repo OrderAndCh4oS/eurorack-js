@@ -1,12 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
-    FACTORY_DARK_MODULE_SHADES,
-    FACTORY_MODULE_SHADES,
     adjustColor,
-    getFactoryModuleDarkHeaderShade,
-    getFactoryModuleDarkShade,
-    getFactoryModuleHeaderShade,
-    getFactoryModuleShade
+    getModuleColorToken,
+    isHexColor,
+    isModuleColorToken,
+    MODULE_COLOR_TOKENS
 } from '../../src/js/utils/color.js';
 
 describe('adjustColor', () => {
@@ -65,57 +63,41 @@ describe('adjustColor', () => {
     });
 });
 
-describe('factory module shades', () => {
-    it('includes the factory paper white as a possible module shade', () => {
-        expect(FACTORY_MODULE_SHADES).toContain('#f0eee2');
+describe('module color tokens', () => {
+    it('defines the shared 12-color module palette contract', () => {
+        expect(MODULE_COLOR_TOKENS).toHaveLength(12);
+        expect(MODULE_COLOR_TOKENS).toEqual([
+            'module-color-one',
+            'module-color-two',
+            'module-color-three',
+            'module-color-four',
+            'module-color-five',
+            'module-color-six',
+            'module-color-seven',
+            'module-color-eight',
+            'module-color-nine',
+            'module-color-ten',
+            'module-color-eleven',
+            'module-color-twelve'
+        ]);
     });
 
-    it('returns stable flat warm shades by seed', () => {
-        const shade = getFactoryModuleShade('vco');
-        expect(shade).toBe(getFactoryModuleShade('vco'));
-        expect(FACTORY_MODULE_SHADES).toContain(shade);
+    it('identifies valid module color tokens', () => {
+        expect(isModuleColorToken('module-color-one')).toBe(true);
+        expect(isModuleColorToken('module-color-twelve')).toBe(true);
+        expect(isModuleColorToken('module-color-thirteen')).toBe(false);
+        expect(isModuleColorToken('#5a5a5a')).toBe(false);
     });
 
-    it('returns a lighter header shade for the same seed', () => {
-        const shade = getFactoryModuleShade('vco');
-        const header = getFactoryModuleHeaderShade('vco');
-
-        expect(header).toMatch(/^#[0-9a-f]{6}$/);
-        expect(header).not.toBe(shade);
+    it('accepts six-digit hex as the compatibility fallback', () => {
+        expect(isHexColor('#5a5a5a')).toBe(true);
+        expect(isHexColor('#ABCDEF')).toBe(true);
+        expect(isHexColor('#333')).toBe(false);
+        expect(isHexColor('module-color-one')).toBe(false);
     });
 
-    it('returns stable dark industrial shades by seed', () => {
-        const shade = getFactoryModuleDarkShade('vco');
-        expect(shade).toBe(getFactoryModuleDarkShade('vco'));
-        expect(FACTORY_DARK_MODULE_SHADES).toContain(shade);
-        expect(FACTORY_DARK_MODULE_SHADES.length).toBeGreaterThan(FACTORY_MODULE_SHADES.length);
-    });
-
-    it('keeps dark industrial shades varied but below midtone brightness', () => {
-        const brightestChannels = FACTORY_DARK_MODULE_SHADES.map(shade => {
-            const value = parseInt(shade.slice(1), 16);
-            const r = value >> 16;
-            const g = (value >> 8) & 0xff;
-            const b = value & 0xff;
-            return Math.max(r, g, b);
-        });
-
-        FACTORY_DARK_MODULE_SHADES.forEach(shade => {
-            const value = parseInt(shade.slice(1), 16);
-            const r = value >> 16;
-            const g = (value >> 8) & 0xff;
-            const b = value & 0xff;
-            expect(Math.max(r, g, b)).toBeLessThanOrEqual(42);
-        });
-
-        expect(Math.max(...brightestChannels) - Math.min(...brightestChannels)).toBeGreaterThanOrEqual(24);
-    });
-
-    it('returns a lighter dark header shade for the same seed', () => {
-        const shade = getFactoryModuleDarkShade('vco');
-        const header = getFactoryModuleDarkHeaderShade('vco');
-
-        expect(header).toMatch(/^#[0-9a-f]{6}$/);
-        expect(header).not.toBe(shade);
+    it('returns a token only for token-backed module colors', () => {
+        expect(getModuleColorToken('module-color-four')).toBe('module-color-four');
+        expect(getModuleColorToken('#4a6741')).toBeNull();
     });
 });

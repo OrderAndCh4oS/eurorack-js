@@ -19,7 +19,7 @@ export default {
     id: 'mymodule',
     name: 'My Module',
     hp: 4,
-    color: '#8b4513',
+    color: 'module-color-six',
     category: 'utility',
 
     // DSP factory
@@ -37,7 +37,7 @@ export default {
 | `id` | string | Unique identifier (lowercase, no spaces) |
 | `name` | string | Display name shown in UI |
 | `hp` | number | Panel width (2, 3, 4, 6, 8, 10, 12, 14, or 16) |
-| `color` | string | Header color (hex) |
+| `color` | string | Theme color token. Use one of `module-color-one` through `module-color-twelve`. Six-digit hex colors are accepted only as a custom-module fallback. |
 | `category` | string | Manifest/sidebar category. Prefer one from `CATEGORY_ORDER` in `src/js/rack/module-manifest.js`: `midi`, `clock`, `source`, `voice`, `modulation`, `sequencer`, `quantizer`, `filter`, `effect`, `utility`, `output`, `other` |
 
 ## The DSP Factory
@@ -346,7 +346,7 @@ export default {
     id: 'simplevca',
     name: 'VCA',
     hp: 2,
-    color: '#4a4a8a',
+    color: 'module-color-eleven',
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

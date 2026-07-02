@@ -17,7 +17,7 @@ export default {
     id: 'plot',
     name: 'PLOT',
     hp: 12,
-    color: '#1a2a4a',
+    color: 'module-color-two',
     category: 'utility',
 
     css: `

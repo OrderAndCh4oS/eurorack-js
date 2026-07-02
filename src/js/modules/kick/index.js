@@ -17,7 +17,7 @@ export default {
     id: 'kick',
     name: 'KICK',
     hp: 4,
-    color: '#8b4513',
+    color: 'module-color-six',
     category: 'voice',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

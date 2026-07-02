@@ -43,7 +43,7 @@ export default {
     id: 'granulita',
     name: 'GRANULITA',
     hp: 10,
-    color: '#4a6b8a',
+    color: 'module-color-three',
     category: 'effect',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

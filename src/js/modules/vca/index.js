@@ -14,7 +14,7 @@ export default {
     id: 'vca',
     name: 'VCA',
     hp: 4,
-    color: '#4a4a8a',
+    color: 'module-color-eleven',
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

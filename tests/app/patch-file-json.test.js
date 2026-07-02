@@ -45,8 +45,11 @@ function setupDOM() {
         <button id="midiLearnBtn"></button>
         <button id="midiControllerBtn"></button>
         <button id="midiDrumControllerBtn"></button>
-        <div id="rack-row-1"></div>
-        <div id="rack-row-2"></div>
+        <div id="rack-container">
+            <div class="rack rack-row" id="rack-row-1"></div>
+            <div class="rack rack-row" id="rack-row-2"></div>
+            <div class="cable-hints"></div>
+        </div>
         <svg id="cable-svg"></svg>
     `;
 }
@@ -82,7 +85,7 @@ describe('patch file JSON import/export', () => {
     it('parses raw patch state from a JSON file as a named single patch', () => {
         const imported = parseImportedPatchJson(JSON.stringify({
             version: 2,
-            modules: [{ id: 'filetest_1', type: 'filetest', row: 1, index: 0 }],
+            modules: [{ id: 'filetest_1', type: 'filetest', row: 3, index: 0 }],
             params: { filetest_1: { level: 0.75 } },
             cables: [],
             midiMappings: {}
@@ -90,6 +93,7 @@ describe('patch file JSON import/export', () => {
 
         expect(imported.type).toBe('single');
         expect(imported.names).toEqual(['Lead Patch']);
+        expect(imported.patches['Lead Patch'].state.modules[0].row).toBe(3);
         expect(imported.patches['Lead Patch'].state.params.filetest_1.level).toBe(0.75);
     });
 
@@ -104,7 +108,7 @@ describe('patch file JSON import/export', () => {
                 factory: false,
                 state: {
                     version: 2,
-                    modules: [{ id: 'filetest_1', type: 'filetest', row: 1, index: 0 }],
+                    modules: [{ id: 'filetest_1', type: 'filetest', row: 3, index: 0 }],
                     params: { filetest_1: { level: 0.8 } },
                     cables: [],
                     midiMappings: {}
@@ -114,6 +118,7 @@ describe('patch file JSON import/export', () => {
 
         expect(imported.type).toBe('single');
         expect(imported.names).toEqual(['Versioned Patch']);
+        expect(imported.patches['Versioned Patch'].state.modules[0].row).toBe(3);
         expect(imported.patches['Versioned Patch'].state.params.filetest_1.level).toBe(0.8);
     });
 
@@ -149,13 +154,13 @@ describe('patch file JSON import/export', () => {
         });
     });
 
-    it('imports and loads a single patch JSON into the rack', () => {
+    it('imports and loads a single patch JSON with dynamic rows into the rack', () => {
         const app = new EurorackApp(document);
         app.cacheElements();
 
         const result = app.importPatchJson(JSON.stringify({
             version: 2,
-            modules: [{ id: 'filetest_1', type: 'filetest', row: 1, index: 0 }],
+            modules: [{ id: 'filetest_1', type: 'filetest', row: 3, index: 0 }],
             params: { filetest_1: { level: 0.9 } },
             cables: [],
             midiMappings: {}
@@ -165,13 +170,47 @@ describe('patch file JSON import/export', () => {
         expect(result).toMatchObject({ importedCount: 1, loadedName: 'Imported', type: 'single' });
         expect(saved.Imported.state.params.filetest_1.level).toBe(0.9);
         expect(app.state.getModule('filetest_1').params.level).toBe(0.9);
+        expect(app.state.getModule('filetest_1').row).toBe(3);
+        expect(document.getElementById('rack-row-3')).not.toBeNull();
+        expect(document.getElementById('module-filetest_1').parentNode.id).toBe('rack-row-3');
         expect(document.getElementById('patchSelect').value).toBe('');
+    });
+
+    it('saves and reloads dynamic rows through the patch dropdown loader', () => {
+        const app = new EurorackApp(document);
+        app.cacheElements();
+        app.state.addRow();
+        app.state.addModule('filetest', moduleRegistry, {
+            id: 'filetest_1',
+            row: 3,
+            params: { level: 0.7 }
+        });
+        app.initPatchBank();
+
+        expect(app.savePatch('Three Rows')).toBe(true);
+        app.state.clear();
+        app.rerenderRack();
+
+        const select = document.getElementById('patchSelect');
+        select.value = 'Three Rows';
+        document.getElementById('loadPatch').click();
+
+        expect(app.state.getRowNumbers()).toEqual([1, 2, 3]);
+        expect(app.state.getModule('filetest_1').row).toBe(3);
+        expect(app.state.getModule('filetest_1').params.level).toBe(0.7);
+        expect(document.getElementById('rack-row-3')).not.toBeNull();
+        expect(document.getElementById('module-filetest_1').parentNode.id).toBe('rack-row-3');
     });
 
     it('exports the current rack as a named JSON download', async () => {
         const app = new EurorackApp(document);
         app.cacheElements();
-        app.state.addModule('filetest', moduleRegistry, { id: 'filetest_1', params: { level: 0.6 } });
+        app.state.addRow();
+        app.state.addModule('filetest', moduleRegistry, {
+            id: 'filetest_1',
+            row: 3,
+            params: { level: 0.6 }
+        });
         document.getElementById('patchName').value = 'Bass Lead';
 
         const downloads = [];
@@ -198,6 +237,9 @@ describe('patch file JSON import/export', () => {
         expect(exported.patchVersion).toBe(2);
         expect(exported.patch.name).toBe('Bass Lead');
         expect(exported.patch.factory).toBe(false);
+        expect(exported.patch.state.modules).toEqual([
+            { id: 'filetest_1', type: 'filetest', row: 3, index: 0 }
+        ]);
         expect(exported.patch.state.params.filetest_1.level).toBe(0.6);
         expect(clickSpy).toHaveBeenCalled();
         expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:patch');

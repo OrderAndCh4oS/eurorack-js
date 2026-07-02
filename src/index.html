@@ -622,11 +622,10 @@
             color: #666;
         }
 
-        /* Rack container - holds two rows */
+        /* Rack container - holds rack rows */
         .rack-container {
-            /* Fixed width: 84HP * 18px + rack padding (40px) + container padding (32px) */
-            width: calc(84 * var(--hp-unit) + 72px);
-            flex-shrink: 0;
+            flex: 1 1 auto;
+            min-width: 0;
             overflow-x: auto;
             overflow-y: auto;
             display: flex;
@@ -639,27 +638,64 @@
             font-size: 11px;
             color: #666;
             text-align: left;
-            padding: 8px 0;
+            flex: 1;
+            min-width: 0;
+            padding: 0;
+        }
+
+        .rack-bottom-bar {
+            align-items: flex-end;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: space-between;
+            min-width: 0;
             width: 100%;
         }
 
         .app-footer {
-            position: fixed;
-            right: 16px;
-            bottom: 10px;
-            z-index: 150;
             font-size: 11px;
             color: #666;
+            display: flex;
+            flex: 0 1 auto;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            justify-content: flex-end;
+            min-width: 0;
+            padding: 0;
+            z-index: 1;
         }
 
-        .app-footer a {
+        .app-footer .footer-control {
             color: #999;
-            text-decoration: none;
         }
 
-        .app-footer a:hover {
+        .app-footer a,
+        .app-footer button,
+        .app-footer select {
+            color: #999;
+            background: transparent;
+            border: 0;
+            font: inherit;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .app-footer select {
+            appearance: none;
+            padding: 0 14px 0 0;
+        }
+
+        .app-footer a:hover,
+        .app-footer button:hover,
+        .app-footer select:hover {
             color: #ccc;
             text-decoration: underline;
+        }
+
+        .app-footer button.active {
+            color: #ddd;
         }
 
         .rack-row {
@@ -707,8 +743,6 @@
         }
 
         .rack-row.empty {
-            border: 2px dashed #444;
-            border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: flex-start;
@@ -792,9 +826,700 @@
             font-size: 10px;
             color: #555;
         }
+
+        body.theme-classic.theme-dark {
+            --classic-bg: #1a1a1a;
+            --classic-panel: #252525;
+            --classic-panel-2: #2a2a2a;
+            --classic-surface: #333;
+            --classic-surface-hover: #444;
+            --classic-border: #444;
+            --classic-text: #f5f5f5;
+            --classic-muted: #888;
+            --classic-faint: #666;
+            --classic-module-text: #ddd;
+            --classic-control-text: #fff;
+            --classic-rack-top: #555;
+            --classic-rack-bottom: #333;
+        }
+
+        body.theme-classic.theme-light {
+            --classic-bg: #ede9dc;
+            --classic-panel: #f4f1e7;
+            --classic-panel-2: #e4dfd2;
+            --classic-surface: #ffffff;
+            --classic-surface-hover: #e8e2d4;
+            --classic-border: #b8b1a4;
+            --classic-text: #151515;
+            --classic-muted: #6f6a60;
+            --classic-faint: #8d877c;
+            --classic-module-text: #171713;
+            --classic-control-text: #111;
+            --classic-rack-top: #d7d0c2;
+            --classic-rack-bottom: #bdb5a7;
+        }
+
+        body.theme-classic {
+            background: var(--classic-bg);
+            color: var(--classic-text);
+        }
+
+        body.theme-classic #toolbar {
+            background: linear-gradient(to bottom, var(--classic-panel-2), var(--classic-panel));
+            border-bottom: 1px solid var(--classic-border);
+            color: var(--classic-text);
+        }
+
+        body.theme-classic .toolbar-divider {
+            background: var(--classic-border);
+        }
+
+        body.theme-classic .toolbar-label,
+        body.theme-classic .sidebar-category,
+        body.theme-classic .sidebar-module-hp,
+        body.theme-classic .cable-hints,
+        body.theme-classic .app-footer .footer-control {
+            color: var(--classic-muted);
+        }
+
+        body.theme-classic .app-footer {
+            color: var(--classic-muted);
+            gap: 8px;
+        }
+
+        body.theme-classic .app-footer .footer-control {
+            font-size: 10px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        body.theme-classic #toolbar button,
+        body.theme-classic #toolbar select,
+        body.theme-classic #toolbar input[type="text"],
+        body.theme-classic .app-footer button,
+        body.theme-classic .app-footer select,
+        body.theme-classic .app-footer a {
+            background: var(--classic-surface);
+            border: 1px solid var(--classic-border);
+            color: var(--classic-control-text);
+        }
+
+        body.theme-classic .app-footer button,
+        body.theme-classic .app-footer a {
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 6px 12px;
+            white-space: nowrap;
+        }
+
+        body.theme-classic .app-footer a {
+            max-width: 120px;
+        }
+
+        body.theme-classic .app-footer select {
+            appearance: none;
+            background: var(--classic-surface);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: normal;
+            max-width: 128px;
+            min-width: 96px;
+            padding: 6px 10px;
+        }
+
+        body.theme-classic .app-footer button:focus-visible,
+        body.theme-classic .app-footer select:focus-visible,
+        body.theme-classic .app-footer a:focus-visible {
+            outline: 2px solid #58a6ff;
+            outline-offset: 2px;
+        }
+
+        body.theme-classic #toolbar button:hover,
+        body.theme-classic #toolbar select:hover,
+        body.theme-classic #toolbar input[type="text"]:focus,
+        body.theme-classic .app-footer button:hover,
+        body.theme-classic .app-footer select:hover,
+        body.theme-classic .app-footer a:hover,
+        body.theme-classic .app-footer button.active {
+            background: var(--classic-surface-hover);
+            color: var(--classic-text);
+            text-decoration: none;
+        }
+
+        body.theme-classic #toolbar input[type="text"]::placeholder {
+            color: var(--classic-faint);
+        }
+
+        body.theme-classic .app-container,
+        body.theme-classic .rack-container {
+            background: var(--classic-bg);
+        }
+
+        body.theme-classic .sidebar {
+            background: linear-gradient(to bottom, var(--classic-panel), var(--classic-bg));
+            border-right: 1px solid var(--classic-border);
+        }
+
+        body.theme-classic .sidebar-module:hover {
+            background: var(--classic-surface-hover);
+        }
+
+        body.theme-classic .sidebar-module-name,
+        body.theme-classic .module-label,
+        body.theme-classic .knob-label,
+        body.theme-classic .jack-label,
+        body.theme-classic .section-label,
+        body.theme-classic .rec-led-label,
+        body.theme-classic .rec-time:not(.recording),
+        body.theme-classic .rec-jack-label,
+        body.theme-classic .scope-section-label,
+        body.theme-classic .spectrum-section-label,
+        body.theme-classic .spectrum-freq-labels,
+        body.theme-classic .plot-section-label,
+        body.theme-classic .plot-stats,
+        body.theme-classic .spectrogram-section-label,
+        body.theme-classic .spectrogram-labels,
+        body.theme-classic .db-channel-label,
+        body.theme-classic .db-section-label,
+        body.theme-classic .seq-io-label {
+            color: var(--classic-module-text);
+        }
+
+        body.theme-classic .section-label {
+            border-top-color: var(--classic-border);
+        }
+
+        body.theme-classic .rack {
+            background: linear-gradient(to bottom, var(--classic-panel-2), var(--classic-bg));
+        }
+
+        body.theme-classic .rack-row::before {
+            background: linear-gradient(to bottom, var(--classic-rack-top), var(--classic-border));
+        }
+
+        body.theme-classic .rack-row::after {
+            background: linear-gradient(to bottom, var(--classic-border), var(--classic-rack-bottom));
+        }
+
+        body.theme-classic.theme-light .module {
+            background: linear-gradient(
+                to bottom,
+                color-mix(in srgb, var(--module-color) 64%, #f3eee3),
+                color-mix(in srgb, var(--module-color) 52%, #ddd5c8)
+            ) !important;
+            border-left-color: var(--classic-border);
+        }
+
+        body.theme-classic.theme-light .module-label {
+            text-shadow: none;
+        }
+
+        body.theme-classic.theme-light .drop-indicator {
+            border-color: #8f897d;
+        }
+
+        body.theme-classic.theme-light .knob {
+            background: linear-gradient(145deg, #f7f4ea, #c9c1b3);
+            border-color: #5f5b52;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.25), inset 0 1px 1px rgba(255,255,255,0.75);
+        }
+
+        body.theme-classic.theme-light .knob::after {
+            background: #171713;
+            box-shadow: none;
+        }
+
+        body.theme-classic.theme-light .jack {
+            background: #f6f2e7;
+            border-color: #5f5b52;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.24);
+        }
+
+        body.theme-classic.theme-light .jack.output {
+            border-color: #b84635;
+        }
+
+        body.theme-classic.theme-light .jack.input {
+            border-color: #3f8a4f;
+        }
+
+        body.theme-classic.theme-light .jack::after {
+            background: #171713;
+            border-color: #171713;
+        }
+
+        body.theme-classic.theme-light .switch,
+        body.theme-classic.theme-light .octave-btn,
+        body.theme-classic.theme-light .toggle-btn {
+            background: #f6f2e7;
+            border-color: #5f5b52;
+            color: #171713;
+        }
+
+        body.theme-classic.theme-light .octave-btn.active {
+            background: linear-gradient(to bottom, #8b5cf6, #6d28d9);
+            border-color: #7c5fc4;
+            color: #fff;
+            box-shadow: 0 0 5px rgba(109, 40, 217, 0.38);
+        }
+
+        body.theme-classic.theme-light .toggle-btn.active {
+            background: linear-gradient(to bottom, #2fbf68, #1f8f4f);
+            border-color: #247a47;
+            color: #fff;
+            box-shadow: 0 0 4px rgba(31, 143, 79, 0.38);
+        }
+
+        /* Factory skin - technical deployment sheet / terminal console */
+        body.skin-factory {
+            --factory-black: #171813;
+            --factory-ink: #0b0b09;
+            --factory-paper: #f0eee2;
+            --factory-paper-dim: #d8d5c6;
+            --factory-panel-light: #ebe7da;
+            --factory-panel: #ded8ca;
+            --factory-panel-mid: #d0c8b7;
+            --factory-panel-dark: #bdb5a5;
+            --factory-panel-cool: #d9d9d2;
+            --factory-orange: #ff4a0a;
+            --factory-grid: rgba(11,11,9,0.16);
+            --factory-rack-side-overlap: 5px;
+            --factory-rack-left-overlap: 3px;
+            --factory-rack-vertical-overlap: 2px;
+            --factory-rack-rail-size: 6px;
+            --module-height: 360px;
+            background: var(--factory-black);
+            color: var(--factory-paper);
+            font-family: 'Courier New', 'IBM Plex Mono', monospace;
+            letter-spacing: 0;
+        }
+
+        body.theme-industrial.theme-dark {
+            --factory-black: #080907;
+            --factory-ink: #b7b3a8;
+            --factory-action-ink: #10110e;
+            --factory-paper: #171813;
+            --factory-paper-dim: #1f211d;
+            --factory-panel-light: #121713;
+            --factory-panel: #161b17;
+            --factory-panel-mid: #1b211d;
+            --factory-panel-dark: #232923;
+            --factory-panel-cool: #171d1c;
+            --factory-grid: rgba(183,179,168,0.12);
+        }
+
+        body.skin-factory::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.05;
+            background: var(--factory-paper);
+            mix-blend-mode: screen;
+        }
+
+        body.theme-industrial.theme-dark::before {
+            opacity: 0.03;
+            mix-blend-mode: normal;
+        }
+
+        body.skin-factory #toolbar {
+            height: 52px;
+            background: var(--factory-paper);
+            border-bottom: 3px solid var(--factory-ink);
+            box-shadow: none;
+            color: var(--factory-ink);
+            gap: 10px;
+        }
+
+        body.skin-factory .toolbar-section {
+            gap: 6px;
+        }
+
+        body.skin-factory .toolbar-divider {
+            height: 32px;
+            width: 2px;
+            background: var(--factory-ink);
+        }
+
+        body.skin-factory .toolbar-label {
+            color: var(--factory-ink);
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        body.skin-factory #toolbar button,
+        body.skin-factory #toolbar select,
+        body.skin-factory #toolbar input[type="text"] {
+            border: 2px solid var(--factory-ink);
+            border-radius: 0;
+            background: var(--factory-paper);
+            color: var(--factory-ink);
+            box-shadow: none;
+            font-family: inherit;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        body.theme-industrial.theme-dark #toolbar input[type="text"]::placeholder {
+            color: rgba(183,179,168,0.58);
+        }
+
+        body.skin-factory #toolbar button:hover,
+        body.skin-factory #toolbar select:hover,
+        body.skin-factory #toolbar input[type="text"]:focus {
+            background: var(--factory-orange);
+            color: var(--factory-action-ink, var(--factory-ink));
+            outline: none;
+        }
+
+        body.skin-factory #toolbar button.primary,
+        body.skin-factory #toolbar button.active {
+            background: var(--factory-orange);
+            color: var(--factory-action-ink, var(--factory-ink));
+        }
+
+        body.skin-factory #toolbar button.danger {
+            background: var(--factory-ink);
+            color: var(--factory-paper);
+        }
+
+        body.skin-factory .app-container {
+            margin-top: 52px;
+            height: calc(100vh - 52px);
+            background: var(--factory-black);
+        }
+
+        body.skin-factory .sidebar {
+            background: var(--factory-paper);
+            border-right: 3px solid var(--factory-ink);
+            box-shadow: inset 18px 0 0 var(--factory-orange);
+            padding: 0 0 8px 18px;
+        }
+
+        body.skin-factory .sidebar-category {
+            padding: 12px 10px 5px;
+            color: var(--factory-ink);
+            background: var(--factory-paper);
+            border-bottom: 1px solid var(--factory-ink);
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        body.skin-factory .sidebar-module {
+            background: rgba(240,238,226,0.96);
+            border-bottom: 1px solid var(--factory-ink);
+            color: var(--factory-ink);
+            padding: 8px 10px;
+        }
+
+        body.theme-industrial.theme-dark .sidebar-module {
+            background: rgba(23,24,19,0.96);
+        }
+
+        body.skin-factory .sidebar-module:hover {
+            background: var(--factory-orange);
+            color: var(--factory-action-ink, var(--factory-ink));
+        }
+
+        body.skin-factory .sidebar-module:hover .sidebar-module-name,
+        body.skin-factory .sidebar-module:hover .sidebar-module-hp {
+            color: var(--factory-action-ink, var(--factory-ink));
+        }
+
+        body.skin-factory .sidebar-module-color {
+            border-radius: 0;
+            border: 2px solid var(--factory-ink);
+            background: var(--factory-module-bg) !important;
+            filter: saturate(0.2) contrast(1.4);
+        }
+
+        body.theme-industrial.theme-dark .sidebar-module-color {
+            background: var(--factory-module-dark-bg) !important;
+            filter: saturate(1.08) contrast(1.18);
+        }
+
+        body.skin-factory .sidebar-module-name,
+        body.skin-factory .sidebar-module-hp {
+            color: var(--factory-ink);
+            font-family: inherit;
+            font-weight: 900;
+        }
+
+        body.skin-factory .rack-container {
+            background: var(--factory-paper);
+            border-right: 3px solid var(--factory-ink);
+        }
+
+        body.skin-factory .rack-row {
+            background: var(--factory-panel-light);
+            border: 0;
+            border-radius: 0;
+            outline: 3px solid var(--factory-ink);
+            outline-offset: 0;
+            box-shadow: none;
+            width: calc(84 * var(--hp-unit) - var(--factory-rack-side-overlap));
+            height: calc(var(--module-height) + (2 * var(--factory-rack-rail-size)));
+            min-height: calc(var(--module-height) + (2 * var(--factory-rack-rail-size)));
+            padding: 0;
+            overflow: visible;
+        }
+
+        body.skin-factory .rack-row::before,
+        body.skin-factory .rack-row::after {
+            background: var(--factory-ink);
+            height: var(--factory-rack-rail-size);
+        }
+
+        body.skin-factory .rack-row .module {
+            height: calc(100% + (2 * var(--factory-rack-vertical-overlap)));
+            margin-top: calc(-1 * var(--factory-rack-vertical-overlap));
+            margin-bottom: calc(-1 * var(--factory-rack-vertical-overlap));
+            align-self: stretch;
+            z-index: 2;
+        }
+
+        body.skin-factory .rack-row .module:first-of-type {
+            margin-left: calc(-1 * var(--factory-rack-left-overlap));
+        }
+
+        body.skin-factory .module {
+            border-left: 1px solid var(--factory-ink);
+            border-right: 0;
+            color: var(--factory-ink);
+            background: var(--factory-module-bg, var(--factory-panel)) !important;
+            box-shadow:
+                inset 0 0 0 1px rgba(11,11,9,0.18),
+                inset 0 18px 0 var(--factory-module-header, var(--factory-panel-light));
+        }
+
+        body.theme-industrial.theme-dark .module {
+            background: var(--factory-module-dark-bg) !important;
+            box-shadow:
+                inset 0 0 0 1px rgba(183,179,168,0.14),
+                inset 0 18px 0 var(--factory-module-dark-header);
+        }
+
+        body.skin-factory .module::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            height: 18px;
+            background: var(--factory-module-header, var(--factory-panel-light));
+            border-bottom: 1px solid var(--factory-ink);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body.theme-industrial.theme-dark .module::before {
+            background: var(--factory-module-dark-header);
+        }
+
+        body.skin-factory .module-label {
+            color: var(--factory-ink);
+            font-family: inherit;
+            font-size: 9px;
+            font-weight: 900;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+            text-shadow: none;
+        }
+
+        body.skin-factory .module-content {
+            gap: 4px;
+            position: relative;
+            z-index: 1;
+        }
+
+        body.skin-factory .knob {
+            background: var(--factory-ink);
+            border: 1px solid var(--factory-ink);
+            box-shadow:
+                inset 0 0 0 2px var(--factory-paper),
+                0 0 0 1px var(--factory-orange);
+        }
+
+        body.skin-factory .knob::after {
+            background: var(--factory-paper);
+            box-shadow: none;
+        }
+
+        body.skin-factory .knob-label,
+        body.skin-factory .jack-label,
+        body.skin-factory .section-label,
+        body.skin-factory .rec-led-label,
+        body.skin-factory .rec-time:not(.recording),
+        body.skin-factory .rec-jack-label,
+        body.skin-factory .scope-section-label,
+        body.skin-factory .spectrum-section-label,
+        body.skin-factory .spectrum-freq-labels,
+        body.skin-factory .plot-section-label,
+        body.skin-factory .plot-stats,
+        body.skin-factory .spectrogram-section-label,
+        body.skin-factory .spectrogram-labels,
+        body.skin-factory .db-channel-label,
+        body.skin-factory .db-section-label,
+        body.skin-factory .seq-io-label {
+            color: var(--factory-ink);
+            font-family: inherit;
+            font-weight: 900;
+        }
+
+        body.skin-factory .section-label {
+            border-top: 1px solid var(--factory-ink);
+            padding-top: 3px;
+            margin-top: 1px;
+        }
+
+        body.skin-factory .jack {
+            background: var(--factory-paper);
+            border: 1px solid var(--factory-ink);
+            box-shadow: inset 0 0 0 2px var(--factory-paper);
+        }
+
+        body.skin-factory .jack::after {
+            background: var(--factory-ink);
+            border: 0;
+        }
+
+        body.skin-factory .jack.output {
+            border-color: var(--factory-ink);
+            box-shadow:
+                inset 0 0 0 2px var(--factory-paper),
+                0 0 0 1px var(--factory-orange);
+        }
+
+        body.skin-factory .jack.input {
+            border-color: var(--factory-ink);
+        }
+
+        body.skin-factory .jack.connected {
+            background: var(--factory-orange);
+        }
+
+        body.skin-factory .switch,
+        body.skin-factory .octave-btn,
+        body.skin-factory .toggle-btn {
+            background: var(--factory-paper);
+            border: 1px solid var(--factory-ink);
+            border-radius: 0;
+            color: var(--factory-ink);
+            box-shadow: none;
+            font-family: inherit;
+            font-weight: 900;
+        }
+
+        body.skin-factory .octave-btn {
+            width: 12px;
+            height: 14px;
+            font-size: 6px;
+            line-height: 1;
+        }
+
+        body.skin-factory .toggle-btn {
+            width: 10px;
+            height: 10px;
+        }
+
+        body.skin-factory .switch {
+            width: 14px;
+            height: 22px;
+        }
+
+        body.skin-factory .switch::after {
+            width: 10px;
+            height: 8px;
+        }
+
+        body.skin-factory .switch.on::after {
+            top: 11px;
+        }
+
+        body.skin-factory .switch::after {
+            background: var(--factory-ink);
+            border-radius: 0;
+        }
+
+        body.skin-factory .octave-btn.active,
+        body.skin-factory .toggle-btn.active {
+            background: var(--factory-orange);
+            border-color: var(--factory-ink);
+            color: var(--factory-action-ink, var(--factory-ink));
+            box-shadow: none;
+        }
+
+        body.skin-factory .led {
+            background: var(--factory-paper);
+            border: 1px solid var(--factory-ink);
+            box-shadow: none;
+        }
+
+        body.skin-factory .led.active,
+        body.skin-factory .led.green.active {
+            background: var(--factory-orange);
+            box-shadow: 0 0 0 2px var(--factory-ink);
+        }
+
+        body.skin-factory .cable {
+            stroke-width: 5;
+            filter: none;
+        }
+
+        body.skin-factory .cable-hints,
+        body.skin-factory .app-footer {
+            color: var(--factory-ink);
+            font-family: inherit;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        body.skin-factory .rack-bottom-bar {
+            gap: 10px;
+        }
+
+        body.skin-factory .cable-hints {
+            font-size: 10px;
+            line-height: 1.12;
+        }
+
+        body.skin-factory .app-footer {
+            gap: 6px;
+        }
+
+        body.skin-factory .app-footer a,
+        body.skin-factory .app-footer button,
+        body.skin-factory .app-footer select {
+            color: var(--factory-ink);
+            background: var(--factory-paper);
+            border: 2px solid var(--factory-ink);
+            font-size: 10px;
+            padding: 3px 6px;
+            text-decoration: none;
+        }
+
+        body.skin-factory .app-footer a:hover,
+        body.skin-factory .app-footer button:hover,
+        body.skin-factory .app-footer select:hover,
+        body.skin-factory .app-footer button.active {
+            background: var(--factory-orange);
+            color: var(--factory-action-ink, var(--factory-ink));
+        }
+
+        body.skin-factory .drop-indicator {
+            border: 3px dashed var(--factory-orange);
+            border-radius: 0;
+        }
     </style>
 </head>
-<body>
+<body class="theme-industrial theme-light skin-factory">
 <div id="toolbar">
     <div class="toolbar-section">
         <button id="startButton">▶ Start</button>
@@ -828,6 +1553,8 @@
     </div>
     <div class="toolbar-divider"></div>
     <div class="toolbar-section">
+        <button id="addRackRow">+ Row</button>
+        <button id="removeRackRow">- Row</button>
         <button id="clearCables">Clear Cables</button>
     </div>
 </div>
@@ -841,16 +1568,24 @@
     <div class="rack-container" id="rack-container">
         <div class="rack rack-row" id="rack-row-1"></div>
         <div class="rack rack-row" id="rack-row-2"></div>
-        <div class="cable-hints">
-            Click and drag modules to reorder them or move between racks<br>
-            Click and drag on sockets to add cables<br>
-            Shift+click to add additional cables<br>
-            Ctrl+click to cycle cables<br>
-            Right-click or drop cable on empty space to remove
+        <div class="rack-bottom-bar">
+            <div class="cable-hints">
+                Click and drag modules to reorder them or move between racks<br>
+                Click and drag on sockets to add cables<br>
+                Shift+click to add additional cables<br>
+                Ctrl+click to cycle cables<br>
+                Right-click or drop cable on empty space to remove
+            </div>
+            <footer class="app-footer">
+                <label class="footer-control" for="themeSelect">Theme</label>
+                <select id="themeSelect" title="Select app theme">
+                    <option value="industrial" selected>Industrial</option>
+                    <option value="classic">Classic</option>
+                </select>
+                <button id="themeModeToggle" type="button" title="Toggle dark mode" aria-pressed="false">Dark: Off</button>
+                <a href="https://github.com/OrderAndCh4oS/eurorack-js" target="_blank" rel="noopener noreferrer">GitHub repo</a>
+            </footer>
         </div>
-        <footer class="app-footer">
-            <a href="https://github.com/OrderAndCh4oS/eurorack-js" target="_blank" rel="noopener noreferrer">GitHub repo</a>
-        </footer>
     </div>
 </div>
 

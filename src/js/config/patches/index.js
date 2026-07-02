@@ -51,6 +51,7 @@ import testSlew from './test-slew.js';
 import testSpectrum from './test-spectrum.js';
 import testPlot from './test-plot.js';
 import testSpectrogram from './test-spectrogram.js';
+import testCustomModules from './test-custom-modules.js';
 
 // Test patches - MIDI
 import testMidiCv from './test-midi-cv.js';
@@ -75,6 +76,7 @@ import demoDubDelay from './demo-dub-delay.js';
 import demoAmbientPad from './demo-ambient-pad.js';
 import demoTripHop from './demo-trip-hop.js';
 import demoTechno from './demo-techno.js';
+import demoNeonGrid from './demo-neon-grid.js';
 import scifiShooter from './scifi-shooter.js';
 import sfxLaser from './sfx-laser.js';
 import sfxExplosion from './sfx-explosion.js';
@@ -138,6 +140,7 @@ export const FACTORY_PATCHES = {
     [testSpectrum.name]: testSpectrum,
     [testPlot.name]: testPlot,
     [testSpectrogram.name]: testSpectrogram,
+    [testCustomModules.name]: testCustomModules,
 
     // Test patches - MIDI
     [testMidiCv.name]: testMidiCv,
@@ -162,6 +165,7 @@ export const FACTORY_PATCHES = {
     [demoAmbientPad.name]: demoAmbientPad,
     [demoTripHop.name]: demoTripHop,
     [demoTechno.name]: demoTechno,
+    [demoNeonGrid.name]: demoNeonGrid,
     [scifiShooter.name]: scifiShooter,
     [sfxLaser.name]: sfxLaser,
     [sfxExplosion.name]: sfxExplosion,

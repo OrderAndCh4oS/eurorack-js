@@ -32,7 +32,7 @@ const DIVISIONS = [
 
 export default {
     id: 'midi-clk',
-    name: 'MIDI-CLK',
+    name: 'M‑CLK',
     hp: 2,
     color: '#5a4a8a',
     category: 'midi',

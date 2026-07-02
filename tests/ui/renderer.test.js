@@ -2,8 +2,33 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderModule } from '../../src/js/ui/renderer.js';
 import { EurorackApp } from '../../src/js/app/app.js';
 import loopModule from '../../src/js/modules/loop/index.js';
+import {
+    getFactoryModuleDarkHeaderShade,
+    getFactoryModuleDarkShade,
+    getFactoryModuleHeaderShade,
+    getFactoryModuleShade
+} from '../../src/js/utils/color.js';
 
 describe('renderModule', () => {
+    it('exposes factory skin shade variables on rendered panels', () => {
+        const panel = renderModule({
+            id: 'visual',
+            name: 'VIS',
+            hp: 4,
+            color: '#222222',
+            createDSP: () => ({}),
+            ui: {}
+        }, 'visual_1', {
+            dsp: null,
+            onParamChange: vi.fn()
+        });
+
+        expect(panel.style.getPropertyValue('--factory-module-bg')).toBe(getFactoryModuleShade('visual'));
+        expect(panel.style.getPropertyValue('--factory-module-header')).toBe(getFactoryModuleHeaderShade('visual'));
+        expect(panel.style.getPropertyValue('--factory-module-dark-bg')).toBe(getFactoryModuleDarkShade('visual'));
+        expect(panel.style.getPropertyValue('--factory-module-dark-header')).toBe(getFactoryModuleDarkHeaderShade('visual'));
+    });
+
     it('passes getModule to custom render functions', () => {
         const getModule = vi.fn(() => ({ instance: { params: {} } }));
         const customRender = vi.fn();

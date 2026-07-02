@@ -1,3 +1,10 @@
+import {
+    getFactoryModuleDarkHeaderShade,
+    getFactoryModuleDarkShade,
+    getFactoryModuleHeaderShade,
+    getFactoryModuleShade
+} from '../../utils/color.js';
+
 /**
  * Module Toolkit - Layout Helpers
  *
@@ -73,6 +80,7 @@ export function createPanel({
     id,
     hp,
     color,
+    type = id,
     className = ''
 }) {
     const panel = document.createElement('div');
@@ -81,6 +89,12 @@ export function createPanel({
 
     // Apply gradient background
     const darkerColor = adjustColorBrightness(color, -30);
+    panel.style.setProperty('--module-color', color);
+    panel.style.setProperty('--module-color-dark', darkerColor);
+    panel.style.setProperty('--factory-module-bg', getFactoryModuleShade(type));
+    panel.style.setProperty('--factory-module-header', getFactoryModuleHeaderShade(type));
+    panel.style.setProperty('--factory-module-dark-bg', getFactoryModuleDarkShade(type));
+    panel.style.setProperty('--factory-module-dark-header', getFactoryModuleDarkHeaderShade(type));
     panel.style.background = `linear-gradient(to bottom, ${color}, ${darkerColor})`;
 
     return panel;

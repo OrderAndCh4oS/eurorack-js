@@ -25,11 +25,21 @@ function clone(value) {
     return JSON.parse(JSON.stringify(value));
 }
 
+function createRows(rowCount) {
+    const rows = {};
+    for (let row = 1; row <= rowCount; row += 1) {
+        rows[row] = [];
+    }
+    return rows;
+}
+
 export class RackState {
-    constructor({ maxHPPerRow = MAX_HP_PER_ROW } = {}) {
+    constructor({ maxHPPerRow = MAX_HP_PER_ROW, rowCount = 2, minRows = 1 } = {}) {
         this.maxHPPerRow = maxHPPerRow;
+        this.defaultRowCount = Math.max(minRows, rowCount);
+        this.minRows = minRows;
         this.modules = new Map();
-        this.rows = { 1: [], 2: [] };
+        this.rows = createRows(this.defaultRowCount);
         this.cables = [];
         this.midiMappings = {};
         this.instanceCounters = {};
@@ -45,6 +55,24 @@ export class RackState {
 
     getRow(row) {
         return [...(this.rows[row] || [])];
+    }
+
+    getRowNumbers() {
+        return Object.keys(this.rows)
+            .map(row => parseInt(row, 10))
+            .filter(Number.isFinite)
+            .sort((a, b) => a - b);
+    }
+
+    getRowCount() {
+        return this.getRowNumbers().length;
+    }
+
+    ensureRowCount(rowCount) {
+        const nextCount = Math.max(this.minRows, rowCount);
+        for (let row = 1; row <= nextCount; row += 1) {
+            if (!this.rows[row]) this.rows[row] = [];
+        }
     }
 
     getRowHP(row, registry) {
@@ -70,9 +98,53 @@ export class RackState {
     }
 
     findFirstFittingRow(definition, registry) {
-        if (this.getRowHP(1, registry) + definition.hp <= this.maxHPPerRow) return 1;
-        if (this.getRowHP(2, registry) + definition.hp <= this.maxHPPerRow) return 2;
+        const fittingRow = this.getRowNumbers().find(row =>
+            this.getRowHP(row, registry) + definition.hp <= this.maxHPPerRow
+        );
+        if (fittingRow) return fittingRow;
         return null;
+    }
+
+    addRow() {
+        const rowNumbers = this.getRowNumbers();
+        const row = (rowNumbers[rowNumbers.length - 1] || 0) + 1;
+        this.rows[row] = [];
+        return row;
+    }
+
+    removeRow(row = null) {
+        const rowNumbers = this.getRowNumbers();
+        if (rowNumbers.length <= this.minRows) {
+            throw new Error('Cannot remove the last rack row');
+        }
+
+        const targetRow = row ?? rowNumbers[rowNumbers.length - 1];
+        if (!this.rows[targetRow]) {
+            throw new Error(`Invalid rack row: ${targetRow}`);
+        }
+
+        const removedModuleIds = new Set(this.rows[targetRow]);
+        removedModuleIds.forEach(id => this.modules.delete(id));
+        this.cables = this.cables.filter(cable =>
+            !removedModuleIds.has(cable.fromModule) && !removedModuleIds.has(cable.toModule)
+        );
+
+        const nextRows = {};
+        this.getRowNumbers().forEach(currentRow => {
+            if (currentRow < targetRow) {
+                nextRows[currentRow] = this.rows[currentRow];
+            } else if (currentRow > targetRow) {
+                const nextRow = currentRow - 1;
+                nextRows[nextRow] = this.rows[currentRow];
+                nextRows[nextRow].forEach(id => {
+                    const mod = this.modules.get(id);
+                    if (mod) mod.row = nextRow;
+                });
+            }
+        });
+
+        this.rows = nextRows;
+        return { row: targetRow, removedModuleIds: [...removedModuleIds] };
     }
 
     addModule(type, registry, { row = null, index = null, id = null, params = null } = {}) {
@@ -203,18 +275,22 @@ export class RackState {
         this.cables = [];
     }
 
-    clear() {
+    clear({ rowCount = this.defaultRowCount } = {}) {
         this.modules.clear();
-        this.rows = { 1: [], 2: [] };
+        this.rows = createRows(Math.max(this.minRows, rowCount));
         this.cables = [];
         this.midiMappings = {};
         this.instanceCounters = {};
     }
 
     loadPatch(patchState, registry) {
-        this.clear();
+        const maxPatchRow = (patchState.modules || []).reduce((maxRow, mod) => {
+            const row = Number.isInteger(mod.row) ? mod.row : 1;
+            return Math.max(maxRow, row);
+        }, this.defaultRowCount);
+        this.clear({ rowCount: maxPatchRow });
 
-        patchState.modules.forEach((mod, index) => {
+        (patchState.modules || []).forEach((mod, index) => {
             this.addModule(mod.type, registry, {
                 id: mod.id,
                 row: mod.row,
@@ -232,7 +308,7 @@ export class RackState {
 
     serializePatch() {
         const modules = [];
-        [1, 2].forEach(row => {
+        this.getRowNumbers().forEach(row => {
             this.rows[row].forEach((id, index) => {
                 const mod = this.modules.get(id);
                 if (mod) {

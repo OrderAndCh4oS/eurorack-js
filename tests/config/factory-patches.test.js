@@ -34,8 +34,9 @@ describe('factory-patches', () => {
 
         it('should have valid state structure', () => {
             Object.values(FACTORY_PATCHES).forEach(patch => {
-                expect(patch.state.knobs).toBeDefined();
-                expect(typeof patch.state.knobs).toBe('object');
+                const params = patch.state.params || patch.state.knobs;
+                expect(params).toBeDefined();
+                expect(typeof params).toBe('object');
                 expect(patch.state.cables).toBeDefined();
                 expect(Array.isArray(patch.state.cables)).toBe(true);
             });
@@ -98,12 +99,60 @@ describe('factory-patches', () => {
             );
             expect(arpCables.length).toBeGreaterThan(0);
         });
+
+        it('Demo - Neon Grid uses exactly three rows with drums, bass, and melody texture', () => {
+            const patch = FACTORY_PATCHES['Demo - Neon Grid'];
+            expect(patch).toBeDefined();
+
+            const rows = [...new Set(patch.state.modules.map(mod => mod.row))].sort();
+            const types = patch.state.modules.map(mod => mod.type);
+
+            expect(rows).toEqual([1, 2, 3]);
+            expect(types).toEqual(expect.arrayContaining([
+                'kick', 'snare', 'hat',
+                'seq', 'vco', 'vcf', 'vca',
+                'turing', 'quant', 'granulita',
+                'chorus', 'verb', 'dly', 'out'
+            ]));
+            expect(patch.state.cables).toEqual(expect.arrayContaining([
+                expect.objectContaining({ toModule: 'kick', toPort: 'trigger' }),
+                expect.objectContaining({ toModule: 'bassVco', toPort: 'vOct' }),
+                expect.objectContaining({ toModule: 'leadVco', toPort: 'vOct' }),
+                expect.objectContaining({ toModule: 'granulita', toPort: 'hit' }),
+                expect.objectContaining({ toModule: 'out', toPort: 'L' })
+            ]));
+        });
+
+        it('Test - Custom Modules includes every custom-rendered module', () => {
+            const patch = FACTORY_PATCHES['Test - Custom Modules'];
+            expect(patch).toBeDefined();
+
+            const types = patch.state.modules.map(mod => mod.type);
+            expect(types).toEqual(expect.arrayContaining([
+                'seq',
+                'loop',
+                'rec',
+                'plot',
+                'scope',
+                'db',
+                'spectrogram',
+                'spectrum'
+            ]));
+            expect(patch.state.cables).toEqual(expect.arrayContaining([
+                expect.objectContaining({ toModule: 'scope', toPort: 'in1' }),
+                expect.objectContaining({ toModule: 'plot', toPort: 'audio' }),
+                expect.objectContaining({ toModule: 'spectrogram', toPort: 'audio' }),
+                expect.objectContaining({ toModule: 'spectrum', toPort: 'audio' }),
+                expect.objectContaining({ toModule: 'db', toPort: 'L' }),
+                expect.objectContaining({ toModule: 'rec', toPort: 'L' })
+            ]));
+        });
     });
 
     describe('knob values', () => {
         it('should have knob values within valid ranges', () => {
             Object.values(FACTORY_PATCHES).forEach(patch => {
-                Object.entries(patch.state.knobs).forEach(([module, params]) => {
+                Object.entries(patch.state.params || patch.state.knobs).forEach(([, params]) => {
                     Object.values(params).forEach(value => {
                         expect(typeof value).toBe('number');
                         expect(isFinite(value)).toBe(true);
@@ -114,8 +163,9 @@ describe('factory-patches', () => {
 
         it('should have volume knobs <= 1', () => {
             Object.values(FACTORY_PATCHES).forEach(patch => {
-                if (patch.state.knobs.out?.volume !== undefined) {
-                    expect(patch.state.knobs.out.volume).toBeLessThanOrEqual(1);
+                const params = patch.state.params || patch.state.knobs;
+                if (params.out?.volume !== undefined) {
+                    expect(params.out.volume).toBeLessThanOrEqual(1);
                 }
             });
         });

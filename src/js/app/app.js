@@ -15,9 +15,18 @@ import { updateKnobRotation } from '../ui/toolkit/components.js';
 import { RackState } from './rack-state.js';
 import { PATCH_VERSION, migratePatchCollection, normalizePatch } from './patch-format.js';
 import { setNestedValue } from '../utils/nested-access.js';
+import {
+    getFactoryModuleDarkHeaderShade,
+    getFactoryModuleDarkShade,
+    getFactoryModuleHeaderShade,
+    getFactoryModuleShade
+} from '../utils/color.js';
 
 export const PATCH_EXPORT_SCHEMA = 'eurorack-js/patch-export';
 export const PATCH_EXPORT_VERSION = 1;
+export const THEME_STORAGE_KEY = 'eurorack-theme';
+export const THEME_MODE_STORAGE_KEY = 'eurorack-theme-mode';
+export const SKIN_STORAGE_KEY = 'eurorack-skin';
 
 function isPlainObject(value) {
     return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -160,11 +169,14 @@ export class EurorackApp {
         this.dropIndicator = null;
         this.lastCtrlClickJack = null;
         this.ctrlClickCycleIndex = 0;
+        this.theme = 'industrial';
+        this.themeMode = 'light';
     }
 
     async init() {
         await loadModules();
         this.cacheElements();
+        this.applySavedSkin();
         this.populateSidebar();
         this.bindEvents();
         await this.initMidi();
@@ -174,13 +186,76 @@ export class EurorackApp {
     }
 
     cacheElements() {
-        this.rows = {
-            1: this.document.getElementById('rack-row-1'),
-            2: this.document.getElementById('rack-row-2')
-        };
         this.cableSvg = this.document.getElementById('cable-svg');
         this.rackContainer = this.document.getElementById('rack-container');
         this.startButton = this.document.getElementById('startButton');
+        this.themeSelect = this.document.getElementById('themeSelect');
+        this.themeModeToggle = this.document.getElementById('themeModeToggle');
+        this.syncRowElements();
+    }
+
+    getRackRowElements() {
+        const rows = {};
+        const containerRows = this.rackContainer
+            ? [...this.rackContainer.querySelectorAll('[id^="rack-row-"]')]
+            : [];
+        const elements = containerRows.length
+            ? containerRows
+            : [...this.document.querySelectorAll('[id^="rack-row-"]')];
+
+        elements.forEach(rowEl => {
+            const row = this.getRowNumberFromElement(rowEl);
+            if (!row) return;
+            rowEl.classList.add('rack', 'rack-row');
+            rowEl.dataset.row = row;
+            rows[row] = rowEl;
+        });
+
+        return rows;
+    }
+
+    createRackRowElement(row) {
+        const rowEl = this.document.createElement('div');
+        rowEl.className = 'rack rack-row';
+        rowEl.id = `rack-row-${row}`;
+        rowEl.dataset.row = row;
+        rowEl.setAttribute('aria-label', `Rack row ${row}`);
+        return rowEl;
+    }
+
+    syncRowElements() {
+        if (!this.rackContainer) {
+            this.rows = this.getRackRowElements();
+            return;
+        }
+
+        const wantedRows = new Set(this.state.getRowNumbers());
+        [...this.rackContainer.querySelectorAll('[id^="rack-row-"]')].forEach(rowEl => {
+            const row = this.getRowNumberFromElement(rowEl);
+            if (row && !wantedRows.has(row)) rowEl.remove();
+        });
+
+        const anchor = this.rackContainer.querySelector('.rack-bottom-bar')
+            || this.rackContainer.querySelector('.cable-hints')
+            || this.rackContainer.querySelector('.app-footer');
+        this.state.getRowNumbers().forEach(row => {
+            let rowEl = this.rackContainer.querySelector(`#rack-row-${row}`);
+            if (!rowEl) {
+                rowEl = this.document.getElementById(`rack-row-${row}`) || this.createRackRowElement(row);
+            }
+            rowEl.classList.add('rack', 'rack-row');
+            rowEl.dataset.row = row;
+            if (rowEl.parentNode !== this.rackContainer) {
+                this.rackContainer.insertBefore(rowEl, anchor);
+            }
+        });
+
+        this.rows = this.getRackRowElements();
+    }
+
+    getRowNumberFromElement(rowEl) {
+        const row = parseInt(rowEl?.dataset?.row || rowEl?.id?.match(/^rack-row-(\d+)$/)?.[1], 10);
+        return Number.isFinite(row) ? row : null;
     }
 
     populateSidebar() {
@@ -208,6 +283,10 @@ export class EurorackApp {
                 const item = this.document.createElement('div');
                 item.className = 'sidebar-module';
                 item.dataset.moduleType = def.id;
+                item.style.setProperty('--factory-module-bg', getFactoryModuleShade(def.id));
+                item.style.setProperty('--factory-module-header', getFactoryModuleHeaderShade(def.id));
+                item.style.setProperty('--factory-module-dark-bg', getFactoryModuleDarkShade(def.id));
+                item.style.setProperty('--factory-module-dark-header', getFactoryModuleDarkHeaderShade(def.id));
                 item.innerHTML = `
                     <div class="sidebar-module-color" style="background: ${def.color}"></div>
                     <div class="sidebar-module-name">${def.name}</div>
@@ -251,12 +330,113 @@ export class EurorackApp {
         this.document.getElementById('midiLearnBtn').addEventListener('click', () => this.toggleMidiLearnMode());
         this.document.getElementById('midiControllerBtn').addEventListener('click', () => this.openMidiTool('midi-controller.html'));
         this.document.getElementById('midiDrumControllerBtn').addEventListener('click', () => this.openMidiTool('midi-drum-controller.html'));
+        this.themeSelect?.addEventListener('change', event => this.setTheme(event.target.value));
+        this.themeModeToggle?.addEventListener('click', () => this.toggleThemeMode());
+        this.document.getElementById('addRackRow')?.addEventListener('click', () => this.addRackRow());
+        this.document.getElementById('removeRackRow')?.addEventListener('click', () => this.removeRackRow());
+    }
+
+    applySavedSkin() {
+        let savedTheme = 'industrial';
+        let savedMode = 'light';
+        try {
+            savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || '';
+            savedMode = localStorage.getItem(THEME_MODE_STORAGE_KEY) || 'light';
+            if (!savedTheme) {
+                const legacySkin = localStorage.getItem(SKIN_STORAGE_KEY);
+                savedTheme = legacySkin === 'factory' ? 'industrial' : legacySkin === 'classic' ? 'classic' : 'industrial';
+            }
+        } catch {
+            savedTheme = 'industrial';
+            savedMode = 'light';
+        }
+        this.setTheme(savedTheme, { persist: false, render: false });
+        this.setThemeMode(savedMode, { persist: false });
+    }
+
+    setTheme(theme, { persist = true, render = true } = {}) {
+        this.theme = theme === 'classic' ? 'classic' : 'industrial';
+        this.document.body.classList.toggle('theme-industrial', this.theme === 'industrial');
+        this.document.body.classList.toggle('theme-classic', this.theme === 'classic');
+        this.document.body.classList.toggle('skin-factory', this.theme === 'industrial');
+        if (this.themeSelect) {
+            this.themeSelect.value = this.theme;
+        }
+        if (persist) {
+            try {
+                localStorage.setItem(THEME_STORAGE_KEY, this.theme);
+                localStorage.setItem(SKIN_STORAGE_KEY, this.theme === 'industrial' ? 'factory' : 'classic');
+            } catch {
+                // Ignore storage failures; the theme still applies for this session.
+            }
+        }
+        if (render) this.renderAllCables();
+    }
+
+    setThemeMode(mode, { persist = true } = {}) {
+        this.themeMode = mode === 'dark' ? 'dark' : 'light';
+        this.document.body.classList.toggle('theme-dark', this.themeMode === 'dark');
+        this.document.body.classList.toggle('theme-light', this.themeMode === 'light');
+        if (this.themeModeToggle) {
+            this.themeModeToggle.classList.toggle('active', this.themeMode === 'dark');
+            this.themeModeToggle.textContent = this.themeMode === 'dark' ? 'Dark: On' : 'Dark: Off';
+            this.themeModeToggle.setAttribute('aria-pressed', this.themeMode === 'dark' ? 'true' : 'false');
+        }
+        if (persist) {
+            try {
+                localStorage.setItem(THEME_MODE_STORAGE_KEY, this.themeMode);
+            } catch {
+                // Ignore storage failures; the theme mode still applies for this session.
+            }
+        }
+        this.renderAllCables();
+    }
+
+    toggleThemeMode() {
+        this.setThemeMode(this.themeMode === 'dark' ? 'light' : 'dark');
+    }
+
+    toggleSkin() {
+        this.setTheme(this.theme === 'industrial' ? 'classic' : 'industrial');
     }
 
     markEmptyRows() {
-        [1, 2].forEach(row => {
-            this.rows[row].classList.toggle('empty', this.state.getRow(row).length === 0);
+        this.syncRowElements();
+        this.state.getRowNumbers().forEach(row => {
+            this.rows[row]?.classList.toggle('empty', this.state.getRow(row).length === 0);
         });
+    }
+
+    addRackRow() {
+        const row = this.state.addRow();
+        this.syncRowElements();
+        this.markEmptyRows();
+        this.renderAllCables();
+        return row;
+    }
+
+    removeRackRow(row = null) {
+        const rowNumbers = this.state.getRowNumbers();
+        const targetRow = row ?? rowNumbers[rowNumbers.length - 1];
+        if (!targetRow) return false;
+
+        const moduleCount = this.state.getRow(targetRow).length;
+        if (moduleCount > 0) {
+            const ok = this.document.defaultView?.confirm?.(
+                `Remove rack row ${targetRow} and ${moduleCount} module${moduleCount === 1 ? '' : 's'}?`
+            ) ?? true;
+            if (!ok) return false;
+        }
+
+        try {
+            this.state.removeRow(targetRow);
+        } catch (error) {
+            console.warn(error.message);
+            return false;
+        }
+
+        this.rerenderRack();
+        return true;
     }
 
     addModule(type, options = {}) {
@@ -298,7 +478,9 @@ export class EurorackApp {
         element.addEventListener('mousedown', event => this.handleModuleMouseDown(event));
 
         moduleState.element = element;
+        if (!this.rows[moduleState.row]) this.syncRowElements();
         const rowEl = this.rows[moduleState.row];
+        if (!rowEl) return;
         const rowIds = this.state.getRow(moduleState.row);
         const position = rowIds.indexOf(id);
         const beforeId = rowIds[position + 1];
@@ -309,11 +491,12 @@ export class EurorackApp {
 
     rerenderRack() {
         this.clearVisualCables();
+        this.syncRowElements();
         Object.values(this.rows).forEach(row => {
             row.querySelectorAll('.module:not(.drop-indicator)').forEach(el => el.remove());
         });
 
-        [1, 2].forEach(row => {
+        this.state.getRowNumbers().forEach(row => {
             this.state.getRow(row).forEach(id => this.renderModule(id));
         });
 
@@ -504,7 +687,7 @@ export class EurorackApp {
     }
 
     handleModuleDragMove(event) {
-        const targetRow = [this.rows[1], this.rows[2]].find(row => {
+        const targetRow = Object.values(this.rows).find(row => {
             const rect = row.getBoundingClientRect();
             return event.clientY >= rect.top && event.clientY <= rect.bottom;
         });
@@ -518,7 +701,7 @@ export class EurorackApp {
 
     handleModuleDragEnd() {
         if (this.dropIndicator?.parentNode) {
-            const row = this.dropIndicator.parentNode.id === 'rack-row-1' ? 1 : 2;
+            const row = this.getRowNumberFromElement(this.dropIndicator.parentNode);
             const beforeEl = this.dropIndicator.nextElementSibling;
             const beforeId = beforeEl?.dataset?.instanceId;
             const rowIds = this.state.getRow(row).filter(id => id !== this.draggedModule);

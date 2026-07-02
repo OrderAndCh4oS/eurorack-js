@@ -96,7 +96,8 @@ export function renderModule(definition, moduleId, context) {
     const panel = createPanel({
         id: moduleId,
         hp: definition.hp,
-        color: definition.color
+        color: definition.color,
+        type: definition.id
     });
 
     // Add module label

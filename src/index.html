@@ -1650,7 +1650,10 @@
         body.skin-factory .led.active,
         body.skin-factory .led.green.active {
             background: var(--factory-orange);
-            box-shadow: 0 0 0 2px var(--factory-ink);
+            border-color: var(--factory-ink);
+            box-shadow:
+                inset 0 0 0 1px color-mix(in srgb, var(--factory-paper) 42%, transparent),
+                0 0 5px color-mix(in srgb, var(--factory-orange) 42%, transparent);
         }
 
         body.skin-factory .cable {

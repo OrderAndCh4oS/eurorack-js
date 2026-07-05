@@ -8,69 +8,101 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 
 ## Modules
 
+Built-in modules are registered in `src/js/rack/module-manifest.js` and grouped by sidebar category.
+
+### MIDI
+| ID | Module | Description |
+|----|--------|-------------|
+| `midi-cv` | MIDI-CV | Mono MIDI-to-CV interface with pitch, gate, velocity, and mod outputs |
+| `midi-4` | MIDI-4 | Four-voice polyphonic MIDI-to-CV interface |
+| `midi-cc` | MIDI-CC | Four assignable MIDI CC to CV outputs |
+| `midi-clk` | M-CLK | MIDI clock, reset, and run outputs |
+| `midi-drum` | MIDI-DRUM | MIDI drum pads to trigger outputs plus velocity CV |
+
+### Clock
+| ID | Module | Description |
+|----|--------|-------------|
+| `clk` | CLK | Master clock with adjustable rate, pause control, and rate CV |
+| `div` | DIV | Dual clock divider/multiplier with CV rate control |
+
 ### Sources
-| Module | Description |
-|--------|-------------|
-| CLK | Master clock with adjustable BPM |
-| VCO | Voltage-controlled oscillator (triangle, saw, pulse) |
-| LFO | Low frequency oscillator with multiple waveforms |
-| NSE | White/pink noise generator |
-| ØCHD | 8x free-running triangle LFOs (based on Instruo øchd) |
+| ID | Module | Description |
+|----|--------|-------------|
+| `nse` | NSE | White and pink noise generator |
+| `vco` | VCO | Voltage-controlled oscillator with triangle, saw, and pulse outputs |
 
-### Modulators
-| Module | Description |
-|--------|-------------|
-| DIV | Clock divider/multiplier (÷16 to x16) |
-| S+H | Dual sample & hold |
-| QUANT | Pitch quantizer with selectable scales |
-| ARP | Arpeggiator with chord patterns |
-| SEQ | 8-step CV/gate sequencer with direction modes |
-| EUCLID | Euclidean rhythm generator (evenly distributed triggers) |
-| TURING | Turing Machine - random looping sequencer (based on Music Thing) |
-| LOGIC | Boolean gate operator (AND/OR) |
-| MULT | 2-in, 6-out signal splitter |
-| RND | Random voltage generator (stepped/smooth outputs) |
-| ENVF | Envelope follower (audio to CV) |
-| FUNC | Function generator - AR envelope, LFO, slew (based on Make Noise Maths/Function) |
-| ADSR | Envelope generator |
-| CMP2 | Dual window comparator with logic (based on Joranalogue Compare 2) |
+### Voices
+| ID | Module | Description |
+|----|--------|-------------|
+| `kick` | KICK | Analog-style kick drum synthesizer |
+| `snare` | SNARE | Analog-style snare drum synthesizer |
+| `hat` | HAT | Hi-hat synthesizer with separate open and closed triggers |
 
-### Processors
-| Module | Description |
-|--------|-------------|
-| VCF | State-variable filter (LP, BP, HP) |
-| FOLD | Wavefolder for harmonic complexity |
-| RING | Ring modulator (signal multiplication) |
-| VCA | Dual voltage-controlled amplifier |
-| MIX | 4-channel mixer with level controls |
-| DLY | Stereo delay with time, feedback, mix |
-| VERB | Stereo reverb with size, damping, mix |
-| CHORUS | Stereo chorus effect |
-| PHASER | Stereo phaser effect |
-| FLANGER | Stereo flanger effect |
-| CRUSH | Bit crusher / sample rate reducer |
-| LOOP | Minimal looper with four record modes (based on 2hp Loop) |
-| PWM | Pulse width modulator with complementary outputs |
+### Modulation
+| ID | Module | Description |
+|----|--------|-------------|
+| `lfo` | LFO | Low frequency oscillator with multiple waveforms |
+| `rnd` | RND | Random voltage generator with stepped, smooth, and gate outputs |
+| `func` | FUNC | Function generator for envelopes, cycling LFOs, and slew behavior |
+| `adsr` | ADSR | ADSR envelope generator with CV timing inputs |
+| `ochd` | OCHD | Eight free-running triangle LFOs based on Instruo ochd |
 
-### Drums
-| Module | Description |
-|--------|-------------|
-| KICK | Analog-style kick drum synthesizer |
-| SNARE | Analog-style snare drum synthesizer |
-| HAT | Analog-style hi-hat synthesizer |
+### Sequencers
+| ID | Module | Description |
+|----|--------|-------------|
+| `arp` | ARP | Triggered chord arpeggiator with root and chord CV |
+| `seq` | SEQ | 8-step CV/gate sequencer with direction and range controls |
+| `euclid` | EUCLID | Euclidean rhythm generator with length, hits, and rotation controls |
+| `turing` | TURING | Random looping sequencer based on Music Thing Turing Machine |
+
+### Quantizers
+| ID | Module | Description |
+|----|--------|-------------|
+| `quant` | QUANT | Pitch quantizer with selectable scales and trigger output |
+
+### Filters
+| ID | Module | Description |
+|----|--------|-------------|
+| `vcf` | VCF | State-variable filter with low-pass, band-pass, and high-pass outputs |
+
+### Effects
+| ID | Module | Description |
+|----|--------|-------------|
+| `fold` | FOLD | Wavefolder for adding harmonic complexity |
+| `ring` | RING | Ring modulator for signal multiplication |
+| `dly` | DLY | Mono digital delay with time, feedback, mix, and CV control |
+| `verb` | VERB | Stereo reverb with time, damping, mix, and mix CV |
+| `chorus` | CHORUS | Stereo chorus effect |
+| `phaser` | PHASER | Stereo phaser effect |
+| `flanger` | FLANGER | Stereo flanger effect |
+| `crush` | CRUSH | Bit crusher and sample-rate reducer |
+| `loop` | LOOP | Minimal looper with record, reverse, half-speed, and clear controls |
+| `granulita` | GRANULITA | Stereo granular chord processor based on Noise Engineering Granulita Versio |
 
 ### Utility
-| Module | Description |
-|--------|-------------|
-| ATTN | Dual attenuverter with offset (scale, invert, shift CV) |
-| SLEW | Dual slew limiter (portamento, CV smoothing) |
-| DB | Stereo VU meter with dB readout |
-| SCOPE | Dual-channel oscilloscope (Scope, X-Y, Tune modes) |
-| SPECTRUM | Real-time FFT spectrum analyzer |
-| PLOT | Waveform plotter / signal monitor |
-| SPECTRO | Scrolling spectrogram analyzer |
-| REC | WAV recorder |
-| OUT | Stereo output to speakers |
+| ID | Module | Description |
+|----|--------|-------------|
+| `sh` | S+H | Dual sample and hold |
+| `logic` | LOGIC | Boolean gate operator with AND and OR outputs |
+| `mult` | MULT | Two-input, six-output signal splitter |
+| `envf` | ENVF | Envelope follower with normal and inverted CV outputs |
+| `vca` | VCA | Dual voltage-controlled amplifier |
+| `atten` | ATTN | Dual attenuverter with offset controls |
+| `slew` | SLEW | Dual slew limiter for portamento and CV smoothing |
+| `db` | DB | Stereo VU/peak meter with audio passthrough |
+| `pwm` | PWM | Pulse-width modulator with complementary outputs |
+| `cmp2` | CMP2 | Dual window comparator with logic outputs based on Joranalogue Compare 2 |
+| `mix` | MIX | Four-channel mixer with level controls |
+| `scope` | SCOPE | Dual-channel oscilloscope with scope, X-Y, and tuning modes |
+| `spectrum` | SPECTRUM | Real-time FFT spectrum analyzer with audio passthrough |
+| `plot` | PLOT | Waveform plotter and signal monitor with trigger input |
+| `spectrogram` | SPECTRO | Scrolling spectrogram analyzer with audio passthrough |
+| `rec` | REC | WAV recorder with stereo passthrough |
+
+### Output
+| ID | Module | Description |
+|----|--------|-------------|
+| `out` | OUT | Stereo output to speakers |
 
 ## Architecture
 

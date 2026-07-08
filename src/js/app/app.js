@@ -13,7 +13,13 @@ import { createMidiManager } from '../midi/midi-manager.js';
 import { renderModule, updateModuleLEDs } from '../ui/renderer.js';
 import { updateKnobRotation } from '../ui/toolkit/components.js';
 import { RackState } from './rack-state.js';
-import { PATCH_VERSION, migratePatchCollection, normalizePatch } from './patch-format.js';
+import {
+    PATCH_VERSION,
+    createPatchUrlHash,
+    migratePatchCollection,
+    normalizePatch,
+    parsePatchUrlHash
+} from './patch-format.js';
 import { setNestedValue } from '../utils/nested-access.js';
 import { adjustColor, getModuleColorToken, isHexColor } from '../utils/color.js';
 
@@ -177,6 +183,7 @@ export class EurorackApp {
         await this.initMidi();
         this.migrateUserPatches();
         this.initPatchBank();
+        await this.loadPatchFromUrlHash();
         this.markEmptyRows();
     }
 
@@ -318,6 +325,7 @@ export class EurorackApp {
         this.startButton.addEventListener('click', () => this.toggleAudio());
         this.document.getElementById('clearCables').addEventListener('click', () => this.clearAllCables());
         this.document.getElementById('copyPatch').addEventListener('click', () => this.copyPatchToClipboard());
+        this.document.getElementById('sharePatch')?.addEventListener('click', () => this.sharePatchUrl());
         this.document.getElementById('exportPatch')?.addEventListener('click', () => this.exportCurrentPatchToFile());
         this.document.getElementById('importPatch')?.addEventListener('click', () => {
             this.document.getElementById('patchFileInput')?.click();
@@ -921,16 +929,16 @@ export class EurorackApp {
     initPatchBank() {
         this.updatePatchSelect();
 
-        this.document.getElementById('savePatch').addEventListener('click', () => {
+        this.document.getElementById('savePatch').addEventListener('click', async () => {
             const input = this.document.getElementById('patchName');
-            if (this.savePatch(input.value)) {
+            if (await this.savePatch(input.value)) {
                 this.document.getElementById('patchSelect').value = input.value.trim();
                 input.value = '';
             }
         });
-        this.document.getElementById('loadPatch').addEventListener('click', () => {
+        this.document.getElementById('loadPatch').addEventListener('click', async () => {
             const select = this.document.getElementById('patchSelect');
-            if (select.value) this.loadPatch(select.value);
+            if (select.value) await this.loadPatch(select.value);
         });
         this.document.getElementById('deletePatch').addEventListener('click', () => {
             const select = this.document.getElementById('patchSelect');
@@ -939,27 +947,41 @@ export class EurorackApp {
         this.document.getElementById('patchName').addEventListener('keypress', event => {
             if (event.key === 'Enter') this.document.getElementById('savePatch').click();
         });
-        this.document.getElementById('patchSelect').addEventListener('dblclick', () => {
+        this.document.getElementById('patchSelect').addEventListener('dblclick', async () => {
             const select = this.document.getElementById('patchSelect');
-            if (select.value) this.loadPatch(select.value);
+            if (select.value) await this.loadPatch(select.value);
         });
     }
 
-    savePatch(name) {
+    getPatchUrlOptions() {
+        return {
+            moduleOrder: DEFAULT_MODULE_ORDER,
+            moduleRegistry
+        };
+    }
+
+    async savePatch(name) {
         if (!name?.trim()) {
             alert('Please enter a patch name');
             return false;
         }
         const patches = this.getUserPatches();
         const patchName = name.trim();
-        patches[patchName] = {
+        const patch = {
             name: patchName,
             factory: false,
             created: new Date().toISOString(),
             state: this.state.serializePatch()
         };
+        patches[patchName] = patch;
         this.saveUserPatches(patches);
         this.updatePatchSelect();
+        try {
+            await this.updatePatchUrl(patch);
+        } catch (error) {
+            alert(`Failed to update share URL: ${error.message}`);
+            return false;
+        }
         return true;
     }
 
@@ -982,14 +1004,27 @@ export class EurorackApp {
         }
     }
 
-    loadPatch(name) {
+    async loadPatch(name) {
         const patch = this.getPatchList()[name];
         if (!patch) {
             alert('Patch not found');
             return false;
         }
         const normalized = normalizePatch(patch, { moduleOrder: DEFAULT_MODULE_ORDER });
-        return this.loadPatchState(normalized);
+        const loaded = this.loadPatchState(normalized);
+        if (loaded) {
+            try {
+                await this.updatePatchUrl({
+                    name: patch.name || name,
+                    factory: false,
+                    state: normalized
+                });
+            } catch (error) {
+                alert(`Failed to update share URL: ${error.message}`);
+                return false;
+            }
+        }
+        return loaded;
     }
 
     deletePatch(name) {
@@ -1027,6 +1062,39 @@ export class EurorackApp {
         addGroup('My Patches', Object.keys(this.getUserPatches()).sort());
     }
 
+    async updatePatchUrl(patch) {
+        const win = this.document.defaultView || (typeof window !== 'undefined' ? window : null);
+        if (!win?.location) return;
+
+        const url = await this.getPatchUrl(patch);
+        if (win.history?.replaceState) {
+            win.history.replaceState(null, '', url);
+        } else {
+            win.location.hash = await createPatchUrlHash(patch, this.getPatchUrlOptions());
+        }
+    }
+
+    async loadPatchFromUrlHash() {
+        const win = this.document.defaultView || (typeof window !== 'undefined' ? window : null);
+        if (!win?.location?.hash) return false;
+
+        let patch;
+        try {
+            patch = await parsePatchUrlHash(win.location.hash, this.getPatchUrlOptions());
+        } catch (error) {
+            alert(`Failed to load shared patch URL: ${error.message}`);
+            return false;
+        }
+
+        if (!patch) return false;
+        const loaded = this.loadPatchState(patch.state);
+        const input = this.document.getElementById('patchName');
+        const select = this.document.getElementById('patchSelect');
+        if (input) input.value = patch.name;
+        if (select) select.value = '';
+        return loaded;
+    }
+
     copyPatchToClipboard() {
         const json = JSON.stringify(this.state.serializePatch(), null, 4);
         navigator.clipboard.writeText(json).then(() => {
@@ -1035,6 +1103,54 @@ export class EurorackApp {
             btn.textContent = 'Copied!';
             setTimeout(() => { btn.textContent = oldText; }, 1500);
         }).catch(() => alert('Failed to copy to clipboard'));
+    }
+
+    async getPatchUrl(patch) {
+        const win = this.document.defaultView || (typeof window !== 'undefined' ? window : null);
+        if (!win?.location) return '';
+
+        const nextUrl = new URL(win.location.href);
+        nextUrl.hash = await createPatchUrlHash(patch, this.getPatchUrlOptions());
+        return nextUrl.toString();
+    }
+
+    writeClipboardText(text) {
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+            return navigator.clipboard.writeText(text);
+        }
+
+        return Promise.reject(new Error('Clipboard API unavailable'));
+    }
+
+    async sharePatchUrl() {
+        const name = this.getCurrentPatchName();
+        const patch = {
+            name,
+            factory: false,
+            created: new Date().toISOString(),
+            state: this.state.serializePatch()
+        };
+
+        let url;
+        try {
+            await this.updatePatchUrl(patch);
+            url = await this.getPatchUrl(patch);
+        } catch (error) {
+            alert(`Failed to create share URL: ${error.message}`);
+            return false;
+        }
+
+        return this.writeClipboardText(url).then(() => {
+            const btn = this.document.getElementById('sharePatch');
+            if (!btn) return true;
+            const oldText = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = oldText; }, 1500);
+            return true;
+        }).catch(() => {
+            alert('Failed to copy share URL');
+            return false;
+        });
     }
 
     getCurrentPatchName() {
@@ -1065,14 +1181,14 @@ export class EurorackApp {
 
     async importPatchFile(file) {
         try {
-            return this.importPatchJson(await file.text(), { suggestedName: file.name });
+            return await this.importPatchJson(await file.text(), { suggestedName: file.name });
         } catch (error) {
             alert(`Failed to import patch JSON: ${error.message}`);
             return { importedCount: 0, error };
         }
     }
 
-    importPatchJson(json, { suggestedName = '' } = {}) {
+    async importPatchJson(json, { suggestedName = '' } = {}) {
         try {
             const imported = parseImportedPatchJson(json, {
                 suggestedName,
@@ -1080,7 +1196,9 @@ export class EurorackApp {
             });
 
             if (imported.type === 'single') {
-                this.loadPatchState(imported.patches[imported.names[0]].state);
+                const patch = imported.patches[imported.names[0]];
+                this.loadPatchState(patch.state);
+                await this.updatePatchUrl(patch);
             }
 
             const patches = { ...this.getUserPatches(), ...imported.patches };

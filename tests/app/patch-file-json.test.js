@@ -5,6 +5,7 @@ import {
     PATCH_EXPORT_VERSION,
     parseImportedPatchJson
 } from '../../src/js/app/app.js';
+import { createPatchUrlHash, parsePatchUrlHash } from '../../src/js/app/patch-format.js';
 import { PATCH_STORAGE_KEY } from '../../src/js/config/constants.js';
 import { moduleRegistry, registerModule } from '../../src/js/rack/registry.js';
 
@@ -34,6 +35,7 @@ function setupDOM() {
         <button id="startButton"></button>
         <button id="clearCables"></button>
         <button id="copyPatch"></button>
+        <button id="sharePatch"></button>
         <button id="exportPatch"></button>
         <button id="importPatch"></button>
         <input id="patchFileInput" type="file">
@@ -73,6 +75,7 @@ describe('patch file JSON import/export', () => {
     beforeEach(() => {
         setupDOM();
         localStorage.clear();
+        window.history.replaceState(null, '', '/');
         alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
     });
 
@@ -154,11 +157,11 @@ describe('patch file JSON import/export', () => {
         });
     });
 
-    it('imports and loads a single patch JSON with dynamic rows into the rack', () => {
+    it('imports and loads a single patch JSON with dynamic rows into the rack', async () => {
         const app = new EurorackApp(document);
         app.cacheElements();
 
-        const result = app.importPatchJson(JSON.stringify({
+        const result = await app.importPatchJson(JSON.stringify({
             version: 2,
             modules: [{ id: 'filetest_1', type: 'filetest', row: 3, index: 0 }],
             params: { filetest_1: { level: 0.9 } },
@@ -167,8 +170,12 @@ describe('patch file JSON import/export', () => {
         }), { suggestedName: 'Imported.json' });
 
         const saved = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY));
+        const sharedPatch = await parsePatchUrlHash(window.location.hash, { moduleRegistry });
+
         expect(result).toMatchObject({ importedCount: 1, loadedName: 'Imported', type: 'single' });
         expect(saved.Imported.state.params.filetest_1.level).toBe(0.9);
+        expect(sharedPatch.name).toBe('Imported');
+        expect(sharedPatch.state.params.filetest_1.level).toBe(0.9);
         expect(app.state.getModule('filetest_1').params.level).toBe(0.9);
         expect(app.state.getModule('filetest_1').row).toBe(3);
         expect(document.getElementById('rack-row-3')).not.toBeNull();
@@ -176,7 +183,7 @@ describe('patch file JSON import/export', () => {
         expect(document.getElementById('patchSelect').value).toBe('');
     });
 
-    it('saves and reloads dynamic rows through the patch dropdown loader', () => {
+    it('saves and reloads dynamic rows through the patch dropdown loader', async () => {
         const app = new EurorackApp(document);
         app.cacheElements();
         app.state.addRow();
@@ -187,19 +194,104 @@ describe('patch file JSON import/export', () => {
         });
         app.initPatchBank();
 
-        expect(app.savePatch('Three Rows')).toBe(true);
+        expect(await app.savePatch('Three Rows')).toBe(true);
         app.state.clear();
         app.rerenderRack();
 
         const select = document.getElementById('patchSelect');
         select.value = 'Three Rows';
-        document.getElementById('loadPatch').click();
+        expect(await app.loadPatch('Three Rows')).toBe(true);
 
         expect(app.state.getRowNumbers()).toEqual([1, 2, 3]);
         expect(app.state.getModule('filetest_1').row).toBe(3);
         expect(app.state.getModule('filetest_1').params.level).toBe(0.7);
         expect(document.getElementById('rack-row-3')).not.toBeNull();
         expect(document.getElementById('module-filetest_1').parentNode.id).toBe('rack-row-3');
+    });
+
+    it('updates the URL hash when saving a patch', async () => {
+        const app = new EurorackApp(document);
+        app.cacheElements();
+        app.state.addModule('filetest', moduleRegistry, {
+            id: 'filetest_1',
+            row: 1,
+            params: { level: 0.64 }
+        });
+
+        expect(await app.savePatch('Share Me')).toBe(true);
+
+        const sharedPatch = await parsePatchUrlHash(window.location.hash, { moduleRegistry });
+        expect(window.location.hash).toMatch(/^#patch=/);
+        expect(sharedPatch.name).toBe('Share Me');
+        expect(sharedPatch.state.params.filetest_1.level).toBe(0.64);
+    });
+
+    it('updates the URL hash when loading a patch from the dropdown', async () => {
+        const app = new EurorackApp(document);
+        app.cacheElements();
+        app.state.addModule('filetest', moduleRegistry, {
+            id: 'filetest_1',
+            row: 1,
+            params: { level: 0.31 }
+        });
+        await app.savePatch('Saved Patch');
+        window.history.replaceState(null, '', '/');
+
+        expect(await app.loadPatch('Saved Patch')).toBe(true);
+
+        const sharedPatch = await parsePatchUrlHash(window.location.hash, { moduleRegistry });
+        expect(sharedPatch.name).toBe('Saved Patch');
+        expect(sharedPatch.state.params.filetest_1.level).toBe(0.31);
+    });
+
+    it('loads a shared patch URL hash into the rack', async () => {
+        const sharedState = {
+            version: 2,
+            modules: [{ id: 'filetest_1', type: 'filetest', row: 2, index: 0 }],
+            params: { filetest_1: { level: 0.22 } },
+            cables: [],
+            midiMappings: {}
+        };
+        window.history.replaceState(null, '', `/#${await createPatchUrlHash(
+            { name: 'URL Patch', state: sharedState },
+            { moduleRegistry }
+        )}`);
+
+        const app = new EurorackApp(document);
+        app.cacheElements();
+
+        expect(await app.loadPatchFromUrlHash()).toBe(true);
+        expect(app.state.getModule('filetest_1').row).toBe(2);
+        expect(app.state.getModule('filetest_1').params.level).toBe(0.22);
+        expect(document.getElementById('patchName').value).toBe('URL Patch');
+        expect(document.getElementById('module-filetest_1').parentNode.id).toBe('rack-row-2');
+    });
+
+    it('copies a share URL with the current patch encoded in the hash', async () => {
+        const app = new EurorackApp(document);
+        app.cacheElements();
+        app.state.addModule('filetest', moduleRegistry, {
+            id: 'filetest_1',
+            row: 1,
+            params: { level: 0.77 }
+        });
+        document.getElementById('patchName').value = 'Clipboard Patch';
+
+        const writeText = vi.fn(() => Promise.resolve());
+        Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: { writeText }
+        });
+
+        expect(await app.sharePatchUrl()).toBe(true);
+
+        const copiedUrl = writeText.mock.calls[0][0];
+        const parsed = new URL(copiedUrl);
+        const sharedPatch = await parsePatchUrlHash(parsed.hash, { moduleRegistry });
+        expect(parsed.hash).toMatch(/^#patch=/);
+        expect(window.location.hash).toBe(parsed.hash);
+        expect(sharedPatch.name).toBe('Clipboard Patch');
+        expect(sharedPatch.state.params.filetest_1.level).toBe(0.77);
     });
 
     it('exports the current rack as a named JSON download', async () => {

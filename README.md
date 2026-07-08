@@ -52,6 +52,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 |----|--------|-------------|
 | `arp` | ARP | Triggered chord arpeggiator with root and chord CV |
 | `seq` | SEQ | 8-step CV/gate sequencer with direction and range controls |
+| `seq-switch` | SEQ-SW | Clocked sequential switch for 4-to-1 and 1-to-4 signal routing |
 | `euclid` | EUCLID | Euclidean rhythm generator with length, hits, and rotation controls |
 | `turing` | TURING | Random looping sequencer based on Music Thing Turing Machine |
 

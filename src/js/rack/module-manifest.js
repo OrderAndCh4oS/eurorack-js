@@ -12,6 +12,7 @@ export const MODULE_MANIFEST = [
     { id: 'quant', load: () => import('../modules/quant/index.js') },
     { id: 'arp', load: () => import('../modules/arp/index.js') },
     { id: 'seq', load: () => import('../modules/seq/index.js') },
+    { id: 'seq-switch', load: () => import('../modules/seq-switch/index.js') },
     { id: 'euclid', load: () => import('../modules/euclid/index.js') },
     { id: 'logic', load: () => import('../modules/logic/index.js') },
     { id: 'mult', load: () => import('../modules/mult/index.js') },

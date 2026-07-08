@@ -45,6 +45,7 @@ Each module has a dedicated research file documenting hardware specs, DSP algori
 |--------|-------------|--------|
 | [arp](modules/arp.md) | Arpeggiator | ✅ Complete |
 | [seq](modules/seq.md) | Step Sequencer | ✅ Complete |
+| [seq-switch](modules/seq-switch.md) | Sequential Switch | ✅ Complete |
 
 ### Processing
 | Module | Description | Status |

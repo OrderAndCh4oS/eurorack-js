@@ -15,6 +15,7 @@ export const MODULE_MANIFEST = [
     { id: 'euclid', load: () => import('../modules/euclid/index.js') },
     { id: 'logic', load: () => import('../modules/logic/index.js') },
     { id: 'mult', load: () => import('../modules/mult/index.js') },
+    { id: 'matrix', load: () => import('../modules/matrix/index.js') },
     { id: 'vco', load: () => import('../modules/vco/index.js') },
     { id: 'vcf', load: () => import('../modules/vcf/index.js') },
     { id: 'fold', load: () => import('../modules/fold/index.js') },

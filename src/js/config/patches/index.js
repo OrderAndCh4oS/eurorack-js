@@ -23,6 +23,7 @@ import testSequencer from './test-sequencer.js';
 import testEuclid from './test-euclid.js';
 import testLogic from './test-logic.js';
 import testMult from './test-mult.js';
+import testMatrix from './test-matrix.js';
 import testFold from './test-fold.js';
 import testRing from './test-ring.js';
 import testRnd from './test-rnd.js';
@@ -112,6 +113,7 @@ export const FACTORY_PATCHES = {
     [testEuclid.name]: testEuclid,
     [testLogic.name]: testLogic,
     [testMult.name]: testMult,
+    [testMatrix.name]: testMatrix,
     [testFold.name]: testFold,
     [testRing.name]: testRing,
     [testRnd.name]: testRnd,

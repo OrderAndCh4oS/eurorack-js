@@ -85,6 +85,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | `sh` | S+H | Dual sample and hold |
 | `logic` | LOGIC | Boolean gate operator with AND and OR outputs |
 | `mult` | MULT | Two-input, six-output signal splitter |
+| `matrix` | MATRIX | 4x4 DC-coupled matrix mixer with unipolar and bipolar output modes |
 | `envf` | ENVF | Envelope follower with normal and inverted CV outputs |
 | `vca` | VCA | Dual voltage-controlled amplifier |
 | `atten` | ATTN | Dual attenuverter with offset controls |

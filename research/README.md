@@ -52,6 +52,7 @@ Each module has a dedicated research file documenting hardware specs, DSP algori
 | [vcf](modules/vcf.md) | Voltage Controlled Filter | ✅ Complete |
 | [vca](modules/vca.md) | Voltage Controlled Amplifier | ✅ Complete |
 | [mix](modules/mix.md) | Mixer | ✅ Complete |
+| [matrix](modules/matrix.md) | Matrix Mixer | ✅ Complete |
 | [scope](modules/scope.md) | Oscilloscope | ✅ Complete |
 
 ### Effects

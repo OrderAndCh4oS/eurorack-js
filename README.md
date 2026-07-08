@@ -8,7 +8,7 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 
 ## Modules
 
-Built-in modules are registered in `src/js/rack/module-manifest.js` and grouped by sidebar category.
+Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.js` and grouped by each module definition's sidebar category.
 
 ### MIDI
 | ID | Module | Description |
@@ -128,7 +128,7 @@ src/js/
 │       └── index.js      # DSP + UI
 ├── patches/              # Patch serialization
 ├── rack/                 # Rack infrastructure
-│   ├── module-manifest.js # Module order, category labels, dynamic imports
+│   ├── module-manifest.js # Module order, category taxonomy, dynamic imports
 │   ├── rack.js           # Legacy/simple rack helper
 │   └── registry.js       # Module lookup/validation
 ├── ui/
@@ -178,7 +178,7 @@ export default {
 };
 ```
 
-Register new modules in `src/js/rack/module-manifest.js`; the registry and default processing order are derived from that manifest.
+Register new modules in `src/js/rack/module-manifest.js`; the registry and default processing order are derived from that manifest, while sidebar grouping comes from the module's `category`.
 
 ## Patch Format
 

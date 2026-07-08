@@ -22,7 +22,7 @@ export default {
     name: 'QUANT',
     hp: 4,
     color: 'module-color-nine',
-    category: 'utility',
+    category: 'quantizer',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         const output = new Float32Array(bufferSize);

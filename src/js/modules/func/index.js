@@ -33,7 +33,7 @@ export default {
     name: 'FUNC',
     hp: 8,
     color: 'module-color-four',
-    category: 'modulator',
+    category: 'modulation',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         const out = new Float32Array(bufferSize);

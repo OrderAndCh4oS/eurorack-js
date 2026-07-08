@@ -22,6 +22,8 @@ See the full review for complete analysis and implementation guidance.
 
 Each module has a dedicated research file documenting hardware specs, DSP algorithms, and implementation references.
 
+**[module-queue.md](module-queue.md)** - Candidate backlog for new modules that add distinct capabilities. Items in the queue require their own cited research document before implementation.
+
 ### Sources
 | Module | Description | Status |
 |--------|-------------|--------|
@@ -101,6 +103,19 @@ Cross-cutting DSP topics and techniques.
 - [MusicDSP.org](https://www.musicdsp.org/) — Community code snippets archive
 - [DAFx Paper Archive](https://dafx.de/paper-archive/) — Conference papers
 
+### Historical and Context Sources
+- Old synth magazines, zines, newsletters, and catalogs — panel context, intended use, and period language
+- Product announcements, press releases, and trade-show coverage — launch claims and feature intent
+- Interviews, mailing lists, forum archives, and user groups — undocumented behavior and design rationale
+- Patents, application notes, and service manuals — circuit behavior and implementation clues
+- Archived product pages via web archives — discontinued specs and revision history
+
+### Reviews and Demos
+- Manufacturer demos — intended feature presentation, canonical patch examples, and official settings
+- Independent video demos — observed sonic behavior, knob response, patch context, and performance quirks
+- Written reviews and magazine reviews — comparative language, strengths/weaknesses, and period reception
+- Forum sound examples and comparison shootouts — edge cases, user-discovered behavior, and practical patching notes
+
 ### Key Papers
 - [Välimäki & Huovilainen: Antialiasing Oscillators](https://ieeexplore.ieee.org/document/4117934)
 - [Huovilainen: Non-Linear Moog Filter](https://dafx.de/paper-archive/2004/P_061.PDF)
@@ -122,17 +137,26 @@ When adding new module documentation, use this template:
 - **Based on**: [Manufacturer Module Name](link)
 - **Manual**: [PDF link]
 - **ModularGrid**: [link]
+- **Historical/context sources**: magazines, zines, catalogs, announcements, interviews, forums, patents, or archives
+- **Reviews/demos**: manufacturer demos, independent demos, written reviews, sound examples, or comparison shootouts
 
 ## Specifications
 - Knobs: list with ranges
 - CV Inputs: voltage ranges
 - Outputs: signal types
 - Special modes/features
+- Contradictions or unknowns: note source conflicts and assumptions
 
 ## DSP Implementation
 
 ### Algorithm Overview
 Brief description of the DSP approach
+
+### Observed Behavior From Reviews/Demos
+- Sonic character:
+- Interaction/knob behavior:
+- Demo patch notes:
+- Quirks or edge cases:
 
 ### Key References
 - [Paper/Book Title](link) - Brief description
@@ -144,5 +168,5 @@ Implementation details specific to our version
 - Feature ideas for future development
 
 ## Sources
-- [Source 1](url)
+- [Source title](url) — author/publisher, date/era, accessed YYYY-MM-DD, supports: specific fact or design choice
 ```

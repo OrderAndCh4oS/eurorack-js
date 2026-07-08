@@ -29,7 +29,7 @@ export default {
     name: 'OCHD',
     hp: 4,
     color: 'module-color-two',
-    category: 'modulator',
+    category: 'modulation',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         // Frequency multipliers for each output (relative to base rate)

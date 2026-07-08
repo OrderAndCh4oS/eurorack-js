@@ -25,7 +25,7 @@ export default {
     name: 'DIV',
     hp: 4,
     color: 'module-color-five',
-    category: 'utility',
+    category: 'clock',
 
     /**
      * Create DSP instance

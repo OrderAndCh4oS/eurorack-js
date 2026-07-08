@@ -17,7 +17,7 @@ export default {
     name: 'CLK',
     hp: 2,
     color: 'module-color-five',
-    category: 'utility',
+    category: 'clock',
 
     /**
      * Create DSP instance

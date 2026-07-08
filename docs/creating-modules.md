@@ -38,7 +38,79 @@ export default {
 | `name` | string | Display name shown in UI |
 | `hp` | number | Panel width (2, 3, 4, 6, 8, 10, 12, 14, or 16) |
 | `color` | string | Theme color token. Use one of `module-color-one` through `module-color-twelve`. Six-digit hex colors are accepted only as a custom-module fallback. |
-| `category` | string | Manifest/sidebar category. Prefer one from `CATEGORY_ORDER` in `src/js/rack/module-manifest.js`: `midi`, `clock`, `source`, `voice`, `modulation`, `sequencer`, `quantizer`, `filter`, `effect`, `utility`, `output`, `other` |
+| `category` | string | Sidebar category owned by the module definition. Must be one from `CATEGORY_ORDER` in `src/js/rack/module-manifest.js`: `midi`, `clock`, `source`, `voice`, `modulation`, `sequencer`, `quantizer`, `filter`, `effect`, `utility`, `output`, `other` |
+
+## Research Before Implementation
+
+Before creating a hardware-inspired module, create or update `research/modules/{moduleId}.md`. Use the research note to define the module contract before writing DSP or UI.
+
+Capture:
+
+1. Primary references: manufacturer page, manual/PDF, official firmware/source, product announcements, press releases, archived product pages, calibration notes, and hidden modes.
+2. Historical/context references when useful: old synth magazines, zines, catalogs, interviews, mailing-list posts, forum threads, patents, academic papers, app notes, and trade-show coverage.
+3. Reviews and demos: manufacturer demos, independent video demos, written reviews, forum sound examples, and comparison shootouts. Note observed sonic behavior, quirks, settings, and patch context.
+4. Practical secondary references: ModularGrid specs/panel image, retailer pages, trusted reviews, and user reports that describe behavior not captured in official specs.
+5. Panel inventory: every knob, switch, button, jack, LED, normalized connection, mode, and alternate function.
+6. Electrical behavior: audio/CV/gate/trigger ranges, thresholds, pulse lengths, pitch tracking, clipping, reset behavior, calibration tolerances, and modulation scaling.
+7. Source quality: note contradictions, which source wins, and why. Prefer primary specs for electrical facts unless better evidence is documented.
+8. DSP decision: whether the implementation is faithful, inspired-by, or adapted for this app, with trade-offs and source links.
+9. Test targets: output ranges, knob extremes, CV response, trigger edges, reset behavior, LEDs, buffer integrity, and spec-specific behavior.
+
+If a hardware detail cannot be verified, document the assumption and choose a range consistent with this app's voltage standards and similar modules.
+
+Every source entry should include title, author/publisher when known, date or approximate era, URL/archive URL, access date for unstable pages, and a short note explaining what fact or design choice it supports.
+
+## Processing Queue Candidates
+
+Use `research/module-queue.md` as the candidate board. A module must move through `candidate`, `researching`, `spec-ready`, `implementing`, and `done`; use `blocked` when a source contradiction or architecture issue prevents progress.
+
+To have Codex process a queued module end to end, use the copy-paste prompt in `docs/codex-process-module-command.md`.
+
+Do not start implementation until the queue item is `spec-ready`. At that point the research doc must define the panel contract, voltage contract, DSP plan, assumptions, contradictions, and test targets.
+
+For parallel work, isolate each module in its own branch or worktree:
+
+```bash
+git worktree add ../eurorack-js-{moduleId} -b module/{moduleId}
+```
+
+Use `research/{moduleId}` for research-only branches and `module/{moduleId}` for implementation branches. Keep shared infrastructure changes out of module branches unless they are explicitly part of that module's approved plan.
+
+Before writing module code, add this plan to `research/modules/{moduleId}.md`:
+
+```markdown
+## Implementation Plan
+- Module ID:
+- Category:
+- Branch/worktree:
+- DSP model:
+- Params:
+- Inputs:
+- Outputs:
+- LEDs:
+- Factory patch:
+- Focused tests:
+- Full validation command:
+- Known assumptions:
+```
+
+Minimum focused validation for a new module:
+
+```bash
+npm test -- tests/dsp/{moduleId}.test.js tests/rack/module-contracts.test.js tests/research/module-queue.test.js
+```
+
+If adding or changing a factory patch, also run:
+
+```bash
+npm test -- tests/config/factory-patches.test.js tests/app/patch-format.test.js
+```
+
+Before merge, run:
+
+```bash
+npm test
+```
 
 ## The DSP Factory
 
@@ -429,11 +501,11 @@ Add your module to `MODULE_MANIFEST` in `src/js/rack/module-manifest.js`:
 ```javascript
 export const MODULE_MANIFEST = [
     // ... existing modules
-    { id: 'mymodule', category: 'utility', load: () => import('../modules/mymodule/index.js') }
+    { id: 'mymodule', load: () => import('../modules/mymodule/index.js') }
 ];
 ```
 
-The registry loads modules from the manifest, and `MODULE_ORDER` is derived from manifest order. That order controls sidebar grouping/order and processing-order tie breaks.
+The registry loads modules from the manifest, and `MODULE_ORDER` is derived from manifest order. That order controls default processing-order tie breaks. Sidebar grouping comes from the module definition's `category` field.
 
 ## Testing Your Module
 

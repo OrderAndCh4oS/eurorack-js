@@ -27,7 +27,7 @@ export default {
     name: 'RND',
     hp: 4,
     color: 'module-color-twelve',
-    category: 'modulator',
+    category: 'modulation',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         const step = new Float32Array(bufferSize);

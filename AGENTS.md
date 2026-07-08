@@ -16,7 +16,7 @@ index.html
     ├── app/rack-state.js         Source of truth for modules, params, rows, cables
     ├── app/patch-format.js       v2 patch normalization and legacy migration
     ├── audio/engine.js           DSP processing loop and cable routing
-    ├── rack/module-manifest.js   Module imports, category labels, default order
+    ├── rack/module-manifest.js   Module imports, category taxonomy, default order
     ├── rack/registry.js          Module lookup and validation
     ├── ui/renderer.js            Declarative/custom module UI rendering
     └── modules/{module}/index.js Self-contained DSP + UI definitions
@@ -36,7 +36,7 @@ src/js/
 │   ├── rack-state.js      # Modules, rows, params, cables, patch state
 │   └── patch-format.js    # v2 patch normalization/migration
 ├── rack/                  # Rack infrastructure
-│   ├── module-manifest.js # Module imports, order, category labels
+│   ├── module-manifest.js # Module imports, order, category taxonomy
 │   ├── rack.js            # Legacy/simple rack helper
 │   └── registry.js        # Module lookup & validation
 ├── ui/
@@ -67,11 +67,39 @@ Processing order is computed dynamically from cable connections using `computePr
 
 ## Researching a Module
 
-1. Find official manual/PDF from manufacturer website
-2. Check ModularGrid for specs and panel image
-3. Document ALL: knobs, CV inputs, audio inputs, trigger inputs, outputs, switches, LEDs
-4. Note voltage ranges, thresholds, and hidden modes
-5. Cross-reference: manufacturer site, ModularGrid, retailer pages, demo videos
+Before writing DSP or UI, create or update `research/modules/{moduleId}.md`. Do not rely on memory or a single product listing.
+
+1. Find primary sources first: official manufacturer page, manual/PDF, firmware/source code when available, official calibration or hidden-mode notes, product announcements, press releases, and archived product pages.
+2. Add varied historical/context sources where useful: old synth magazines, zines, catalogs, interviews, mailing-list posts, forum threads, trade-show coverage, patents, academic papers, and app notes.
+3. Review demos and reviews: manufacturer demos, independent video demos, written reviews, forum sound examples, and comparison shootouts. Capture observed sonic behavior, interaction details, quirks, and any settings shown.
+4. Cross-check practical secondary sources: ModularGrid for HP/specs/panel layout, retailer pages for concise feature lists, user manuals for adjacent revisions, and trusted reviews for observed behavior.
+5. Document the full panel contract: knobs, switches, buttons, audio inputs, CV inputs, gate/trigger inputs, outputs, LEDs, normalization behavior, and any mode combinations.
+6. Capture exact electrical behavior where known: audio ranges, CV ranges and scaling, gate/trigger thresholds, pulse lengths, pitch tracking, clipping/saturation, reset behavior, and calibration tolerances.
+7. Track source quality and contradictions. Prefer primary specs for electrical facts, but keep contradictory reports in the research doc with notes on which source wins and why.
+8. Translate hardware behavior into this app's voltage standards. If the hardware spec is unknown, state the assumption and choose a musically useful range consistent with adjacent modules.
+9. Decide the DSP model before coding: faithful hardware emulation, inspired-by approximation, or utility adaptation. Document trade-offs, CPU implications, and expected audible differences.
+10. Record implementation references: papers, open-source DSP, MusicDSP/KVR discussions, manufacturer code, or comparable modules already in this repo.
+11. Define test targets from the research: output ranges, parameter extremes, CV scaling, trigger thresholds, state reset, LED behavior, and any manufacturer-specific behavior.
+12. Keep all sources linked in the research doc. Include title, author/publisher when known, date or approximate era, URL/archive URL, access date for unstable pages, and a one-line note on what the source supports.
+13. Cite the research in code comments only where it explains a non-obvious DSP choice.
+
+## Processing the Module Queue
+
+Use `research/module-queue.md` as the candidate board. Queue statuses are `candidate`, `researching`, `spec-ready`, `implementing`, `blocked`, and `done`.
+
+When asked to process a queued module end to end, follow the copy-paste command in `docs/codex-process-module-command.md`.
+
+Do not implement a queued module until it is `spec-ready`. Spec-ready means the research doc has citations, panel contract, voltage contract, DSP plan, assumptions/contradictions, and test targets.
+
+For parallel module development, isolate each module in its own branch or worktree:
+
+```bash
+git worktree add ../eurorack-js-{moduleId} -b module/{moduleId}
+```
+
+Use `research/{moduleId}` for research-only branches and `module/{moduleId}` for implementation branches. Keep shared framework changes separate from module implementation branches unless they are explicitly planned.
+
+Before coding, add an `Implementation Plan` section to `research/modules/{moduleId}.md` covering module ID, category, branch/worktree, DSP model, params, inputs, outputs, LEDs, factory patch needs, focused tests, full validation command, and known assumptions.
 
 ## Writing Tests (BEFORE implementation)
 
@@ -98,7 +126,7 @@ export default {
     name: 'Module Name',
     hp: 4,                    // Panel width
     color: 'module-color-six', // Theme color token
-    category: 'source',       // See CATEGORY_ORDER in rack/module-manifest.js
+    category: 'source',       // Sidebar category; must be in CATEGORY_ORDER
 
     // DSP factory
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
@@ -126,6 +154,8 @@ export default {
 
 **Port types**: `audio` | `cv` | `gate` | `trigger` | `buffer`
 
+**Module categories**: Module definitions own their own sidebar category. Use one of `midi`, `clock`, `source`, `voice`, `modulation`, `sequencer`, `quantizer`, `filter`, `effect`, `utility`, `output`, or `other` from `CATEGORY_ORDER` in `src/js/rack/module-manifest.js`.
+
 **Module colors**: Built-in modules should use one of the shared theme tokens in the `color` field: `module-color-one` through `module-color-twelve`. Themes map those tokens to their own light/dark palettes; six-digit hex colors are only a custom-module compatibility fallback.
 
 ## Registering a New Module
@@ -134,17 +164,22 @@ After creating `src/js/modules/{moduleId}/index.js`, register it in the manifest
 
 ```javascript
 // src/js/rack/module-manifest.js
-{ id: '{moduleId}', category: 'utility', load: () => import('../modules/{moduleId}/index.js') },
+{ id: '{moduleId}', load: () => import('../modules/{moduleId}/index.js') },
 ```
 
-The manifest controls dynamic imports, sidebar category grouping, and default processing-order tie breaks.
+The manifest controls dynamic imports and default processing-order tie breaks. Sidebar grouping comes from the module definition's `category` field.
 
 Update documentation:
-- Add to `AGENTS.md` available modules list and port reference table
+- Add to `AGENTS.md` available modules list
 - Add to `README.md` module table
 - Add or update `docs/creating-modules.md` if the module introduces a new pattern
 
 Create a focused DSP test in `tests/dsp/{moduleId}.test.js` and, when useful, a test patch in `src/js/config/patches/test-{moduleId}.js`.
+
+Validation for a new module:
+- Run `npm test -- tests/dsp/{moduleId}.test.js tests/rack/module-contracts.test.js tests/research/module-queue.test.js`
+- If factory patches changed, run `npm test -- tests/config/factory-patches.test.js tests/app/patch-format.test.js`
+- Before merge, run `npm test`
 
 ## Common DSP Patterns
 
@@ -210,58 +245,7 @@ export default {
 
 ### Module Port Reference
 
-| Module | Inputs | Outputs |
-|--------|--------|---------|
-| midi-cv | — | pitch, gate, velocity, mod |
-| midi-4 | — | pitch1, gate1, pitch2, gate2, pitch3, gate3, pitch4, gate4 |
-| midi-cc | — | cv1, cv2, cv3, cv4 |
-| midi-clk | — | clock, reset, run |
-| midi-drum | — | trig1, trig2, trig3, trig4, trig5, trig6, trig7, trig8, velocity |
-| clk | — | clock |
-| div | clock, rate1CV, rate2CV | out1, out2 |
-| lfo | rateCV, waveCV, reset | primary, secondary |
-| nse | trigger | noise |
-| sh | in1, in2, trig1, trig2 | out1, out2 |
-| quant | cv | cv, trigger |
-| arp | clock, cvIn, gateIn, hold, pause | cvOut, gateOut |
-| seq | clock, reset | cv, gate |
-| euclid | clock, reset, lenCV, hitsCV | trig |
-| logic | in1, in2 | and, or |
-| mult | in1, in2 | out1a, out1b, out1c, out2a, out2b, out2c |
-| vco | vOct, fm, pwm, sync | triangle, ramp, pulse |
-| vcf | audio, cutoffCV, resCV | lpf, bpf, hpf |
-| fold | audio, foldCV, symCV | out |
-| ring | x, y | out |
-| rnd | clock | step, smooth, gate |
-| envf | audio | env, inv |
-| func | in, trig, riseCV, fallCV, cycleCV | out, inv, eor, eoc |
-| adsr | gate, retrig | env |
-| vca | ch1In, ch2In, ch1CV, ch2CV | ch1Out, ch2Out |
-| mix | in1, in2, in3, in4 | out |
-| atten | in1, in2 | out1, out2 |
-| slew | in1, cv1, in2, cv2 | out1, out2 |
-| dly | inL, inR, timeCV, feedbackCV | outL, outR |
-| verb | audioL, audioR, mixCV | outL, outR |
-| chorus | inL, inR, rateCV, depthCV | outL, outR |
-| phaser | inL, inR, rateCV, depthCV | outL, outR |
-| flanger | inL, inR, rateCV, depthCV | outL, outR |
-| crush | inL, inR, bitsCV, rateCV | outL, outR |
-| loop | in, recTrig, reverseTrig | out |
-| granulita | inL, inR, hit, blendCV, pitchCV, chordCV, voiceCV, verbCV, countCV, lengthCV | outL, outR |
-| db | L, R | outL, outR |
-| pwm | in, pwmCV | out, inv |
-| turing | clock, lockCV | cv, pulse |
-| ochd | rateCV | out1, out2, out3, out4, out5, out6, out7, out8 |
-| cmp2 | in1, in2, shiftCV1, sizeCV1, shiftCV2, sizeCV2 | out1, not1, out2, not2, and, or, xor, ff |
-| kick | trigger, pitchCV, decayCV, toneCV | out |
-| snare | trigger, toneCV, decayCV | out |
-| hat | trigger, decayCV | out |
-| scope | ch1, ch2 | — |
-| spectrum | audio | out |
-| plot | audio, trig | out |
-| spectrogram | audio | out |
-| rec | L, R | outL, outR |
-| out | L, R | — |
+Port names are source-defined in each module's `ui.inputs[]` and `ui.outputs[]`. Do not rely on a copied table when writing patches; inspect `src/js/modules/{moduleId}/index.js` and use the exact `port` values. Contract tests validate factory patch cables against these module definitions.
 
 ### Adding a New Patch
 
@@ -306,6 +290,7 @@ When module specs change (renamed/removed params, inputs, outputs, switches):
 ## Research
 
 Module documentation and DSP references are maintained in `/research/`:
+- `research/module-queue.md` — Candidate backlog for new modules; queued items still need cited research before implementation
 - `research/modules/` — Per-module specs, manuals, and implementation references
 - `research/topics/` — Cross-cutting DSP topics (filters, anti-aliasing, etc.)
 - `research/sound-engineering-review.md` — Sound quality improvements and recommendations

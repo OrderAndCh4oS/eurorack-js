@@ -1,7 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { beforeAll, describe, it, expect } from 'vitest';
 import { FACTORY_PATCHES } from '../../src/js/config/factory-patches.js';
+import { normalizePatch } from '../../src/js/app/patch-format.js';
+import { MODULE_MANIFEST, MODULE_ORDER } from '../../src/js/rack/module-manifest.js';
 
 describe('factory-patches', () => {
+    let moduleDefinitions;
+
+    beforeAll(async () => {
+        moduleDefinitions = new Map(await Promise.all(MODULE_MANIFEST.map(async entry => {
+            const module = await entry.load();
+            return [entry.id, module.default];
+        })));
+    });
+
     describe('FACTORY_PATCHES', () => {
         it('should be an object', () => {
             expect(typeof FACTORY_PATCHES).toBe('object');
@@ -49,6 +60,27 @@ describe('factory-patches', () => {
                     expect(cable.fromPort).toBeDefined();
                     expect(cable.toModule).toBeDefined();
                     expect(cable.toPort).toBeDefined();
+                });
+            });
+        });
+
+        it('should only use cables that match normalized module ports', () => {
+            Object.entries(FACTORY_PATCHES).forEach(([name, patch]) => {
+                const state = normalizePatch(patch.state, { moduleOrder: MODULE_ORDER });
+                const moduleTypes = new Map(state.modules.map(mod => [mod.id, mod.type]));
+
+                state.cables.forEach(cable => {
+                    const fromType = moduleTypes.get(cable.fromModule);
+                    const toType = moduleTypes.get(cable.toModule);
+                    const fromDefinition = moduleDefinitions.get(fromType);
+                    const toDefinition = moduleDefinitions.get(toType);
+                    const outputPorts = new Set((fromDefinition?.ui?.outputs || []).map(output => output.port));
+                    const inputPorts = new Set((toDefinition?.ui?.inputs || []).map(input => input.port));
+
+                    expect(fromType, `${name} cable references missing source module ${cable.fromModule}`).toBeDefined();
+                    expect(toType, `${name} cable references missing destination module ${cable.toModule}`).toBeDefined();
+                    expect(outputPorts, `${name} ${cable.fromModule} has no output port ${cable.fromPort}`).toContain(cable.fromPort);
+                    expect(inputPorts, `${name} ${cable.toModule} has no input port ${cable.toPort}`).toContain(cable.toPort);
                 });
             });
         });

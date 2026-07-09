@@ -226,6 +226,40 @@
             flex-wrap: wrap;
         }
 
+        .socket-split {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .socket-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            min-width: 0;
+        }
+
+        .socket-column-label {
+            font-size: 6px;
+            color: #777;
+            text-transform: uppercase;
+            line-height: 1;
+        }
+
+        .socket-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 4px 6px;
+            justify-items: center;
+        }
+
+        .socket-grid .jack-container {
+            width: 28px;
+        }
+
         /* Compact elements for wider modules */
         .module-8hp .jack-row {
             gap: 2px;
@@ -1552,6 +1586,7 @@
 
         body.skin-factory .knob-label,
         body.skin-factory .jack-label,
+        body.skin-factory .socket-column-label,
         body.skin-factory .section-label,
         body.skin-factory .rec-led-label,
         body.skin-factory .rec-time:not(.recording),

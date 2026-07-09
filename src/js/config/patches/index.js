@@ -30,6 +30,9 @@ import testLogic from './test-logic.js';
 import testMult from './test-mult.js';
 import testMatrix from './test-matrix.js';
 import testJoystick from './test-joystick.js';
+import testWavetable from './test-wavetable.js';
+import testPluck from './test-pluck.js';
+import testFormant from './test-formant.js';
 import testFold from './test-fold.js';
 import testRing from './test-ring.js';
 import testRnd from './test-rnd.js';
@@ -41,6 +44,7 @@ import testFuncLfo from './test-func-lfo.js';
 import testFuncSlew from './test-func-slew.js';
 import testFuncEoc from './test-func-eoc.js';
 import testDelay from './test-delay.js';
+import testTape from './test-tape.js';
 import testReverb from './test-reverb.js';
 import testChorus from './test-chorus.js';
 import testPhaser from './test-phaser.js';
@@ -53,6 +57,7 @@ import testPwm from './test-pwm.js';
 import testTuring from './test-turing.js';
 import testOchd from './test-ochd.js';
 import testCmp2 from './test-cmp2.js';
+import testComp from './test-comp.js';
 import testAttenuverter from './test-attenuverter.js';
 import testSlew from './test-slew.js';
 import testSpectrum from './test-spectrum.js';
@@ -126,6 +131,9 @@ export const FACTORY_PATCHES = {
     [testMult.name]: testMult,
     [testMatrix.name]: testMatrix,
     [testJoystick.name]: testJoystick,
+    [testWavetable.name]: testWavetable,
+    [testPluck.name]: testPluck,
+    [testFormant.name]: testFormant,
     [testFold.name]: testFold,
     [testRing.name]: testRing,
     [testRnd.name]: testRnd,
@@ -137,6 +145,7 @@ export const FACTORY_PATCHES = {
     [testFuncSlew.name]: testFuncSlew,
     [testFuncEoc.name]: testFuncEoc,
     [testDelay.name]: testDelay,
+    [testTape.name]: testTape,
     [testReverb.name]: testReverb,
     [testChorus.name]: testChorus,
     [testPhaser.name]: testPhaser,
@@ -149,6 +158,7 @@ export const FACTORY_PATCHES = {
     [testTuring.name]: testTuring,
     [testOchd.name]: testOchd,
     [testCmp2.name]: testCmp2,
+    [testComp.name]: testComp,
     [testAttenuverter.name]: testAttenuverter,
     [testSlew.name]: testSlew,
     [testSpectrum.name]: testSpectrum,

@@ -32,10 +32,12 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 |----|--------|-------------|
 | `nse` | NSE | White and pink noise generator |
 | `vco` | VCO | Voltage-controlled oscillator with triangle, saw, and pulse outputs |
+| `wavetable` | WAVE | Procedural wavetable oscillator with morphing, bank CV, FM, and sync |
 
 ### Voices
 | ID | Module | Description |
 |----|--------|-------------|
+| `pluck` | PLUCK | Four-voice Karplus-Strong plucked string voice |
 | `kick` | KICK | Analog-style kick drum synthesizer |
 | `snare` | SNARE | Analog-style snare drum synthesizer |
 | `hat` | HAT | Hi-hat synthesizer with separate open and closed triggers |
@@ -69,6 +71,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 |----|--------|-------------|
 | `vcf` | VCF | State-variable filter with low-pass, band-pass, and high-pass outputs |
 | `lpg` | LPG | Vactrol-style low pass gate with VCA, combo, and low-pass modes |
+| `formant` | FORMANT | Morphable vowel/formant filter with drive, shift, resonance, and CV control |
 
 ### Effects
 | ID | Module | Description |
@@ -76,6 +79,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | `fold` | FOLD | Wavefolder for adding harmonic complexity |
 | `ring` | RING | Ring modulator for signal multiplication |
 | `dly` | DLY | Mono digital delay with time, feedback, mix, and CV control |
+| `tape` | TAPE | Tape-style delay with saturation, multi-head modes, wow/flutter, crinkle, tap, and freeze |
 | `verb` | VERB | Stereo reverb with time, damping, mix, and mix CV |
 | `chorus` | CHORUS | Stereo chorus effect |
 | `phaser` | PHASER | Stereo phaser effect |
@@ -99,6 +103,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | `db` | DB | Stereo VU/peak meter with audio passthrough |
 | `pwm` | PWM | Pulse-width modulator with complementary outputs |
 | `cmp2` | CMP2 | Dual window comparator with logic outputs based on Joranalogue Compare 2 |
+| `comp` | COMP | Stereo-linked compressor/limiter with sidechain filtering and gain-reduction CV |
 | `mix` | MIX | Four-channel mixer with level controls |
 | `scope` | SCOPE | Dual-channel oscilloscope with scope, X-Y, and tuning modes |
 | `spectrum` | SPECTRUM | Real-time FFT spectrum analyzer with audio passthrough |

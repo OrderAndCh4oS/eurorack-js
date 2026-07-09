@@ -146,6 +146,59 @@ describe('renderModule', () => {
         expect(panel.querySelector('.loop-section-label')).toBeNull();
     });
 
+    it('renders declarative split socket layouts without requiring group labels', () => {
+        const panel = renderModule({
+            id: 'splitter',
+            name: 'SPLIT',
+            hp: 10,
+            color: 'module-color-three',
+            createDSP: () => ({}),
+            ui: {
+                inputs: [
+                    { id: 'audio', label: 'In', port: 'audio', type: 'audio' },
+                    { id: 'tap', label: 'Tap', port: 'tap', type: 'trigger' },
+                    { id: 'timeCV', label: 'Time', port: 'timeCV', type: 'cv' }
+                ],
+                outputs: [
+                    { id: 'out', label: 'Out', port: 'out', type: 'audio' }
+                ],
+                socketLayout: {
+                    columns: [
+                        { columns: 1, ports: ['audio', 'tap'] },
+                        { columns: 2, ports: ['out', 'timeCV'] }
+                    ]
+                }
+            }
+        }, 'split_1', {
+            dsp: null,
+            onParamChange: vi.fn()
+        });
+
+        expect(panel.querySelectorAll('.section-label')).toHaveLength(0);
+        expect(panel.querySelectorAll('.jack-row')).toHaveLength(0);
+        expect(panel.querySelector('.socket-split')).toBeTruthy();
+        expect(panel.querySelectorAll('.socket-column-label')).toHaveLength(0);
+
+        const columns = panel.querySelectorAll('.socket-column');
+        expect(columns).toHaveLength(2);
+        expect(columns[0].querySelector('.socket-grid').style.gridTemplateColumns)
+            .toBe('repeat(1, minmax(0, 1fr))');
+        expect(columns[1].querySelector('.socket-grid').style.gridTemplateColumns)
+            .toBe('repeat(2, minmax(0, 1fr))');
+
+        const jacks = [...panel.querySelectorAll('.jack')].map(jack => ({
+            port: jack.dataset.port,
+            dir: jack.dataset.dir,
+            type: jack.dataset.type
+        }));
+        expect(jacks).toEqual([
+            { port: 'audio', dir: 'input', type: 'audio' },
+            { port: 'tap', dir: 'input', type: 'trigger' },
+            { port: 'out', dir: 'output', type: 'audio' },
+            { port: 'timeCV', dir: 'input', type: 'cv' }
+        ]);
+    });
+
     it('adds titles to LOOP compact buttons', () => {
         const panel = renderModule(loopModule, 'loop_1', {
             dsp: loopModule.createDSP({ sampleRate: 100, bufferSize: 4 }),

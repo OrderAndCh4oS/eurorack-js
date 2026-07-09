@@ -245,6 +245,11 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit) {
     // Spacer
     container.appendChild(createSpacer());
 
+    if (ui.socketLayout) {
+        renderSocketLayout(container, ui, moduleId);
+        return;
+    }
+
     // Outputs
     if (ui.outputs?.length) {
         container.appendChild(createSection('Out'));
@@ -332,6 +337,74 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit) {
             container.appendChild(inRow);
         }
     }
+}
+
+function findSocketDefinition(ui, socketRef) {
+    const port = typeof socketRef === 'string' ? socketRef : socketRef.port;
+    const input = ui.inputs?.find(item => item.port === port);
+    const output = ui.outputs?.find(item => item.port === port);
+    const definition = input || output;
+
+    if (!definition) return null;
+
+    return {
+        ...definition,
+        label: socketRef.label || definition.label,
+        direction: output ? 'output' : 'input'
+    };
+}
+
+function createSocketJack(ui, socketRef, moduleId) {
+    const definition = findSocketDefinition(ui, socketRef);
+    if (!definition) return null;
+
+    return createJack({
+        id: definition.port,
+        label: definition.label,
+        moduleId,
+        direction: definition.direction,
+        type: definition.type || 'buffer'
+    });
+}
+
+function renderSocketLayout(container, ui, moduleId) {
+    const layout = ui.socketLayout;
+    const sectionLabel = layout.label || layout.section;
+
+    if (sectionLabel) {
+        container.appendChild(createSection(sectionLabel));
+    }
+
+    const split = document.createElement('div');
+    split.className = ['socket-split', layout.className].filter(Boolean).join(' ');
+
+    layout.columns.forEach(column => {
+        const columnEl = document.createElement('div');
+        columnEl.className = ['socket-column', column.className].filter(Boolean).join(' ');
+
+        if (column.label) {
+            const label = document.createElement('div');
+            label.className = 'socket-column-label';
+            label.textContent = column.label;
+            columnEl.appendChild(label);
+        }
+
+        const grid = document.createElement('div');
+        grid.className = ['socket-grid', column.gridClassName].filter(Boolean).join(' ');
+        if (column.columns) {
+            grid.style.gridTemplateColumns = `repeat(${column.columns}, minmax(0, 1fr))`;
+        }
+
+        column.ports.forEach(socketRef => {
+            const jack = createSocketJack(ui, socketRef, moduleId);
+            if (jack) grid.appendChild(jack);
+        });
+
+        columnEl.appendChild(grid);
+        split.appendChild(columnEl);
+    });
+
+    container.appendChild(split);
 }
 
 /**

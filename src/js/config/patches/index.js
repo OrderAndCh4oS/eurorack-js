@@ -22,9 +22,14 @@ import testScopeSinewave from './test-scope-sinewave.js';
 import testSequencer from './test-sequencer.js';
 import testSeqSwitch from './test-seq-switch.js';
 import testEuclid from './test-euclid.js';
+import testSwing from './test-swing.js';
+import testBurst from './test-burst.js';
+import testQuadLfo from './test-quad-lfo.js';
+import testLpg from './test-lpg.js';
 import testLogic from './test-logic.js';
 import testMult from './test-mult.js';
 import testMatrix from './test-matrix.js';
+import testJoystick from './test-joystick.js';
 import testFold from './test-fold.js';
 import testRing from './test-ring.js';
 import testRnd from './test-rnd.js';
@@ -113,9 +118,14 @@ export const FACTORY_PATCHES = {
     [testSequencer.name]: testSequencer,
     [testSeqSwitch.name]: testSeqSwitch,
     [testEuclid.name]: testEuclid,
+    [testSwing.name]: testSwing,
+    [testBurst.name]: testBurst,
+    [testQuadLfo.name]: testQuadLfo,
+    [testLpg.name]: testLpg,
     [testLogic.name]: testLogic,
     [testMult.name]: testMult,
     [testMatrix.name]: testMatrix,
+    [testJoystick.name]: testJoystick,
     [testFold.name]: testFold,
     [testRing.name]: testRing,
     [testRnd.name]: testRnd,

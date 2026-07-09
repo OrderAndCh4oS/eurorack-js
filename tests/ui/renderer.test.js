@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderModule } from '../../src/js/ui/renderer.js';
 import { EurorackApp } from '../../src/js/app/app.js';
 import loopModule from '../../src/js/modules/loop/index.js';
+import joystickModule from '../../src/js/modules/joystick/index.js';
 
 describe('renderModule', () => {
     it('adds module color token classes to rendered panels', () => {
@@ -231,6 +232,46 @@ describe('renderModule', () => {
 
         expect(recordButton.classList.contains('recording')).toBe(false);
         expect(onParamChange).toHaveBeenCalledWith('loop_1', 'record', 0);
+
+        requestFrame.mockRestore();
+        cancelFrame.mockRestore();
+    });
+
+    it('syncs JOY record and play buttons back when DSP transport auto-stops', () => {
+        const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
+        const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+        const onParamChange = vi.fn((moduleId, param, value) => {
+            moduleState.params[param] = value;
+        });
+        const dsp = joystickModule.createDSP({ sampleRate: 100, bufferSize: 4 });
+        dsp.params.record = 0;
+        dsp.params.play = 0;
+        const moduleState = {
+            instance: dsp,
+            params: {
+                x: 0,
+                y: 0,
+                range: 0,
+                cvMode: 0,
+                loopMode: 1,
+                gateButton: 0,
+                record: 1,
+                play: 1
+            }
+        };
+
+        const panel = renderModule(joystickModule, 'joy_1', {
+            dsp,
+            getModule: () => moduleState,
+            onParamChange
+        });
+        const recordButton = panel.querySelector('[data-param="record"]');
+        const playButton = panel.querySelector('[data-param="play"]');
+
+        expect(recordButton.classList.contains('active')).toBe(false);
+        expect(playButton.classList.contains('active')).toBe(false);
+        expect(onParamChange).toHaveBeenCalledWith('joy_1', 'record', 0);
+        expect(onParamChange).toHaveBeenCalledWith('joy_1', 'play', 0);
 
         requestFrame.mockRestore();
         cancelFrame.mockRestore();

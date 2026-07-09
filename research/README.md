@@ -36,6 +36,9 @@ Each module has a dedicated research file documenting hardware specs, DSP algori
 | Module | Description | Status |
 |--------|-------------|--------|
 | [div](modules/div.md) | Clock Divider | ✅ Complete |
+| [swing](modules/swing.md) | Swing Clock Processor | ✅ Complete |
+| [burst](modules/burst.md) | Burst Generator | ✅ Complete |
+| [quad-lfo](modules/quad-lfo.md) | Quadrature LFO | ✅ Complete |
 | [sh](modules/sh.md) | Sample & Hold | ✅ Complete |
 | [quant](modules/quant.md) | Quantizer | ✅ Complete |
 | [adsr](modules/adsr.md) | Envelope Generator | ✅ Complete |
@@ -51,9 +54,11 @@ Each module has a dedicated research file documenting hardware specs, DSP algori
 | Module | Description | Status |
 |--------|-------------|--------|
 | [vcf](modules/vcf.md) | Voltage Controlled Filter | ✅ Complete |
+| [lpg](modules/lpg.md) | Low Pass Gate | ✅ Complete |
 | [vca](modules/vca.md) | Voltage Controlled Amplifier | ✅ Complete |
 | [mix](modules/mix.md) | Mixer | ✅ Complete |
 | [matrix](modules/matrix.md) | Matrix Mixer | ✅ Complete |
+| [joystick](modules/joystick.md) | Joystick Controller | ✅ Complete |
 | [scope](modules/scope.md) | Oscilloscope | ✅ Complete |
 
 ### Effects

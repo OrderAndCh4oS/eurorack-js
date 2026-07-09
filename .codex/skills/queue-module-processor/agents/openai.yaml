@@ -1,0 +1,4 @@
+interface:
+  display_name: "Queue Module Processor"
+  short_description: "Coordinate queue items with subagents"
+  default_prompt: "Use $queue-module-processor to process a queued item with research, implementation, and validation subagents in isolated workspaces."

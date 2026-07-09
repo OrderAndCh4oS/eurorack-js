@@ -24,6 +24,8 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 |----|--------|-------------|
 | `clk` | CLK | Master clock with adjustable rate, pause control, and rate CV |
 | `div` | DIV | Dual clock divider/multiplier with CV rate control |
+| `swing` | SWING | Clock swing processor with straight and swung/humanized trigger outputs |
+| `burst` | BURST | Pingable burst generator for ratchets, probability, and trigger clusters |
 
 ### Sources
 | ID | Module | Description |
@@ -42,6 +44,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | ID | Module | Description |
 |----|--------|-------------|
 | `lfo` | LFO | Low frequency oscillator with multiple waveforms |
+| `quad-lfo` | Quad LFO | Quadrature sine LFO with 0, 90, 180, and 270 degree CV outputs |
 | `rnd` | RND | Random voltage generator with stepped, smooth, and gate outputs |
 | `func` | FUNC | Function generator for envelopes, cycling LFOs, and slew behavior |
 | `adsr` | ADSR | ADSR envelope generator with CV timing inputs |
@@ -65,6 +68,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | ID | Module | Description |
 |----|--------|-------------|
 | `vcf` | VCF | State-variable filter with low-pass, band-pass, and high-pass outputs |
+| `lpg` | LPG | Vactrol-style low pass gate with VCA, combo, and low-pass modes |
 
 ### Effects
 | ID | Module | Description |
@@ -87,6 +91,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | `logic` | LOGIC | Boolean gate operator with AND and OR outputs |
 | `mult` | MULT | Two-input, six-output signal splitter |
 | `matrix` | MATRIX | 4x4 DC-coupled matrix mixer with unipolar and bipolar output modes |
+| `joystick` | JOY | X/Y performance CV controller with gate, trigger, CV modes, and runtime gesture recording |
 | `envf` | ENVF | Envelope follower with normal and inverted CV outputs |
 | `vca` | VCA | Dual voltage-controlled amplifier |
 | `atten` | ATTN | Dual attenuverter with offset controls |

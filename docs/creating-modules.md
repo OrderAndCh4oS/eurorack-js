@@ -178,6 +178,10 @@ ui: {
         { id: 'mode', label: 'Mode', param: 'mode', default: 0 }
     ],
 
+    buttons: [
+        { id: 'range', label: 'Range', param: 'range', values: [0, 1, 2], default: 1 }
+    ],
+
     inputs: [
         { id: 'audio', label: 'In', port: 'audio', type: 'audio' },
         { id: 'cv', label: 'CV', port: 'cv', type: 'cv' }
@@ -188,8 +192,6 @@ ui: {
     ]
 }
 ```
-
-For a bespoke panel, export a `render(container, { instance, toolkit, onParamChange })` function instead of relying only on declarative `ui`. Use `toolkit.createKnob`, `toolkit.createSwitch`, `toolkit.createButtonBank`, and `toolkit.createJack` where possible; those helpers are bound to the module id and forward param changes to the app. If you create controls manually, call `onParamChange(param, value)` whenever a value changes. Custom renderers can read live DSP/UI state with `instance.getModule()` and can register teardown work by assigning `instance.cleanup`.
 
 ### Knob Properties
 
@@ -211,6 +213,23 @@ For a bespoke panel, export a `render(container, { instance, toolkit, onParamCha
 | `param` | string | Maps to `params.{param}` |
 | `default` | number | Initial state (0 or 1) |
 
+### Button Properties
+
+Buttons support two declarative modes:
+
+- A button with `values` renders as a compact button bank for enum-style params.
+- Buttons without `values` render as toggle buttons in a common Gates row.
+
+Do not mix button banks and toggle buttons in one declarative `buttons` array. The renderer chooses the mode from the first button.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | string | Unique ID |
+| `label` | string | Display label or tooltip text |
+| `param` | string | Maps to `params.{param}` |
+| `values` | number[] | Optional enum values for a button bank |
+| `default` | number | Initial value |
+
 ### Jack Properties
 
 | Property | Type | Description |
@@ -229,6 +248,57 @@ For a bespoke panel, export a `render(container, { instance, toolkit, onParamCha
 | `gate` | On/off signals | 0V / 10V |
 | `trigger` | Short pulses | 5-10V pulse |
 | `buffer` | Generic buffer | varies |
+
+### Advanced UI Layout
+
+The default declarative renderer lays out controls in this order:
+
+1. LEDs
+2. Knobs
+3. Switches
+4. Buttons
+5. Spacer
+6. Outputs
+7. Inputs
+
+For modules with many jacks, the generic input/output layout can become too tall. Use `ui.socketLayout` to replace the default output/input sections with a compact socket block while keeping declarative knobs, switches, buttons, and LEDs.
+
+```javascript
+ui: {
+    knobs: [
+        { id: 'time', label: 'Time', param: 'time', min: 0, max: 1, default: 0.5 }
+    ],
+    inputs: [
+        { id: 'audio', label: 'In', port: 'audio', type: 'audio' },
+        { id: 'timeCV', label: 'Time', port: 'timeCV', type: 'cv' },
+        { id: 'tap', label: 'Tap', port: 'tap', type: 'trigger' }
+    ],
+    outputs: [
+        { id: 'out', label: 'Out', port: 'out', type: 'audio' },
+        { id: 'clock', label: 'Clock', port: 'clock', type: 'gate' }
+    ],
+    socketLayout: {
+        columns: [
+            { columns: 1, ports: ['audio', 'tap'] },
+            { columns: 2, ports: ['out', 'clock', 'timeCV'] }
+        ]
+    }
+}
+```
+
+`socketLayout.columns[].ports` must reference exact `port` values from `ui.inputs[]` or `ui.outputs[]`. Each column can also include:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `columns` | number | Number of grid columns inside that socket group |
+| `ports` | string[] or object[] | Port names, or objects like `{ port: 'timeCV', label: 'T CV' }` for a layout-specific label |
+| `className` | string | Optional CSS class on the column |
+| `gridClassName` | string | Optional CSS class on the grid |
+| `label` | string | Optional group label. Avoid this unless it adds information beyond jack labels. |
+
+`socketLayout.label` or `socketLayout.section` adds a section divider above the socket block. Avoid extra section/group labels on dense modules when the jack labels are already clear.
+
+For a fully bespoke panel, export a `render(container, { instance, toolkit, onParamChange })` function instead of relying only on declarative `ui`. Use `toolkit.createKnob`, `toolkit.createSwitch`, `toolkit.createButtonBank`, and `toolkit.createJack` where possible; those helpers are bound to the module id and forward param changes to the app. If you create controls manually, call `onParamChange(param, value)` whenever a value changes. Custom renderers can read live DSP/UI state with `instance.getModule()`.
 
 ## Voltage Standards
 
@@ -252,7 +322,7 @@ Eurorack uses voltage to represent everything:
 
 ### Triggers
 - Short pulse: **5-10ms** at **5-10V**
-- Threshold: **>2.5V** (rising edge)
+- Threshold depends on input role: many gate-style triggers use **≥1V**, clocks/tap commonly use **>2.5V**, ARP advance uses **>0.4V**
 - Used for: clock, reset, note events
 
 ### Pitch CV (1V/Octave)
@@ -274,13 +344,14 @@ const freq = baseFreq * Math.pow(2, vOct + semitones/12);
 
 ```javascript
 let lastTrig = 0;
+const TRIGGER_THRESHOLD = 1; // Use 2.5 for clock/tap inputs, or a documented module-specific threshold.
 
 process() {
     for (let i = 0; i < bufferSize; i++) {
         const trig = this.inputs.trigger[i];
 
         // Rising edge detection
-        if (trig >= 2.5 && lastTrig < 2.5) {
+        if (trig >= TRIGGER_THRESHOLD && lastTrig < TRIGGER_THRESHOLD) {
             // Trigger fired!
         }
 
@@ -295,9 +366,9 @@ process() {
 Use `createSlew` from the utils to smooth parameter changes and prevent clicks:
 
 ```javascript
-import { createSlew } from '../utils/slew.js';
+import { createSlew } from '../../utils/slew.js';
 
-createDSP({ sampleRate, bufferSize }) {
+createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
     const slew = createSlew({ sampleRate, timeMs: 5 });
 
     return {
@@ -355,7 +426,7 @@ process() {
 ### LED Decay (Peak Hold)
 
 ```javascript
-createDSP({ sampleRate, bufferSize }) {
+createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
     // Decay constant for ~100ms hold
     const ledDecay = Math.exp(-1 / (sampleRate * 0.1) * bufferSize);
 
@@ -429,7 +500,7 @@ export default {
         const ledDecay = Math.exp(-1 / (sampleRate * 0.1) * bufferSize);
 
         return {
-            params: { gain: 1 },
+            params: { gain: 0.8 },
 
             inputs: {
                 audio: ownAudioIn,
@@ -507,6 +578,52 @@ export const MODULE_MANIFEST = [
 
 The registry loads modules from the manifest, and `MODULE_ORDER` is derived from manifest order. That order controls default processing-order tie breaks. Sidebar grouping comes from the module definition's `category` field.
 
+## Factory Patches and Docs
+
+If the module should ship with a test or demo patch, add a version 2 factory patch in `src/js/config/patches/`:
+
+```javascript
+export default {
+    name: 'Test My Module',
+    factory: true,
+    state: {
+        version: 2,
+        modules: [
+            { id: 'my1', type: 'mymodule', row: 1, index: 0 },
+            { id: 'out1', type: 'out', row: 1, index: 1 }
+        ],
+        params: {
+            my1: { gain: 0.7 }
+        },
+        cables: [
+            { fromModule: 'my1', fromPort: 'out', toModule: 'out1', toPort: 'L' },
+            { fromModule: 'my1', fromPort: 'out', toModule: 'out1', toPort: 'R' }
+        ],
+        midiMappings: {}
+    }
+};
+```
+
+Then import and register it in `src/js/config/patches/index.js`:
+
+```javascript
+import testMyModule from './test-my-module.js';
+
+export const FACTORY_PATCHES = {
+    // ... existing patches
+    [testMyModule.name]: testMyModule
+};
+```
+
+Patch cable endpoints must use exact `port` values from each module's `ui.inputs[]` and `ui.outputs[]`; do not use the jack `id` or label unless it is also the port name.
+
+For built-in modules, also update:
+
+- `README.md` module table
+- `AGENTS.md` available modules list
+- `research/module-queue.md` status and research doc link
+- `docs/creating-modules.md` only when the module introduces a new reusable pattern
+
 ## Testing Your Module
 
 Create a test file at `tests/dsp/mymodule.test.js`:
@@ -526,7 +643,7 @@ describe('myModule', () => {
 
     describe('initialization', () => {
         it('should have default params', () => {
-            expect(mod.params.gain).toBe(1);
+            expect(mod.params.gain).toBe(0.8);
         });
 
         it('should create buffers', () => {
@@ -580,5 +697,5 @@ Common issues:
 | NaN in output | Division by zero | Add guards: `x / (y \|\| 0.001)` |
 | Clicks/pops | Sudden value changes | Use `createSlew()` |
 | No sound | Wrong voltage range | Check ±5V for audio |
-| Trigger not firing | Wrong threshold | Use `>= 2.5` for rising edge |
+| Trigger not firing | Wrong threshold | Use the module's documented threshold, commonly `>= 1` for gates/triggers or `> 2.5` for clock/tap |
 | DC offset | Unbalanced waveform | Center around 0V |

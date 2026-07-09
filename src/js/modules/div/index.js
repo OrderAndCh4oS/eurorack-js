@@ -44,6 +44,7 @@ export default {
         // State
         let lastClockState = false;
         let inputPulseHeight = 10;
+        let hasClockReference = false;
 
         // Channel 1 state
         let ch1Counter = 0;
@@ -105,6 +106,7 @@ export default {
                         if (ch1SamplesSinceLastClock > 0) {
                             ch1LastPeriod = ch1SamplesSinceLastClock;
                             ch2LastPeriod = ch2SamplesSinceLastClock;
+                            hasClockReference = true;
                         }
                         ch1Counter++;
                         ch2Counter++;
@@ -129,7 +131,7 @@ export default {
                         if (clockEdge && ch1Counter % divideBy === 0) {
                             ch1PulseSamples = pulseWidth;
                         }
-                    } else if (ratio1 > 1) {
+                    } else if (ratio1 > 1 && hasClockReference && ch1SamplesSinceLastClock <= ch1LastPeriod) {
                         const multiplyBy = Math.round(ratio1);
                         const phasePerPulse = ch1LastPeriod / multiplyBy;
                         if (ch1SamplesSinceLastClock % Math.floor(phasePerPulse) === 0) {
@@ -147,7 +149,7 @@ export default {
                         if (clockEdge && ch2Counter % divideBy === 0) {
                             ch2PulseSamples = pulseWidth;
                         }
-                    } else if (ratio2 > 1) {
+                    } else if (ratio2 > 1 && hasClockReference && ch2SamplesSinceLastClock <= ch2LastPeriod) {
                         const multiplyBy = Math.round(ratio2);
                         const phasePerPulse = ch2LastPeriod / multiplyBy;
                         if (ch2SamplesSinceLastClock % Math.floor(phasePerPulse) === 0) {
@@ -182,6 +184,19 @@ export default {
                 ch1PulseSamples = 0;
                 ch2PulseSamples = 0;
                 lastClockState = false;
+                hasClockReference = false;
+                this.leds.ch1 = 0;
+                this.leds.ch2 = 0;
+            },
+
+            onInputDisconnected(port) {
+                if (port !== 'clock') return;
+                ch1PulseSamples = 0;
+                ch2PulseSamples = 0;
+                lastClockState = false;
+                hasClockReference = false;
+                out1.fill(0);
+                out2.fill(0);
                 this.leds.ch1 = 0;
                 this.leds.ch2 = 0;
             },

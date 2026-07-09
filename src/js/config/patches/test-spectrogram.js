@@ -7,32 +7,64 @@
  * Export as PNG or CSV for analysis.
  */
 export default {
-    name: 'Test - Spectrogram',
-    factory: true,
-    state: {
-        modules: [
-            { type: 'vco', instanceId: 'vco', row: 1 },
-            { type: 'spectrogram', instanceId: 'spec', row: 1 },
-            { type: 'out', instanceId: 'out', row: 1 }
+    "name": "Test - Spectrogram",
+    "factory": true,
+    "state": {
+        "version": 2,
+        "modules": [
+            {
+                "id": "vco",
+                "type": "vco",
+                "row": 1,
+                "index": 0
+            },
+            {
+                "id": "spec",
+                "type": "spectrogram",
+                "row": 1,
+                "index": 1
+            },
+            {
+                "id": "out",
+                "type": "out",
+                "row": 1,
+                "index": 2
+            }
         ],
-        knobs: {
-            // VCO: moderate frequency to see harmonics
-            vco: { coarse: 0.3, fine: 0 },
-            // Spectrogram: medium time window
-            spec: { time: 0.3, floor: 0.5 },
-            // Output
-            out: { volume: 0.4 }
+        "params": {
+            "vco": {
+                "coarse": 0.3,
+                "fine": 0
+            },
+            "spec": {
+                "time": 0.3,
+                "floor": 0.5,
+                "freeze": 0
+            },
+            "out": {
+                "volume": 0.4
+            }
         },
-        switches: {
-            // Running (not frozen)
-            spec: { freeze: 0 }
-        },
-        cables: [
-            // VCO to spectrogram - ramp has rich harmonics
-            { fromModule: 'vco', fromPort: 'ramp', toModule: 'spec', toPort: 'audio' },
-            // Passthrough to output
-            { fromModule: 'spec', fromPort: 'out', toModule: 'out', toPort: 'L' },
-            { fromModule: 'spec', fromPort: 'out', toModule: 'out', toPort: 'R' }
-        ]
+        "cables": [
+            {
+                "fromModule": "vco",
+                "fromPort": "ramp",
+                "toModule": "spec",
+                "toPort": "audio"
+            },
+            {
+                "fromModule": "spec",
+                "fromPort": "out",
+                "toModule": "out",
+                "toPort": "L"
+            },
+            {
+                "fromModule": "spec",
+                "fromPort": "out",
+                "toModule": "out",
+                "toPort": "R"
+            }
+        ],
+        "midiMappings": {}
     }
 };

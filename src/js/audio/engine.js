@@ -116,6 +116,40 @@ export function createAudioEngine({
     let timeoutId = null;
     let processOrder = computeProcessOrder(modules, cables);
     let bufferDuration = BUFFER / sampleRate;
+    let inputDefaults = captureInputDefaults(modules);
+
+    function cloneSignalValue(value) {
+        if (value instanceof Float32Array) {
+            return new Float32Array(value);
+        }
+        if (Array.isArray(value)) {
+            return value.map(item => cloneSignalValue(item));
+        }
+        return value;
+    }
+
+    function captureInputDefaults(moduleMap) {
+        const defaults = new Map();
+        Object.entries(moduleMap).forEach(([moduleId, module]) => {
+            const inputs = module.instance?.inputs;
+            if (!inputs) return;
+
+            const moduleDefaults = new Map();
+            Object.entries(inputs).forEach(([port, value]) => {
+                moduleDefaults.set(port, cloneSignalValue(value));
+            });
+            defaults.set(moduleId, moduleDefaults);
+        });
+        return defaults;
+    }
+
+    function restoreInputDefault(moduleId, port) {
+        const mod = modules[moduleId]?.instance;
+        const defaultValue = inputDefaults.get(moduleId)?.get(port);
+        if (!mod?.inputs || defaultValue === undefined) return;
+
+        setNestedValue(mod.inputs, port, cloneSignalValue(defaultValue));
+    }
 
     /**
      * Route signals from source modules to destination inputs
@@ -237,6 +271,7 @@ export function createAudioEngine({
          */
         setModules(newModules) {
             modules = newModules;
+            inputDefaults = captureInputDefaults(modules);
             processOrder = computeProcessOrder(modules, cables);
         },
 
@@ -245,7 +280,7 @@ export function createAudioEngine({
          * @param {Array} newCables
          */
         setCables(newCables) {
-            // Find modules with audio inputs that were connected but now aren't
+            // Find module inputs that were connected but now aren't.
             const oldByModule = new Map();
             cables.forEach(c => {
                 if (!oldByModule.has(c.toModule)) oldByModule.set(c.toModule, new Set());
@@ -257,12 +292,18 @@ export function createAudioEngine({
                 newByModule.get(c.toModule).add(c.toPort);
             });
 
-            // For modules that lost audio connections, clear their audio inputs
+            // Restore disconnected inputs to their normalled/default values so
+            // stale trigger, gate, CV, or audio buffers cannot keep sounding.
             for (const [modId, oldPorts] of oldByModule) {
                 const newPorts = newByModule.get(modId) || new Set();
                 const lostPorts = [...oldPorts].filter(p => !newPorts.has(p));
                 if (lostPorts.length > 0) {
                     const mod = modules[modId]?.instance;
+                    lostPorts.forEach(port => {
+                        restoreInputDefault(modId, port);
+                        mod?.onInputDisconnected?.(port);
+                    });
+
                     if (mod?.clearAudioInputs) {
                         mod.clearAudioInputs();
                     }

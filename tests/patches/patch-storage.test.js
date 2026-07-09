@@ -14,18 +14,40 @@ const localStorageMock = (() => {
 
 Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock });
 
+function canonicalState(value = 0.5) {
+    return {
+        version: 2,
+        modules: [{ id: 'vco', type: 'vco', row: 1, index: 0 }],
+        params: { vco: { frequency: value } },
+        cables: [],
+        midiMappings: {}
+    };
+}
+
 // Mock factory patches
 vi.mock('../../src/js/config/factory-patches.js', () => ({
     FACTORY_PATCHES: {
         'Factory One': {
             name: 'Factory One',
             factory: true,
-            state: { knobs: {}, cables: [] }
+            state: {
+                version: 2,
+                modules: [{ id: 'vco', type: 'vco', row: 1, index: 0 }],
+                params: { vco: { frequency: 0.5 } },
+                cables: [],
+                midiMappings: {}
+            }
         },
         'Factory Two': {
             name: 'Factory Two',
             factory: true,
-            state: { knobs: {}, cables: [] }
+            state: {
+                version: 2,
+                modules: [{ id: 'out', type: 'out', row: 1, index: 0 }],
+                params: { out: { volume: 0.5 } },
+                cables: [],
+                midiMappings: {}
+            }
         }
     }
 }));
@@ -48,7 +70,7 @@ describe('patch-storage', () => {
 
         it('should merge factory and user patches', () => {
             localStorageMock.getItem.mockReturnValueOnce(JSON.stringify({
-                'User Patch': { name: 'User Patch', factory: false, state: {} }
+                'User Patch': { name: 'User Patch', factory: false, state: canonicalState() }
             }));
 
             const patches = storage.getAllPatches();
@@ -58,11 +80,11 @@ describe('patch-storage', () => {
 
         it('should allow user patches to override factory', () => {
             localStorageMock.getItem.mockReturnValueOnce(JSON.stringify({
-                'Factory One': { name: 'Factory One', factory: false, state: { custom: true } }
+                'Factory One': { name: 'Factory One', factory: false, state: canonicalState(0.8) }
             }));
 
             const patches = storage.getAllPatches();
-            expect(patches['Factory One'].state.custom).toBe(true);
+            expect(patches['Factory One'].state.params.vco.frequency).toBe(0.8);
         });
     });
 
@@ -77,7 +99,7 @@ describe('patch-storage', () => {
     describe('getUserPatches', () => {
         it('should return only user patches', () => {
             localStorageMock.getItem.mockReturnValueOnce(JSON.stringify({
-                'User Patch': { name: 'User Patch', factory: false, state: {} }
+                'User Patch': { name: 'User Patch', factory: false, state: canonicalState() }
             }));
 
             const patches = storage.getUserPatches();
@@ -107,7 +129,7 @@ describe('patch-storage', () => {
 
         it('should get user patch by name', () => {
             localStorageMock.getItem.mockReturnValue(JSON.stringify({
-                'User Patch': { name: 'User Patch', factory: false, state: {} }
+                'User Patch': { name: 'User Patch', factory: false, state: canonicalState() }
             }));
 
             const patch = storage.getPatch('User Patch');
@@ -128,7 +150,7 @@ describe('patch-storage', () => {
 
         it('should return true for existing user patch', () => {
             localStorageMock.getItem.mockReturnValue(JSON.stringify({
-                'User Patch': { name: 'User Patch', factory: false, state: {} }
+                'User Patch': { name: 'User Patch', factory: false, state: canonicalState() }
             }));
 
             expect(storage.hasPatch('User Patch')).toBe(true);
@@ -151,7 +173,7 @@ describe('patch-storage', () => {
 
     describe('savePatch', () => {
         it('should save a new user patch', () => {
-            const state = { knobs: { vco: { freq: 440 } }, cables: [] };
+            const state = canonicalState(440);
 
             const result = storage.savePatch('New Patch', state);
 
@@ -164,24 +186,24 @@ describe('patch-storage', () => {
         });
 
         it('should trim patch name', () => {
-            storage.savePatch('  Spaced Name  ', { knobs: {}, cables: [] });
+            storage.savePatch('  Spaced Name  ', canonicalState());
 
             const savedData = JSON.parse(localStorageMock.setItem.mock.calls[0][1]);
             expect(savedData['Spaced Name']).toBeDefined();
         });
 
         it('should reject empty patch name', () => {
-            const result = storage.savePatch('', { knobs: {}, cables: [] });
+            const result = storage.savePatch('', canonicalState());
             expect(result).toBe(false);
         });
 
         it('should reject whitespace-only patch name', () => {
-            const result = storage.savePatch('   ', { knobs: {}, cables: [] });
+            const result = storage.savePatch('   ', canonicalState());
             expect(result).toBe(false);
         });
 
         it('should include created timestamp', () => {
-            storage.savePatch('Timestamped', { knobs: {}, cables: [] });
+            storage.savePatch('Timestamped', canonicalState());
 
             const savedData = JSON.parse(localStorageMock.setItem.mock.calls[0][1]);
             expect(savedData['Timestamped'].created).toBeDefined();
@@ -191,7 +213,7 @@ describe('patch-storage', () => {
     describe('deletePatch', () => {
         it('should delete user patch', () => {
             localStorageMock.getItem.mockReturnValue(JSON.stringify({
-                'User Patch': { name: 'User Patch', factory: false, state: {} }
+                'User Patch': { name: 'User Patch', factory: false, state: canonicalState() }
             }));
 
             const result = storage.deletePatch('User Patch');
@@ -215,7 +237,7 @@ describe('patch-storage', () => {
     describe('renamePatch', () => {
         it('should rename user patch', () => {
             localStorageMock.getItem.mockReturnValue(JSON.stringify({
-                'Old Name': { name: 'Old Name', factory: false, state: {} }
+                'Old Name': { name: 'Old Name', factory: false, state: canonicalState() }
             }));
 
             const result = storage.renamePatch('Old Name', 'New Name');
@@ -234,7 +256,7 @@ describe('patch-storage', () => {
 
         it('should reject empty new name', () => {
             localStorageMock.getItem.mockReturnValue(JSON.stringify({
-                'Old Name': { name: 'Old Name', factory: false, state: {} }
+                'Old Name': { name: 'Old Name', factory: false, state: canonicalState() }
             }));
 
             const result = storage.renamePatch('Old Name', '');
@@ -243,7 +265,7 @@ describe('patch-storage', () => {
 
         it('should trim new name', () => {
             localStorageMock.getItem.mockReturnValue(JSON.stringify({
-                'Old Name': { name: 'Old Name', factory: false, state: {} }
+                'Old Name': { name: 'Old Name', factory: false, state: canonicalState() }
             }));
 
             storage.renamePatch('Old Name', '  Trimmed  ');
@@ -261,7 +283,7 @@ describe('patch-storage', () => {
     describe('getPatchNames', () => {
         it('should return all patch names', () => {
             localStorageMock.getItem.mockReturnValue(JSON.stringify({
-                'User Patch': { name: 'User Patch', factory: false, state: {} }
+                'User Patch': { name: 'User Patch', factory: false, state: canonicalState() }
             }));
 
             const names = storage.getPatchNames();
@@ -283,7 +305,7 @@ describe('patch-storage', () => {
     describe('getUserPatchNames', () => {
         it('should return only user patch names', () => {
             localStorageMock.getItem.mockReturnValue(JSON.stringify({
-                'User Patch': { name: 'User Patch', factory: false, state: {} }
+                'User Patch': { name: 'User Patch', factory: false, state: canonicalState() }
             }));
 
             const names = storage.getUserPatchNames();
@@ -303,7 +325,7 @@ describe('patch-storage', () => {
     describe('exportPatches', () => {
         it('should export user patches as JSON', () => {
             const userPatches = {
-                'User Patch': { name: 'User Patch', factory: false, state: {} }
+                'User Patch': { name: 'User Patch', factory: false, state: canonicalState() }
             };
             localStorageMock.getItem.mockReturnValue(JSON.stringify(userPatches));
 
@@ -314,7 +336,7 @@ describe('patch-storage', () => {
 
         it('should format JSON with indentation', () => {
             localStorageMock.getItem.mockReturnValue(JSON.stringify({
-                'User Patch': { name: 'User Patch', factory: false, state: {} }
+                'User Patch': { name: 'User Patch', factory: false, state: canonicalState() }
             }));
 
             const exported = storage.exportPatches();
@@ -326,7 +348,7 @@ describe('patch-storage', () => {
     describe('importPatches', () => {
         it('should import patches from JSON', () => {
             const toImport = JSON.stringify({
-                'Imported Patch': { name: 'Imported Patch', factory: false, state: {} }
+                'Imported Patch': { name: 'Imported Patch', factory: false, state: canonicalState() }
             });
 
             const count = storage.importPatches(toImport);
@@ -338,11 +360,11 @@ describe('patch-storage', () => {
 
         it('should merge with existing patches by default', () => {
             localStorageMock.getItem.mockReturnValue(JSON.stringify({
-                'Existing Patch': { name: 'Existing Patch', factory: false, state: {} }
+                'Existing Patch': { name: 'Existing Patch', factory: false, state: canonicalState(0.2) }
             }));
 
             const toImport = JSON.stringify({
-                'Imported Patch': { name: 'Imported Patch', factory: false, state: {} }
+                'Imported Patch': { name: 'Imported Patch', factory: false, state: canonicalState(0.7) }
             });
 
             storage.importPatches(toImport, true);
@@ -354,11 +376,11 @@ describe('patch-storage', () => {
 
         it('should replace existing patches when merge=false', () => {
             localStorageMock.getItem.mockReturnValue(JSON.stringify({
-                'Existing Patch': { name: 'Existing Patch', factory: false, state: {} }
+                'Existing Patch': { name: 'Existing Patch', factory: false, state: canonicalState(0.2) }
             }));
 
             const toImport = JSON.stringify({
-                'Imported Patch': { name: 'Imported Patch', factory: false, state: {} }
+                'Imported Patch': { name: 'Imported Patch', factory: false, state: canonicalState(0.7) }
             });
 
             storage.importPatches(toImport, false);

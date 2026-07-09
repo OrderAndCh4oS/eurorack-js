@@ -7,33 +7,98 @@
  * Slow clock rate allows hearing each envelope stage clearly
  */
 export default {
-    name: 'Test - ADSR Envelope',
-    factory: true,
-    state: {
-        modules: [
-            { type: 'clk', instanceId: 'clk', row: 1 },
-            { type: 'vco', instanceId: 'vco', row: 1 },
-            { type: 'adsr', instanceId: 'adsr', row: 1 },
-            { type: 'vca', instanceId: 'vca', row: 1 },
-            { type: 'out', instanceId: 'out', row: 1 }
+    "name": "Test - ADSR Envelope",
+    "factory": true,
+    "state": {
+        "version": 2,
+        "modules": [
+            {
+                "id": "clk",
+                "type": "clk",
+                "row": 1,
+                "index": 0
+            },
+            {
+                "id": "vco",
+                "type": "vco",
+                "row": 1,
+                "index": 1
+            },
+            {
+                "id": "adsr",
+                "type": "adsr",
+                "row": 1,
+                "index": 2
+            },
+            {
+                "id": "vca",
+                "type": "vca",
+                "row": 1,
+                "index": 3
+            },
+            {
+                "id": "out",
+                "type": "out",
+                "row": 1,
+                "index": 4
+            }
         ],
-        knobs: {
-            clk: { rate: 0.2 },
-            vco: { coarse: 0.4, fine: 0, glide: 5 },
-            adsr: { attack: 0.073, decay: 0.41, sustain: 0, release: 0.753 },
-            vca: { ch1Gain: 0.8, ch2Gain: 0.8 },
-            out: { volume: 0.5 }
+        "params": {
+            "clk": {
+                "rate": 0.2,
+                "pause": 0
+            },
+            "vco": {
+                "coarse": 0.4,
+                "fine": 0,
+                "glide": 5
+            },
+            "adsr": {
+                "attack": 0.073,
+                "decay": 0.41,
+                "sustain": 0,
+                "release": 0.753
+            },
+            "vca": {
+                "ch1Gain": 0.8,
+                "ch2Gain": 0.8
+            },
+            "out": {
+                "volume": 0.5
+            }
         },
-        switches: {
-            clk: { pause: false }
-        },
-        buttons: {},
-        cables: [
-            { fromModule: 'clk', fromPort: 'clock', toModule: 'adsr', toPort: 'gate' },
-            { fromModule: 'adsr', fromPort: 'env', toModule: 'vca', toPort: 'ch1CV' },
-            { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
-            { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' },
-            { fromModule: 'vco', fromPort: 'ramp', toModule: 'vca', toPort: 'ch1In' }
-        ]
+        "cables": [
+            {
+                "fromModule": "clk",
+                "fromPort": "clock",
+                "toModule": "adsr",
+                "toPort": "gate"
+            },
+            {
+                "fromModule": "adsr",
+                "fromPort": "env",
+                "toModule": "vca",
+                "toPort": "ch1CV"
+            },
+            {
+                "fromModule": "vca",
+                "fromPort": "ch1Out",
+                "toModule": "out",
+                "toPort": "L"
+            },
+            {
+                "fromModule": "vca",
+                "fromPort": "ch1Out",
+                "toModule": "out",
+                "toPort": "R"
+            },
+            {
+                "fromModule": "vco",
+                "fromPort": "ramp",
+                "toModule": "vca",
+                "toPort": "ch1In"
+            }
+        ],
+        "midiMappings": {}
     }
 };

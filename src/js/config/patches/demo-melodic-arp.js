@@ -3,38 +3,151 @@
  * Melodic arpeggiator patch with modulation
  */
 export default {
-    name: 'Demo - Melodic Arp',
-    factory: true,
-    state: {
-        modules: [
-            { type: 'clk', instanceId: 'clk', row: 1 },
-            { type: 'lfo', instanceId: 'lfo', row: 1 },
-            { type: 'arp', instanceId: 'arp', row: 1 },
-            { type: 'vco', instanceId: 'vco', row: 1 },
-            { type: 'vca', instanceId: 'vca', row: 1 },
-            { type: 'out', instanceId: 'out', row: 1 }
+    "name": "Demo - Melodic Arp",
+    "factory": true,
+    "state": {
+        "version": 2,
+        "modules": [
+            {
+                "id": "arp",
+                "type": "arp",
+                "row": 1,
+                "index": 0
+            },
+            {
+                "id": "vco",
+                "type": "vco",
+                "row": 1,
+                "index": 1
+            },
+            {
+                "id": "clk",
+                "type": "clk",
+                "row": 1,
+                "index": 2
+            },
+            {
+                "id": "lfo",
+                "type": "lfo",
+                "row": 1,
+                "index": 3
+            },
+            {
+                "id": "adsr",
+                "type": "adsr",
+                "row": 1,
+                "index": 4
+            },
+            {
+                "id": "vca",
+                "type": "vca",
+                "row": 1,
+                "index": 5
+            },
+            {
+                "id": "out",
+                "type": "out",
+                "row": 1,
+                "index": 6
+            }
         ],
-        knobs: {
-            clk: { rate: 0.23 },
-            lfo: { rateKnob: 0.44, waveKnob: 0.66 },
-            arp: { root: 2, chord: 3, mode: 2 },
-            vco: { coarse: 0.4, fine: -1.84, glide: 32 },
-            vca: { ch1Gain: 0.7, ch2Gain: 0.27 },
-            out: { volume: 0.67 }
+        "params": {
+            "clk": {
+                "rate": 0.32333333333333336,
+                "pause": 0
+            },
+            "lfo": {
+                "rateKnob": 0.6933333333333334,
+                "waveKnob": 0.8066666666666666,
+                "range": 0
+            },
+            "arp": {
+                "root": 4,
+                "chord": 8,
+                "mode": 1,
+                "octaves": 0
+            },
+            "vco": {
+                "coarse": 0.3466666666666666,
+                "fine": 0.15999999999999964,
+                "glide": 21.333333333333332
+            },
+            "adsr": {
+                "attack": 0,
+                "decay": 0.38,
+                "sustain": 0.2566666666666667,
+                "release": 0.7133333333333333
+            },
+            "vca": {
+                "ch1Gain": 0.7,
+                "ch2Gain": 0.27
+            },
+            "out": {
+                "volume": 0.67
+            }
         },
-        switches: {
-            lfo: { range: 0 },
-            arp: { octaves: 1 }
-        },
-        cables: [
-            { fromModule: 'clk', fromPort: 'clock', toModule: 'arp', toPort: 'trigger' },
-            { fromModule: 'arp', fromPort: 'cv', toModule: 'vco', toPort: 'vOct' },
-            { fromModule: 'lfo', fromPort: 'secondary', toModule: 'vco', toPort: 'pwm' },
-            { fromModule: 'lfo', fromPort: 'secondary', toModule: 'vca', toPort: 'ch2CV' },
-            { fromModule: 'vco', fromPort: 'triangle', toModule: 'vca', toPort: 'ch1In' },
-            { fromModule: 'vco', fromPort: 'pulse', toModule: 'vca', toPort: 'ch2In' },
-            { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
-            { fromModule: 'vca', fromPort: 'ch2Out', toModule: 'out', toPort: 'R' }
-        ]
+        "cables": [
+            {
+                "fromModule": "clk",
+                "fromPort": "clock",
+                "toModule": "arp",
+                "toPort": "trigger"
+            },
+            {
+                "fromModule": "arp",
+                "fromPort": "cv",
+                "toModule": "vco",
+                "toPort": "vOct"
+            },
+            {
+                "fromModule": "arp",
+                "fromPort": "gate",
+                "toModule": "adsr",
+                "toPort": "gate"
+            },
+            {
+                "fromModule": "adsr",
+                "fromPort": "env",
+                "toModule": "vca",
+                "toPort": "ch1CV"
+            },
+            {
+                "fromModule": "adsr",
+                "fromPort": "env",
+                "toModule": "vca",
+                "toPort": "ch2CV"
+            },
+            {
+                "fromModule": "lfo",
+                "fromPort": "secondary",
+                "toModule": "vco",
+                "toPort": "pwm"
+            },
+            {
+                "fromModule": "vco",
+                "fromPort": "triangle",
+                "toModule": "vca",
+                "toPort": "ch1In"
+            },
+            {
+                "fromModule": "vco",
+                "fromPort": "pulse",
+                "toModule": "vca",
+                "toPort": "ch2In"
+            },
+            {
+                "fromModule": "vca",
+                "fromPort": "ch1Out",
+                "toModule": "out",
+                "toPort": "L"
+            },
+            {
+                "fromModule": "vca",
+                "fromPort": "ch2Out",
+                "toModule": "out",
+                "toPort": "R"
+            }
+        ],
+        "midiMappings": {}
     }
 };

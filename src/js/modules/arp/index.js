@@ -27,6 +27,7 @@ export default {
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         const output = new Float32Array(bufferSize);
+        const gate = new Float32Array(bufferSize);
 
         let currentStep = 0;
         let lastTriggerState = false;
@@ -52,7 +53,8 @@ export default {
             },
 
             outputs: {
-                cv: output
+                cv: output,
+                gate
             },
 
             leds: {
@@ -103,6 +105,7 @@ export default {
 
                     currentNote = (rootNote + sequenceNote) / 12;
                     output[i] = currentNote;
+                    gate[i] = triggerActive ? 10 : 0;
                 }
 
                 this.leds.step = stepped ? 1 : Math.max(0, this.leds.step - 0.15);
@@ -114,6 +117,7 @@ export default {
                 lastResetState = false;
                 currentNote = 0;
                 output.fill(0);
+                gate.fill(0);
                 this.leds.step = 0;
             },
 
@@ -140,7 +144,8 @@ export default {
             { id: 'chordCV', label: 'Chrd', port: 'chordCV', type: 'cv' }
         ],
         outputs: [
-            { id: 'cv', label: 'V/Oct', port: 'cv', type: 'cv' }
+            { id: 'cv', label: 'V/Oct', port: 'cv', type: 'cv' },
+            { id: 'gate', label: 'Gate', port: 'gate', type: 'gate' }
         ]
     }
 };

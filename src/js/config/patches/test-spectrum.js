@@ -7,32 +7,65 @@
  * have different harmonic structures.
  */
 export default {
-    name: 'Test - Spectrum Analyzer',
-    factory: true,
-    state: {
-        modules: [
-            { type: 'vco', instanceId: 'vco', row: 1 },
-            { type: 'spectrum', instanceId: 'spectrum', row: 1 },
-            { type: 'out', instanceId: 'out', row: 1 }
+    "name": "Test - Spectrum Analyzer",
+    "factory": true,
+    "state": {
+        "version": 2,
+        "modules": [
+            {
+                "id": "vco",
+                "type": "vco",
+                "row": 1,
+                "index": 0
+            },
+            {
+                "id": "spectrum",
+                "type": "spectrum",
+                "row": 1,
+                "index": 1
+            },
+            {
+                "id": "out",
+                "type": "out",
+                "row": 1,
+                "index": 2
+            }
         ],
-        knobs: {
-            // VCO: mid-range frequency to show clear harmonics
-            vco: { coarse: 0.4, fine: 0, glide: 0 },
-            // Spectrum: moderate floor, medium decay
-            spectrum: { floor: 0.5, decay: 0.5 },
-            // Output: moderate volume
-            out: { volume: 0.5 }
+        "params": {
+            "vco": {
+                "coarse": 0.4,
+                "fine": 0,
+                "glide": 0
+            },
+            "spectrum": {
+                "floor": 0.5,
+                "decay": 0.5,
+                "scale": 0
+            },
+            "out": {
+                "volume": 0.5
+            }
         },
-        switches: {
-            // Spectrum: logarithmic scale (default)
-            spectrum: { scale: 0 }
-        },
-        cables: [
-            // VCO ramp (rich harmonics) to spectrum
-            { fromModule: 'vco', fromPort: 'ramp', toModule: 'spectrum', toPort: 'audio' },
-            // Spectrum passthrough to output (mono)
-            { fromModule: 'spectrum', fromPort: 'out', toModule: 'out', toPort: 'L' },
-            { fromModule: 'spectrum', fromPort: 'out', toModule: 'out', toPort: 'R' }
-        ]
+        "cables": [
+            {
+                "fromModule": "vco",
+                "fromPort": "ramp",
+                "toModule": "spectrum",
+                "toPort": "audio"
+            },
+            {
+                "fromModule": "spectrum",
+                "fromPort": "out",
+                "toModule": "out",
+                "toPort": "L"
+            },
+            {
+                "fromModule": "spectrum",
+                "fromPort": "out",
+                "toModule": "out",
+                "toPort": "R"
+            }
+        ],
+        "midiMappings": {}
     }
 };

@@ -5,27 +5,82 @@
  * for verifying identical hits since spectrogram has FFT windowing artifacts)
  */
 export default {
-    name: 'Test - Kick Only',
-    factory: true,
-    state: {
-        modules: [
-            { type: 'clk', instanceId: 'clk', row: 1 },
-            { type: 'kick', instanceId: 'kick', row: 1 },
-            { type: 'plot', instanceId: 'plot', row: 1 },
-            { type: 'out', instanceId: 'out', row: 1 }
+    "name": "Test - Kick Only",
+    "factory": true,
+    "state": {
+        "version": 2,
+        "modules": [
+            {
+                "id": "clk",
+                "type": "clk",
+                "row": 1,
+                "index": 0
+            },
+            {
+                "id": "kick",
+                "type": "kick",
+                "row": 1,
+                "index": 1
+            },
+            {
+                "id": "plot",
+                "type": "plot",
+                "row": 1,
+                "index": 2
+            },
+            {
+                "id": "out",
+                "type": "out",
+                "row": 1,
+                "index": 3
+            }
         ],
-        knobs: {
-            clk: { rate: 0.25 },
-            kick: { pitch: 0.3, decay: 0.5, tone: 0.3, click: 0.5 },
-            out: { volume: 0.7 }
+        "params": {
+            "clk": {
+                "rate": 0.25
+            },
+            "kick": {
+                "pitch": 0.3,
+                "decay": 0.5,
+                "tone": 0.3,
+                "click": 0.5
+            },
+            "out": {
+                "volume": 0.7
+            }
         },
-        switches: {},
-        cables: [
-            { fromModule: 'clk', fromPort: 'clock', toModule: 'kick', toPort: 'trigger' },
-            { fromModule: 'clk', fromPort: 'clock', toModule: 'plot', toPort: 'trig' },
-            { fromModule: 'kick', fromPort: 'out', toModule: 'plot', toPort: 'audio' },
-            { fromModule: 'kick', fromPort: 'out', toModule: 'out', toPort: 'L' },
-            { fromModule: 'kick', fromPort: 'out', toModule: 'out', toPort: 'R' }
-        ]
+        "cables": [
+            {
+                "fromModule": "clk",
+                "fromPort": "clock",
+                "toModule": "kick",
+                "toPort": "trigger"
+            },
+            {
+                "fromModule": "clk",
+                "fromPort": "clock",
+                "toModule": "plot",
+                "toPort": "trig"
+            },
+            {
+                "fromModule": "kick",
+                "fromPort": "out",
+                "toModule": "plot",
+                "toPort": "audio"
+            },
+            {
+                "fromModule": "kick",
+                "fromPort": "out",
+                "toModule": "out",
+                "toPort": "L"
+            },
+            {
+                "fromModule": "kick",
+                "fromPort": "out",
+                "toModule": "out",
+                "toPort": "R"
+            }
+        ],
+        "midiMappings": {}
     }
 };

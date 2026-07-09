@@ -103,7 +103,7 @@ Gate output follows clock while step gate is enabled:
 gateOut = (clockActive && stepGates[currentStep]) ? 10 : 0;
 ```
 
-This ensures the ADSR re-triggers on each step rather than holding through the sequence.
+This app behavior intentionally favors playable patches over a latched step gate: ADSRs and VCAs close as soon as the clock input is removed, avoiding stuck notes or drones when trigger cables are unplugged.
 
 ### CV Output
 ```javascript

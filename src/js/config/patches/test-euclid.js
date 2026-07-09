@@ -11,29 +11,81 @@
  * - Rotate: Shifts where the pattern starts
  */
 export default {
-    name: 'Test - Euclidean',
-    factory: true,
-    state: {
-        modules: [
-            { type: 'clk', instanceId: 'clk', row: 1 },
-            { type: 'euclid', instanceId: 'euclid', row: 1 },
-            { type: 'kick', instanceId: 'kick', row: 1 },
-            { type: 'out', instanceId: 'out', row: 1 }
+    "name": "Test - Euclidean",
+    "factory": true,
+    "state": {
+        "version": 2,
+        "modules": [
+            {
+                "id": "clk",
+                "type": "clk",
+                "row": 1,
+                "index": 0
+            },
+            {
+                "id": "euclid",
+                "type": "euclid",
+                "row": 1,
+                "index": 1
+            },
+            {
+                "id": "kick",
+                "type": "kick",
+                "row": 1,
+                "index": 2
+            },
+            {
+                "id": "out",
+                "type": "out",
+                "row": 1,
+                "index": 3
+            }
         ],
-        knobs: {
-            clk: { bpm: 0.4 },
-            euclid: { length: 8, hits: 3, rotate: 0 },
-            kick: { tune: 0.4, decay: 0.4, punch: 0.6 },
-            out: { volume: 0.6 }
+        "params": {
+            "clk": {
+                "bpm": 0.4,
+                "pause": 0
+            },
+            "euclid": {
+                "length": 8,
+                "hits": 3,
+                "rotate": 0
+            },
+            "kick": {
+                "tune": 0.4,
+                "decay": 0.4,
+                "punch": 0.6
+            },
+            "out": {
+                "volume": 0.6
+            }
         },
-        switches: {
-            clk: { pause: false }
-        },
-        cables: [
-            { fromModule: 'clk', fromPort: 'clock', toModule: 'euclid', toPort: 'clock' },
-            { fromModule: 'euclid', fromPort: 'trig', toModule: 'kick', toPort: 'trigger' },
-            { fromModule: 'kick', fromPort: 'out', toModule: 'out', toPort: 'L' },
-            { fromModule: 'kick', fromPort: 'out', toModule: 'out', toPort: 'R' }
-        ]
+        "cables": [
+            {
+                "fromModule": "clk",
+                "fromPort": "clock",
+                "toModule": "euclid",
+                "toPort": "clock"
+            },
+            {
+                "fromModule": "euclid",
+                "fromPort": "trig",
+                "toModule": "kick",
+                "toPort": "trigger"
+            },
+            {
+                "fromModule": "kick",
+                "fromPort": "out",
+                "toModule": "out",
+                "toPort": "L"
+            },
+            {
+                "fromModule": "kick",
+                "fromPort": "out",
+                "toModule": "out",
+                "toPort": "R"
+            }
+        ],
+        "midiMappings": {}
     }
 };

@@ -4,12 +4,18 @@ import lfoModule from '../../src/js/modules/lfo/index.js';
 import vcoModule from '../../src/js/modules/vco/index.js';
 import vcaModule from '../../src/js/modules/vca/index.js';
 import outModule from '../../src/js/modules/out/index.js';
+import clkModule from '../../src/js/modules/clk/index.js';
+import granulitaModule from '../../src/js/modules/granulita/index.js';
+import seqModule from '../../src/js/modules/seq/index.js';
 
 // Helper functions to create module instances
 const create2hpLFO = (options = {}) => lfoModule.createDSP(options);
 const create2hpVCO = (options = {}) => vcoModule.createDSP(options);
 const create2hpDualVCA = (options = {}) => vcaModule.createDSP(options);
 const create2hpOut = (audioCtx, options = {}) => outModule.createDSP({ audioCtx, ...options });
+const create2hpCLK = (options = {}) => clkModule.createDSP(options);
+const createGranulita = (options = {}) => granulitaModule.createDSP(options);
+const createSeq = (options = {}) => seqModule.createDSP(options);
 
 // Mock AudioContext for output module
 class MockFullAudioContext {
@@ -291,6 +297,141 @@ describe('createAudioEngine', () => {
 
             // LED should show silence
             expect(modulesWithOut.out.instance.leds.L).toBe(0);
+        });
+
+        it('should restore disconnected trigger inputs for sequencer-style modules', () => {
+            const seq = createSeq();
+            seq.params.step1 = 0.25;
+            seq.params.step2 = 0.75;
+
+            const clockSource = {
+                outputs: { clock: new Float32Array(512).fill(5) },
+                process() {}
+            };
+            const modulesWithSeq = {
+                clock: { instance: clockSource, type: 'test-clock' },
+                seq: { instance: seq, type: 'seq' }
+            };
+            const seqEngine = createAudioEngine({
+                modules: modulesWithSeq,
+                cables: [],
+                audioCtx: mockCtx
+            });
+
+            seqEngine.setCables([
+                { fromModule: 'clock', fromPort: 'clock', toModule: 'seq', toPort: 'clock' }
+            ]);
+            seqEngine.tick();
+
+            expect(seq.inputs.clock.some(v => v === 5)).toBe(true);
+            expect(seq.getCurrentStep()).toBe(1);
+
+            seqEngine.setCables([]);
+
+            expect(seq.inputs.clock.every(v => v === 0)).toBe(true);
+        });
+
+        it('should restore disconnected CV inputs to non-zero defaults', () => {
+            const cvSource = {
+                outputs: { cv: new Float32Array(512).fill(0) },
+                process() {}
+            };
+            const modulesWithVca = {
+                cv: { instance: cvSource, type: 'test-cv' },
+                vca: { instance: create2hpDualVCA(), type: 'vca' }
+            };
+            const vcaEngine = createAudioEngine({
+                modules: modulesWithVca,
+                cables: [],
+                audioCtx: mockCtx
+            });
+
+            vcaEngine.setCables([
+                { fromModule: 'cv', fromPort: 'cv', toModule: 'vca', toPort: 'ch1CV' }
+            ]);
+            vcaEngine.tick();
+
+            expect(modulesWithVca.vca.instance.inputs.ch1CV.every(v => v === 0)).toBe(true);
+
+            vcaEngine.setCables([]);
+
+            expect(modulesWithVca.vca.instance.inputs.ch1CV.every(v => v === 5)).toBe(true);
+        });
+
+        it('should notify modules when an input cable is disconnected', () => {
+            const onInputDisconnected = vi.fn();
+            const source = {
+                outputs: { gate: new Float32Array(512).fill(10) },
+                process() {}
+            };
+            const destination = {
+                inputs: { gate: new Float32Array(512) },
+                outputs: {},
+                onInputDisconnected,
+                process() {}
+            };
+            const modulesWithHook = {
+                source: { instance: source, type: 'test-source' },
+                destination: { instance: destination, type: 'test-destination' }
+            };
+            const hookEngine = createAudioEngine({
+                modules: modulesWithHook,
+                cables: [],
+                audioCtx: mockCtx
+            });
+
+            hookEngine.setCables([
+                { fromModule: 'source', fromPort: 'gate', toModule: 'destination', toPort: 'gate' }
+            ]);
+            hookEngine.tick();
+
+            hookEngine.setCables([]);
+
+            expect(onInputDisconnected).toHaveBeenCalledWith('gate');
+        });
+
+        it('should stop Granulita from reading detached audio, trigger, and CV sources', () => {
+            const granulita = createGranulita();
+            granulita.params.blend = 1;
+            granulita.params.verb = 0;
+            granulita.params.count = 1;
+            granulita.params.length = 0;
+            granulita.params.hitMode = 1;
+
+            const modulesWithGranulita = {
+                vco: { instance: create2hpVCO(), type: 'vco' },
+                clk: { instance: create2hpCLK(), type: 'clk' },
+                lfo: { instance: create2hpLFO(), type: 'lfo' },
+                granulita: { instance: granulita, type: 'granulita' }
+            };
+            modulesWithGranulita.clk.instance.params.rate = 1;
+
+            const granulitaEngine = createAudioEngine({
+                modules: modulesWithGranulita,
+                cables: [],
+                audioCtx: mockCtx
+            });
+
+            granulitaEngine.setCables([
+                { fromModule: 'vco', fromPort: 'ramp', toModule: 'granulita', toPort: 'inL' },
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'granulita', toPort: 'hit' },
+                { fromModule: 'lfo', fromPort: 'primary', toModule: 'granulita', toPort: 'pitchCV' }
+            ]);
+
+            for (let i = 0; i < 8; i++) {
+                granulitaEngine.tick();
+            }
+
+            expect(granulita.outputs.outL.some(v => Math.abs(v) > 0.001)).toBe(true);
+
+            granulitaEngine.setCables([]);
+
+            for (let i = 0; i < 12; i++) {
+                granulitaEngine.tick();
+            }
+
+            expect(Math.max(...granulita.outputs.outL.map(Math.abs))).toBeLessThan(0.001);
+            expect(Math.max(...granulita.outputs.outR.map(Math.abs))).toBeLessThan(0.001);
         });
 
         it('should create output buffers at the active audio context sample rate', () => {

@@ -121,9 +121,14 @@ function getCV(scale) {
 // Pulse output
 function getPulse() {
     const cv = getCV(1);
-    return cv > 1.5 ? 10 : 0; // Gate voltage
+    return clockHigh && cv > 1.5 ? 10 : 0; // Gate voltage during clock pulse
 }
 ```
+
+The app qualifies the pulse output with the current clock input so it behaves as
+a trigger/gate event rather than a latched comparator. This prevents downstream
+envelopes from staying open when the Turing clock is paused or disconnected;
+the CV output still holds its sampled value.
 
 ### Length Implementation
 

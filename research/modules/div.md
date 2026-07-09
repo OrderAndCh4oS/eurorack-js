@@ -66,6 +66,12 @@ if (samplesSinceLastClock % phasePerPulse === 0) {
 }
 ```
 
+The app only extrapolates multiplied pulses within the most recently measured
+period. If no new clock edge arrives after that window, multiplied outputs stop.
+When the clock cable is removed, the engine notifies DIV and pending output
+pulses are cleared immediately so downstream triggers cannot continue from the
+last measured tempo.
+
 ### Ratio Table
 | Knob Position | Ratio | Effect |
 |---------------|-------|--------|

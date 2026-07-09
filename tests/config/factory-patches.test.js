@@ -1,7 +1,7 @@
 import { beforeAll, describe, it, expect } from 'vitest';
 import { FACTORY_PATCHES } from '../../src/js/config/factory-patches.js';
 import { normalizePatch } from '../../src/js/app/patch-format.js';
-import { MODULE_MANIFEST, MODULE_ORDER } from '../../src/js/rack/module-manifest.js';
+import { MODULE_MANIFEST } from '../../src/js/rack/module-manifest.js';
 
 describe('factory-patches', () => {
     let moduleDefinitions;
@@ -45,11 +45,20 @@ describe('factory-patches', () => {
 
         it('should have valid state structure', () => {
             Object.values(FACTORY_PATCHES).forEach(patch => {
-                const params = patch.state.params || patch.state.knobs;
-                expect(params).toBeDefined();
-                expect(typeof params).toBe('object');
+                expect(patch.state.version).toBe(2);
+                expect(Array.isArray(patch.state.modules)).toBe(true);
+                expect(patch.state.params).toBeDefined();
+                expect(typeof patch.state.params).toBe('object');
                 expect(patch.state.cables).toBeDefined();
                 expect(Array.isArray(patch.state.cables)).toBe(true);
+                expect(patch.state.midiMappings).toBeDefined();
+                expect(patch.state.knobs).toBeUndefined();
+                expect(patch.state.switches).toBeUndefined();
+                expect(patch.state.buttons).toBeUndefined();
+                patch.state.modules.forEach(module => {
+                    expect(module.id).toBeDefined();
+                    expect(module.instanceId).toBeUndefined();
+                });
             });
         });
 
@@ -66,7 +75,7 @@ describe('factory-patches', () => {
 
         it('should only use cables that match normalized module ports', () => {
             Object.entries(FACTORY_PATCHES).forEach(([name, patch]) => {
-                const state = normalizePatch(patch.state, { moduleOrder: MODULE_ORDER });
+                const state = normalizePatch(patch.state);
                 const moduleTypes = new Map(state.modules.map(mod => [mod.id, mod.type]));
 
                 state.cables.forEach(cable => {
@@ -160,16 +169,10 @@ describe('factory-patches', () => {
             expect(patch).toBeDefined();
 
             const types = patch.state.modules.map(mod => mod.type);
-            expect(types).toEqual(expect.arrayContaining([
-                'seq',
-                'loop',
-                'rec',
-                'plot',
-                'scope',
-                'db',
-                'spectrogram',
-                'spectrum'
-            ]));
+            const customRenderedTypes = [...moduleDefinitions.values()]
+                .filter(definition => typeof definition.render === 'function')
+                .map(definition => definition.id);
+            expect(types).toEqual(expect.arrayContaining(customRenderedTypes));
             expect(patch.state.cables).toEqual(expect.arrayContaining([
                 expect.objectContaining({ toModule: 'scope', toPort: 'in1' }),
                 expect.objectContaining({ toModule: 'plot', toPort: 'audio' }),
@@ -184,7 +187,7 @@ describe('factory-patches', () => {
     describe('knob values', () => {
         it('should have knob values within valid ranges', () => {
             Object.values(FACTORY_PATCHES).forEach(patch => {
-                Object.entries(patch.state.params || patch.state.knobs).forEach(([, params]) => {
+                Object.entries(patch.state.params).forEach(([, params]) => {
                     Object.values(params).forEach(value => {
                         expect(typeof value).toBe('number');
                         expect(isFinite(value)).toBe(true);
@@ -195,7 +198,7 @@ describe('factory-patches', () => {
 
         it('should have volume knobs <= 1', () => {
             Object.values(FACTORY_PATCHES).forEach(patch => {
-                const params = patch.state.params || patch.state.knobs;
+                const params = patch.state.params;
                 if (params.out?.volume !== undefined) {
                     expect(params.out.volume).toBeLessThanOrEqual(1);
                 }

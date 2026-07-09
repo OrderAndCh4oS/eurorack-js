@@ -5,6 +5,7 @@
  */
 
 import { updateKnobRotation } from '../ui/toolkit/components.js';
+import { normalizePatch } from '../app/patch-format.js';
 
 /**
  * Apply knob values to DOM and module instances
@@ -102,6 +103,49 @@ export function applyButtons(buttons, { container = document, modules = {} } = {
     });
 }
 
+export function applyParams(params, { container = document, modules = {} } = {}) {
+    if (!params) return 0;
+
+    let applied = 0;
+    Object.entries(params).forEach(([moduleId, moduleParams]) => {
+        Object.entries(moduleParams || {}).forEach(([param, value]) => {
+            applied += 1;
+            const knob = container.querySelector(
+                `.knob[data-module="${moduleId}"][data-param="${param}"]`
+            );
+            if (knob) {
+                knob.dataset.value = value;
+                updateKnobRotation(knob);
+            }
+
+            const sw = container.querySelector(
+                `.switch[data-module="${moduleId}"][data-param="${param}"]`
+            );
+            if (sw) sw.classList.toggle('on', value === 1 || value === true);
+
+            const bank = container.querySelector(
+                `.button-bank[data-module="${moduleId}"][data-param="${param}"]`
+            );
+            if (bank) {
+                bank.querySelectorAll('.octave-btn').forEach(btn => {
+                    btn.classList.toggle('active', parseInt(btn.dataset.value) === value);
+                });
+            }
+
+            const toggle = container.querySelector(
+                `.toggle-btn[data-module="${moduleId}"][data-param="${param}"], .action-btn[data-module="${moduleId}"][data-param="${param}"]`
+            );
+            if (toggle) toggle.classList.toggle('active', value === 1 || value === true);
+
+            if (modules[moduleId]?.instance) {
+                modules[moduleId].instance.params[param] = value;
+            }
+        });
+    });
+
+    return applied;
+}
+
 /**
  * Apply cable connections
  * @param {Array} cables - Serialized cable connections
@@ -148,19 +192,16 @@ export function applyPatchState(state, {
     clearCables = () => {},
     addCable = () => null
 } = {}) {
+    const canonical = normalizePatch(state);
+
     // Clear existing cables first
     clearCables();
 
-    // Apply state in order
-    applyKnobs(state.knobs, { container, modules });
-    applySwitches(state.switches, { container, modules });
-    applyButtons(state.buttons, { container, modules });
-    const cables = applyCables(state.cables, { container, addCable });
+    const paramsApplied = applyParams(canonical.params, { container, modules });
+    const cables = applyCables(canonical.cables, { container, addCable });
 
     return {
-        knobsApplied: state.knobs ? Object.keys(state.knobs).length : 0,
-        switchesApplied: state.switches ? Object.keys(state.switches).length : 0,
-        buttonsApplied: state.buttons ? Object.keys(state.buttons).length : 0,
+        paramsApplied,
         cablesCreated: cables.length
     };
 }

@@ -3,6 +3,7 @@ import {
     serializeKnobs,
     serializeSwitches,
     serializeButtons,
+    serializeParams,
     serializeCables,
     serializePatchState,
     createPatch,
@@ -232,35 +233,60 @@ describe('patch-serializer', () => {
 
             const result = serializePatchState({ container, cables });
 
-            expect(result.knobs).toEqual({ vco: { freq: 440 } });
-            expect(result.switches).toEqual({ lfo: { sync: true } });
-            expect(result.buttons).toEqual({});
+            expect(result.version).toBe(2);
+            expect(result.modules).toEqual([
+                { id: 'vco', type: 'vco', row: 1, index: 0 },
+                { id: 'lfo', type: 'lfo', row: 1, index: 1 }
+            ]);
+            expect(result.params).toEqual({ vco: { freq: 440 }, lfo: { sync: 1 } });
             expect(result.cables).toEqual([
                 { fromModule: 'lfo', fromPort: 'out', toModule: 'vco', toPort: 'fm' }
             ]);
+            expect(result.midiMappings).toEqual({});
+        });
+    });
+
+    describe('serializeParams', () => {
+        it('combines controls into v2 params', () => {
+            const container = document.createElement('div');
+            const knob = document.createElement('div');
+            knob.className = 'knob';
+            knob.dataset.module = 'vco';
+            knob.dataset.param = 'freq';
+            knob.dataset.value = '440';
+            const sw = document.createElement('div');
+            sw.className = 'switch on';
+            sw.dataset.module = 'vco';
+            sw.dataset.param = 'sync';
+            container.appendChild(knob);
+            container.appendChild(sw);
+
+            expect(serializeParams(container)).toEqual({
+                vco: { freq: 440, sync: 1 }
+            });
         });
     });
 
     describe('createPatch', () => {
         it('should create a named patch object', () => {
-            const state = { knobs: {}, cables: [] };
+            const state = { version: 2, modules: [], params: {}, cables: [], midiMappings: {} };
             const patch = createPatch('My Patch', state);
 
             expect(patch.name).toBe('My Patch');
             expect(patch.factory).toBe(false);
             expect(patch.created).toBeDefined();
-            expect(patch.state).toBe(state);
+            expect(patch.state).toEqual(state);
         });
 
         it('should mark factory patches', () => {
-            const state = { knobs: {}, cables: [] };
+            const state = { version: 2, modules: [], params: {}, cables: [], midiMappings: {} };
             const patch = createPatch('Factory Patch', state, true);
 
             expect(patch.factory).toBe(true);
         });
 
         it('should include ISO timestamp', () => {
-            const state = { knobs: {}, cables: [] };
+            const state = { version: 2, modules: [], params: {}, cables: [], midiMappings: {} };
             const patch = createPatch('Test', state);
 
             expect(() => new Date(patch.created)).not.toThrow();
@@ -270,17 +296,23 @@ describe('patch-serializer', () => {
     describe('isValidPatchState', () => {
         it('should validate valid state', () => {
             const state = {
-                knobs: { vco: { freq: 440 } },
+                version: 2,
+                modules: [
+                    { id: 'lfo', type: 'lfo', row: 1, index: 0 },
+                    { id: 'vco', type: 'vco', row: 1, index: 1 }
+                ],
+                params: { vco: { freq: 440 } },
                 cables: [
                     { fromModule: 'lfo', fromPort: 'out', toModule: 'vco', toPort: 'fm' }
-                ]
+                ],
+                midiMappings: {}
             };
 
             expect(isValidPatchState(state)).toBe(true);
         });
 
-        it('should accept state with empty knobs and cables', () => {
-            const state = { knobs: {}, cables: [] };
+        it('should accept empty canonical state', () => {
+            const state = { version: 2, modules: [], params: {}, cables: [], midiMappings: {} };
             expect(isValidPatchState(state)).toBe(true);
         });
 
@@ -293,38 +325,44 @@ describe('patch-serializer', () => {
             expect(isValidPatchState(123)).toBe(false);
         });
 
-        it('should reject state without knobs', () => {
-            const state = { cables: [] };
+        it('should reject state without params', () => {
+            const state = { version: 2, modules: [], cables: [], midiMappings: {} };
             expect(isValidPatchState(state)).toBe(false);
         });
 
         it('should reject state without cables', () => {
-            const state = { knobs: {} };
+            const state = { version: 2, modules: [], params: {}, midiMappings: {} };
             expect(isValidPatchState(state)).toBe(false);
         });
 
-        it('should reject state with invalid knobs', () => {
-            const state = { knobs: 'invalid', cables: [] };
+        it('should reject state with invalid params', () => {
+            const state = { version: 2, modules: [], params: 'invalid', cables: [], midiMappings: {} };
             expect(isValidPatchState(state)).toBe(false);
         });
 
         it('should reject state with invalid cables', () => {
-            const state = { knobs: {}, cables: 'invalid' };
+            const state = { version: 2, modules: [], params: {}, cables: 'invalid', midiMappings: {} };
             expect(isValidPatchState(state)).toBe(false);
         });
 
         it('should reject cables missing fromModule', () => {
             const state = {
-                knobs: {},
-                cables: [{ fromPort: 'out', toModule: 'vco', toPort: 'in' }]
+                version: 2,
+                modules: [],
+                params: {},
+                cables: [{ fromPort: 'out', toModule: 'vco', toPort: 'in' }],
+                midiMappings: {}
             };
             expect(isValidPatchState(state)).toBe(false);
         });
 
         it('should reject cables missing toPort', () => {
             const state = {
-                knobs: {},
-                cables: [{ fromModule: 'lfo', fromPort: 'out', toModule: 'vco' }]
+                version: 2,
+                modules: [],
+                params: {},
+                cables: [{ fromModule: 'lfo', fromPort: 'out', toModule: 'vco' }],
+                midiMappings: {}
             };
             expect(isValidPatchState(state)).toBe(false);
         });

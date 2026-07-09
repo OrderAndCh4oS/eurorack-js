@@ -139,9 +139,11 @@ describe('arp', () => {
                 expect(arp.inputs).toHaveProperty('chordCV');
             });
 
-            it('should have cv output', () => {
+            it('should have cv and gate outputs', () => {
                 expect(arp.outputs.cv).toBeDefined();
                 expect(arp.outputs.cv.length).toBe(128);
+                expect(arp.outputs.gate).toBeDefined();
+                expect(arp.outputs.gate.length).toBe(128);
             });
 
             it('should have step LED', () => {
@@ -163,6 +165,7 @@ describe('arp', () => {
                 arp.process();
                 // Root 0 = C, first note of chord = 0 semitones
                 expect(arp.outputs.cv[0]).toBe(0);
+                expect(arp.outputs.gate[0]).toBe(0);
             });
 
             it('should advance on trigger rising edge', () => {
@@ -180,6 +183,16 @@ describe('arp', () => {
 
                 // Should have advanced to next note in chord
                 expect(secondNote).not.toBe(firstNote);
+            });
+
+            it('should output gate only while trigger is present', () => {
+                arp.inputs.trigger = new Float32Array(128).fill(5);
+                arp.process();
+                expect(arp.outputs.gate.every(v => v === 10)).toBe(true);
+
+                arp.inputs.trigger = new Float32Array(128).fill(0);
+                arp.process();
+                expect(arp.outputs.gate.every(v => v === 0)).toBe(true);
             });
 
             it('should wrap around at end of sequence', () => {

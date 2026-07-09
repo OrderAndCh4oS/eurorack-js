@@ -34,6 +34,7 @@
 
 ### Outputs
 - **V/Oct**: Pitch CV output
+- **Gate**: 0/10V gate output while trigger input is high (app adaptation for patching envelopes/VCAs)
 
 ### Indicators
 - **Step LED**: Flashes on each step
@@ -118,6 +119,10 @@ if (triggerActive && !lastTriggerState) {
 // Calculate output pitch
 const noteInSemitones = rootNote + sequence[currentStep];
 output = noteInSemitones / 12;  // Convert to V/Oct
+
+// App adaptation: emit a gate alongside the pitch CV so audible arp
+// patches can close immediately when the trigger/clock is removed.
+gate = triggerActive ? 10 : 0;
 ```
 
 ### V/Oct Handling
@@ -133,6 +138,7 @@ output = (rootNote + sequenceNote) / 12;
 
 ### Key Concepts
 - **Gate-driven**: Advances on each trigger, not free-running
+- **Gate output adaptation**: Mirrors trigger presence so downstream envelopes and VCAs do not latch open after clock removal
 - **V/Oct tracking**: Root CV input follows standard
 - **Chord CV**: Allows external modulation of chord type
 

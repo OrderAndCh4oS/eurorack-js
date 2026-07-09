@@ -6,37 +6,81 @@
  * Also routed to output so you can hear it.
  */
 export default {
-    name: 'Test - Scope Sine Wave',
-    factory: true,
-    state: {
-        modules: [
-            { type: 'lfo', instanceId: 'lfo', row: 1 },
-            { type: 'vco', instanceId: 'vco', row: 1 },
-            { type: 'scope', instanceId: 'scope', row: 1 },
-            { type: 'out', instanceId: 'out', row: 1 }
+    "name": "Test - Scope Sine Wave",
+    "factory": true,
+    "state": {
+        "version": 2,
+        "modules": [
+            {
+                "id": "lfo",
+                "type": "lfo",
+                "row": 1,
+                "index": 0
+            },
+            {
+                "id": "vco",
+                "type": "vco",
+                "row": 1,
+                "index": 1
+            },
+            {
+                "id": "scope",
+                "type": "scope",
+                "row": 1,
+                "index": 2
+            },
+            {
+                "id": "out",
+                "type": "out",
+                "row": 1,
+                "index": 3
+            }
         ],
-        knobs: {
-            // LFO: faster rate to show visible wave on scope
-            lfo: { rateKnob: 0.85, waveKnob: 0 },
-            // VCO: low frequency for easy viewing
-            vco: { coarse: 0.3, fine: 0, glide: 0 },
-            // Scope: slower time base to see more cycles
-            scope: { time: 0.3, trigger: 0.5 },
-            // Output: moderate volume
-            out: { volume: 0.5 }
+        "params": {
+            "lfo": {
+                "rateKnob": 0.85,
+                "waveKnob": 0,
+                "range": 1
+            },
+            "vco": {
+                "coarse": 0.3,
+                "fine": 0,
+                "glide": 0
+            },
+            "scope": {
+                "time": 0.3,
+                "trigger": 0.5
+            },
+            "out": {
+                "volume": 0.5
+            }
         },
-        switches: {
-            // LFO in fast mode for visible oscillation on scope
-            lfo: { range: true }
-        },
-        cables: [
-            // VCO triangle to scope CH1 (green trace)
-            { fromModule: 'vco', fromPort: 'triangle', toModule: 'scope', toPort: 'in1' },
-            // LFO sine to scope CH2 (cyan trace)
-            { fromModule: 'lfo', fromPort: 'primary', toModule: 'scope', toPort: 'in2' },
-            // Scope passthrough to output
-            { fromModule: 'scope', fromPort: 'out1', toModule: 'out', toPort: 'L' },
-            { fromModule: 'scope', fromPort: 'out1', toModule: 'out', toPort: 'R' }
-        ]
+        "cables": [
+            {
+                "fromModule": "vco",
+                "fromPort": "triangle",
+                "toModule": "scope",
+                "toPort": "in1"
+            },
+            {
+                "fromModule": "lfo",
+                "fromPort": "primary",
+                "toModule": "scope",
+                "toPort": "in2"
+            },
+            {
+                "fromModule": "scope",
+                "fromPort": "out1",
+                "toModule": "out",
+                "toPort": "L"
+            },
+            {
+                "fromModule": "scope",
+                "fromPort": "out1",
+                "toModule": "out",
+                "toPort": "R"
+            }
+        ],
+        "midiMappings": {}
     }
 };

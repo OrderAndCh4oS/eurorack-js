@@ -228,6 +228,18 @@ export default {
                 sampleClock = 0;
                 this.leds.in = 0;
                 this.leds.out = 0;
+            },
+
+            onInputDisconnected(port) {
+                if (port !== 'clock') return;
+                swungOut.fill(0);
+                straightOut.fill(0);
+                clearScheduledState({ resetPattern: false });
+                lastClockHigh = false;
+                hasClockReference = false;
+                samplesSinceLastClock = 0;
+                this.leds.in = 0;
+                this.leds.out = 0;
             }
         };
     },

@@ -157,6 +157,14 @@ export default {
                 lastReset = false;
                 triggerCounter = 0;
                 this.leds.active = 0;
+            },
+
+            onInputDisconnected(port) {
+                if (port !== 'clock') return;
+                trig.fill(0);
+                lastClock = false;
+                triggerCounter = 0;
+                this.leds.active = 0;
             }
         };
     },

@@ -138,9 +138,9 @@ export default {
                         updateLEDs(this.leds);
                     }
 
-                    // Output current values (sample and hold)
+                    // Output current values (sample and hold CV, pulse qualified by clock)
                     cv[i] = currentCV;
-                    pulse[i] = currentPulse;
+                    pulse[i] = clockHigh ? currentPulse : 0;
                 }
 
                 // Reset own inputs if replaced by routing
@@ -167,6 +167,13 @@ export default {
                 for (let i = 0; i < 8; i++) {
                     this.leds[`bit${i}`] = 0;
                 }
+            },
+
+            onInputDisconnected(port) {
+                if (port !== 'clock') return;
+                lastClock = 0;
+                currentPulse = 0;
+                this.outputs.pulse.fill(0);
             }
         };
     },

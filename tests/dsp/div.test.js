@@ -170,6 +170,23 @@ describe('createDiv', () => {
             // Output should have more pulses than input
             expect(outputPulses).toBeGreaterThan(inputPulses);
         });
+
+        it('should stop multiplied pulses when the clock input is disconnected', () => {
+            const mult2 = createDiv({ bufferSize: 512 });
+            mult2.params.rate1 = 9 / 16; // x2
+
+            mult2.inputs.clock.fill(0);
+            mult2.inputs.clock[0] = 5;
+            mult2.inputs.clock[100] = 5;
+            mult2.process();
+
+            mult2.onInputDisconnected('clock');
+
+            expect(mult2.outputs.out1.every(v => v === 0)).toBe(true);
+            expect(mult2.outputs.out2.every(v => v === 0)).toBe(true);
+            expect(mult2.leds.ch1).toBe(0);
+            expect(mult2.leds.ch2).toBe(0);
+        });
     });
 
     describe('independent channels', () => {

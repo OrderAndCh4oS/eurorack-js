@@ -4,6 +4,7 @@ import {
     applySwitches,
     applyButtons,
     applyCables,
+    applyParams,
     applyPatchState
 } from '../../src/js/patches/patch-loader.js';
 
@@ -247,6 +248,30 @@ describe('patch-loader', () => {
         });
     });
 
+    describe('applyParams', () => {
+        it('applies v2 params to controls and module instances', () => {
+            const container = document.createElement('div');
+            const knob = document.createElement('div');
+            knob.className = 'knob';
+            knob.dataset.module = 'vco';
+            knob.dataset.param = 'freq';
+            knob.dataset.value = '0';
+            const sw = document.createElement('div');
+            sw.className = 'switch';
+            sw.dataset.module = 'vco';
+            sw.dataset.param = 'sync';
+            container.appendChild(knob);
+            container.appendChild(sw);
+            const modules = { vco: { instance: { params: { freq: 0, sync: 0 } } } };
+
+            expect(applyParams({ vco: { freq: 440, sync: 1 } }, { container, modules })).toBe(2);
+            expect(knob.dataset.value).toBe('440');
+            expect(sw.classList.contains('on')).toBe(true);
+            expect(modules.vco.instance.params.freq).toBe(440);
+            expect(modules.vco.instance.params.sync).toBe(1);
+        });
+    });
+
     describe('applyPatchState', () => {
         let container;
         let modules;
@@ -261,7 +286,7 @@ describe('patch-loader', () => {
         });
 
         it('should clear existing cables first', () => {
-            const state = { knobs: {}, switches: {}, buttons: {}, cables: [] };
+            const state = { version: 2, modules: [], params: {}, cables: [], midiMappings: {} };
 
             applyPatchState(state, { container, modules, clearCables, addCable });
 
@@ -283,10 +308,14 @@ describe('patch-loader', () => {
             container.appendChild(sw);
 
             const state = {
-                knobs: { vco: { freq: 440 } },
-                switches: { lfo: { sync: true } },
-                buttons: {},
-                cables: []
+                version: 2,
+                modules: [
+                    { id: 'vco', type: 'vco', row: 1, index: 0 },
+                    { id: 'lfo', type: 'lfo', row: 1, index: 1 }
+                ],
+                params: { vco: { freq: 440 }, lfo: { sync: 1 } },
+                cables: [],
+                midiMappings: {}
             };
 
             applyPatchState(state, { container, modules, clearCables, addCable });
@@ -297,27 +326,24 @@ describe('patch-loader', () => {
 
         it('should return applied counts', () => {
             const state = {
-                knobs: { vco: { freq: 440 }, lfo: { rate: 2 } },
-                switches: { vco: { sync: true } },
-                buttons: { vco: { octave: 2 } },
-                cables: []
+                version: 2,
+                modules: [{ id: 'vco', type: 'vco', row: 1, index: 0 }],
+                params: { vco: { freq: 440, sync: 1, octave: 2 }, lfo: { rate: 2 } },
+                cables: [],
+                midiMappings: {}
             };
 
             const result = applyPatchState(state, { container, modules, clearCables, addCable });
 
-            expect(result.knobsApplied).toBe(2);
-            expect(result.switchesApplied).toBe(1);
-            expect(result.buttonsApplied).toBe(1);
+            expect(result.paramsApplied).toBe(4);
             expect(result.cablesCreated).toBe(0);
         });
 
-        it('should handle missing state properties', () => {
-            const state = { knobs: {}, cables: [] };
+        it('should reject missing state properties', () => {
+            const state = { version: 2, modules: [], params: {}, cables: [] };
 
-            const result = applyPatchState(state, { container, modules, clearCables, addCable });
-
-            expect(result.switchesApplied).toBe(0);
-            expect(result.buttonsApplied).toBe(0);
+            expect(() => applyPatchState(state, { container, modules, clearCables, addCable }))
+                .toThrow('Patch state midiMappings must be an object');
         });
     });
 });

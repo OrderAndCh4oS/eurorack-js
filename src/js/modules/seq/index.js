@@ -12,7 +12,7 @@
  * - Clock input (+3V threshold)
  * - Reset input (+3V threshold)
  * - CV output (unquantized, 0-1V / 0-2V / 0-4V)
- * - Gate output (0V / +10V)
+ * - Gate output (0V / +10V while clock pulse is present)
  */
 
 // Direction mode names
@@ -158,13 +158,14 @@ export default {
                     }
                     lastClockState = clockActive;
 
-                    // Output current step CV and gate
-                    // Gate is high while on a step with gate enabled (stays high for step duration)
+                    // Output current step CV and gate.
+                    // Gate follows the clock pulse so removing the clock closes
+                    // downstream envelopes/VCAs instead of latching a step high.
                     const stepCV = stepValues[currentStep] || 0;
                     const stepGate = gateValues[currentStep] || 0;
 
                     cvOut[i] = stepCV * rangeMultiplier;
-                    gateOut[i] = stepGate ? 10 : 0;
+                    gateOut[i] = clockActive && stepGate ? 10 : 0;
                 }
 
                 // Update LEDs

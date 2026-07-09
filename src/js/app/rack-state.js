@@ -18,6 +18,10 @@ export function createDefaultParams(definition) {
         params[button.param] = button.default ?? 0;
     });
 
+    (ui.actions || []).forEach(action => {
+        params[action.param] = action.default ?? 0;
+    });
+
     return params;
 }
 

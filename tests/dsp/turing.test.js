@@ -250,6 +250,16 @@ describe('Turing Module', () => {
 
             expect(foundHigh || foundLow).toBe(true);
         });
+
+        it('should drop pulse output when clock is absent', () => {
+            dsp.inputs.clock.fill(10);
+            dsp.process();
+
+            dsp.inputs.clock.fill(0);
+            dsp.process();
+
+            expect(dsp.outputs.pulse.every(v => v === 0)).toBe(true);
+        });
     });
 
     describe('Clock Input', () => {

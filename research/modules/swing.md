@@ -92,6 +92,8 @@ The proposed module is an app-adapted clock processor, not a clone of one hardwa
   - Delays are clamped to leave at least 1 ms of low time before the next predicted edge when the period estimate is stable.
 - Reset behavior:
   - Reset rising edge clears pending delayed pulses, resets the template step to 0, clears output pulse counters, and turns LEDs off.
+- Disconnect behavior:
+  - When the clock input cable is removed, the engine notifies the module and clears pending delayed/straight pulses immediately. The pattern step is preserved, but no scheduled clock output remains after disconnect.
 
 ## DSP Implementation
 

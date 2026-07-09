@@ -1,9 +1,9 @@
 /**
  * Patch Serializer - Serialize and deserialize patch state
  *
- * Converts synth state (knobs, switches, buttons, cables) to/from
- * a serializable format for saving and loading patches.
+ * Converts synth state to/from canonical v2 patch state.
  */
+import { normalizePatch } from '../app/patch-format.js';
 
 /**
  * Serialize knob values from DOM elements
@@ -66,6 +66,23 @@ export function serializeButtons(container = document) {
     return buttons;
 }
 
+function mergeParams(target, source, transform = value => value) {
+    Object.entries(source || {}).forEach(([moduleId, params]) => {
+        if (!target[moduleId]) target[moduleId] = {};
+        Object.entries(params || {}).forEach(([param, value]) => {
+            target[moduleId][param] = transform(value);
+        });
+    });
+}
+
+export function serializeParams(container = document) {
+    const params = {};
+    mergeParams(params, serializeKnobs(container));
+    mergeParams(params, serializeSwitches(container), value => value ? 1 : 0);
+    mergeParams(params, serializeButtons(container));
+    return params;
+}
+
 /**
  * Serialize cable connections
  * @param {Array} cables - Array of cable objects from cable manager
@@ -80,6 +97,32 @@ export function serializeCables(cables) {
     }));
 }
 
+export function serializeModules(container = document, params = serializeParams(container)) {
+    const seen = new Set();
+    const modules = [];
+
+    container.querySelectorAll('[data-module][data-type], [data-instance-id][data-type]').forEach(element => {
+        const id = element.dataset.module || element.dataset.instanceId;
+        const type = element.dataset.type;
+        if (!id || !type || seen.has(id)) return;
+        seen.add(id);
+        modules.push({
+            id,
+            type,
+            row: parseInt(element.dataset.row || '1', 10),
+            index: parseInt(element.dataset.index || String(modules.length), 10)
+        });
+    });
+
+    Object.keys(params).forEach(moduleId => {
+        if (seen.has(moduleId)) return;
+        seen.add(moduleId);
+        modules.push({ id: moduleId, type: moduleId, row: 1, index: modules.length });
+    });
+
+    return modules;
+}
+
 /**
  * Serialize complete patch state
  * @param {Object} options
@@ -87,12 +130,14 @@ export function serializeCables(cables) {
  * @param {Array} options.cables - Cable connections
  * @returns {Object} Complete patch state
  */
-export function serializePatchState({ container = document, cables = [] } = {}) {
+export function serializePatchState({ container = document, cables = [], modules = null, midiMappings = {} } = {}) {
+    const params = serializeParams(container);
     return {
-        knobs: serializeKnobs(container),
-        switches: serializeSwitches(container),
-        buttons: serializeButtons(container),
-        cables: serializeCables(cables)
+        version: 2,
+        modules: modules || serializeModules(container, params),
+        params,
+        cables: serializeCables(cables),
+        midiMappings: { ...midiMappings }
     };
 }
 
@@ -108,7 +153,7 @@ export function createPatch(name, state, factory = false) {
         name,
         factory,
         created: new Date().toISOString(),
-        state
+        state: normalizePatch(state)
     };
 }
 
@@ -118,17 +163,10 @@ export function createPatch(name, state, factory = false) {
  * @returns {boolean} True if valid
  */
 export function isValidPatchState(state) {
-    if (!state || typeof state !== 'object') return false;
-
-    // Must have at least knobs and cables
-    if (!state.knobs || typeof state.knobs !== 'object') return false;
-    if (!state.cables || !Array.isArray(state.cables)) return false;
-
-    // Validate cables have required fields
-    for (const cable of state.cables) {
-        if (!cable.fromModule || !cable.fromPort) return false;
-        if (!cable.toModule || !cable.toPort) return false;
+    try {
+        normalizePatch(state);
+        return true;
+    } catch {
+        return false;
     }
-
-    return true;
 }

@@ -288,17 +288,28 @@ describe('seq', () => {
             seq = createSeq({ bufferSize: 128 });
         });
 
-        it('should output 10V gate when step gate is on', () => {
+        it('should output 10V gate when step gate is on during clock pulse', () => {
             seq.params.gate1 = 1; // Gate on
 
+            seq.inputs.clock.fill(5);
             seq.process();
 
             expect(seq.outputs.gate[0]).toBe(10);
         });
 
+        it('should output 0V gate when clock is absent', () => {
+            seq.params.gate1 = 1;
+
+            seq.process();
+
+            expect(seq.outputs.gate[0]).toBe(0);
+        });
+
         it('should output 0V gate when step gate is off', () => {
             seq.params.gate1 = 0; // Gate off
+            seq.params.length = 1;
 
+            seq.inputs.clock.fill(5);
             seq.process();
 
             expect(seq.outputs.gate[0]).toBe(0);
@@ -309,15 +320,14 @@ describe('seq', () => {
             seq.params.gate2 = 0;
             seq.params.gate3 = 1;
 
-            seq.process();
-            expect(seq.outputs.gate[0]).toBe(10);
-
             seq.inputs.clock.fill(5);
             seq.process();
             expect(seq.outputs.gate[0]).toBe(0);
 
             seq.inputs.clock.fill(0);
             seq.process();
+            expect(seq.outputs.gate[0]).toBe(0);
+
             seq.inputs.clock.fill(5);
             seq.process();
             expect(seq.outputs.gate[0]).toBe(10);
@@ -624,8 +634,9 @@ describe('seq', () => {
                 expect(seq.outputs.gate[0]).toBe(0);
             });
 
-            it('should output +10V for gate on (per A-155-2 spec)', () => {
+            it('should output +10V for gate on during clock pulse', () => {
                 seq.params.gate1 = 1;
+                seq.inputs.clock.fill(5);
                 seq.process();
                 expect(seq.outputs.gate[0]).toBe(10);
             });

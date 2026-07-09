@@ -6,6 +6,7 @@
 
 import { PATCH_STORAGE_KEY } from '../config/constants.js';
 import { FACTORY_PATCHES } from '../config/factory-patches.js';
+import { normalizePatch, normalizePatchCollection } from '../app/patch-format.js';
 
 /**
  * Create a patch storage manager
@@ -20,7 +21,7 @@ export function createPatchStorage(storageKey = PATCH_STORAGE_KEY) {
     function getUserPatches() {
         try {
             const data = localStorage.getItem(storageKey);
-            return data ? JSON.parse(data) : {};
+            return data ? normalizePatchCollection(JSON.parse(data)) : {};
         } catch (e) {
             console.error('Error loading user patches:', e);
             return {};
@@ -33,7 +34,7 @@ export function createPatchStorage(storageKey = PATCH_STORAGE_KEY) {
      */
     function saveUserPatches(patches) {
         try {
-            localStorage.setItem(storageKey, JSON.stringify(patches));
+            localStorage.setItem(storageKey, JSON.stringify(normalizePatchCollection(patches)));
         } catch (e) {
             console.error('Error saving patches:', e);
         }
@@ -113,7 +114,7 @@ export function createPatchStorage(storageKey = PATCH_STORAGE_KEY) {
                 name,
                 factory: false,
                 created: new Date().toISOString(),
-                state
+                state: normalizePatch(state)
             };
 
             saveUserPatches(patches);
@@ -226,7 +227,7 @@ export function createPatchStorage(storageKey = PATCH_STORAGE_KEY) {
                 }
 
                 const existing = merge ? getUserPatches() : {};
-                const merged = { ...existing, ...imported };
+                const merged = normalizePatchCollection({ ...existing, ...imported });
                 saveUserPatches(merged);
 
                 return Object.keys(imported).length;

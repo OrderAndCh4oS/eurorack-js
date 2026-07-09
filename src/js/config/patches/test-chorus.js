@@ -5,24 +5,67 @@
  * Creates a lush, widened sound with stereo modulation.
  */
 export default {
-    name: 'Test: Chorus',
-    factory: true,
-    state: {
-        modules: [
-            { type: 'vco', instanceId: 'vco', row: 1 },
-            { type: 'chorus', instanceId: 'chorus', row: 1 },
-            { type: 'out', instanceId: 'out', row: 1 }
+    "name": "Test: Chorus",
+    "factory": true,
+    "state": {
+        "version": 2,
+        "modules": [
+            {
+                "id": "vco",
+                "type": "vco",
+                "row": 1,
+                "index": 0
+            },
+            {
+                "id": "chorus",
+                "type": "chorus",
+                "row": 1,
+                "index": 1
+            },
+            {
+                "id": "out",
+                "type": "out",
+                "row": 1,
+                "index": 2
+            }
         ],
-        knobs: {
-            vco: { coarse: 0.4, fine: 0 },
-            chorus: { rate: 0.4, depth: 0.6, mix: 0.5 }
+        "params": {
+            "vco": {
+                "coarse": 0.4,
+                "fine": 0
+            },
+            "chorus": {
+                "rate": 0.4,
+                "depth": 0.6,
+                "mix": 0.5
+            }
         },
-        switches: {},
-        cables: [
-            { fromModule: 'vco', fromPort: 'triangle', toModule: 'chorus', toPort: 'inL' },
-            { fromModule: 'vco', fromPort: 'triangle', toModule: 'chorus', toPort: 'inR' },
-            { fromModule: 'chorus', fromPort: 'outL', toModule: 'out', toPort: 'L' },
-            { fromModule: 'chorus', fromPort: 'outR', toModule: 'out', toPort: 'R' }
-        ]
+        "cables": [
+            {
+                "fromModule": "vco",
+                "fromPort": "triangle",
+                "toModule": "chorus",
+                "toPort": "inL"
+            },
+            {
+                "fromModule": "vco",
+                "fromPort": "triangle",
+                "toModule": "chorus",
+                "toPort": "inR"
+            },
+            {
+                "fromModule": "chorus",
+                "fromPort": "outL",
+                "toModule": "out",
+                "toPort": "L"
+            },
+            {
+                "fromModule": "chorus",
+                "fromPort": "outR",
+                "toModule": "out",
+                "toPort": "R"
+            }
+        ],
+        "midiMappings": {}
     }
 };

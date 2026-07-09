@@ -2,8 +2,8 @@ import { beforeAll, describe, it, expect } from 'vitest';
 import {
     PATCH_URL_FORMAT,
     createPatchUrlHash,
-    migratePatchCollection,
     normalizePatch,
+    normalizePatchCollection,
     parsePatchUrlHash,
     patchUrlTestInternals
 } from '../../src/js/app/patch-format.js';
@@ -57,8 +57,17 @@ describe('patch-format', () => {
         await loadModules();
     });
 
-    it('normalizes legacy module layout and params into v2 state', () => {
-        const legacy = {
+    it('rejects patch state without canonical v2 version', () => {
+        expect(() => normalizePatch({
+            modules: [],
+            params: {},
+            cables: [],
+            midiMappings: {}
+        })).toThrow('Unsupported patch state version: missing');
+    });
+
+    it('rejects legacy module layout and params', () => {
+        expect(() => normalizePatch({
             modules: [
                 { type: 'vco', instanceId: 'vco', row: 1 },
                 { type: 'out', instanceId: 'out', row: 1 }
@@ -72,34 +81,18 @@ describe('patch-format', () => {
             cables: [
                 { fromModule: 'vco', fromPort: 'triangle', toModule: 'out', toPort: 'L' }
             ]
-        };
-
-        expect(normalizePatch(legacy)).toEqual({
-            version: 2,
-            modules: [
-                { id: 'vco', type: 'vco', row: 1, index: 0 },
-                { id: 'out', type: 'out', row: 1, index: 1 }
-            ],
-            params: {
-                vco: { coarse: 0.3 },
-                out: { volume: 0.5 }
-            },
-            cables: [
-                { fromModule: 'vco', fromPort: 'triangle', toModule: 'out', toPort: 'L' }
-            ],
-            midiMappings: {}
-        });
+        })).toThrow('Unsupported patch state version: missing');
     });
 
-    it('infers legacy type-based modules when layout is missing', () => {
-        const normalized = normalizePatch({
-            knobs: { vco: { coarse: 0.4 }, out: { volume: 0.8 } },
-            cables: [{ fromModule: 'vco', fromPort: 'triangle', toModule: 'out', toPort: 'L' }]
-        }, { moduleOrder: ['clk', 'vco', 'out'] });
-
-        expect(normalized.modules.map(mod => mod.id)).toEqual(['vco', 'out']);
-        expect(normalized.params.vco.coarse).toBe(0.4);
-        expect(normalized.cables[0].toModule).toBe('out');
+    it('rejects legacy groups even when version is present', () => {
+        expect(() => normalizePatch({
+            version: 2,
+            modules: [{ id: 'vco', type: 'vco', row: 1, index: 0 }],
+            params: {},
+            knobs: { vco: { coarse: 0.4 } },
+            cables: [],
+            midiMappings: {}
+        })).toThrow('Legacy patch fields are not supported');
     });
 
     it('preserves canonical v2 shape without legacy groups', () => {
@@ -114,16 +107,13 @@ describe('patch-format', () => {
         expect(normalizePatch(v2)).toEqual(v2);
     });
 
-    it('marks legacy patch collections as changed for one-time migration', () => {
-        const { patches, changed } = migratePatchCollection({
+    it('rejects unsupported patch collections', () => {
+        expect(() => normalizePatchCollection({
             Demo: {
                 name: 'Demo',
                 state: { knobs: { vco: { coarse: 0.2 } }, cables: [] }
             }
-        }, { moduleOrder: ['vco'] });
-
-        expect(changed).toBe(true);
-        expect(patches.Demo.state.version).toBe(2);
+        })).toThrow('Unsupported patch state version: missing');
     });
 
     it('round-trips patch state through a shareable URL hash', async () => {

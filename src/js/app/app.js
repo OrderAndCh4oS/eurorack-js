@@ -10,14 +10,14 @@ import { FACTORY_PATCHES } from '../config/factory-patches.js';
 import { createAudioEngine } from '../audio/engine.js';
 import { createCablePath, getJackCenter } from '../cables/cable-manager.js';
 import { createMidiManager } from '../midi/midi-manager.js';
-import { renderModule, updateModuleLEDs } from '../ui/renderer.js';
+import { cleanupRenderedModule, renderModule, syncParamToModuleUI, updateModuleLEDs } from '../ui/renderer.js';
 import { updateKnobRotation } from '../ui/toolkit/components.js';
 import { RackState } from './rack-state.js';
 import {
     PATCH_VERSION,
     createPatchUrlHash,
-    migratePatchCollection,
     normalizePatch,
+    normalizePatchCollection,
     parsePatchUrlHash
 } from './patch-format.js';
 import { setNestedValue } from '../utils/nested-access.js';
@@ -35,13 +35,11 @@ function isPlainObject(value) {
 
 function isPatchStateLike(value) {
     return isPlainObject(value) && (
-        value.version !== undefined ||
-        Array.isArray(value.modules) ||
-        value.params !== undefined ||
-        value.knobs !== undefined ||
-        value.switches !== undefined ||
-        value.buttons !== undefined ||
-        Array.isArray(value.cables)
+        value.version === PATCH_VERSION &&
+        Array.isArray(value.modules) &&
+        isPlainObject(value.params) &&
+        Array.isArray(value.cables) &&
+        isPlainObject(value.midiMappings)
     );
 }
 
@@ -65,13 +63,28 @@ function sanitizeFilename(name) {
         .replace(/^-+|-+$/g, '') || 'eurorack-patch';
 }
 
-function createUserPatch(name, rawPatch, moduleOrder) {
+function createUserPatch(name, rawPatch) {
     const patchName = normalizePatchName(rawPatch?.name || name);
+    const created = rawPatch?.created || new Date().toISOString();
     return {
         name: patchName,
         factory: false,
-        created: rawPatch?.created || new Date().toISOString(),
-        state: normalizePatch(rawPatch?.state || rawPatch, { moduleOrder })
+        created,
+        state: normalizePatch(rawPatch?.state || rawPatch)
+    };
+}
+
+function createCanonicalPatch(name, rawPatchOrState, {
+    factory = false,
+    created = null
+} = {}) {
+    const rawPatch = rawPatchOrState?.state ? rawPatchOrState : { state: rawPatchOrState };
+    const patchName = normalizePatchName(rawPatch?.name || name);
+    return {
+        name: patchName,
+        factory,
+        created: created || rawPatch?.created || new Date().toISOString(),
+        state: normalizePatch(rawPatch?.state || rawPatch)
     };
 }
 
@@ -90,7 +103,7 @@ function parseVersionedPatchExport(parsed, options) {
 
     if (isPatchLike(parsed.patch)) {
         const name = normalizePatchName(parsed.patch.name || options.suggestedName);
-        const patch = createUserPatch(name, parsed.patch, options.moduleOrder);
+        const patch = createUserPatch(name, parsed.patch);
         return {
             type: 'single',
             patches: { [patch.name]: patch },
@@ -98,14 +111,12 @@ function parseVersionedPatchExport(parsed, options) {
         };
     }
 
-    if (isPlainObject(parsed.patches)) {
-        return parsePatchCollection(parsed.patches, options);
-    }
+    if (isPlainObject(parsed.patches)) return parsePatchCollection(parsed.patches);
 
     throw new Error('Patch export must contain a patch or patch collection');
 }
 
-function parsePatchCollection(collection, { moduleOrder }) {
+function parsePatchCollection(collection) {
     const entries = Object.entries(collection);
     if (entries.length === 0 || entries.some(([, patch]) => !isPatchLike(patch))) {
         throw new Error('Patch JSON must contain a patch or patch collection');
@@ -114,7 +125,7 @@ function parsePatchCollection(collection, { moduleOrder }) {
     const patches = {};
     const names = [];
     entries.forEach(([key, rawPatch]) => {
-        const patch = createUserPatch(rawPatch.name || key, rawPatch, moduleOrder);
+        const patch = createUserPatch(rawPatch.name || key, rawPatch);
         patches[patch.name] = patch;
         names.push(patch.name);
     });
@@ -122,29 +133,35 @@ function parsePatchCollection(collection, { moduleOrder }) {
     return { type: 'collection', patches, names };
 }
 
-export function createPatchExport(patch, { exportedAt = new Date().toISOString() } = {}) {
+export function createPatchExport(patch, {
+    exportedAt = new Date().toISOString()
+} = {}) {
+    const canonicalPatch = createCanonicalPatch(patch?.name || 'Untitled Patch', patch, {
+        factory: patch?.factory === true,
+        created: patch?.created
+    });
     return {
         schema: PATCH_EXPORT_SCHEMA,
         version: PATCH_EXPORT_VERSION,
         patchVersion: PATCH_VERSION,
         exportedAt,
-        patch
+        patch: canonicalPatch
     };
 }
 
-export function parseImportedPatchJson(json, { suggestedName = '', moduleOrder = [] } = {}) {
+export function parseImportedPatchJson(json, { suggestedName = '' } = {}) {
     const parsed = JSON.parse(json);
     if (!isPlainObject(parsed)) {
         throw new Error('Patch JSON must contain an object');
     }
 
     if (parsed.schema === PATCH_EXPORT_SCHEMA) {
-        return parseVersionedPatchExport(parsed, { suggestedName, moduleOrder });
+        return parseVersionedPatchExport(parsed, { suggestedName });
     }
 
     if (isPatchLike(parsed)) {
         const name = normalizePatchName(parsed.name || suggestedName);
-        const patch = createUserPatch(name, parsed, moduleOrder);
+        const patch = createUserPatch(name, parsed);
         return {
             type: 'single',
             patches: { [patch.name]: patch },
@@ -152,7 +169,7 @@ export function parseImportedPatchJson(json, { suggestedName = '', moduleOrder =
         };
     }
 
-    return parsePatchCollection(parsed, { moduleOrder });
+    return parsePatchCollection(parsed);
 }
 
 export class EurorackApp {
@@ -181,7 +198,7 @@ export class EurorackApp {
         this.populateSidebar();
         this.bindEvents();
         await this.initMidi();
-        this.migrateUserPatches();
+        this.cleanUserPatches();
         this.initPatchBank();
         await this.loadPatchFromUrlHash();
         this.markEmptyRows();
@@ -501,7 +518,10 @@ export class EurorackApp {
         this.clearVisualCables();
         this.syncRowElements();
         Object.values(this.rows).forEach(row => {
-            row.querySelectorAll('.module:not(.drop-indicator)').forEach(el => el.remove());
+            row.querySelectorAll('.module:not(.drop-indicator)').forEach(el => {
+                cleanupRenderedModule(el);
+                el.remove();
+            });
         });
 
         this.state.getRowNumbers().forEach(row => {
@@ -518,6 +538,7 @@ export class EurorackApp {
         const mod = this.state.getModule(id);
         if (!mod) return;
 
+        cleanupRenderedModule(mod.element);
         mod.element?.remove();
         this.state.removeModule(id);
         this.visualCables
@@ -624,8 +645,8 @@ export class EurorackApp {
     }
 
     handleMouseDown(event) {
-        const knob = event.target.closest('.knob');
-        if (knob && this.handleKnobMidiLearn(knob, event)) return;
+        const midiControl = event.target.closest('[data-module][data-param]');
+        if (midiControl && !midiControl.classList.contains('jack') && this.handleParamMidiLearn(midiControl, event)) return;
 
         const jack = event.target.closest('.jack');
         if (jack) {
@@ -666,7 +687,7 @@ export class EurorackApp {
 
     handleModuleMouseDown(event) {
         if (event.button !== 0) return;
-        if (event.target.closest('.jack, .knob, .switch, .remove-btn, .octave-btn, .toggle-btn')) return;
+        if (event.target.closest('.jack, .knob, .switch, .remove-btn, .octave-btn, .toggle-btn, .action-btn')) return;
 
         const moduleEl = event.target.closest('.module');
         if (!moduleEl) return;
@@ -882,7 +903,13 @@ export class EurorackApp {
 
     applyParamsToDOM(moduleId) {
         const params = this.state.getModule(moduleId)?.params || {};
+        const moduleEl = this.state.getModule(moduleId)?.element;
         Object.entries(params).forEach(([param, value]) => {
+            if (moduleEl) {
+                syncParamToModuleUI(moduleEl, moduleId, param, value);
+                return;
+            }
+
             const knob = this.document.querySelector(`.knob[data-module="${moduleId}"][data-param="${param}"]`);
             if (knob) {
                 knob.dataset.value = value;
@@ -896,10 +923,8 @@ export class EurorackApp {
                     btn.classList.toggle('active', parseInt(btn.dataset.value, 10) === value);
                 });
             }
-            const toggle = this.document.querySelector(`.toggle-btn[data-module="${moduleId}"][data-param="${param}"]`);
+            const toggle = this.document.querySelector(`.toggle-btn[data-module="${moduleId}"][data-param="${param}"], .action-btn[data-module="${moduleId}"][data-param="${param}"]`);
             if (toggle) toggle.classList.toggle('active', value === 1 || value === true);
-            const recordButton = this.document.querySelector(`.loop-record-button[data-module="${moduleId}"][data-param="${param}"]`);
-            if (recordButton) recordButton.classList.toggle('recording', value === 1 || value === true);
         });
     }
 
@@ -912,14 +937,26 @@ export class EurorackApp {
     }
 
     saveUserPatches(patches) {
-        localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(patches));
+        const canonicalPatches = normalizePatchCollection(patches);
+        localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(canonicalPatches));
     }
 
-    migrateUserPatches() {
-        const { patches, changed } = migratePatchCollection(this.getUserPatches(), {
-            moduleOrder: DEFAULT_MODULE_ORDER
+    cleanUserPatches() {
+        const current = this.getUserPatches();
+        const cleaned = {};
+        let changed = false;
+
+        Object.entries(current).forEach(([name, patch]) => {
+            try {
+                cleaned[name] = normalizePatchCollection({ [name]: patch })[name];
+            } catch {
+                changed = true;
+            }
         });
-        if (changed) this.saveUserPatches(patches);
+
+        if (changed) {
+            localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(cleaned));
+        }
     }
 
     getPatchList() {
@@ -967,12 +1004,7 @@ export class EurorackApp {
         }
         const patches = this.getUserPatches();
         const patchName = name.trim();
-        const patch = {
-            name: patchName,
-            factory: false,
-            created: new Date().toISOString(),
-            state: this.state.serializePatch()
-        };
+        const patch = createCanonicalPatch(patchName, this.state.serializePatch());
         patches[patchName] = patch;
         this.saveUserPatches(patches);
         this.updatePatchSelect();
@@ -987,8 +1019,9 @@ export class EurorackApp {
 
     loadPatchState(patchState) {
         const previous = this.state.serializePatch();
+        const normalized = normalizePatch(patchState);
         try {
-            this.state.loadPatch(patchState, moduleRegistry);
+            this.state.loadPatch(normalized, moduleRegistry);
             if (this.audioCtx) {
                 this.state.modules.forEach(moduleState => this.createDSP(moduleState));
             }
@@ -1010,7 +1043,7 @@ export class EurorackApp {
             alert('Patch not found');
             return false;
         }
-        const normalized = normalizePatch(patch, { moduleOrder: DEFAULT_MODULE_ORDER });
+        const normalized = normalizePatch(patch);
         const loaded = this.loadPatchState(normalized);
         if (loaded) {
             try {
@@ -1124,12 +1157,7 @@ export class EurorackApp {
 
     async sharePatchUrl() {
         const name = this.getCurrentPatchName();
-        const patch = {
-            name,
-            factory: false,
-            created: new Date().toISOString(),
-            state: this.state.serializePatch()
-        };
+        const patch = createCanonicalPatch(name, this.state.serializePatch());
 
         let url;
         try {
@@ -1161,12 +1189,7 @@ export class EurorackApp {
 
     exportCurrentPatchToFile() {
         const name = this.getCurrentPatchName();
-        const patch = {
-            name,
-            factory: false,
-            created: new Date().toISOString(),
-            state: this.state.serializePatch()
-        };
+        const patch = createCanonicalPatch(name, this.state.serializePatch());
         const json = JSON.stringify(createPatchExport(patch), null, 2);
         const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -1251,7 +1274,7 @@ export class EurorackApp {
         this.midiManager.setLearnMode(active);
         this.document.body.classList.toggle('midi-learn-mode', active);
         if (!active) {
-            this.document.querySelectorAll('.knob.midi-learning').forEach(knob => knob.classList.remove('midi-learning'));
+            this.document.querySelectorAll('.midi-learning').forEach(control => control.classList.remove('midi-learning'));
         }
     }
 
@@ -1259,28 +1282,52 @@ export class EurorackApp {
         this.document.defaultView?.open(path, '_blank', 'noopener,noreferrer');
     }
 
-    handleKnobMidiLearn(knob, event) {
+    getMidiControlRange(control) {
+        if (control.classList.contains('knob')) {
+            return {
+                min: parseFloat(control.dataset.min),
+                max: parseFloat(control.dataset.max)
+            };
+        }
+
+        if (control.classList.contains('button-bank')) {
+            const values = [...control.querySelectorAll('[data-value]')]
+                .map(btn => Number(btn.dataset.value))
+                .filter(Number.isFinite);
+            if (values.length) {
+                return {
+                    min: Math.min(...values),
+                    max: Math.max(...values)
+                };
+            }
+        }
+
+        return { min: 0, max: 1 };
+    }
+
+    handleParamMidiLearn(control, event) {
         if (!this.midiManager?.isLearnMode) return false;
         event.preventDefault();
         event.stopImmediatePropagation();
-        this.document.querySelectorAll('.knob.midi-learning').forEach(item => item.classList.remove('midi-learning'));
-        knob.classList.add('midi-learning');
+        this.document.querySelectorAll('.midi-learning').forEach(item => item.classList.remove('midi-learning'));
+        control.classList.add('midi-learning');
+        const { min, max } = this.getMidiControlRange(control);
         this.midiManager.startLearning({
-            element: knob,
-            moduleId: knob.dataset.module,
-            paramId: knob.dataset.param,
-            min: parseFloat(knob.dataset.min),
-            max: parseFloat(knob.dataset.max)
+            element: control,
+            moduleId: control.dataset.module,
+            paramId: control.dataset.param,
+            min,
+            max
         });
         return true;
     }
 
     updateMidiMappedIndicators() {
-        this.document.querySelectorAll('.knob.midi-mapped').forEach(knob => knob.classList.remove('midi-mapped'));
+        this.document.querySelectorAll('.midi-mapped').forEach(control => control.classList.remove('midi-mapped'));
         if (!this.midiManager) return;
         Object.values(this.state.midiMappings || {}).forEach(mapping => {
-            const knob = this.document.querySelector(`.knob[data-module="${mapping.moduleId}"][data-param="${mapping.paramId}"]`);
-            knob?.classList.add('midi-mapped');
+            const control = this.document.querySelector(`[data-module="${mapping.moduleId}"][data-param="${mapping.paramId}"]`);
+            control?.classList.add('midi-mapped');
         });
         this.midiManager.setMappings(this.state.midiMappings || {});
     }

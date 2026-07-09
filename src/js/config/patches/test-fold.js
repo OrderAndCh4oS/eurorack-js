@@ -8,36 +8,96 @@
  * Try adjusting the Fold knob to hear the harmonics change.
  */
 export default {
-    name: 'Test - Fold',
-    factory: true,
-    state: {
-        modules: [
-            { type: 'lfo', instanceId: 'lfo', row: 1 },
-            { type: 'vco', instanceId: 'vco', row: 1 },
-            { type: 'fold', instanceId: 'fold', row: 1 },
-            { type: 'vcf', instanceId: 'vcf', row: 1 },
-            { type: 'out', instanceId: 'out', row: 1 }
+    "name": "Test - Fold",
+    "factory": true,
+    "state": {
+        "version": 2,
+        "modules": [
+            {
+                "id": "lfo",
+                "type": "lfo",
+                "row": 1,
+                "index": 0
+            },
+            {
+                "id": "vco",
+                "type": "vco",
+                "row": 1,
+                "index": 1
+            },
+            {
+                "id": "fold",
+                "type": "fold",
+                "row": 1,
+                "index": 2
+            },
+            {
+                "id": "vcf",
+                "type": "vcf",
+                "row": 1,
+                "index": 3
+            },
+            {
+                "id": "out",
+                "type": "out",
+                "row": 1,
+                "index": 4
+            }
         ],
-        knobs: {
-            lfo: { rate: 0.25, shape: 0.5 },
-            vco: { coarse: 0.35, fine: 0 },
-            fold: { fold: 0.4, sym: 0 },
-            vcf: { cutoff: 0.6, res: 0.3 },
-            out: { volume: 0.5 }
+        "params": {
+            "lfo": {
+                "rate": 0.25,
+                "shape": 0.5,
+                "range": 0
+            },
+            "vco": {
+                "coarse": 0.35,
+                "fine": 0
+            },
+            "fold": {
+                "fold": 0.4,
+                "sym": 0
+            },
+            "vcf": {
+                "cutoff": 0.6,
+                "res": 0.3
+            },
+            "out": {
+                "volume": 0.5
+            }
         },
-        switches: {
-            lfo: { range: 0 }
-        },
-        cables: [
-            // LFO modulates fold amount
-            { fromModule: 'lfo', fromPort: 'primary', toModule: 'fold', toPort: 'foldCV' },
-            // VCO triangle to folder
-            { fromModule: 'vco', fromPort: 'triangle', toModule: 'fold', toPort: 'audio' },
-            // Folder through filter to tame highs
-            { fromModule: 'fold', fromPort: 'out', toModule: 'vcf', toPort: 'audio' },
-            // Filter to output
-            { fromModule: 'vcf', fromPort: 'lpf', toModule: 'out', toPort: 'L' },
-            { fromModule: 'vcf', fromPort: 'lpf', toModule: 'out', toPort: 'R' }
-        ]
+        "cables": [
+            {
+                "fromModule": "lfo",
+                "fromPort": "primary",
+                "toModule": "fold",
+                "toPort": "foldCV"
+            },
+            {
+                "fromModule": "vco",
+                "fromPort": "triangle",
+                "toModule": "fold",
+                "toPort": "audio"
+            },
+            {
+                "fromModule": "fold",
+                "fromPort": "out",
+                "toModule": "vcf",
+                "toPort": "audio"
+            },
+            {
+                "fromModule": "vcf",
+                "fromPort": "lpf",
+                "toModule": "out",
+                "toPort": "L"
+            },
+            {
+                "fromModule": "vcf",
+                "fromPort": "lpf",
+                "toModule": "out",
+                "toPort": "R"
+            }
+        ],
+        "midiMappings": {}
     }
 };

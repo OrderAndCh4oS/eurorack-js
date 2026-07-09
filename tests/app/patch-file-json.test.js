@@ -3,6 +3,7 @@ import {
     EurorackApp,
     PATCH_EXPORT_SCHEMA,
     PATCH_EXPORT_VERSION,
+    createPatchExport,
     parseImportedPatchJson
 } from '../../src/js/app/app.js';
 import { createPatchUrlHash, parsePatchUrlHash } from '../../src/js/app/patch-format.js';
@@ -136,8 +137,8 @@ describe('patch file JSON import/export', () => {
         }))).toThrow(`Unsupported patch export version: ${PATCH_EXPORT_VERSION + 1}`);
     });
 
-    it('parses a patch collection and normalizes legacy state', () => {
-        const imported = parseImportedPatchJson(JSON.stringify({
+    it('rejects patch collections with unsupported state shape', () => {
+        expect(() => parseImportedPatchJson(JSON.stringify({
             Legacy: {
                 name: 'Legacy',
                 state: {
@@ -146,15 +147,7 @@ describe('patch file JSON import/export', () => {
                     cables: []
                 }
             }
-        }));
-
-        expect(imported.type).toBe('collection');
-        expect(imported.patches.Legacy.factory).toBe(false);
-        expect(imported.patches.Legacy.state).toMatchObject({
-            version: 2,
-            modules: [{ id: 'filetest', type: 'filetest', row: 1, index: 0 }],
-            params: { filetest: { level: 0.25 } }
-        });
+        }))).toThrow('Patch JSON must contain a patch or patch collection');
     });
 
     it('imports and loads a single patch JSON with dynamic rows into the rack', async () => {
@@ -220,7 +213,16 @@ describe('patch file JSON import/export', () => {
 
         expect(await app.savePatch('Share Me')).toBe(true);
 
+        const saved = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY));
         const sharedPatch = await parsePatchUrlHash(window.location.hash, { moduleRegistry });
+        expect(saved['Share Me'].state).toMatchObject({
+            version: 2,
+            modules: [{ id: 'filetest_1', type: 'filetest', row: 1, index: 0 }],
+            params: { filetest_1: { level: 0.64 } },
+            cables: [],
+            midiMappings: {}
+        });
+        expect(saved['Share Me'].state.knobs).toBeUndefined();
         expect(window.location.hash).toMatch(/^#patch=/);
         expect(sharedPatch.name).toBe('Share Me');
         expect(sharedPatch.state.params.filetest_1.level).toBe(0.64);
@@ -291,7 +293,40 @@ describe('patch file JSON import/export', () => {
         expect(parsed.hash).toMatch(/^#patch=/);
         expect(window.location.hash).toBe(parsed.hash);
         expect(sharedPatch.name).toBe('Clipboard Patch');
+        expect(sharedPatch.state.version).toBe(2);
         expect(sharedPatch.state.params.filetest_1.level).toBe(0.77);
+        expect(sharedPatch.state.knobs).toBeUndefined();
+    });
+
+    it('copies the current patch as canonical v2 state JSON', async () => {
+        const app = new EurorackApp(document);
+        app.cacheElements();
+        app.state.addModule('filetest', moduleRegistry, {
+            id: 'filetest_1',
+            row: 1,
+            params: { level: 0.66 }
+        });
+
+        const writeText = vi.fn(() => Promise.resolve());
+        Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: { writeText }
+        });
+
+        app.copyPatchToClipboard();
+        await Promise.resolve();
+
+        const copied = JSON.parse(writeText.mock.calls[0][0]);
+        expect(copied).toMatchObject({
+            version: 2,
+            modules: [{ id: 'filetest_1', type: 'filetest', row: 1, index: 0 }],
+            params: { filetest_1: { level: 0.66 } },
+            cables: [],
+            midiMappings: {}
+        });
+        expect(copied.knobs).toBeUndefined();
+        expect(copied.switches).toBeUndefined();
+        expect(copied.buttons).toBeUndefined();
     });
 
     it('exports the current rack as a named JSON download', async () => {
@@ -333,7 +368,24 @@ describe('patch file JSON import/export', () => {
             { id: 'filetest_1', type: 'filetest', row: 3, index: 0 }
         ]);
         expect(exported.patch.state.params.filetest_1.level).toBe(0.6);
+        expect(exported.patch.state.knobs).toBeUndefined();
+        expect(exported.patch.state.switches).toBeUndefined();
+        expect(exported.patch.state.buttons).toBeUndefined();
         expect(clickSpy).toHaveBeenCalled();
         expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:patch');
+    });
+
+    it('rejects unsupported patch records before export wrapping', () => {
+        expect(() => createPatchExport({
+            name: 'Legacy Export',
+            factory: false,
+            state: {
+                modules: [{ type: 'filetest', instanceId: 'filetest', row: 1 }],
+                knobs: { filetest: { level: 0.42 } },
+                switches: {},
+                buttons: {},
+                cables: []
+            }
+        }, { exportedAt: '2026-07-09T00:00:00.000Z' })).toThrow('Unsupported patch state version: missing');
     });
 });

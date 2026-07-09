@@ -102,6 +102,11 @@ if (clockHigh && !lastClock) {
 lastClock = clockHigh;
 ```
 
+When the clock input cable is removed, the engine notifies the module and any
+pending trigger pulse is cleared immediately. This does not change normal
+clock-edge sequencing; it prevents a just-fired trigger buffer from holding a
+downstream gate open after disconnect.
+
 ### Reset Handling
 ```javascript
 const resetHigh = reset >= 1;

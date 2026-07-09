@@ -138,6 +138,7 @@ function createTokenTable(moduleDefinitions = []) {
         (ui.knobs || []).forEach(knob => add(knob.param));
         (ui.switches || []).forEach(sw => add(sw.param));
         (ui.buttons || []).forEach(button => add(button.param));
+        (ui.actions || []).forEach(action => add(action.param));
         (ui.inputs || []).forEach(input => add(input.port));
         (ui.outputs || []).forEach(output => add(output.port));
     });
@@ -222,119 +223,63 @@ function decodeCompactValue(value, resolve) {
     return value.map(item => decodeCompactValue(item, resolve));
 }
 
-function mergeParamGroups(state) {
-    const params = {};
-
-    function merge(group, transform = value => value) {
-        Object.entries(group || {}).forEach(([moduleId, moduleParams]) => {
-            if (!params[moduleId]) params[moduleId] = {};
-            Object.entries(moduleParams || {}).forEach(([param, value]) => {
-                params[moduleId][param] = transform(value);
-            });
-        });
-    }
-
-    merge(state.knobs);
-    merge(state.switches, value => value === true ? 1 : value === false ? 0 : value);
-    merge(state.buttons);
-
-    return params;
+function isPlainObject(value) {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-function collectReferencedModuleIds(state) {
-    const ids = new Set();
-
-    Object.keys(state.knobs || {}).forEach(id => ids.add(id));
-    Object.keys(state.switches || {}).forEach(id => ids.add(id));
-    Object.keys(state.buttons || {}).forEach(id => ids.add(id));
-
-    (state.cables || []).forEach(cable => {
-        ids.add(cable.fromModule);
-        ids.add(cable.toModule);
+function normalizeCables(cables) {
+    return cables.map((cable, index) => {
+        if (!cable.fromModule || !cable.fromPort || !cable.toModule || !cable.toPort) {
+            throw new Error(`Patch cable at index ${index} must include fromModule/fromPort/toModule/toPort`);
+        }
+        return {
+            fromModule: cable.fromModule,
+            fromPort: cable.fromPort,
+            toModule: cable.toModule,
+            toPort: cable.toPort
+        };
     });
-
-    return [...ids];
 }
 
-function normalizeModules(state, moduleOrder) {
-    if (Array.isArray(state.modules) && state.modules.length > 0) {
-        return state.modules.map((mod, index) => ({
-            id: mod.id || mod.instanceId || mod.type,
-            legacyId: mod.instanceId,
-            type: mod.type,
-            row: mod.row || 1,
-            index: mod.index ?? index
-        }));
-    }
-
-    const referenced = collectReferencedModuleIds(state);
-    const order = moduleOrder || referenced;
-    return order
-        .filter(type => referenced.includes(type))
-        .map((type, index) => ({
-            id: type,
-            type,
-            row: 1,
-            index
-        }));
-}
-
-function remapObjectKeys(obj, idMap) {
-    const result = {};
-    Object.entries(obj || {}).forEach(([key, value]) => {
-        result[idMap[key] || key] = value;
-    });
-    return result;
-}
-
-function normalizeCables(cables, idMap) {
-    return (cables || []).map(cable => ({
-        fromModule: idMap[cable.fromModule] || cable.fromModule,
-        fromPort: cable.fromPort,
-        toModule: idMap[cable.toModule] || cable.toModule,
-        toPort: cable.toPort
-    }));
-}
-
-export function normalizePatch(rawPatchOrState, { moduleOrder = [] } = {}) {
+export function normalizePatch(rawPatchOrState) {
     const state = rawPatchOrState?.state || rawPatchOrState;
-    if (!state || typeof state !== 'object') {
-        return {
-            version: PATCH_VERSION,
-            modules: [],
-            params: {},
-            cables: [],
-            midiMappings: {}
-        };
+    if (!isPlainObject(state)) {
+        throw new Error('Patch state must be a canonical v2 object');
     }
-
-    if (state.version === PATCH_VERSION && Array.isArray(state.modules) && state.params) {
-        return {
-            version: PATCH_VERSION,
-            modules: state.modules.map((mod, index) => ({
-                id: mod.id,
-                type: mod.type,
-                row: mod.row || 1,
-                index: mod.index ?? index
-            })),
-            params: clone(state.params),
-            cables: normalizeCables(state.cables || [], {}),
-            midiMappings: clone(state.midiMappings)
-        };
+    if (state.version !== PATCH_VERSION) {
+        throw new Error(`Unsupported patch state version: ${state.version ?? 'missing'}`);
     }
-
-    const modules = normalizeModules(state, moduleOrder);
-    const idMap = {};
-    modules.forEach(mod => {
-        if (mod.legacyId) idMap[mod.legacyId] = mod.id;
-        idMap[mod.type] = mod.id;
-    });
+    if ('knobs' in state || 'switches' in state || 'buttons' in state) {
+        throw new Error('Legacy patch fields are not supported');
+    }
+    if (!Array.isArray(state.modules)) {
+        throw new Error('Patch state modules must be an array');
+    }
+    if (!isPlainObject(state.params)) {
+        throw new Error('Patch state params must be an object');
+    }
+    if (!Array.isArray(state.cables)) {
+        throw new Error('Patch state cables must be an array');
+    }
+    if (!isPlainObject(state.midiMappings)) {
+        throw new Error('Patch state midiMappings must be an object');
+    }
 
     return {
         version: PATCH_VERSION,
-        modules: modules.map(({ legacyId, ...mod }) => mod),
-        params: remapObjectKeys(mergeParamGroups(state), idMap),
-        cables: normalizeCables(state.cables || [], idMap),
+        modules: state.modules.map((mod, index) => {
+            if (!mod.id || !mod.type || mod.instanceId !== undefined) {
+                throw new Error(`Patch module at index ${index} must use v2 id/type fields`);
+            }
+            return {
+                id: mod.id,
+                type: mod.type,
+                row: mod.row,
+                index: mod.index
+            };
+        }),
+        params: clone(state.params),
+        cables: normalizeCables(state.cables),
         midiMappings: clone(state.midiMappings)
     };
 }
@@ -348,29 +293,23 @@ export function createVersionedPatch(name, state, factory = false) {
     };
 }
 
-export function migratePatchCollection(patches, { moduleOrder = [] } = {}) {
-    let changed = false;
-    const migrated = {};
+export function normalizePatchCollection(patches) {
+    const normalized = {};
 
     Object.entries(patches || {}).forEach(([name, patch]) => {
-        const nextPatch = {
+        normalized[name] = {
             ...patch,
             name: patch.name || name,
-            state: normalizePatch(patch.state || patch, { moduleOrder })
+            state: normalizePatch(patch.state || patch)
         };
-        migrated[name] = nextPatch;
-        if (patch.state?.version !== PATCH_VERSION) {
-            changed = true;
-        }
     });
 
-    return { patches: migrated, changed };
+    return normalized;
 }
 
 function createCompactPatchUrlPayload(patch, options = {}) {
-    const { moduleOrder = [] } = options;
     const name = patch?.name || 'Shared Patch';
-    const state = normalizePatch(patch?.state || patch, { moduleOrder });
+    const state = normalizePatch(patch?.state || patch);
     const references = createReferenceTables(options);
     const definitionsById = createDefinitionsById(options);
     const moduleIndexById = new Map(state.modules.map((mod, index) => [mod.id, index]));
@@ -499,7 +438,7 @@ function parseCompactPatchUrlPayload(payload, options = {}) {
                     decodeCompactValue(mapping[1], references.resolve)
                 ];
             })),
-        }, { moduleOrder })
+        })
     };
 }
 

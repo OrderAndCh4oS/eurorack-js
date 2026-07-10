@@ -182,7 +182,7 @@ export default {
     color: 'module-color-six',
     category: 'utility',
 
-    createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+    createDSP({ bufferSize = 512 } = {}) {
         const out = new Float32Array(bufferSize);
         return {
             params: { gain: 0.5 },
@@ -193,6 +193,9 @@ export default {
                 for (let i = 0; i < bufferSize; i++) {
                     out[i] = this.inputs.audio[i] * this.params.gain;
                 }
+            },
+            reset() {
+                out.fill(0);
             }
         };
     },

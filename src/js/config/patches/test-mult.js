@@ -51,8 +51,8 @@ export default {
         ],
         "params": {
             "lfo": {
-                "rate": 0.3,
-                "shape": 0.5,
+                "rateKnob": 0.3,
+                "waveKnob": 0.5,
                 "range": 0
             },
             "vco1": {

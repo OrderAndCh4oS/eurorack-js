@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RackHost } from '../../src/js/app/rack-host.js';
 import { PluginRegistry } from '../../src/js/rack/registry.js';
 
@@ -11,7 +11,7 @@ function createModule(id) {
         category: 'utility',
         createDSP({ bufferSize = 4 } = {}) {
             return {
-                params: {},
+                params: { level: 0.5 },
                 inputs: { in: new Float32Array(bufferSize) },
                 outputs: { out: new Float32Array(bufferSize) },
                 leds: {},
@@ -19,6 +19,7 @@ function createModule(id) {
             };
         },
         ui: {
+            knobs: [{ id: 'level', param: 'level', default: 0.5 }],
             inputs: [{ id: 'in', port: 'in', signal: 'any' }],
             outputs: [{ id: 'out', port: 'out', signal: 'any' }]
         }
@@ -104,6 +105,40 @@ describe('RackHost', () => {
         expect(() => registry.unregisterPlugin('test-plugin')).toThrow('is in use');
         host.removeModule('source_1');
         expect(registry.unregisterPlugin('test-plugin')).toBe(true);
+        await host.destroy();
+    });
+
+    it('rejects invalid parameter updates before changing state', async () => {
+        const { host } = await createHost();
+        const module = host.addModule('source', { id: 'source_1' });
+
+        expect(() => host.setParam('source_1', 'missing', 0.7)).toThrow('has no parameter');
+        expect(() => host.setParam('source_1', 'level', Infinity)).toThrow('non-finite');
+        expect(module.params.level).toBe(0.5);
+        await host.destroy();
+    });
+
+    it('reports runtime capture failure and still stops audio', async () => {
+        const engine = {
+            setPatchState: async () => 1,
+            captureRuntimeStates: async () => { throw new Error('capture timed out'); },
+            start: vi.fn(),
+            stop: vi.fn()
+        };
+        const { host } = await createHost();
+        host.audioEngineFactory = async () => engine;
+        const listener = vi.fn();
+        host.subscribe(listener);
+        await host.startAudio({ sampleRate: 48000 });
+
+        await host.stopAudio();
+
+        expect(listener).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'audio-error',
+            error: expect.objectContaining({ message: 'capture timed out' })
+        }));
+        expect(engine.stop).toHaveBeenCalledOnce();
+        expect(host.engine).toBeNull();
         await host.destroy();
     });
 

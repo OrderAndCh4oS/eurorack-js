@@ -1,4 +1,4 @@
-import { adjustColor, getModuleColorToken, isHexColor } from '../../utils/color.js';
+import { getModuleColorToken } from '../../utils/color.js';
 
 /**
  * Module Toolkit - Layout Helpers
@@ -67,7 +67,7 @@ export function createModuleLabel(name) {
  * @param {Object} options
  * @param {string} options.id - Module ID
  * @param {number} options.hp - Width in HP units supported by the registry
- * @param {string} options.color - Module color token or legacy hex color
+ * @param {string} options.color - Module color token
  * @param {string} options.className - Additional CSS class
  * @returns {HTMLElement} Module panel element
  */
@@ -81,18 +81,6 @@ export function createPanel({
     const colorToken = getModuleColorToken(color);
     panel.className = ['module', `module-${hp}hp`, colorToken, className].filter(Boolean).join(' ');
     panel.id = `module-${id}`;
-
-    if (!colorToken && isHexColor(color)) {
-        const darkerColor = adjustColor(color, -30);
-        const lighterColor = adjustColor(color, 18);
-        panel.style.setProperty('--module-color', color);
-        panel.style.setProperty('--module-color-dark', darkerColor);
-        panel.style.setProperty('--factory-module-bg', color);
-        panel.style.setProperty('--factory-module-header', lighterColor);
-        panel.style.setProperty('--factory-module-dark-bg', darkerColor);
-        panel.style.setProperty('--factory-module-dark-header', color);
-        panel.style.background = `linear-gradient(to bottom, ${color}, ${darkerColor})`;
-    }
 
     return panel;
 }

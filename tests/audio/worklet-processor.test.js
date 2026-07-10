@@ -98,6 +98,26 @@ describe('Eurorack AudioWorkletProcessor', () => {
         );
     });
 
+    it('rejects undeclared parameter messages', () => {
+        const processor = new Processor();
+        processor.handleMessage({
+            type: 'topology',
+            topology: {
+                revision: 1,
+                plugins: { core: 1 },
+                modules: [{ id: 'vco_1', type: 'vco', pluginId: 'core', params: {}, order: 0, rackOrder: 0 }],
+                cables: []
+            }
+        });
+
+        processor.handleMessage({ type: 'param', moduleId: 'vco_1', param: 'missing', value: 0.5 });
+
+        expect(processor.port.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'host-error',
+            message: expect.stringContaining('has no parameter')
+        }));
+    });
+
     it('activates and processes the fully wired custom-modules diagnostic patch', () => {
         const processor = new Processor();
         const state = customModulesPatch.state;

@@ -8,13 +8,13 @@ import {
 } from '../../src/js/app/app.js';
 import { createPatchUrlHash, parsePatchUrlHash } from '../../src/js/app/patch-format.js';
 import { PATCH_STORAGE_KEY } from '../../src/js/config/constants.js';
-import { loadCorePlugin, moduleRegistry, registerPlugin } from '../../src/js/rack/registry.js';
+import { loadCorePlugin, pluginRegistry, registerPlugin } from '../../src/js/rack/registry.js';
 
 const testModule = {
     id: 'filetest',
     name: 'File Test',
     hp: 4,
-    color: '#555555',
+    color: 'module-color-five',
     category: 'utility',
     createDSP() {
         return {
@@ -172,7 +172,7 @@ describe('patch file JSON import/export', () => {
         }), { suggestedName: 'Imported.json' });
 
         const saved = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY));
-        const sharedPatch = await parsePatchUrlHash(window.location.hash, { moduleRegistry });
+        const sharedPatch = await parsePatchUrlHash(window.location.hash, { registry: pluginRegistry });
 
         expect(result).toMatchObject({ importedCount: 1, loadedName: 'Imported', type: 'single' });
         expect(saved.Imported.state.params.filetest_1.level).toBe(0.9);
@@ -189,7 +189,7 @@ describe('patch file JSON import/export', () => {
         const app = new EurorackApp(document);
         app.cacheElements();
         app.state.addRow();
-        app.state.addModule('filetest', moduleRegistry, {
+        app.state.addModule('filetest', pluginRegistry, {
             id: 'filetest_1',
             row: 3,
             params: { level: 0.7 }
@@ -214,7 +214,7 @@ describe('patch file JSON import/export', () => {
     it('updates the URL hash when saving a patch', async () => {
         const app = new EurorackApp(document);
         app.cacheElements();
-        app.state.addModule('filetest', moduleRegistry, {
+        app.state.addModule('filetest', pluginRegistry, {
             id: 'filetest_1',
             row: 1,
             params: { level: 0.64 }
@@ -223,7 +223,7 @@ describe('patch file JSON import/export', () => {
         expect(await app.savePatch('Share Me')).toBe(true);
 
         const saved = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY));
-        const sharedPatch = await parsePatchUrlHash(window.location.hash, { moduleRegistry });
+        const sharedPatch = await parsePatchUrlHash(window.location.hash, { registry: pluginRegistry });
         expect(saved['Share Me'].state).toMatchObject({
             version: 3, plugins: { 'filetest-plugin': 1 },
             modules: [{ id: 'filetest_1', type: 'filetest', row: 1, index: 0 }],
@@ -240,7 +240,7 @@ describe('patch file JSON import/export', () => {
     it('updates the URL hash when loading a patch from the dropdown', async () => {
         const app = new EurorackApp(document);
         app.cacheElements();
-        app.state.addModule('filetest', moduleRegistry, {
+        app.state.addModule('filetest', pluginRegistry, {
             id: 'filetest_1',
             row: 1,
             params: { level: 0.31 }
@@ -250,7 +250,7 @@ describe('patch file JSON import/export', () => {
 
         expect(await app.loadPatch('Saved Patch')).toBe(true);
 
-        const sharedPatch = await parsePatchUrlHash(window.location.hash, { moduleRegistry });
+        const sharedPatch = await parsePatchUrlHash(window.location.hash, { registry: pluginRegistry });
         expect(sharedPatch.name).toBe('Saved Patch');
         expect(sharedPatch.state.params.filetest_1.level).toBe(0.31);
     });
@@ -265,7 +265,7 @@ describe('patch file JSON import/export', () => {
         };
         window.history.replaceState(null, '', `/#${await createPatchUrlHash(
             { name: 'URL Patch', state: sharedState },
-            { moduleRegistry }
+            { registry: pluginRegistry }
         )}`);
 
         const app = new EurorackApp(document);
@@ -281,7 +281,7 @@ describe('patch file JSON import/export', () => {
     it('copies a share URL with the current patch encoded in the hash', async () => {
         const app = new EurorackApp(document);
         app.cacheElements();
-        app.state.addModule('filetest', moduleRegistry, {
+        app.state.addModule('filetest', pluginRegistry, {
             id: 'filetest_1',
             row: 1,
             params: { level: 0.77 }
@@ -298,7 +298,7 @@ describe('patch file JSON import/export', () => {
 
         const copiedUrl = writeText.mock.calls[0][0];
         const parsed = new URL(copiedUrl);
-        const sharedPatch = await parsePatchUrlHash(parsed.hash, { moduleRegistry });
+        const sharedPatch = await parsePatchUrlHash(parsed.hash, { registry: pluginRegistry });
         expect(parsed.hash).toMatch(/^#patch=/);
         expect(window.location.hash).toBe(parsed.hash);
         expect(sharedPatch.name).toBe('Clipboard Patch');
@@ -310,7 +310,7 @@ describe('patch file JSON import/export', () => {
     it('copies the current patch as canonical v3 state JSON', async () => {
         const app = new EurorackApp(document);
         app.cacheElements();
-        app.state.addModule('filetest', moduleRegistry, {
+        app.state.addModule('filetest', pluginRegistry, {
             id: 'filetest_1',
             row: 1,
             params: { level: 0.66 }
@@ -342,7 +342,7 @@ describe('patch file JSON import/export', () => {
         const app = new EurorackApp(document);
         app.cacheElements();
         app.state.addRow();
-        app.state.addModule('filetest', moduleRegistry, {
+        app.state.addModule('filetest', pluginRegistry, {
             id: 'filetest_1',
             row: 3,
             params: { level: 0.6 }

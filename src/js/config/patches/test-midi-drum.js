@@ -77,14 +77,13 @@ export default {
                 "blend": 0.5
             },
             "mix": {
-                "level1": 0.9,
-                "level2": 0.7,
-                "level3": 0.6,
-                "level4": 0
+                "lvl1": 0.9,
+                "lvl2": 0.7,
+                "lvl3": 0.6,
+                "lvl4": 0
             },
             "out": {
-                "levelL": 0.7,
-                "levelR": 0.7
+                "volume": 0.7
             }
         },
         "cables": [

@@ -15,7 +15,7 @@ index.html
 └── js/app/app.js                 Browser bootstrap, DOM events, audio lifecycle
     ├── app/rack-state.js         Source of truth for modules, params, rows, cables
     ├── app/rack-host.js          Authoritative rack/plugin/audio lifecycle
-    ├── app/patch-format.js       v3 validation and canonical v2 migration
+    ├── app/patch-format.js       Strict v3 patch and plugin validation
     ├── audio/worklet-engine.js   Required AudioWorklet controller
     ├── audio/graph.js            Compiled routing and feedback delays
     ├── rack/module-manifest.js   Module imports, category taxonomy, default order
@@ -38,7 +38,7 @@ src/js/
 │   ├── app.js             # App bootstrap and event orchestration
 │   ├── rack-state.js      # Modules, rows, params, cables, patch state
 │   ├── rack-host.js       # Runtime ownership and worklet synchronization
-│   └── patch-format.js    # v3 validation and v2 migration
+│   └── patch-format.js    # Strict v3 patch validation
 ├── rack/                  # Rack infrastructure
 │   ├── module-manifest.js # Module imports, order, category taxonomy
 │   ├── core-definitions.js # Static worklet imports matching manifest order
@@ -74,8 +74,6 @@ Production processing order is compiled in the AudioWorklet by `compileGraph()`:
 - Inputs accept one source; a new UI cable replaces the occupied input, while output fan-out remains legal
 - Imported duplicate destinations reject the patch instead of being silently rewritten
 - Topology revisions activate atomically after worklet acknowledgement
-
-`src/js/audio/engine.js` is a main-thread reference/test engine, not the production browser audio path.
 
 ## Researching a Module
 
@@ -180,7 +178,7 @@ The main-thread UI mirror is stable across audio start/stop. It is not the produ
 
 **Module categories**: Module definitions own their own sidebar category. Use one of `midi`, `clock`, `source`, `voice`, `modulation`, `sequencer`, `quantizer`, `filter`, `effect`, `utility`, `output`, or `other` from `CATEGORY_ORDER` in `src/js/rack/module-manifest.js`.
 
-**Module colors**: Built-in modules should use one of the shared theme tokens in the `color` field: `module-color-one` through `module-color-twelve`. Themes map those tokens to their own light/dark palettes; six-digit hex colors are only a custom-module compatibility fallback.
+**Module colors**: Every module must use one of the shared theme tokens in the `color` field: `module-color-one` through `module-color-twelve`. Themes map those tokens to their own light/dark palettes.
 
 ## Registering a New Module
 
@@ -266,7 +264,7 @@ export default {
 - `type` = Module id (from module's `id` field, e.g., `'lfo'`, `'vco'`)
 - `id` = Your name for this instance (used in `params` and `cables`)
 - `fromPort`/`toPort` = Port name from module's `ui.inputs[]` or `ui.outputs[]`
-- Canonical v2 patches receive a one-time v3 migration. Legacy shapes using `instanceId`, `knobs`, `switches`, or `buttons` are rejected; new patches must use version 3 and declare `plugins`.
+- Only version 3 patches are supported. Patches must declare exact plugin contracts, module IDs, and only parameters declared by each module's UI contract.
 
 **IMPORTANT**: Cable port names must match the `port` field in each module's `ui.inputs[]` and `ui.outputs[]`. Always check the module's index.js for exact port names.
 
@@ -288,7 +286,7 @@ Port names are source-defined in each module's `ui.inputs[]` and `ui.outputs[]`.
 When module specs change (renamed/removed params, inputs, outputs, switches):
 1. Search: `rg "moduleName|paramName|portName" src/js/config/patches tests`
 2. Update all `params` and `cables` references
-3. Add migration support in `src/js/app/patch-format.js` if persisted legacy/user patches need compatibility
+3. Update every factory patch and test fixture to the new contract; unsupported versions are rejected rather than migrated
 
 ## Troubleshooting
 
@@ -315,7 +313,7 @@ When module specs change (renamed/removed params, inputs, outputs, switches):
 
 ## Links
 
-- [Runtime Architecture and Schemas](docs/architecture.md) — Thread ownership, plugin contracts, routing, telemetry, and patch v3
+- [Codebase Architecture and Schemas](docs/architecture.md) — Mental model, repository map, thread ownership, plugin contracts, routing, telemetry, and patch v3
 - [Creating Modules](docs/creating-modules.md) — Built-in and trusted-plugin authoring guide
 
 - [ModularGrid](https://modulargrid.net) — Module database

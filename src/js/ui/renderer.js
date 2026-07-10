@@ -234,9 +234,6 @@ export function renderModule(definition, moduleId, context) {
             onCleanup
         });
 
-        if (typeof renderInstance.cleanup === 'function') {
-            onCleanup(renderInstance.cleanup);
-        }
     } else if (definition.ui) {
         // Declarative mode - render from UI definition
         renderDeclarativeUI(content, definition.ui, moduleId, context, toolkit);

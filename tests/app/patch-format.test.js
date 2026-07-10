@@ -9,9 +9,9 @@ import {
 } from '../../src/js/app/patch-format.js';
 import { FACTORY_PATCHES } from '../../src/js/config/factory-patches.js';
 import { loadCorePlugin, DEFAULT_MODULE_ORDER } from '../../src/js/index.js';
-import { moduleRegistry, registerPlugin } from '../../src/js/rack/registry.js';
+import { pluginRegistry, registerPlugin } from '../../src/js/rack/registry.js';
 
-function toLegacyBase64Url(value) {
+function toBase64Url(value) {
     return Buffer.from(value, 'utf8')
         .toString('base64')
         .replaceAll('+', '-')
@@ -30,11 +30,12 @@ function createDensePatchState() {
         })),
         params: Object.fromEntries(Array.from({ length: 24 }, (_, index) => [
             `vco_${index}`,
-            {
-                coarse: 0.423456,
-                fine: 0.012345,
+            index % 2 ? {
                 ch1Gain: 0.812345,
                 ch2Gain: 0.712345
+            } : {
+                coarse: 0.423456,
+                fine: 0.012345
             }
         ])),
         cables: Array.from({ length: 12 }, (_, index) => ({
@@ -50,21 +51,38 @@ function createDensePatchState() {
 describe('patch-format', () => {
     const urlOptions = () => ({
         moduleOrder: DEFAULT_MODULE_ORDER,
-        moduleRegistry
+        registry: pluginRegistry
     });
 
     beforeAll(async () => {
         await loadCorePlugin();
-        if (!moduleRegistry.getPlugin('patch-format-tests')) {
-            const makeDefinition = id => ({
+        if (!pluginRegistry.getPlugin('patch-format-tests')) {
+            const makeDefinition = id => {
+                const controls = id === 'custom'
+                    ? [
+                        { param: 'mode', default: '' },
+                        { param: 'curve', default: [] },
+                        { param: 'meta', default: {} }
+                    ]
+                    : [
+                        { param: 'level', default: 0 },
+                        { param: 'offset', default: 0 }
+                    ];
+                return {
                 id,
                 name: id,
                 hp: 2,
                 color: 'module-color-one',
                 category: 'utility',
-                createDSP: () => ({ params: {}, inputs: {}, outputs: {}, process() {} }),
-                ui: {}
-            });
+                createDSP: () => ({
+                    params: Object.fromEntries(controls.map(control => [control.param, control.default])),
+                    inputs: {},
+                    outputs: {},
+                    process() {}
+                }),
+                ui: { knobs: controls }
+            };
+            };
             await registerPlugin({
                 id: 'patch-format-tests',
                 name: 'Patch Format Tests',
@@ -89,7 +107,7 @@ describe('patch-format', () => {
         })).toThrow('Unsupported patch state version: missing');
     });
 
-    it('rejects legacy module layout and params', () => {
+    it('rejects patch state without a version before inspecting its shape', () => {
         expect(() => normalizePatch({
             modules: [
                 { type: 'vco', instanceId: 'vco', row: 1 },
@@ -107,7 +125,7 @@ describe('patch-format', () => {
         })).toThrow('Unsupported patch state version: missing');
     });
 
-    it('rejects legacy groups even when version is present', () => {
+    it('rejects fields outside the v3 state schema', () => {
         expect(() => normalizePatch({
             version: 3, plugins: { core: 1 },
             modules: [{ id: 'vco', type: 'vco', row: 1, index: 0 }],
@@ -115,10 +133,10 @@ describe('patch-format', () => {
             knobs: { vco: { coarse: 0.4 } },
             cables: [],
             midiMappings: {}
-        })).toThrow('Legacy patch fields are not supported');
+        })).toThrow('Unsupported patch state field: knobs');
     });
 
-    it('preserves canonical v3 shape without legacy groups', () => {
+    it('preserves canonical v3 state', () => {
         const v3 = {
             version: 3, plugins: { core: 1 },
             modules: [{ id: 'vco_1', type: 'vco', row: 1, index: 0 }],
@@ -130,17 +148,37 @@ describe('patch-format', () => {
         expect(normalizePatch(v3)).toEqual(v3);
     });
 
-    it('migrates canonical v2 patches to v3 once', () => {
-        expect(normalizePatch({
+    it('rejects version 2 patches', () => {
+        expect(() => normalizePatch({
             version: 2,
             modules: [{ id: 'vco_1', type: 'vco', row: 1, index: 0 }],
             params: { vco_1: { coarse: 0.5 } },
             cables: [],
             midiMappings: {}
-        }, { moduleRegistry })).toMatchObject({
-            version: 3,
-            plugins: { core: 1 }
-        });
+        }, { registry: pluginRegistry })).toThrow('Unsupported patch state version: 2');
+    });
+
+    it('rejects undeclared and non-finite parameters', () => {
+        const state = {
+            version: 3, plugins: { core: 1 },
+            modules: [{ id: 'vco_1', type: 'vco', row: 1, index: 0 }],
+            params: { vco_1: { missing: 0.5 } },
+            cables: [],
+            midiMappings: {}
+        };
+        expect(() => normalizePatch(state, { registry: pluginRegistry })).toThrow('has no parameter "missing"');
+        state.params.vco_1 = { coarse: Infinity };
+        expect(() => normalizePatch(state, { registry: pluginRegistry })).toThrow('non-finite');
+    });
+
+    it('rejects params for missing modules and non-object parameter groups', () => {
+        const state = {
+            version: 3, plugins: { core: 1 }, modules: [], params: { missing: {} }, cables: [], midiMappings: {}
+        };
+        expect(() => normalizePatch(state, { registry: pluginRegistry })).toThrow('params reference missing module');
+        state.modules = [{ id: 'vco_1', type: 'vco', row: 1, index: 0 }];
+        state.params = { vco_1: 0.5 };
+        expect(() => normalizePatch(state, { registry: pluginRegistry })).toThrow('must be an object');
     });
 
     it('rejects unsupported patch collections', () => {
@@ -200,7 +238,7 @@ describe('patch-format', () => {
         const state = {
             version: 3, plugins: { 'patch-format-tests': 1 },
             modules: [{ id: 'filetest_1', type: 'filetest', row: 1, index: 0 }],
-            params: { filetest_1: { level: 0.123456, offset: -0.00001 } },
+            params: { filetest_1: { level: 0.123456, offset: 0.00149 } },
             cables: [],
             midiMappings: { '0:74': { moduleId: 'filetest_1', amount: 0.987654 } }
         };
@@ -211,7 +249,7 @@ describe('patch-format', () => {
         );
 
         expect(parsed.state.params.filetest_1.level).toBe(0.123);
-        expect(parsed.state.params.filetest_1.offset).toBe(0);
+        expect(parsed.state.params.filetest_1.offset).toBe(0.001);
         expect(parsed.state.midiMappings['0:74'].amount).toBe(0.988);
     });
 
@@ -219,10 +257,10 @@ describe('patch-format', () => {
         const state = createDensePatchState();
         const payload = { name: 'Dense Patch', factory: false, state };
         const compressedHash = await createPatchUrlHash({ name: 'Dense Patch', state }, urlOptions());
-        const legacyHash = `patch=${toLegacyBase64Url(JSON.stringify(payload))}`;
+        const base64JsonHash = `patch=${toBase64Url(JSON.stringify(payload))}`;
 
-        expect(compressedHash.length).toBeLessThan(legacyHash.length);
-        expect(compressedHash.length).toBeLessThan(legacyHash.length * 0.4);
+        expect(compressedHash.length).toBeLessThan(base64JsonHash.length);
+        expect(compressedHash.length).toBeLessThan(base64JsonHash.length * 0.4);
         expect((await parsePatchUrlHash(`#${compressedHash}`, urlOptions())).state.params.vco_0.coarse).toBe(0.423);
     });
 
@@ -251,7 +289,7 @@ describe('patch-format', () => {
     it('keeps compressed compact URLs materially smaller than base64 JSON patch URLs', async () => {
         const state = createDensePatchState();
         const jsonPayload = JSON.stringify({ name: 'Dense Patch', factory: false, state });
-        const base64JsonPayload = toLegacyBase64Url(jsonPayload);
+        const base64JsonPayload = toBase64Url(jsonPayload);
         const compactPayload = patchUrlTestInternals.createCompactPatchUrlPayload({ name: 'Dense Patch', state }, urlOptions());
         const compressedPayload = await patchUrlTestInternals.encodePatchUrlPayload(compactPayload);
 
@@ -269,9 +307,7 @@ describe('patch-format', () => {
         expect(parsed.state.cables).toEqual(state.cables);
         expect(parsed.state.params.vco_0).toEqual({
             coarse: 0.423,
-            fine: 0.012,
-            ch1Gain: 0.812,
-            ch2Gain: 0.712
+            fine: 0.012
         });
     });
 

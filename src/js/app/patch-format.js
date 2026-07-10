@@ -1,11 +1,12 @@
 import { createDefaultParams } from './rack-state.js';
-import { getModulePort } from '../rack/module-contract.js';
+import { assertModuleParam, getModulePort } from '../rack/module-contract.js';
 
 export const PATCH_VERSION = 3;
 export const COMPACT_PATCH_URL_VERSION = 2;
 export const PATCH_URL_FORMAT = 'gz1';
 const PATCH_COMPRESSION_FORMAT = 'gzip';
 const URL_NUMBER_DECIMALS = 3;
+const PATCH_STATE_FIELDS = new Set(['version', 'plugins', 'modules', 'params', 'cables', 'midiMappings']);
 
 function clone(value) {
     return JSON.parse(JSON.stringify(value || {}));
@@ -147,9 +148,9 @@ function createTokenTable(moduleDefinitions = []) {
     return { tokens, indexes };
 }
 
-function getModuleDefinitions({ moduleDefinitions = null, moduleRegistry = null } = {}) {
+function getModuleDefinitions({ moduleDefinitions = null, registry = null } = {}) {
     if (Array.isArray(moduleDefinitions)) return moduleDefinitions;
-    if (typeof moduleRegistry?.getAllDefinitions === 'function') return moduleRegistry.getAllDefinitions();
+    if (typeof registry?.getAllDefinitions === 'function') return registry.getAllDefinitions();
     return [];
 }
 
@@ -228,48 +229,17 @@ function isPlainObject(value) {
     return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-function inferPluginDependencies(modules, moduleRegistry) {
-    if (!moduleRegistry?.getPatchDependencies) return { core: 1 };
-    return moduleRegistry.getPatchDependencies(modules.map(module => module.type));
+function hasOnlyFiniteNumbers(value) {
+    if (typeof value === 'number') return Number.isFinite(value);
+    if (Array.isArray(value)) return value.every(hasOnlyFiniteNumbers);
+    if (value && typeof value === 'object') return Object.values(value).every(hasOnlyFiniteNumbers);
+    return true;
 }
 
-function migratePatchState(state, options) {
-    if (state.version === PATCH_VERSION) return state;
-    if (state.version !== 2) {
-        throw new Error(`Unsupported patch state version: ${state.version ?? 'missing'}`);
-    }
-    return {
-        ...state,
-        version: PATCH_VERSION,
-        plugins: inferPluginDependencies(state.modules || [], options.moduleRegistry)
-    };
-}
-
-function migratePluginDependencies(state, moduleRegistry) {
-    if (!moduleRegistry) return state;
-    let migrated = state;
-    Object.entries(state.plugins).forEach(([pluginId, patchVersion]) => {
-        const record = moduleRegistry.getPlugin?.(pluginId);
-        if (!record) throw new Error(`Patch requires missing plugin "${pluginId}"`);
-        const currentVersion = record.manifest.patchVersion;
-        if (patchVersion === currentVersion) return;
-        if (typeof record.manifest.migratePatch !== 'function') {
-            throw new Error(`Patch requires ${pluginId} patch contract ${patchVersion}; installed contract is ${currentVersion}`);
-        }
-        migrated = record.manifest.migratePatch(clone(migrated), {
-            fromVersion: patchVersion,
-            toVersion: currentVersion
-        });
-        if (!isPlainObject(migrated)) throw new Error(`Plugin "${pluginId}" returned an invalid migrated patch`);
-        migrated.plugins = { ...migrated.plugins, [pluginId]: currentVersion };
-    });
-    return migrated;
-}
-
-function validatePluginDependencies(plugins, modules, moduleRegistry) {
-    if (!moduleRegistry) return;
+function validatePluginDependencies(plugins, modules, registry) {
+    if (!registry) return;
     Object.entries(plugins).forEach(([pluginId, patchVersion]) => {
-        const record = moduleRegistry.getPlugin?.(pluginId);
+        const record = registry.getPlugin?.(pluginId);
         if (!record) throw new Error(`Patch requires missing plugin "${pluginId}"`);
         const currentVersion = record.manifest.patchVersion;
         if (patchVersion !== currentVersion) {
@@ -277,7 +247,7 @@ function validatePluginDependencies(plugins, modules, moduleRegistry) {
         }
     });
     modules.forEach(module => {
-        const pluginId = moduleRegistry.getPluginForModule?.(module.type);
+        const pluginId = registry.getPluginForModule?.(module.type);
         if (!pluginId) throw new Error(`Patch references unregistered module type "${module.type}"`);
         if (plugins[pluginId] === undefined) {
             throw new Error(`Patch module type "${module.type}" requires undeclared plugin "${pluginId}"`);
@@ -285,7 +255,7 @@ function validatePluginDependencies(plugins, modules, moduleRegistry) {
     });
 }
 
-function normalizeCables(cables, modules, moduleRegistry) {
+function normalizeCables(cables, modules, registry) {
     const modulesById = new Map(modules.map(module => [module.id, module]));
     const destinations = new Set();
     return cables.map((cable, index) => {
@@ -300,9 +270,9 @@ function normalizeCables(cables, modules, moduleRegistry) {
         if (destinations.has(destinationKey)) throw new Error(`Patch input "${cable.toModule}.${cable.toPort}" has more than one source`);
         destinations.add(destinationKey);
 
-        if (moduleRegistry) {
-            const sourceDefinition = moduleRegistry.get(source.type);
-            const destinationDefinition = moduleRegistry.get(destination.type);
+        if (registry) {
+            const sourceDefinition = registry.get(source.type);
+            const destinationDefinition = registry.get(destination.type);
             if (!sourceDefinition) throw new Error(`Patch references unregistered module type "${source.type}"`);
             if (!destinationDefinition) throw new Error(`Patch references unregistered module type "${destination.type}"`);
             if (!getModulePort(sourceDefinition, 'output', cable.fromPort)) {
@@ -323,16 +293,15 @@ function normalizeCables(cables, modules, moduleRegistry) {
 
 export function normalizePatch(rawPatchOrState, options = {}) {
     const rawState = rawPatchOrState?.state || rawPatchOrState;
-    let state = isPlainObject(rawState) ? migratePatchState(rawState, options) : rawState;
+    const state = rawState;
     if (!isPlainObject(state)) {
         throw new Error('Patch state must be a supported canonical patch object');
     }
     if (state.version !== PATCH_VERSION) {
         throw new Error(`Unsupported patch state version: ${state.version ?? 'missing'}`);
     }
-    if ('knobs' in state || 'switches' in state || 'buttons' in state) {
-        throw new Error('Legacy patch fields are not supported');
-    }
+    const unsupportedField = Object.keys(state).find(field => !PATCH_STATE_FIELDS.has(field));
+    if (unsupportedField) throw new Error(`Unsupported patch state field: ${unsupportedField}`);
     if (!Array.isArray(state.modules)) {
         throw new Error('Patch state modules must be an array');
     }
@@ -348,8 +317,7 @@ export function normalizePatch(rawPatchOrState, options = {}) {
     if (!isPlainObject(state.plugins)) {
         throw new Error('Patch state plugins must be an object');
     }
-    state = migratePluginDependencies(state, options.moduleRegistry);
-    validatePluginDependencies(state.plugins, state.modules, options.moduleRegistry);
+    validatePluginDependencies(state.plugins, state.modules, options.registry);
 
     const seenModuleIds = new Set();
     const modules = state.modules.map((mod, index) => {
@@ -358,7 +326,7 @@ export function normalizePatch(rawPatchOrState, options = {}) {
         }
         if (seenModuleIds.has(mod.id)) throw new Error(`Patch has duplicate module id "${mod.id}"`);
         seenModuleIds.add(mod.id);
-        if (options.moduleRegistry && !options.moduleRegistry.has(mod.type)) {
+        if (options.registry && !options.registry.has(mod.type)) {
             throw new Error(`Patch references unregistered module type "${mod.type}"`);
         }
         return {
@@ -369,12 +337,30 @@ export function normalizePatch(rawPatchOrState, options = {}) {
         };
     });
 
+    const modulesById = new Map(modules.map(module => [module.id, module]));
+    const params = Object.fromEntries(Object.entries(state.params).map(([moduleId, moduleParams]) => {
+        const module = modulesById.get(moduleId);
+        if (!module) throw new Error(`Patch params reference missing module "${moduleId}"`);
+        if (!isPlainObject(moduleParams)) throw new Error(`Patch params for module "${moduleId}" must be an object`);
+        const definition = options.registry?.get(module.type);
+        if (definition) {
+            Object.entries(moduleParams).forEach(([param, value]) => assertModuleParam(definition, param, value));
+        } else {
+            Object.entries(moduleParams).forEach(([param, value]) => {
+                if (!hasOnlyFiniteNumbers(value)) {
+                    throw new Error(`Patch parameter "${moduleId}.${param}" contains a non-finite value`);
+                }
+            });
+        }
+        return [moduleId, clone(moduleParams)];
+    }));
+
     return {
         version: PATCH_VERSION,
         plugins: clone(state.plugins),
         modules,
-        params: clone(state.params),
-        cables: normalizeCables(state.cables, modules, options.moduleRegistry),
+        params,
+        cables: normalizeCables(state.cables, modules, options.registry),
         midiMappings: clone(state.midiMappings)
     };
 }

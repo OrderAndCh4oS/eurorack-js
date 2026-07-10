@@ -120,7 +120,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 
 Self-contained module system where each module is a folder containing DSP + UI. `RackHost` owns the rack and synchronizes stable main-thread UI mirrors with production DSP instances in a required `AudioWorklet`.
 
-See **[Runtime Architecture and Schemas](docs/architecture.md)** for thread ownership, plugin loading, telemetry, module events, routing rules, and the complete patch and port schemas.
+See **[Codebase Architecture and Schemas](docs/architecture.md)** for the operational mental model, repository map, thread ownership, plugin loading, telemetry, routing rules, and complete schemas.
 
 ```
 src/js/
@@ -129,7 +129,7 @@ src/js/
 │   ├── app.js            # App bootstrap and event orchestration
 │   ├── rack-host.js      # Authoritative rack/plugin/audio host
 │   ├── rack-state.js     # Modules, rows, params, cables, patch state
-│   └── patch-format.js   # v3 patch validation and v2 migration
+│   └── patch-format.js   # Strict v3 patch validation
 ├── audio/
 │   ├── graph.js          # Compiled routing graph and feedback delays
 │   ├── worklet-engine.js # Main-thread AudioWorklet controller
@@ -227,7 +227,7 @@ Patch state is canonicalized to version 3 and declares the exact plugin patch co
 }
 ```
 
-Canonical v2 patches receive a one-time v3 migration. Older legacy shapes with `knobs`, `switches`, `buttons`, or `instanceId` are rejected.
+Only version 3 patches are accepted. Parameters must belong to the referenced module and be declared by its UI contract; unknown modules, parameters, plugin versions, ports, and duplicate input destinations reject the patch atomically.
 
 Every module type must belong to a declared plugin. Missing plugins, unknown ports, missing endpoints, and duplicate input destinations reject the patch atomically.
 
@@ -242,6 +242,7 @@ Every module type must belong to a declared plugin. Missing plugins, unknown por
 
 ```bash
 npm test         # Run tests
+npm run test:e2e # Run Chromium AudioWorklet smoke tests
 python3 -m http.server 8000 --directory src
 ```
 

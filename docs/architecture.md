@@ -1,8 +1,8 @@
-# Runtime Architecture and Schemas
+# Codebase Architecture and Schemas
 
-eurorack-js separates rack ownership, browser UI, and real-time DSP. Modules still keep DSP and UI definitions together, but the same definition is instantiated differently on the main thread and in the audio worklet.
+eurorack-js is a browser-based modular synthesizer. Modules exchange voltage buffers, but only modules marked as audio outputs send sound to Web Audio. The codebase separates rack ownership, browser UI, and real-time DSP. A module keeps its DSP and UI definition together, but the definition is instantiated differently on the main thread and in the audio worklet.
 
-## Runtime Ownership
+## Mental Model
 
 ```text
 EurorackApp (DOM and user interaction)
@@ -19,7 +19,18 @@ EurorackApp (DOM and user interaction)
 
 `RackHost` is the only production owner of module lifecycle, parameters, patch loading, cables, runtime state, and audio activation. `EurorackApp` renders DOM and delegates mutations to the host. The old `createRack()` and `setupRack()` public runtime no longer exist.
 
-Audio requires `AudioWorklet` in a secure context. There is no ScriptProcessor or timer-based production fallback. The main-thread engine remains a test/reference implementation, not an application audio path.
+Audio requires `AudioWorklet` in a secure context. There is no ScriptProcessor, timer-based fallback, or duplicate main-thread DSP engine.
+
+### From Patch to Sound
+
+1. `EurorackApp` turns DOM, cable, patch, and MIDI interactions into host commands.
+2. `RackHost` mutates `RackState`, validates plugin ownership, and sends a versioned topology to `AudioWorkletEngine`.
+3. `EurorackProcessor` creates the worklet DSP instances and compiles cable routes with `compileGraph()`.
+4. Each audio block copies source voltages into stable destination buffers and processes modules in dependency order.
+5. Modules marked `role: 'audio-output'` are summed into the browser's stereo output.
+6. Bounded telemetry returns LEDs and display state to stable main-thread UI mirrors.
+
+Patch activation is atomic: the host waits for the worklet to acknowledge the requested topology revision. A compilation failure leaves the previous audio graph active.
 
 ## Module Instances
 
@@ -28,7 +39,7 @@ Each live rack module has two instances:
 - **UI mirror**: created on the main thread as soon as the module enters `RackState`. Its identity remains stable before, during, and after audio playback. Custom renderers capture this instance.
 - **DSP instance**: created inside `EurorackProcessor`. It alone processes routed voltage buffers and produces sound.
 
-Parameter changes are written to `RackState`, reflected in the UI mirror, and sent to the worklet. The worklet sends bounded telemetry back at approximately 30 Hz. A UI mirror is not a second production DSP path and must never be processed by the browser app.
+Parameter changes are validated against the module's declared UI parameter paths, written to `RackState`, reflected in the UI mirror, and sent to the worklet. The processor repeats validation before mutation. The worklet sends bounded telemetry back at approximately 30 Hz. A UI mirror is not a second production DSP path and must never be processed by the browser app.
 
 ## Plugin Registration
 
@@ -44,8 +55,7 @@ The main-thread manifest is:
     apiVersion: 1,
     patchVersion: 1,
     workletUrl: new URL('./my-plugin.worklet.js', import.meta.url).href,
-    modules: [{ id: 'mymodule', definition: myModule }],
-    migratePatch(state, { fromVersion, toVersion }) { return state; } // optional
+    modules: [{ id: 'mymodule', definition: myModule }]
 }
 ```
 
@@ -193,12 +203,50 @@ Canonical patch state is:
 
 `plugins` maps plugin IDs to their patch contract versions, not package versions. Every module type must belong to a declared plugin. Missing plugins reject the whole patch; placeholder modules are not created.
 
-Canonical v2 state receives a one-time v3 migration that infers plugin dependencies from installed module ownership. Legacy shapes containing `instanceId`, `knobs`, `switches`, or `buttons` are rejected. Plugin-specific patch migrations run before current-contract validation.
+Only schema version 3 is accepted. Every parameter group must name an existing module, every parameter path must be declared by that module's UI contract, and numeric leaves must be finite. Plugin patch contracts must match exactly; the application does not migrate older patch or plugin schemas.
 
 Runtime state such as looper buffers is separate from persisted patch state. `RackHost` captures supported runtime state when audio stops and includes it only in the next worklet topology.
+
+Topology acknowledgements and runtime-state requests have a five-second timeout. Processor failure or shutdown rejects and clears all pending requests. Runtime-state capture failure is reported but cannot prevent audio shutdown.
 
 ## MIDI and Output
 
 Raw MIDI messages are forwarded to the worklet, where the shared MIDI service exposes note, clock, CC, pitch-bend, and modulation state to modules.
 
 Modules marked `role: 'audio-output'` are worklet sinks. Their stereo inputs are summed into the single browser output, scaled from Eurorack ±5V to Web Audio ±1. Main-thread UI mirrors never create or connect audio nodes.
+
+## Repository Map
+
+| Area | Responsibility |
+|---|---|
+| `src/js/app/app.js` | DOM orchestration, cable interaction, patch controls, MIDI setup, and audio start/stop UI |
+| `src/js/app/rack-host.js` | Authoritative module, parameter, cable, patch, runtime-state, and audio lifecycle API |
+| `src/js/app/rack-state.js` | Serializable modules, rows, params, cables, and MIDI mappings |
+| `src/js/app/patch-format.js` | Strict patch v3, dependency, parameter, and endpoint validation |
+| `src/js/rack/registry.js` | Atomic trusted-plugin registration and module ownership |
+| `src/js/rack/module-contract.js` | Module, port, buffer, voltage, and telemetry validation |
+| `src/js/rack/module-manifest.js` | Lazy core imports, category taxonomy, and deterministic module order |
+| `src/js/rack/core-definitions.js` | Static core imports used by the AudioWorklet bundle |
+| `src/js/audio/worklet-engine.js` | Main-thread AudioWorklet node and message controller |
+| `src/js/audio/worklet/processor.js` | Production DSP loop, output summing, telemetry, MIDI, and module events |
+| `src/js/audio/graph.js` | Compiled routing, dependency order, input normals, and feedback delays |
+| `src/js/modules/{moduleId}/index.js` | Self-contained module DSP, UI contract, renderer, and optional telemetry/hooks |
+| `src/js/ui/renderer.js` | Declarative and custom module DOM rendering |
+| `src/js/ui/toolkit/` | Shared controls, layout helpers, and interactions |
+| `src/js/config/patches/` | Individual factory patch definitions |
+| `src/js/config/patches/index.js` | Factory patch aggregation and display ordering |
+| `src/js/index.js` | Public host, plugin, contract, renderer, toolkit, and utility exports |
+| `tests/dsp/` | Focused module behavior and voltage-contract tests |
+| `tests/audio/` | Graph and AudioWorklet integration tests |
+
+## Where to Make Changes
+
+- **Add a built-in module**: create `modules/{moduleId}/index.js`, then register it in both `module-manifest.js` and `core-definitions.js` in matching order.
+- **Add an external plugin**: register its main-thread manifest and provide a matching worklet entry point; do not edit core registration lists.
+- **Change cable or feedback behavior**: edit `audio/graph.js` and its graph/worklet tests.
+- **Change production block processing**: edit `audio/worklet/processor.js`.
+- **Change rack ownership or lifecycle**: edit `app/rack-host.js`.
+- **Change the patch schema or persistence**: edit `app/patch-format.js`, app import/export handling, and patch tests together.
+- **Change module panels**: edit the module's `ui`/`render` definition and shared renderer/toolkit only when the behavior is reusable.
+- **Add a factory patch**: add one file under `config/patches/` and register it in that directory's `index.js`.
+- **Change the public API**: edit `src/js/index.js` and update the architecture/module-authoring documentation.

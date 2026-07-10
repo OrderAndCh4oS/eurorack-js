@@ -44,7 +44,7 @@ export default {
         ],
         "params": {
             "clk": {
-                "bpm": 0.4,
+                "rate": 0.4,
                 "pause": 0
             },
             "euclid": {
@@ -53,9 +53,9 @@ export default {
                 "rotate": 0
             },
             "kick": {
-                "tune": 0.4,
+                "pitch": 0.4,
                 "decay": 0.4,
-                "punch": 0.6
+                "click": 0.6
             },
             "out": {
                 "volume": 0.6

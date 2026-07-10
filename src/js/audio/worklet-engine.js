@@ -1,11 +1,20 @@
 export class AudioWorkletEngine {
-    constructor({ audioCtx, registry, onTelemetry = null, onModuleEvent = null, onModuleError = null, onHostError = null } = {}) {
+    constructor({
+        audioCtx,
+        registry,
+        onTelemetry = null,
+        onModuleEvent = null,
+        onModuleError = null,
+        onHostError = null,
+        requestTimeoutMs = 5000
+    } = {}) {
         this.audioCtx = audioCtx;
         this.registry = registry;
         this.onTelemetry = onTelemetry;
         this.onModuleEvent = onModuleEvent;
         this.onModuleError = onModuleError;
         this.onHostError = onHostError;
+        this.requestTimeoutMs = requestTimeoutMs;
         this.node = null;
         this.revision = 0;
         this.running = false;
@@ -28,7 +37,7 @@ export class AudioWorkletEngine {
         this.node.port.onmessage = event => this.handleMessage(event.data);
         this.node.onprocessorerror = () => {
             const error = new Error('AudioWorklet processor stopped unexpectedly');
-            this.rejectPendingTopologies(error);
+            this.rejectPendingRequests(error);
             this.onHostError?.(error);
         };
         this.node.connect(this.audioCtx.destination);
@@ -51,20 +60,23 @@ export class AudioWorkletEngine {
         else if (message.type === 'topology-active') {
             const pending = this.pendingTopologies.get(message.revision);
             this.pendingTopologies.delete(message.revision);
+            clearTimeout(pending?.timer);
             pending?.resolve(message.revision);
         } else if (message.type === 'host-error') {
             const error = new Error(message.message);
             if (message.revision != null) {
                 const pending = this.pendingTopologies.get(message.revision);
                 this.pendingTopologies.delete(message.revision);
+                clearTimeout(pending?.timer);
                 pending?.reject(error);
             }
             this.onHostError?.(error);
         }
         else if (message.type === 'runtime-state') {
-            const resolve = this.pendingRuntimeRequests.get(message.requestId);
+            const pending = this.pendingRuntimeRequests.get(message.requestId);
             this.pendingRuntimeRequests.delete(message.requestId);
-            resolve?.(message.states);
+            clearTimeout(pending?.timer);
+            pending?.resolve(message.states);
         }
     }
 
@@ -87,7 +99,11 @@ export class AudioWorkletEngine {
             cables: state.cables.map(cable => ({ ...cable }))
         };
         const activation = new Promise((resolve, reject) => {
-            this.pendingTopologies.set(topology.revision, { resolve, reject });
+            const timer = setTimeout(() => {
+                this.pendingTopologies.delete(topology.revision);
+                reject(new Error(`Timed out waiting for AudioWorklet topology revision ${topology.revision}`));
+            }, this.requestTimeoutMs);
+            this.pendingTopologies.set(topology.revision, { resolve, reject, timer });
         });
         this.node.port.postMessage({ type: 'topology', topology, replace });
         return activation;
@@ -104,8 +120,12 @@ export class AudioWorkletEngine {
     captureRuntimeStates() {
         if (!this.node) return Promise.resolve({});
         const requestId = this.nextRequestId++;
-        return new Promise(resolve => {
-            this.pendingRuntimeRequests.set(requestId, resolve);
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                this.pendingRuntimeRequests.delete(requestId);
+                reject(new Error(`Timed out waiting for AudioWorklet runtime state request ${requestId}`));
+            }, this.requestTimeoutMs);
+            this.pendingRuntimeRequests.set(requestId, { resolve, reject, timer });
             this.node.port.postMessage({ type: 'capture-runtime', requestId });
         });
     }
@@ -118,14 +138,28 @@ export class AudioWorkletEngine {
         this.running = false;
         this.node?.disconnect();
         this.node = null;
-        this.rejectPendingTopologies(new Error('AudioWorklet engine stopped before topology activation'));
-        this.pendingRuntimeRequests.forEach(resolve => resolve({}));
-        this.pendingRuntimeRequests.clear();
+        this.rejectPendingRequests(new Error('AudioWorklet engine stopped before request completion'));
     }
 
     rejectPendingTopologies(error) {
-        this.pendingTopologies.forEach(({ reject }) => reject(error));
+        this.pendingTopologies.forEach(({ reject, timer }) => {
+            clearTimeout(timer);
+            reject(error);
+        });
         this.pendingTopologies.clear();
+    }
+
+    rejectPendingRuntimeRequests(error) {
+        this.pendingRuntimeRequests.forEach(({ reject, timer }) => {
+            clearTimeout(timer);
+            reject(error);
+        });
+        this.pendingRuntimeRequests.clear();
+    }
+
+    rejectPendingRequests(error) {
+        this.rejectPendingTopologies(error);
+        this.rejectPendingRuntimeRequests(error);
     }
 }
 

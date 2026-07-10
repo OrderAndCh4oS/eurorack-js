@@ -98,34 +98,29 @@ export default {
             },
             "vco1": {
                 "coarse": 0.5,
-                "fine": 0,
-                "pw": 0.5
+                "fine": 0
             },
             "vco2": {
                 "coarse": 0.5,
-                "fine": 0,
-                "pw": 0.5
+                "fine": 0
             },
             "vco3": {
                 "coarse": 0.5,
-                "fine": 0,
-                "pw": 0.5
+                "fine": 0
             },
             "vco4": {
                 "coarse": 0.5,
-                "fine": 0,
-                "pw": 0.5
+                "fine": 0
             },
             "mix": {
-                "level1": 0.7,
-                "level2": 0.7,
-                "level3": 0.7,
-                "level4": 0.7
+                "lvl1": 0.7,
+                "lvl2": 0.7,
+                "lvl3": 0.7,
+                "lvl4": 0.7
             },
             "vcf": {
                 "cutoff": 0.65,
-                "resonance": 0.2,
-                "env": 0.3
+                "resonance": 0.2
             },
             "adsr1": {
                 "attack": 0.02,
@@ -152,12 +147,11 @@ export default {
                 "release": 0.4
             },
             "vca": {
-                "ch1Level": 0.8,
-                "ch2Level": 0
+                "ch1Gain": 0.8,
+                "ch2Gain": 0
             },
             "out": {
-                "levelL": 0.6,
-                "levelR": 0.6
+                "volume": 0.6
             }
         },
         "cables": [

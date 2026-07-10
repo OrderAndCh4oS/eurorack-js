@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { EurorackApp } from '../../src/js/app/app.js';
-import { loadCorePlugin, moduleRegistry } from '../../src/js/rack/registry.js';
+import { loadCorePlugin, pluginRegistry } from '../../src/js/rack/registry.js';
 import loopModule from '../../src/js/modules/loop/index.js';
 
 function recordSamples(loop, samples) {
@@ -22,7 +22,7 @@ describe('EurorackApp runtime module state', () => {
         recordSamples(source, [1, 2, 3, 4]);
 
         const app = new EurorackApp(document);
-        const moduleState = app.state.addModule('loop', moduleRegistry, { id: 'loop_1' });
+        const moduleState = app.state.addModule('loop', pluginRegistry, { id: 'loop_1' });
         moduleState.runtimeState = loopModule.captureRuntimeState(source);
 
         const restored = app.createDSP(moduleState);

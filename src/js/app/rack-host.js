@@ -1,6 +1,7 @@
 import { BUFFER, SAMPLE_RATE } from '../config/constants.js';
 import { createAudioWorkletEngine } from '../audio/worklet-engine.js';
 import { setNestedValue } from '../utils/nested-access.js';
+import { assertModuleParam } from '../rack/module-contract.js';
 import { loadCorePlugin, pluginRegistry } from '../rack/registry.js';
 import { normalizePatch } from './patch-format.js';
 import { RackState } from './rack-state.js';
@@ -13,6 +14,7 @@ export class RackHost {
         sampleRate = SAMPLE_RATE,
         onLedUpdate = null,
         onModuleError = null,
+        requestTimeoutMs = 5000,
         audioEngineFactory = createAudioWorkletEngine
     } = {}) {
         this.registry = registry;
@@ -24,6 +26,7 @@ export class RackHost {
         this.listeners = new Set();
         this.onLedUpdate = onLedUpdate;
         this.onModuleError = onModuleError;
+        this.requestTimeoutMs = requestTimeoutMs;
         this.audioEngineFactory = audioEngineFactory;
         this.services = {};
         this.unsubscribeRegistry = registry.subscribe?.(event => this.emit({ type: 'registry', event })) || null;
@@ -123,6 +126,9 @@ export class RackHost {
     }
 
     setParam(moduleId, param, value) {
+        const moduleState = this.state.getModule(moduleId);
+        if (!moduleState) throw new Error(`Module instance "${moduleId}" not found`);
+        assertModuleParam(this.registry.get(moduleState.type), param, value);
         if (!this.state.setParam(moduleId, param, value)) return false;
         const dsp = this.state.getModule(moduleId)?.instance;
         if (dsp?.params) setNestedValue(dsp.params, param, value);
@@ -188,7 +194,8 @@ export class RackHost {
                     this.onModuleError?.(diagnostic);
                     this.emit({ type: 'module-error', diagnostic });
                 },
-                onHostError: error => this.emit({ type: 'audio-error', error })
+                onHostError: error => this.emit({ type: 'audio-error', error }),
+                requestTimeoutMs: this.requestTimeoutMs
             });
             await this.engine.setPatchState(this.createRuntimePatchState(), { registry: this.registry, replace: true });
         } catch (error) {
@@ -203,7 +210,12 @@ export class RackHost {
     }
 
     async stopAudio() {
-        const runtimeStates = await this.engine?.captureRuntimeStates?.() || {};
+        let runtimeStates = {};
+        try {
+            runtimeStates = await this.engine?.captureRuntimeStates?.() || {};
+        } catch (error) {
+            this.emit({ type: 'audio-error', error });
+        }
         Object.entries(runtimeStates).forEach(([moduleId, state]) => {
             const moduleState = this.state.getModule(moduleId);
             if (moduleState) moduleState.runtimeState = state;
@@ -217,7 +229,7 @@ export class RackHost {
     }
 
     async loadPatch(rawPatch) {
-        const normalized = normalizePatch(rawPatch, { moduleRegistry: this.registry });
+        const normalized = normalizePatch(rawPatch, { registry: this.registry });
         const previous = this.state.serializePatch(this.registry);
         const previousRuntime = new Map([...this.state.modules].map(([id, moduleState]) => [id, moduleState.runtimeState]));
 

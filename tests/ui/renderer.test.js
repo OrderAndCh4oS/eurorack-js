@@ -24,28 +24,6 @@ describe('renderModule', () => {
         expect(panel.style.background).toBe('');
     });
 
-    it('keeps raw hex module colors as a compatibility fallback', () => {
-        const panel = renderModule({
-            id: 'visual',
-            name: 'VIS',
-            hp: 4,
-            color: '#222222',
-            createDSP: () => ({}),
-            ui: {}
-        }, 'visual_1', {
-            dsp: null,
-            onParamChange: vi.fn()
-        });
-
-        expect(panel.classList.contains('module-color-four')).toBe(false);
-        expect(panel.style.getPropertyValue('--module-color')).toBe('#222222');
-        expect(panel.style.getPropertyValue('--module-color-dark')).toBe('#040404');
-        expect(panel.style.getPropertyValue('--factory-module-bg')).toBe('#222222');
-        expect(panel.style.getPropertyValue('--factory-module-header')).toBe('#343434');
-        expect(panel.style.getPropertyValue('--factory-module-dark-bg')).toBe('#040404');
-        expect(panel.style.getPropertyValue('--factory-module-dark-header')).toBe('#222222');
-    });
-
     it('passes getModule to custom render functions', () => {
         const getModule = vi.fn(() => ({ instance: { params: {} } }));
         const customRender = vi.fn();
@@ -54,7 +32,7 @@ describe('renderModule', () => {
             id: 'visual',
             name: 'VIS',
             hp: 4,
-            color: '#222',
+            color: 'module-color-one',
             createDSP: () => ({}),
             render: customRender
         }, 'visual_1', {
@@ -75,7 +53,7 @@ describe('renderModule', () => {
             id: 'custom',
             name: 'CUSTOM',
             hp: 4,
-            color: '#222',
+            color: 'module-color-one',
             createDSP: () => ({}),
             render(container, { toolkit }) {
                 container.appendChild(toolkit.createKnob({
@@ -106,31 +84,10 @@ describe('renderModule', () => {
             id: 'custom',
             name: 'CUSTOM',
             hp: 4,
-            color: '#222',
+            color: 'module-color-one',
             createDSP: () => ({}),
             render(container, { onCleanup }) {
                 onCleanup(cleanup);
-            }
-        }, 'custom_1', {
-            dsp: null,
-            onParamChange: vi.fn()
-        });
-
-        cleanupRenderedModule(panel);
-
-        expect(cleanup).toHaveBeenCalledOnce();
-    });
-
-    it('supports legacy instance.cleanup during migration', () => {
-        const cleanup = vi.fn();
-        const panel = renderModule({
-            id: 'custom',
-            name: 'CUSTOM',
-            hp: 4,
-            color: '#222',
-            createDSP: () => ({}),
-            render(container, { instance }) {
-                instance.cleanup = cleanup;
             }
         }, 'custom_1', {
             dsp: null,
@@ -151,7 +108,7 @@ describe('renderModule', () => {
             id: 'custom',
             name: 'CUSTOM',
             hp: 4,
-            color: '#222',
+            color: 'module-color-one',
             createDSP: () => ({}),
             render(container, { toolkit }) {
                 toolkit.animate(draw);
@@ -175,7 +132,7 @@ describe('renderModule', () => {
             id: 'custom',
             name: 'CUSTOM',
             hp: 4,
-            color: '#222',
+            color: 'module-color-one',
             createDSP: () => ({}),
             render(container, { toolkit }) {
                 const button = document.createElement('button');

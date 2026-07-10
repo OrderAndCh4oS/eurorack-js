@@ -1,5 +1,5 @@
 import {
-    moduleRegistry,
+    pluginRegistry,
     DEFAULT_MODULE_ORDER,
     CATEGORY_ORDER,
     CATEGORY_LABELS
@@ -25,7 +25,6 @@ export const PATCH_EXPORT_SCHEMA = 'eurorack-js/patch-export';
 export const PATCH_EXPORT_VERSION = 1;
 export const THEME_STORAGE_KEY = 'eurorack-theme';
 export const THEME_MODE_STORAGE_KEY = 'eurorack-theme-mode';
-export const SKIN_STORAGE_KEY = 'eurorack-skin';
 
 function isPlainObject(value) {
     return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -33,12 +32,12 @@ function isPlainObject(value) {
 
 function isPatchStateLike(value) {
     return isPlainObject(value) && (
-        (value.version === PATCH_VERSION || value.version === 2) &&
+        value.version === PATCH_VERSION &&
         Array.isArray(value.modules) &&
         isPlainObject(value.params) &&
         Array.isArray(value.cables) &&
         isPlainObject(value.midiMappings) &&
-        (value.version === 2 || isPlainObject(value.plugins))
+        isPlainObject(value.plugins)
     );
 }
 
@@ -175,7 +174,7 @@ export class EurorackApp {
     constructor(documentRef = document) {
         this.document = documentRef;
         this.host = createRackHost({
-            registry: moduleRegistry,
+            registry: pluginRegistry,
             state: new RackState(),
             onLedUpdate: ledStates => this.updateLEDs(ledStates),
             onModuleError: ({ moduleId, error }) => console.error(`Module "${moduleId}" disabled:`, error)
@@ -292,7 +291,7 @@ export class EurorackApp {
         const grouped = {};
         CATEGORY_ORDER.forEach(category => { grouped[category] = []; });
 
-        moduleRegistry.getAllDefinitions().forEach(def => {
+        pluginRegistry.getAllDefinitions().forEach(def => {
             const category = CATEGORY_ORDER.includes(def.category) ? def.category : 'other';
             grouped[category].push(def);
         });
@@ -376,8 +375,7 @@ export class EurorackApp {
             savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || '';
             savedMode = localStorage.getItem(THEME_MODE_STORAGE_KEY) || 'light';
             if (!savedTheme) {
-                const legacySkin = localStorage.getItem(SKIN_STORAGE_KEY);
-                savedTheme = legacySkin === 'factory' ? 'industrial' : legacySkin === 'classic' ? 'classic' : 'industrial';
+                savedTheme = 'industrial';
             }
         } catch {
             savedTheme = 'industrial';
@@ -398,7 +396,6 @@ export class EurorackApp {
         if (persist) {
             try {
                 localStorage.setItem(THEME_STORAGE_KEY, this.theme);
-                localStorage.setItem(SKIN_STORAGE_KEY, this.theme === 'industrial' ? 'factory' : 'classic');
             } catch {
                 // Ignore storage failures; the theme still applies for this session.
             }
@@ -489,7 +486,7 @@ export class EurorackApp {
 
     renderModule(id) {
         const moduleState = this.state.getModule(id);
-        const definition = moduleRegistry.get(moduleState.type);
+        const definition = pluginRegistry.get(moduleState.type);
         const dsp = this.getDSP(id);
         const element = renderModule(definition, id, {
             dsp,
@@ -698,7 +695,7 @@ export class EurorackApp {
             const index = beforeId ? rowIds.indexOf(beforeId) : rowIds.length;
 
             try {
-                this.state.moveModule(this.draggedModule, moduleRegistry, { row, index });
+                this.state.moveModule(this.draggedModule, pluginRegistry, { row, index });
                 this.dropIndicator.parentNode.insertBefore(this.draggedModuleEl, this.dropIndicator);
                 this.draggedModuleEl.dataset.row = row;
             } catch (error) {
@@ -953,7 +950,7 @@ export class EurorackApp {
     getPatchUrlOptions() {
         return {
             moduleOrder: DEFAULT_MODULE_ORDER,
-            moduleRegistry
+            registry: pluginRegistry
         };
     }
 
@@ -978,7 +975,7 @@ export class EurorackApp {
     }
 
     async loadPatchState(patchState) {
-        const normalized = normalizePatch(patchState, { moduleRegistry });
+        const normalized = normalizePatch(patchState, { registry: pluginRegistry });
         try {
             await this.host.loadPatch(normalized);
             this.rerenderRack();

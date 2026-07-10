@@ -66,7 +66,7 @@ export default {
         ],
         "params": {
             "clk": {
-                "bpm": 0.35
+                "rate": 0.35
             },
             "euclid1": {
                 "length": 8,
@@ -79,14 +79,14 @@ export default {
                 "rotate": 0
             },
             "kick": {
-                "tune": 0.4,
+                "pitch": 0.4,
                 "decay": 0.4,
-                "punch": 0.6
+                "click": 0.6
             },
             "snare": {
-                "tune": 0.5,
+                "pitch": 0.5,
                 "decay": 0.3,
-                "noise": 0.6
+                "snap": 0.6
             },
             "mix": {
                 "lvl1": 0.7,

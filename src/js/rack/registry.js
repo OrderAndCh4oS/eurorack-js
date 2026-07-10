@@ -1,5 +1,5 @@
 import { CATEGORY_ORDER, CORE_PLUGIN_MANIFEST } from './module-manifest.js';
-import { isHexColor, isModuleColorToken } from '../utils/color.js';
+import { isModuleColorToken } from '../utils/color.js';
 import { validateModuleDefinition } from './module-contract.js';
 
 export const PLUGIN_API_VERSION = 1;
@@ -17,6 +17,9 @@ function assertManifest(manifest) {
     }
     if (!Array.isArray(manifest.modules) || manifest.modules.length === 0) {
         throw new Error(`Plugin "${manifest.id}" must provide modules`);
+    }
+    if ('migratePatch' in manifest) {
+        throw new Error(`Plugin "${manifest.id}" cannot declare migratePatch; patch migrations are not supported`);
     }
     if (manifest.id !== 'core' && typeof manifest.workletUrl !== 'string') {
         throw new Error(`Plugin "${manifest.id}" must provide a workletUrl`);
@@ -106,7 +109,7 @@ export class PluginRegistry {
         if (!CATEGORY_ORDER.includes(definition.category)) {
             throw new Error(`Module "${definition.id}" has invalid category: ${definition.category}`);
         }
-        if (!isModuleColorToken(definition.color) && !isHexColor(definition.color)) {
+        if (!isModuleColorToken(definition.color)) {
             throw new Error(`Module "${definition.id}" has invalid color: ${definition.color}`);
         }
         if (!definition.ui || (!definition.render && typeof definition.ui !== 'object')) {
@@ -184,8 +187,6 @@ export class PluginRegistry {
 }
 
 export const pluginRegistry = new PluginRegistry();
-export const moduleRegistry = pluginRegistry;
-
 let coreLoadPromise = null;
 
 export function loadCorePlugin() {

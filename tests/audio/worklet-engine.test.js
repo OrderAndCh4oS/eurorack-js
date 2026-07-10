@@ -11,6 +11,7 @@ class MockAudioWorkletNode {
 
 afterEach(() => {
     delete globalThis.AudioWorkletNode;
+    vi.useRealTimers();
 });
 
 describe('AudioWorkletEngine', () => {
@@ -62,6 +63,52 @@ describe('AudioWorkletEngine', () => {
         engine.handleMessage({ type: 'host-error', revision: 1, message: 'Invalid graph' });
 
         await expect(activation).rejects.toThrow('Invalid graph');
+    });
+
+    it('times out topology and runtime-state requests', async () => {
+        vi.useFakeTimers();
+        globalThis.AudioWorkletNode = MockAudioWorkletNode;
+        const engine = new AudioWorkletEngine({
+            audioCtx: { audioWorklet: { addModule: vi.fn(() => Promise.resolve()) }, destination: {} },
+            registry: { getModuleOrder: () => 0, getPluginForModule: () => 'core' },
+            requestTimeoutMs: 25
+        });
+        await engine.init();
+
+        const topology = engine.setPatchState({ plugins: { core: 1 }, modules: [], params: {}, cables: [] });
+        const topologyResult = topology.catch(error => error);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(engine.pendingTopologies.size).toBe(1);
+        const runtime = engine.captureRuntimeStates();
+        const runtimeResult = runtime.catch(error => error);
+        await vi.advanceTimersByTimeAsync(25);
+
+        expect((await topologyResult).message).toContain('topology revision 1');
+        expect((await runtimeResult).message).toContain('runtime state request 1');
+        expect(engine.pendingTopologies.size).toBe(0);
+        expect(engine.pendingRuntimeRequests.size).toBe(0);
+    });
+
+    it('rejects and clears all pending requests when stopped', async () => {
+        globalThis.AudioWorkletNode = MockAudioWorkletNode;
+        const engine = new AudioWorkletEngine({
+            audioCtx: { audioWorklet: { addModule: vi.fn(() => Promise.resolve()) }, destination: {} },
+            registry: { getModuleOrder: () => 0, getPluginForModule: () => 'core' }
+        });
+        await engine.init();
+        const topology = engine.setPatchState({ plugins: { core: 1 }, modules: [], params: {}, cables: [] });
+        const topologyResult = topology.catch(error => error);
+        await vi.waitFor(() => expect(engine.pendingTopologies.size).toBe(1));
+        const runtime = engine.captureRuntimeStates();
+        const runtimeResult = runtime.catch(error => error);
+
+        engine.stop();
+
+        expect((await topologyResult).message).toContain('stopped before request completion');
+        expect((await runtimeResult).message).toContain('stopped before request completion');
+        expect(engine.pendingTopologies.size).toBe(0);
+        expect(engine.pendingRuntimeRequests.size).toBe(0);
     });
 
     it('forwards module events to the main-thread host', () => {

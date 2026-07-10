@@ -89,7 +89,7 @@ describe('module color tokens', () => {
         expect(isModuleColorToken('#5a5a5a')).toBe(false);
     });
 
-    it('accepts six-digit hex as the compatibility fallback', () => {
+    it('recognizes six-digit hex colors for non-module UI uses', () => {
         expect(isHexColor('#5a5a5a')).toBe(true);
         expect(isHexColor('#ABCDEF')).toBe(true);
         expect(isHexColor('#333')).toBe(false);

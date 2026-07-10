@@ -1,6 +1,6 @@
 # Creating Modules
 
-This guide covers everything you need to know to create built-in and trusted-plugin modules for eurorack-js. Read [Runtime Architecture and Schemas](architecture.md) first for thread ownership, routing, and patch contracts.
+This guide covers everything you need to know to create built-in and trusted-plugin modules for eurorack-js. Read [Codebase Architecture and Schemas](architecture.md) first for thread ownership, routing, and patch contracts.
 
 ## Module Structure
 
@@ -37,7 +37,7 @@ export default {
 | `id` | string | Unique identifier (lowercase, no spaces) |
 | `name` | string | Display name shown in UI |
 | `hp` | number | Panel width (2, 3, 4, 6, 8, 10, 12, 14, or 16) |
-| `color` | string | Theme color token. Use one of `module-color-one` through `module-color-twelve`. Six-digit hex colors are accepted only as a custom-module fallback. |
+| `color` | string | Required theme token: `module-color-one` through `module-color-twelve`. |
 | `category` | string | Sidebar category owned by the module definition. Must be one from `CATEGORY_ORDER` in `src/js/rack/module-manifest.js`: `midi`, `clock`, `source`, `voice`, `modulation`, `sequencer`, `quantizer`, `filter`, `effect`, `utility`, `output`, `other` |
 | `telemetry` | object | Required for custom renderers. Declares bounded DSP fields, method snapshots, and optional incremental history sent from the worklet. |
 
@@ -683,7 +683,7 @@ Plugins cannot be unregistered while any live `RackHost` contains one of their m
 
 The host loads `workletUrl` only when a patch declares the plugin. The processor verifies plugin ownership and `patchVersion` again before activating the graph. Plugins are trusted runtime code and are not sandboxed.
 
-If `patchVersion` changes, provide `migratePatch(state, { fromVersion, toVersion })` on the main manifest. Migration runs before current-contract validation and must return a complete patch object.
+If `patchVersion` changes, update all shipped patches and fixtures that declare the plugin. Patches declaring another contract version are rejected; the host does not run plugin migrations.
 
 ## Factory Patches and Docs
 

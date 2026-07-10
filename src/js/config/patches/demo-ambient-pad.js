@@ -83,26 +83,22 @@ export default {
                 "pause": 0
             },
             "lfo1": {
-                "rate": 0.08,
-                "depth": 0.4,
+                "rateKnob": 0.08,
                 "range": 0,
-                "waveform": 0
+                "waveKnob": 0
             },
             "lfo2": {
-                "rate": 0.12,
-                "depth": 0.3,
+                "rateKnob": 0.12,
                 "range": 0,
-                "waveform": 2
+                "waveKnob": 2
             },
             "vco1": {
                 "coarse": 0.35,
-                "fine": 0.5,
-                "pw": 0.5
+                "fine": 0.5
             },
             "vco2": {
                 "coarse": 0.35,
-                "fine": 0.52,
-                "pw": 0.45
+                "fine": 0.52
             },
             "oscMix": {
                 "lvl1": 0.5,

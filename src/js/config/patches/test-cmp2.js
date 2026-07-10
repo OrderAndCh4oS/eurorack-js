@@ -83,9 +83,7 @@ export default {
             },
             "vca": {
                 "ch1Gain": 0.7533333333333334,
-                "ch2Gain": 0,
-                "gain1": 0.7,
-                "gain2": 0.7
+                "ch2Gain": 0
             },
             "out": {
                 "volume": 0.7066666666666667

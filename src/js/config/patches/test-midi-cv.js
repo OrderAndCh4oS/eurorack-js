@@ -58,13 +58,11 @@ export default {
             },
             "vco": {
                 "coarse": 0.5,
-                "fine": 0,
-                "pw": 0.5
+                "fine": 0
             },
             "vcf": {
                 "cutoff": 0.6,
-                "resonance": 0.3,
-                "env": 0.4
+                "resonance": 0.3
             },
             "adsr": {
                 "attack": 0.05,
@@ -73,12 +71,11 @@ export default {
                 "release": 0.3
             },
             "vca": {
-                "ch1Level": 0.8,
-                "ch2Level": 0
+                "ch1Gain": 0.8,
+                "ch2Gain": 0
             },
             "out": {
-                "levelL": 0.7,
-                "levelR": 0.7
+                "volume": 0.7
             }
         },
         "cables": [

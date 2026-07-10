@@ -1,6 +1,6 @@
 import './core-plugin.js';
 import { compileGraph } from '../graph.js';
-import { getModulePort, getModulePorts } from '../../rack/module-contract.js';
+import { assertModuleParam, getModulePort, getModulePorts } from '../../rack/module-contract.js';
 import { getNestedValue, setNestedValue } from '../../utils/nested-access.js';
 import { getWorkletModule, getWorkletPlugin } from './plugin-registry.js';
 
@@ -107,7 +107,10 @@ class EurorackProcessor extends AudioWorkletProcessor {
             audioCtx: null
         });
         instance.midiManager = this.midi;
-        Object.entries(specification.params || {}).forEach(([param, value]) => setNestedValue(instance.params, param, value));
+        Object.entries(specification.params || {}).forEach(([param, value]) => {
+            assertModuleParam(definition, param, value);
+            setNestedValue(instance.params, param, value);
+        });
         if (specification.runtimeState && definition.restoreRuntimeState) {
             definition.restoreRuntimeState(instance, specification.runtimeState);
         }
@@ -182,7 +185,9 @@ class EurorackProcessor extends AudioWorkletProcessor {
             if (message.type === 'topology') this.activateTopology(message.topology, { replace: message.replace });
             else if (message.type === 'param') {
                 const module = this.modules[message.moduleId];
-                if (module) setNestedValue(module.instance.params, message.param, message.value);
+                if (!module) throw new Error(`Module instance "${message.moduleId}" not found`);
+                assertModuleParam(module.def, message.param, message.value);
+                setNestedValue(module.instance.params, message.param, message.value);
             } else if (message.type === 'midi') this.midi.push(message.data);
             else if (message.type === 'retry') this.disabled.delete(message.moduleId);
             else if (message.type === 'capture-runtime') {

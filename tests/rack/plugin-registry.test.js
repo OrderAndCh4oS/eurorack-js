@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PluginRegistry } from '../../src/js/rack/registry.js';
-import { normalizePatch } from '../../src/js/app/patch-format.js';
 
 function createModule(id = 'test-module') {
     return {
@@ -60,6 +59,19 @@ describe('PluginRegistry', () => {
         expect(registry.count).toBe(1);
     });
 
+    it('requires module color tokens', async () => {
+        const registry = new PluginRegistry({ blockSize: 4 });
+        const definition = { ...createModule(), color: '#555555' };
+        await expect(registry.registerPlugin(manifest('test-plugin', definition)))
+            .rejects.toThrow('invalid color');
+    });
+
+    it('rejects plugin patch migration hooks', async () => {
+        const registry = new PluginRegistry({ blockSize: 4 });
+        await expect(registry.registerPlugin({ ...manifest('test-plugin'), migratePatch() {} }))
+            .rejects.toThrow('patch migrations are not supported');
+    });
+
     it('rejects unregistering a plugin whose module type is active', async () => {
         const registry = new PluginRegistry({ blockSize: 4 });
         await registry.registerPlugin(manifest('test-plugin'));
@@ -68,30 +80,4 @@ describe('PluginRegistry', () => {
             .toThrow('is in use');
     });
 
-    it('runs a plugin patch migration before validating its current contract', async () => {
-        const registry = new PluginRegistry({ blockSize: 4 });
-        const migratePatch = vi.fn(state => ({
-            ...state,
-            params: { test_1: { level: state.params.test_1.gain } }
-        }));
-        const plugin = {
-            ...manifest('test-plugin'),
-            patchVersion: 2,
-            migratePatch
-        };
-        await registry.registerPlugin(plugin);
-
-        const migrated = normalizePatch({
-            version: 3,
-            plugins: { 'test-plugin': 1 },
-            modules: [{ id: 'test_1', type: 'test-module', row: 1, index: 0 }],
-            params: { test_1: { gain: 0.7 } },
-            cables: [],
-            midiMappings: {}
-        }, { moduleRegistry: registry });
-
-        expect(migratePatch).toHaveBeenCalledWith(expect.any(Object), { fromVersion: 1, toVersion: 2 });
-        expect(migrated.plugins).toEqual({ 'test-plugin': 2 });
-        expect(migrated.params.test_1).toEqual({ level: 0.7 });
-    });
 });

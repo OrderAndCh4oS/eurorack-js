@@ -1,5 +1,5 @@
 import { getNestedValue, setNestedValue } from '../utils/nested-access.js';
-import { getModulePort } from '../rack/module-contract.js';
+import { assertModuleParam, getModulePort } from '../rack/module-contract.js';
 
 export const MAX_HP_PER_ROW = 84;
 
@@ -157,6 +157,10 @@ export class RackState {
         if (!definition) {
             throw new Error(`Module type "${type}" not found`);
         }
+        if (params && (typeof params !== 'object' || Array.isArray(params))) {
+            throw new Error(`Module "${type}" params must be an object`);
+        }
+        Object.entries(params || {}).forEach(([param, value]) => assertModuleParam(definition, param, value));
 
         const targetRow = row || this.findFirstFittingRow(definition, registry);
         if (!targetRow || !this.rows[targetRow]) {

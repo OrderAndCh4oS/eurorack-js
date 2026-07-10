@@ -80,18 +80,16 @@ export default {
                 "cc4": 71
             },
             "lfo": {
-                "rate": 0.4,
-                "shape": 0
+                "rateKnob": 0.4,
+                "waveKnob": 0
             },
             "vco": {
                 "coarse": 0.5,
-                "fine": 0,
-                "pw": 0.5
+                "fine": 0
             },
             "vcf": {
                 "cutoff": 0.5,
-                "resonance": 0.3,
-                "env": 0.3
+                "resonance": 0.3
             },
             "adsr": {
                 "attack": 0.05,
@@ -100,12 +98,11 @@ export default {
                 "release": 0.3
             },
             "vca": {
-                "ch1Level": 0.7,
-                "ch2Level": 0
+                "ch1Gain": 0.7,
+                "ch2Gain": 0
             },
             "out": {
-                "levelL": 0.7,
-                "levelR": 0.7
+                "volume": 0.7
             }
         },
         "cables": [

@@ -25,6 +25,31 @@ function moduleRecord(id, order) {
 }
 
 describe('compiled audio graph', () => {
+    it('processes sources before destinations and uses declared order for ties', () => {
+        const modules = {
+            destination: moduleRecord('destination', 0),
+            laterSource: moduleRecord('laterSource', 2),
+            firstSource: moduleRecord('firstSource', 1)
+        };
+        const graph = compileGraph({
+            modules,
+            blockSize: 4,
+            cables: [{ fromModule: 'laterSource', fromPort: 'out', toModule: 'destination', toPort: 'in' }]
+        });
+
+        expect(graph.processOrder.indexOf('laterSource')).toBeLessThan(graph.processOrder.indexOf('destination'));
+        expect(graph.processOrder.indexOf('firstSource')).toBeLessThan(graph.processOrder.indexOf('laterSource'));
+    });
+
+    it('rejects cables whose modules are missing', () => {
+        const modules = { a: moduleRecord('a', 0) };
+        expect(() => compileGraph({
+            modules,
+            blockSize: 4,
+            cables: [{ fromModule: 'missing', fromPort: 'out', toModule: 'a', toPort: 'in' }]
+        })).toThrow('missing source module');
+    });
+
     it('rejects multiple sources for one input', () => {
         const modules = { a: moduleRecord('a', 0), b: moduleRecord('b', 1), c: moduleRecord('c', 2) };
         expect(() => compileGraph({
@@ -62,4 +87,3 @@ describe('compiled audio graph', () => {
         expect([...modules.b.instance.inputs.in]).toEqual([1, 1, 1, 1]);
     });
 });
-

@@ -72,8 +72,7 @@ export default {
             },
             "nse": {
                 "rate": 1,
-                "vcaMode": 0,
-                "color": 0.5
+                "vcaMode": 0
             },
             "sh": {
                 "slew1": 0.1,

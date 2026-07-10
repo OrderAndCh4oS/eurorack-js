@@ -44,15 +44,15 @@ export default {
         ],
         "params": {
             "lfo": {
-                "rate": 0.3
+                "rateKnob": 0.3
             },
             "vco": {
                 "coarse": 0.4,
                 "fine": 0
             },
             "vca": {
-                "gain1": 0.7,
-                "gain2": 0.7
+                "ch1Gain": 0.7,
+                "ch2Gain": 0.7
             },
             "db": {
                 "mode": 0,

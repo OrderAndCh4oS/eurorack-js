@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
     EurorackApp,
-    SKIN_STORAGE_KEY,
     THEME_MODE_STORAGE_KEY,
     THEME_STORAGE_KEY
 } from '../../src/js/app/app.js';
@@ -53,20 +52,6 @@ describe('EurorackApp skin toggle', () => {
         expect(document.getElementById('themeModeToggle').textContent).toBe('Dark: Off');
     });
 
-    it('applies a saved legacy factory skin without rewriting storage', () => {
-        localStorage.setItem(SKIN_STORAGE_KEY, 'factory');
-
-        const app = new EurorackApp(document);
-        app.cacheElements();
-        app.applySavedSkin();
-
-        expect(document.body.classList.contains('theme-industrial')).toBe(true);
-        expect(document.body.classList.contains('theme-light')).toBe(true);
-        expect(document.getElementById('themeSelect').value).toBe('industrial');
-        expect(localStorage.getItem(SKIN_STORAGE_KEY)).toBe('factory');
-        expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
-    });
-
     it('selects and persists the theme from the footer', () => {
         const app = new EurorackApp(document);
         app.cacheElements();
@@ -79,7 +64,6 @@ describe('EurorackApp skin toggle', () => {
         expect(document.body.classList.contains('theme-classic')).toBe(true);
         expect(document.body.classList.contains('skin-factory')).toBe(false);
         expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('classic');
-        expect(localStorage.getItem(SKIN_STORAGE_KEY)).toBe('classic');
     });
 
     it('toggles and persists dark mode from the footer', () => {

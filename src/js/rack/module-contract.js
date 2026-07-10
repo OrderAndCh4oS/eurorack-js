@@ -52,6 +52,29 @@ export function getModulePort(definition, direction, portName) {
     return getModulePorts(definition, direction).find(port => port.port === portName) || null;
 }
 
+export function getModuleParamPaths(definition) {
+    const ui = definition.ui || {};
+    return new Set([
+        ...(ui.knobs || []),
+        ...(ui.switches || []),
+        ...(ui.buttons || []),
+        ...(ui.actions || [])
+    ].map(control => control.param));
+}
+
+function hasOnlyFiniteLeaves(value) {
+    if (typeof value === 'number') return Number.isFinite(value);
+    if (Array.isArray(value)) return value.every(hasOnlyFiniteLeaves);
+    if (value && typeof value === 'object') return Object.values(value).every(hasOnlyFiniteLeaves);
+    return true;
+}
+
+export function assertModuleParam(definition, param, value) {
+    const moduleId = definition?.id || 'unknown';
+    assert(getModuleParamPaths(definition).has(param), `Module "${moduleId}" has no parameter "${param}"`);
+    assert(hasOnlyFiniteLeaves(value), `Module "${moduleId}" parameter "${param}" contains a non-finite value`);
+}
+
 export function validateModuleDefinition(definition, {
     sampleRate = 44100,
     blockSize = 512,

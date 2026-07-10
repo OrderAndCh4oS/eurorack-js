@@ -47,8 +47,8 @@ export default {
         ],
         "params": {
             "lfo": {
-                "rate": 0.25,
-                "shape": 0.5,
+                "rateKnob": 0.25,
+                "waveKnob": 0.5,
                 "range": 0
             },
             "vco": {
@@ -61,7 +61,7 @@ export default {
             },
             "vcf": {
                 "cutoff": 0.6,
-                "res": 0.3
+                "resonance": 0.3
             },
             "out": {
                 "volume": 0.5

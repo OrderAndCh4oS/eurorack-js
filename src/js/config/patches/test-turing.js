@@ -87,9 +87,7 @@ export default {
             },
             "vca": {
                 "ch1Gain": 0.8,
-                "ch2Gain": 0.8,
-                "gain1": 0.7,
-                "gain2": 0.7
+                "ch2Gain": 0.8
             },
             "adsr": {
                 "attack": 0,

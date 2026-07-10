@@ -5,8 +5,8 @@
  * Each patch file contains:
  *   - name: Display name
  *   - factory: true (marks as read-only factory patch)
- *   - state: Canonical v2 patch state:
- *     {version, modules, params, cables, midiMappings}
+ *   - state: Canonical v3 patch state:
+ *     {version, plugins, modules, params, cables, midiMappings}
  */
 
 export { FACTORY_PATCHES } from './patches/index.js';

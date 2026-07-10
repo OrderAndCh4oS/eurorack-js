@@ -55,7 +55,7 @@ export default {
         ],
         "params": {
             "clk": {
-                "bpm": 0.4
+                "rate": 0.4
             },
             "seq": {
                 "step1": 0,

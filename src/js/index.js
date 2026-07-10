@@ -4,7 +4,6 @@ export {
     PLUGIN_API_VERSION,
     PluginRegistry,
     pluginRegistry,
-    pluginRegistry as moduleRegistry,
     loadCorePlugin,
     registerPlugin,
     unregisterPlugin
@@ -21,6 +20,8 @@ export {
 } from './rack/module-manifest.js';
 export {
     SIGNAL_TYPES,
+    assertModuleParam,
+    getModuleParamPaths,
     getModulePort,
     getModulePorts,
     normalizePortDefinition,

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CATEGORY_ORDER, MODULE_MANIFEST, MODULE_ORDER } from '../../src/js/rack/module-manifest.js';
 import { registerModule } from '../../src/js/rack/registry.js';
+import { cleanupRenderedModule, renderModule } from '../../src/js/ui/renderer.js';
 
 const PORT_TYPES = ['audio', 'cv', 'gate', 'trigger', 'buffer'];
 
@@ -17,11 +18,44 @@ function getControlParams(ui = {}) {
     return [
         ...(ui.knobs || []),
         ...(ui.switches || []),
-        ...(ui.buttons || [])
+        ...(ui.buttons || []),
+        ...(ui.actions || [])
     ].map(control => control.param);
 }
 
 describe('module contracts', () => {
+    beforeEach(() => {
+        HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+            clearRect: vi.fn(),
+            fillRect: vi.fn(),
+            strokeRect: vi.fn(),
+            beginPath: vi.fn(),
+            moveTo: vi.fn(),
+            lineTo: vi.fn(),
+            stroke: vi.fn(),
+            fill: vi.fn(),
+            arc: vi.fn(),
+            fillText: vi.fn(),
+            measureText: vi.fn(() => ({ width: 10 })),
+            setLineDash: vi.fn(),
+            save: vi.fn(),
+            restore: vi.fn(),
+            translate: vi.fn(),
+            scale: vi.fn(),
+            drawImage: vi.fn(),
+            getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(4) })),
+            putImageData: vi.fn(),
+            createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() }))
+        }));
+        vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
+        vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+        document.body.innerHTML = '';
+    });
+
     it('keeps the manifest as unique import/order metadata', () => {
         const ids = MODULE_MANIFEST.map(entry => entry.id);
 
@@ -81,6 +115,49 @@ describe('module contracts', () => {
                 expect(PORT_TYPES, `${definition.id}.${output.port} has invalid output type`).toContain(output.type);
                 expect(dsp.outputs, `${definition.id} missing outputs.${output.port}`).toHaveProperty(output.port);
             });
+        });
+    });
+
+    it('keeps rendered params and ports aligned with UI contracts', async () => {
+        const entries = await loadManifestDefinitions();
+
+        entries.forEach(({ definition }) => {
+            const dsp = definition.createDSP({ sampleRate: 44100, bufferSize: 16 });
+            const panel = renderModule(definition, `${definition.id}_contract`, {
+                dsp,
+                getModule: () => ({ instance: dsp, params: dsp.params }),
+                onParamChange: vi.fn()
+            });
+            document.body.appendChild(panel);
+
+            const ui = definition.ui || {};
+            const declaredParams = new Set(getControlParams(ui));
+            const registeredParams = new Set(panel.__eurorackParamControls?.keys?.() || []);
+            const renderedParams = new Set([
+                ...[...panel.querySelectorAll('[data-param]')].map(el => el.dataset.param).filter(Boolean),
+                ...registeredParams
+            ]);
+
+            renderedParams.forEach(param => {
+                expect(declaredParams.has(param), `${definition.id} renders undeclared param ${param}`).toBe(true);
+            });
+
+            declaredParams.forEach(param => {
+                expect(renderedParams.has(param), `${definition.id} declares unrendered param ${param}`).toBe(true);
+            });
+
+            const inputPorts = new Set((ui.inputs || []).map(input => input.port));
+            const outputPorts = new Set((ui.outputs || []).map(output => output.port));
+            panel.querySelectorAll('.jack').forEach(jack => {
+                const ports = jack.dataset.dir === 'output' ? outputPorts : inputPorts;
+                expect(
+                    ports.has(jack.dataset.port),
+                    `${definition.id} renders undeclared ${jack.dataset.dir} port ${jack.dataset.port}`
+                ).toBe(true);
+            });
+
+            cleanupRenderedModule(panel);
+            panel.remove();
         });
     });
 

@@ -118,6 +118,16 @@ class ModuleRegistry {
                 if (!output.port) throw new Error(`Module "${moduleId}" output "${output.id}" missing port`);
             });
         }
+
+        if (ui.actions) {
+            ui.actions.forEach((action, i) => {
+                if (!action.id) throw new Error(`Module "${moduleId}" action[${i}] missing id`);
+                if (!action.param) throw new Error(`Module "${moduleId}" action "${action.id}" missing param`);
+                if (action.mode && !['toggle', 'momentary', 'trigger'].includes(action.mode)) {
+                    throw new Error(`Module "${moduleId}" action "${action.id}" has invalid mode: ${action.mode}`);
+                }
+            });
+        }
     }
 
     /**

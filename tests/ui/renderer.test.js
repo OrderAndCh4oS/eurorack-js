@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { renderModule } from '../../src/js/ui/renderer.js';
+import { cleanupRenderedModule, renderModule, syncParamToModuleUI } from '../../src/js/ui/renderer.js';
 import { EurorackApp } from '../../src/js/app/app.js';
 import loopModule from '../../src/js/modules/loop/index.js';
 import joystickModule from '../../src/js/modules/joystick/index.js';
@@ -98,6 +98,101 @@ describe('renderModule', () => {
         document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
 
         expect(onParamChange).toHaveBeenCalledWith('custom_1', 'step1', expect.any(Number));
+    });
+
+    it('runs custom renderer cleanup callbacks', () => {
+        const cleanup = vi.fn();
+        const panel = renderModule({
+            id: 'custom',
+            name: 'CUSTOM',
+            hp: 4,
+            color: '#222',
+            createDSP: () => ({}),
+            render(container, { onCleanup }) {
+                onCleanup(cleanup);
+            }
+        }, 'custom_1', {
+            dsp: null,
+            onParamChange: vi.fn()
+        });
+
+        cleanupRenderedModule(panel);
+
+        expect(cleanup).toHaveBeenCalledOnce();
+    });
+
+    it('supports legacy instance.cleanup during migration', () => {
+        const cleanup = vi.fn();
+        const panel = renderModule({
+            id: 'custom',
+            name: 'CUSTOM',
+            hp: 4,
+            color: '#222',
+            createDSP: () => ({}),
+            render(container, { instance }) {
+                instance.cleanup = cleanup;
+            }
+        }, 'custom_1', {
+            dsp: null,
+            onParamChange: vi.fn()
+        });
+
+        cleanupRenderedModule(panel);
+
+        expect(cleanup).toHaveBeenCalledOnce();
+    });
+
+    it('provides managed animation cleanup through the toolkit', () => {
+        const draw = vi.fn();
+        const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 42);
+        const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+
+        const panel = renderModule({
+            id: 'custom',
+            name: 'CUSTOM',
+            hp: 4,
+            color: '#222',
+            createDSP: () => ({}),
+            render(container, { toolkit }) {
+                toolkit.animate(draw);
+            }
+        }, 'custom_1', {
+            dsp: null,
+            onParamChange: vi.fn()
+        });
+
+        cleanupRenderedModule(panel);
+
+        expect(requestFrame).toHaveBeenCalledOnce();
+        expect(cancelFrame).toHaveBeenCalledWith(42);
+
+        requestFrame.mockRestore();
+        cancelFrame.mockRestore();
+    });
+
+    it('syncs registered custom param controls', () => {
+        const panel = renderModule({
+            id: 'custom',
+            name: 'CUSTOM',
+            hp: 4,
+            color: '#222',
+            createDSP: () => ({}),
+            render(container, { toolkit }) {
+                const button = document.createElement('button');
+                button.className = 'record-button';
+                container.appendChild(button);
+                toolkit.registerParamControl('record', button, value => {
+                    button.classList.toggle('recording', value === 1);
+                });
+            }
+        }, 'custom_1', {
+            dsp: { params: { record: 0 } },
+            onParamChange: vi.fn()
+        });
+
+        syncParamToModuleUI(panel, 'custom_1', 'record', 1);
+
+        expect(panel.querySelector('.record-button').classList.contains('recording')).toBe(true);
     });
 
     it('handles custom-render manual toggle buttons like SEQ gates', () => {

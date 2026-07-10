@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import granulitaModule from '../../src/js/modules/granulita/index.js';
 
 // Helper to create Granulita instance
@@ -131,6 +131,22 @@ describe('GRANULITA (Granular Chord Generator)', () => {
         it('should output only wet signal at blend = 1', () => {
             granulita.params.blend = 1; // Full wet
             expect(granulita.params.blend).toBe(1);
+        });
+
+        it('does not pass dry input at full wet before grains are triggered', () => {
+            granulita.params.blend = 1;
+            granulita.params.hitMode = 2;
+            granulita.inputs.hit.fill(0);
+
+            for (let i = 0; i < 512; i++) {
+                granulita.inputs.inL[i] = Math.sin(i * 0.1) * 3;
+                granulita.inputs.inR[i] = Math.sin(i * 0.13) * 3;
+            }
+
+            granulita.process();
+
+            expect(Math.max(...granulita.outputs.outL.map(Math.abs))).toBeLessThan(0.001);
+            expect(Math.max(...granulita.outputs.outR.map(Math.abs))).toBeLessThan(0.001);
         });
     });
 
@@ -333,6 +349,83 @@ describe('GRANULITA (Granular Chord Generator)', () => {
     });
 
     describe('reset', () => {
+        it('restores routed trigger and CV inputs after processing', () => {
+            const routedHit = new Float32Array(512).fill(5);
+            const routedPitch = new Float32Array(512).fill(2.5);
+
+            granulita.inputs.hit = routedHit;
+            granulita.inputs.pitchCV = routedPitch;
+            granulita.process();
+
+            expect(granulita.inputs.hit).not.toBe(routedHit);
+            expect(granulita.inputs.pitchCV).not.toBe(routedPitch);
+            expect(granulita.inputs.hit.every(v => v === 0)).toBe(true);
+            expect(granulita.inputs.pitchCV.every(v => v === 0)).toBe(true);
+        });
+
+        it('clearAudioInputs clears every routed input buffer', () => {
+            const routedIn = new Float32Array(512).fill(3);
+            const routedHit = new Float32Array(512).fill(5);
+            const routedPitch = new Float32Array(512).fill(2.5);
+            const routedCount = new Float32Array(512).fill(2.5);
+
+            granulita.inputs.inL = routedIn;
+            granulita.inputs.hit = routedHit;
+            granulita.inputs.pitchCV = routedPitch;
+            granulita.inputs.countCV = routedCount;
+            granulita.clearAudioInputs();
+
+            expect(granulita.inputs.inL).not.toBe(routedIn);
+            expect(granulita.inputs.hit).not.toBe(routedHit);
+            expect(granulita.inputs.pitchCV).not.toBe(routedPitch);
+            expect(granulita.inputs.countCV).not.toBe(routedCount);
+            expect(granulita.inputs.inL.every(v => v === 0)).toBe(true);
+            expect(granulita.inputs.hit.every(v => v === 0)).toBe(true);
+            expect(granulita.inputs.pitchCV.every(v => v === 0)).toBe(true);
+            expect(granulita.inputs.countCV.every(v => v === 0)).toBe(true);
+        });
+
+        it('clearAudioInputs clears captured grains and reverb after audio has passed through', () => {
+            const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+            granulita.params.blend = 1;
+            granulita.params.verb = 0.4;
+            granulita.params.count = 1;
+            granulita.params.length = 0.1;
+            granulita.params.direction = 2;
+            granulita.params.hitMode = 1;
+
+            try {
+                for (let block = 0; block < 4; block++) {
+                    for (let i = 0; i < 512; i++) {
+                        granulita.inputs.inL[i] = Math.sin((block * 512 + i) * 0.1) * 4;
+                        granulita.inputs.inR[i] = Math.sin((block * 512 + i) * 0.13) * 4;
+                    }
+                    granulita.inputs.hit.fill(0);
+                    granulita.process();
+                }
+
+                for (let block = 0; block < 4; block++) {
+                    for (let i = 0; i < 512; i++) {
+                        granulita.inputs.inL[i] = Math.sin((block * 512 + i) * 0.1) * 4;
+                        granulita.inputs.inR[i] = Math.sin((block * 512 + i) * 0.13) * 4;
+                    }
+                    granulita.inputs.hit.fill(block === 0 ? 5 : 0);
+                    granulita.process();
+                }
+
+                expect(Math.max(...granulita.outputs.outL.map(Math.abs))).toBeGreaterThan(0.001);
+
+                granulita.clearAudioInputs();
+                granulita.process();
+
+                expect(Math.max(...granulita.outputs.outL.map(Math.abs))).toBeLessThan(0.001);
+                expect(Math.max(...granulita.outputs.outR.map(Math.abs))).toBeLessThan(0.001);
+                expect(granulita.leds.active).toBe(0);
+            } finally {
+                randomSpy.mockRestore();
+            }
+        });
+
         it('should clear grain buffer on reset', () => {
             // Fill with signal
             for (let j = 0; j < 20; j++) {

@@ -12,6 +12,8 @@ import {
     createSwitch,
     createLED,
     createButtonBank,
+    createActionButton,
+    updateKnobRotation,
     updateLED
 } from './toolkit/components.js';
 import {
@@ -25,6 +27,8 @@ import {
 } from './toolkit/layout.js';
 
 const injectedModuleCSS = new Set();
+const CLEANUPS_KEY = '__eurorackCleanups';
+const PARAM_CONTROLS_KEY = '__eurorackParamControls';
 
 export function injectModuleCSS(moduleType, css) {
     if (!css || injectedModuleCSS.has(moduleType)) return;
@@ -35,7 +39,7 @@ export function injectModuleCSS(moduleType, css) {
     injectedModuleCSS.add(moduleType);
 }
 
-function createBoundToolkit(moduleId, onParamChange) {
+function createBoundToolkit(moduleId, onParamChange, onCleanup, registerParamControl) {
     const toolkit = createModuleToolkit();
     return {
         ...toolkit,
@@ -71,8 +75,102 @@ function createBoundToolkit(moduleId, onParamChange) {
                 param,
                 onChange: options.onChange || ((value) => onParamChange?.(param, value))
             });
+        },
+        createActionButton(options) {
+            const param = options.param || options.id;
+            return toolkit.createActionButton({
+                ...options,
+                moduleId,
+                param,
+                onChange: options.onChange || ((value) => onParamChange?.(param, value))
+            });
+        },
+        registerParamControl(param, element, sync) {
+            if (element) {
+                element.dataset.module = element.dataset.module || moduleId;
+                element.dataset.param = element.dataset.param || param;
+            }
+            registerParamControl?.(param, element, sync);
+            return element;
+        },
+        animate(draw) {
+            let frameId = null;
+            let running = true;
+            const tick = () => {
+                if (!running) return;
+                draw();
+                frameId = requestAnimationFrame(tick);
+            };
+
+            frameId = requestAnimationFrame(tick);
+
+            const stop = () => {
+                running = false;
+                if (frameId !== null) cancelAnimationFrame(frameId);
+                frameId = null;
+            };
+
+            onCleanup?.(stop);
+            return stop;
         }
     };
+}
+
+export function cleanupRenderedModule(panel) {
+    const cleanups = panel?.[CLEANUPS_KEY] || [];
+    while (cleanups.length) {
+        const cleanup = cleanups.pop();
+        cleanup?.();
+    }
+}
+
+function syncParamElement(element, value) {
+    const knob = element.matches?.('.knob') ? element : element.querySelector?.('.knob');
+    if (knob) {
+        knob.dataset.value = value;
+        updateKnobRotation(knob);
+    }
+
+    const sw = element.matches?.('.switch') ? element : element.querySelector?.('.switch');
+    if (sw) {
+        sw.classList.toggle('on', value === 1 || value === true);
+    }
+
+    const bank = element.matches?.('.button-bank') ? element : element.querySelector?.('.button-bank');
+    if (bank) {
+        bank.querySelectorAll('.octave-btn').forEach(btn => {
+            btn.classList.toggle('active', Number(btn.dataset.value) === value);
+        });
+    }
+
+    const toggle = element.matches?.('.toggle-btn, .action-btn') ? element : element.querySelector?.('.toggle-btn, .action-btn');
+    if (toggle) {
+        toggle.classList.toggle('active', value === 1 || value === true);
+    }
+}
+
+export function syncParamToModuleUI(panel, moduleId, param, value) {
+    const controls = panel?.[PARAM_CONTROLS_KEY]?.get(param) || [];
+    controls.forEach(({ element, sync }) => {
+        if (sync) sync(value, element);
+        else if (element) syncParamElement(element, value);
+    });
+
+    const knob = panel?.querySelector?.(`.knob[data-module="${moduleId}"][data-param="${param}"]`);
+    if (knob) {
+        knob.dataset.value = value;
+        updateKnobRotation(knob);
+    }
+    const sw = panel?.querySelector?.(`.switch[data-module="${moduleId}"][data-param="${param}"]`);
+    if (sw) sw.classList.toggle('on', value === 1 || value === true);
+    const bank = panel?.querySelector?.(`.button-bank[data-module="${moduleId}"][data-param="${param}"]`);
+    if (bank) {
+        bank.querySelectorAll('.octave-btn').forEach(btn => {
+            btn.classList.toggle('active', Number(btn.dataset.value) === value);
+        });
+    }
+    const toggle = panel?.querySelector?.(`.toggle-btn[data-module="${moduleId}"][data-param="${param}"], .action-btn[data-module="${moduleId}"][data-param="${param}"]`);
+    if (toggle) toggle.classList.toggle('active', value === 1 || value === true);
 }
 
 /**
@@ -89,8 +187,18 @@ export function renderModule(definition, moduleId, context) {
         if (context.dsp?.params) context.dsp.params[param] = value;
         context.onParamChange?.(moduleId, param, value);
     };
-    const toolkit = createBoundToolkit(moduleId, handleParamChange);
     injectModuleCSS(definition.id, definition.css);
+    const cleanups = [];
+    const paramControls = new Map();
+    const onCleanup = cleanup => {
+        if (typeof cleanup === 'function') cleanups.push(cleanup);
+    };
+    const registerParamControl = (param, element, sync) => {
+        if (!param) return;
+        if (!paramControls.has(param)) paramControls.set(param, []);
+        paramControls.get(param).push({ element, sync });
+    };
+    const toolkit = createBoundToolkit(moduleId, handleParamChange, onCleanup, registerParamControl);
 
     // Create module panel
     const panel = createPanel({
@@ -99,6 +207,8 @@ export function renderModule(definition, moduleId, context) {
         color: definition.color,
         type: definition.id
     });
+    panel[CLEANUPS_KEY] = cleanups;
+    panel[PARAM_CONTROLS_KEY] = paramControls;
 
     // Add module label
     panel.appendChild(createModuleLabel(definition.name));
@@ -108,18 +218,25 @@ export function renderModule(definition, moduleId, context) {
 
     if (definition.render) {
         // Custom render mode - pass control to module's render function
+        const renderInstance = {
+            id: moduleId,
+            type: definition.id,
+            def: definition,
+            dsp: context.dsp,
+            element: panel,
+            getModule: context.getModule
+        };
+
         definition.render(content, {
-            instance: {
-                id: moduleId,
-                type: definition.id,
-                def: definition,
-                dsp: context.dsp,
-                element: panel,
-                getModule: context.getModule
-            },
+            instance: renderInstance,
             toolkit,
-            onParamChange: handleParamChange
+            onParamChange: handleParamChange,
+            onCleanup
         });
+
+        if (typeof renderInstance.cleanup === 'function') {
+            onCleanup(renderInstance.cleanup);
+        }
     } else if (definition.ui) {
         // Declarative mode - render from UI definition
         renderDeclarativeUI(content, definition.ui, moduleId, context, toolkit);
@@ -240,6 +357,26 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit) {
             });
             container.appendChild(row);
         }
+    }
+
+    if (ui.actions?.length) {
+        const row = createRow('action-row');
+        ui.actions.forEach(actionDef => {
+            const btn = createActionButton({
+                id: actionDef.id,
+                label: actionDef.label,
+                moduleId,
+                value: actionDef.default || 0,
+                mode: actionDef.mode || 'toggle',
+                param: actionDef.param,
+                onChange: (value) => {
+                    if (dsp?.params) dsp.params[actionDef.param] = value;
+                    onParamChange?.(moduleId, actionDef.param, value);
+                }
+            });
+            row.appendChild(btn);
+        });
+        container.appendChild(row);
     }
 
     // Spacer
@@ -429,7 +566,13 @@ export function updateModuleLEDs(moduleId, leds, thresholds = {}) {
  * @param {Object} params - Parameter values to apply
  */
 export function applyParamsToUI(moduleId, params) {
+    const panel = document.getElementById(`module-${moduleId}`);
     Object.entries(params).forEach(([param, value]) => {
+        if (panel) {
+            syncParamToModuleUI(panel, moduleId, param, value);
+            return;
+        }
+
         // Try to find a knob
         const knob = document.querySelector(`#knob-${moduleId}-${param}, .knob[data-module="${moduleId}"][data-param="${param}"]`);
         if (knob) {
@@ -454,6 +597,10 @@ export function applyParamsToUI(moduleId, params) {
             bank.querySelectorAll('.octave-btn').forEach(btn => {
                 btn.classList.toggle('active', parseInt(btn.dataset.value) === value);
             });
+            return;
         }
+
+        const toggle = document.querySelector(`.toggle-btn[data-module="${moduleId}"][data-param="${param}"], .action-btn[data-module="${moduleId}"][data-param="${param}"]`);
+        if (toggle) toggle.classList.toggle('active', value === 1 || value === true);
     });
 }

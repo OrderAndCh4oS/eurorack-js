@@ -17,6 +17,7 @@ export {
     createSwitch,
     createLED,
     createButtonBank,
+    createActionButton,
     createCanvas,
     updateKnobRotation,
     setupKnobDrag,
@@ -51,6 +52,7 @@ import {
     createSwitch,
     createLED,
     createButtonBank,
+    createActionButton,
     createCanvas,
     updateKnobRotation,
     updateLED
@@ -79,6 +81,7 @@ export function createModuleToolkit() {
         createSwitch,
         createLED,
         createButtonBank,
+        createActionButton,
         createCanvas,
 
         // Layout helpers

@@ -264,6 +264,8 @@ export default {
 
         const button = document.createElement('div');
         button.className = 'rec-button';
+        button.dataset.module = instance.id;
+        button.dataset.param = 'record';
 
         const buttonInner = document.createElement('div');
         buttonInner.className = 'rec-button-inner';
@@ -285,6 +287,9 @@ export default {
             }
             onParamChange('record', isRecording ? 1 : 0);
             updateUI();
+        });
+        toolkit.registerParamControl('record', button, value => {
+            button.classList.toggle('recording', value === 1 || value === true);
         });
 
         buttonArea.appendChild(button);
@@ -352,7 +357,7 @@ export default {
             const dsp = mod ? mod.instance : null;
 
             if (dsp) {
-                const recording = dsp.leds.recording === 1;
+                const recording = dsp.leds.recording === 1 || dsp.params.record === 1;
                 led.classList.toggle('recording', recording);
                 button.classList.toggle('recording', recording);
                 timeDisplay.classList.toggle('recording', recording);
@@ -370,28 +375,17 @@ export default {
             }
         }
 
-        // Animation loop for UI updates
-        let animationId = null;
-
-        function animate() {
-            updateUI();
-            animationId = requestAnimationFrame(animate);
-        }
-
-        animate();
-
-        // Cleanup
-        instance.cleanup = () => {
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-            }
-        };
+        updateUI();
+        toolkit.animate(updateUI);
     },
 
     ui: {
         leds: ['recording'],
         knobs: [],
         switches: [],
+        actions: [
+            { id: 'record', label: 'Rec', param: 'record', mode: 'toggle', default: 0 }
+        ],
         inputs: [
             { id: 'L', label: 'L', port: 'L', type: 'audio' },
             { id: 'R', label: 'R', port: 'R', type: 'audio' }

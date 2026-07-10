@@ -409,6 +409,10 @@ export default {
                 onParamChange('mode', currentMode);
             }
         });
+        toolkit.registerParamControl('mode', modeSwitch, value => {
+            currentMode = Number.isFinite(Number(value)) ? Number(value) : 0;
+            modeSwitch.querySelector('.switch')?.classList.toggle('on', currentMode !== 0);
+        });
         switchRow.appendChild(modeSwitch);
 
         let currentHold = 1;
@@ -425,6 +429,10 @@ export default {
                 }
                 onParamChange('hold', currentHold);
             }
+        });
+        toolkit.registerParamControl('hold', holdSwitch, value => {
+            currentHold = value ? 1 : 0;
+            holdSwitch.querySelector('.switch')?.classList.toggle('on', currentHold === 1);
         });
         switchRow.appendChild(holdSwitch);
 
@@ -477,9 +485,6 @@ export default {
         mainContainer.appendChild(controls);
         container.appendChild(mainContainer);
 
-        // Animation loop for LED updates
-        let animationId = null;
-
         function updateLEDs() {
             const mod = getModule ? getModule() : null;
             const dsp = mod ? mod.instance : null;
@@ -524,18 +529,10 @@ export default {
                 }
             }
 
-            animationId = requestAnimationFrame(updateLEDs);
         }
 
-        // Start animation
         updateLEDs();
-
-        // Cleanup function
-        instance.cleanup = () => {
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-            }
-        };
+        toolkit.animate(updateLEDs);
     },
 
     // UI definition for registry validation

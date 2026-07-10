@@ -359,6 +359,12 @@ export default {
                 currentModeLabel = labels[currentMode];
             }
         });
+        toolkit.registerParamControl('mode', modeSwitch, value => {
+            currentMode = Number.isFinite(Number(value)) ? Number(value) : 0;
+            modeSwitch.querySelector('.switch')?.classList.toggle('on', currentMode !== 0);
+            const labels = ['SCOPE', 'X-Y', 'TUNE'];
+            currentModeLabel = labels[currentMode] || labels[0];
+        });
         knobGrid.appendChild(modeSwitch);
 
         // Row 2: CH1 Gain, CH2 Gain, (empty or future control)
@@ -423,9 +429,6 @@ export default {
             return { note: `${noteName}${octave}`, cents };
         }
 
-        // Animation loop for rendering
-        let animationId = null;
-
         function drawScope() {
             const width = canvas.width;
             const height = canvas.height;
@@ -461,7 +464,6 @@ export default {
                 ctx.font = '12px monospace';
                 ctx.textAlign = 'center';
                 ctx.fillText('START AUDIO', width / 2, height / 2);
-                animationId = requestAnimationFrame(drawScope);
                 return;
             }
 
@@ -640,23 +642,26 @@ export default {
                 ctx.stroke();
             }
 
-            animationId = requestAnimationFrame(drawScope);
         }
 
-        // Start animation
         drawScope();
-
-        // Store cleanup function on instance
-        instance.cleanup = () => {
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-            }
-        };
+        toolkit.animate(drawScope);
     },
 
     // UI definition for registry validation
     ui: {
         leds: ['ch1', 'ch2'],
+        knobs: [
+            { id: 'time', label: 'Time', param: 'time', min: 0, max: 1, default: 0.5 },
+            { id: 'trigger', label: 'Trig', param: 'trigger', min: 0, max: 1, default: 0.5 },
+            { id: 'gain1', label: 'Gn 1', param: 'gain1', min: 0, max: 1, default: 0.5 },
+            { id: 'gain2', label: 'Gn 2', param: 'gain2', min: 0, max: 1, default: 0.5 },
+            { id: 'offset1', label: 'Off 1', param: 'offset1', min: 0, max: 1, default: 0.5 },
+            { id: 'offset2', label: 'Off 2', param: 'offset2', min: 0, max: 1, default: 0.5 }
+        ],
+        buttons: [
+            { id: 'mode', label: 'Mode', param: 'mode', values: [0, 1, 2], default: 0 }
+        ],
         inputs: [
             { id: 'in1', label: '1', port: 'in1', type: 'buffer' },
             { id: 'in2', label: '2', port: 'in2', type: 'buffer' }

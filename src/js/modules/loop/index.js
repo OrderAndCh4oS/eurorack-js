@@ -451,6 +451,9 @@ export default {
             recordButton.classList.toggle('recording', value === 1);
             onParamChange('record', value);
         });
+        toolkit.registerParamControl('record', recordButton, value => {
+            recordButton.classList.toggle('recording', value === 1 || value === true);
+        });
 
         recordArea.appendChild(recordButton);
         main.appendChild(recordArea);
@@ -531,8 +534,6 @@ export default {
 
         container.appendChild(main);
 
-        let animationId = null;
-
         function syncRecordButton() {
             const mod = getModule ? getModule() : null;
             const liveDsp = mod?.instance || dsp;
@@ -546,16 +547,8 @@ export default {
             }
         }
 
-        function animate() {
-            syncRecordButton();
-            animationId = requestAnimationFrame(animate);
-        }
-
-        animate();
-
-        instance.cleanup = () => {
-            if (animationId) cancelAnimationFrame(animationId);
-        };
+        syncRecordButton();
+        toolkit.animate(syncRecordButton);
     },
 
     ui: {
@@ -566,13 +559,15 @@ export default {
             { id: 'level', label: 'Lvl', param: 'level', min: 0, max: 1, default: 0.8, small: true }
         ],
         switches: [
-            { id: 'record', label: 'Rec', param: 'record', default: 0 },
             { id: 'reverse', label: 'Rev', param: 'reverse', default: 0 },
-            { id: 'halfSpeed', label: '1/2', param: 'halfSpeed', default: 0 },
-            { id: 'clear', label: 'Clr', param: 'clear', default: 0 }
+            { id: 'halfSpeed', label: '1/2', param: 'halfSpeed', default: 0 }
         ],
         buttons: [
             { id: 'mode', label: 'Mode', param: 'mode', values: [0, 1, 2, 3], default: 0 }
+        ],
+        actions: [
+            { id: 'record', label: 'Rec', param: 'record', mode: 'toggle', default: 0 },
+            { id: 'clear', label: 'Clr', param: 'clear', mode: 'trigger', default: 0 }
         ],
         inputs: [
             { id: 'in', label: 'In', port: 'in', type: 'audio' },

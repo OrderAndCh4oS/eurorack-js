@@ -31,7 +31,9 @@ export { MODULE_MANIFEST, MODULE_ORDER, CATEGORY_ORDER, CATEGORY_LABELS } from '
 
 // Renderer exports
 export {
+    cleanupRenderedModule,
     renderModule,
+    syncParamToModuleUI,
     updateModuleLEDs,
     applyParamsToUI
 } from './ui/renderer.js';
@@ -47,6 +49,7 @@ export {
     createSwitch,
     createLED,
     createButtonBank,
+    createActionButton,
     createCanvas,
     // Layout helpers
     createRow,

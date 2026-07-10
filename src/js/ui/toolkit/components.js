@@ -213,6 +213,68 @@ export function createButtonBank({
 }
 
 /**
+ * Create a parameter action button.
+ * @param {Object} options
+ * @param {string} options.id - Unique identifier
+ * @param {string} options.label - Display label
+ * @param {string} options.moduleId - Parent module ID
+ * @param {string} options.mode - 'toggle', 'momentary', or 'trigger'
+ * @param {Function} options.onChange - Callback when value changes
+ * @returns {HTMLButtonElement} Action button element
+ */
+export function createActionButton({
+    id,
+    label,
+    moduleId,
+    mode = 'toggle',
+    value = 0,
+    param = id,
+    durationMs = 80,
+    onChange
+}) {
+    const button = document.createElement('button');
+    button.className = `action-btn action-${mode}${value ? ' active' : ''}`;
+    button.dataset.module = moduleId;
+    button.dataset.param = param;
+    button.dataset.actionMode = mode;
+    button.dataset.rendererManaged = 'true';
+    button.title = label;
+    button.textContent = label;
+
+    const setActive = nextValue => {
+        button.classList.toggle('active', nextValue === 1 || nextValue === true);
+        onChange?.(nextValue ? 1 : 0);
+    };
+
+    if (mode === 'momentary') {
+        button.addEventListener('pointerdown', event => {
+            event.preventDefault();
+            setActive(1);
+        });
+        ['pointerup', 'pointerleave', 'pointercancel'].forEach(type => {
+            button.addEventListener(type, () => setActive(0));
+        });
+    } else if (mode === 'trigger') {
+        button.addEventListener('click', event => {
+            event.preventDefault();
+            button.classList.add('active');
+            onChange?.(1);
+            setTimeout(() => {
+                button.classList.remove('active');
+                onChange?.(0);
+            }, durationMs);
+        });
+    } else {
+        button.addEventListener('click', event => {
+            event.preventDefault();
+            setActive(button.classList.contains('active') ? 0 : 1);
+        });
+    }
+
+    return button;
+}
+
+/**
  * Create a canvas for custom visualizations
  * @param {Object} options
  * @param {number} options.width - Canvas width in pixels

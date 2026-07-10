@@ -110,6 +110,14 @@ export default {
         // Own input buffers (for reset pattern)
         const ownInL = new Float32Array(bufferSize);
         const ownInR = new Float32Array(bufferSize);
+        const ownHit = new Float32Array(bufferSize);
+        const ownBlendCV = new Float32Array(bufferSize);
+        const ownPitchCV = new Float32Array(bufferSize);
+        const ownChordCV = new Float32Array(bufferSize);
+        const ownVoiceCV = new Float32Array(bufferSize);
+        const ownVerbCV = new Float32Array(bufferSize);
+        const ownCountCV = new Float32Array(bufferSize);
+        const ownLengthCV = new Float32Array(bufferSize);
 
         // Gate state for edge detection
         let lastGate = 0;
@@ -158,6 +166,95 @@ export default {
             grain.position = (writeHead - offset + audioBufferSize) % audioBufferSize;
         }
 
+        function clearInputBuffers(instance) {
+            ownInL.fill(0);
+            ownInR.fill(0);
+            ownHit.fill(0);
+            ownBlendCV.fill(0);
+            ownPitchCV.fill(0);
+            ownChordCV.fill(0);
+            ownVoiceCV.fill(0);
+            ownVerbCV.fill(0);
+            ownCountCV.fill(0);
+            ownLengthCV.fill(0);
+
+            instance.inputs.inL = ownInL;
+            instance.inputs.inR = ownInR;
+            instance.inputs.hit = ownHit;
+            instance.inputs.blendCV = ownBlendCV;
+            instance.inputs.pitchCV = ownPitchCV;
+            instance.inputs.chordCV = ownChordCV;
+            instance.inputs.voiceCV = ownVoiceCV;
+            instance.inputs.verbCV = ownVerbCV;
+            instance.inputs.countCV = ownCountCV;
+            instance.inputs.lengthCV = ownLengthCV;
+        }
+
+        function clearTextureState() {
+            audioBufferL.fill(0);
+            audioBufferR.fill(0);
+            writeHead = 0;
+            frozen = false;
+
+            for (const grain of grains) {
+                grain.active = false;
+                grain.position = 0;
+                grain.length = 0;
+                grain.elapsed = 0;
+                grain.pitchRatio = 1.0;
+                grain.direction = 1;
+                grain.pan = 0.5;
+                grain.voice = 0;
+            }
+
+            for (const comb of reverbCombs) {
+                comb.buffer.fill(0);
+                comb.index = 0;
+                comb.filterStore = 0;
+            }
+            for (const comb of reverbCombsR) {
+                comb.buffer.fill(0);
+                comb.index = 0;
+                comb.filterStore = 0;
+            }
+            for (const ap of allpassL) {
+                ap.buffer.fill(0);
+                ap.index = 0;
+            }
+            for (const ap of allpassR) {
+                ap.buffer.fill(0);
+                ap.index = 0;
+            }
+
+            shimmerBufferL.fill(0);
+            shimmerBufferR.fill(0);
+            shimmerWriteIdx = 0;
+            shimmerReadIdx = 0;
+
+            outL.fill(0);
+            outR.fill(0);
+            samplesSinceLastGrain = 0;
+            grainInterval = 0;
+            lastGate = 0;
+        }
+
+        function restoreRoutedInputs(instance) {
+            if (
+                instance.inputs.inL !== ownInL ||
+                instance.inputs.inR !== ownInR ||
+                instance.inputs.hit !== ownHit ||
+                instance.inputs.blendCV !== ownBlendCV ||
+                instance.inputs.pitchCV !== ownPitchCV ||
+                instance.inputs.chordCV !== ownChordCV ||
+                instance.inputs.voiceCV !== ownVoiceCV ||
+                instance.inputs.verbCV !== ownVerbCV ||
+                instance.inputs.countCV !== ownCountCV ||
+                instance.inputs.lengthCV !== ownLengthCV
+            ) {
+                clearInputBuffers(instance);
+            }
+        }
+
         return {
             params: {
                 blend: 0.5,      // 0-1 dry/wet
@@ -174,14 +271,14 @@ export default {
             inputs: {
                 inL: ownInL,
                 inR: ownInR,
-                hit: new Float32Array(bufferSize),
-                blendCV: new Float32Array(bufferSize),
-                pitchCV: new Float32Array(bufferSize),
-                chordCV: new Float32Array(bufferSize),
-                voiceCV: new Float32Array(bufferSize),
-                verbCV: new Float32Array(bufferSize),
-                countCV: new Float32Array(bufferSize),
-                lengthCV: new Float32Array(bufferSize)
+                hit: ownHit,
+                blendCV: ownBlendCV,
+                pitchCV: ownPitchCV,
+                chordCV: ownChordCV,
+                voiceCV: ownVoiceCV,
+                verbCV: ownVerbCV,
+                countCV: ownCountCV,
+                lengthCV: ownLengthCV
             },
 
             outputs: {
@@ -191,6 +288,12 @@ export default {
 
             leds: {
                 active: 0
+            },
+
+            clearAudioInputs() {
+                clearInputBuffers(this);
+                clearTextureState();
+                this.leds.active = 0;
             },
 
             process() {
@@ -412,69 +515,14 @@ export default {
                 // Update LED
                 this.leds.active = Math.min(1, peakLevel / 5);
 
-                // Reset inputs if they were replaced by routing
-                if (this.inputs.inL !== ownInL) {
-                    ownInL.fill(0);
-                    this.inputs.inL = ownInL;
-                }
-                if (this.inputs.inR !== ownInR) {
-                    ownInR.fill(0);
-                    this.inputs.inR = ownInR;
-                }
+                // Reset inputs if they were replaced by routing.
+                restoreRoutedInputs(this);
             },
 
             reset() {
-                // Clear audio buffer
-                audioBufferL.fill(0);
-                audioBufferR.fill(0);
-                writeHead = 0;
-                frozen = false;
+                clearInputBuffers(this);
+                clearTextureState();
 
-                // Reset all grains
-                for (const grain of grains) {
-                    grain.active = false;
-                    grain.position = 0;
-                    grain.length = 0;
-                    grain.elapsed = 0;
-                    grain.pitchRatio = 1.0;
-                    grain.direction = 1;
-                    grain.pan = 0.5;
-                    grain.voice = 0;
-                }
-
-                // Clear reverb
-                for (const comb of reverbCombs) {
-                    comb.buffer.fill(0);
-                    comb.index = 0;
-                    comb.filterStore = 0;
-                }
-                for (const comb of reverbCombsR) {
-                    comb.buffer.fill(0);
-                    comb.index = 0;
-                    comb.filterStore = 0;
-                }
-                for (const ap of allpassL) {
-                    ap.buffer.fill(0);
-                    ap.index = 0;
-                }
-                for (const ap of allpassR) {
-                    ap.buffer.fill(0);
-                    ap.index = 0;
-                }
-
-                // Clear shimmer
-                shimmerBufferL.fill(0);
-                shimmerBufferR.fill(0);
-                shimmerWriteIdx = 0;
-                shimmerReadIdx = 0;
-
-                // Clear outputs
-                outL.fill(0);
-                outR.fill(0);
-
-                // Reset state
-                samplesSinceLastGrain = 0;
-                lastGate = 0;
                 this.leds.active = 0;
             }
         };

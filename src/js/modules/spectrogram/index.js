@@ -682,9 +682,6 @@ export default {
             }, 1500);
         }
 
-        // Animation loop
-        let animationId = null;
-
         function drawSpectrogram() {
             const width = canvas.width;
             const height = canvas.height;
@@ -700,7 +697,6 @@ export default {
                 ctx.font = '10px monospace';
                 ctx.textAlign = 'center';
                 ctx.fillText('START AUDIO', width / 2, height / 2);
-                animationId = requestAnimationFrame(drawSpectrogram);
                 return;
             }
 
@@ -710,7 +706,6 @@ export default {
                 ctx.font = '10px monospace';
                 ctx.textAlign = 'center';
                 ctx.fillText('WAITING...', width / 2, height / 2);
-                animationId = requestAnimationFrame(drawSpectrogram);
                 return;
             }
 
@@ -759,16 +754,10 @@ export default {
             ctx.textAlign = 'right';
             ctx.fillText(`${dsp.getTimeWindow().toFixed(0)}s`, width - 2, 10);
 
-            animationId = requestAnimationFrame(drawSpectrogram);
         }
 
         drawSpectrogram();
-
-        instance.cleanup = () => {
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-            }
-        };
+        toolkit.animate(drawSpectrogram);
     },
 
     ui: {

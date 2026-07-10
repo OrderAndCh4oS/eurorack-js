@@ -182,6 +182,11 @@ ui: {
         { id: 'range', label: 'Range', param: 'range', values: [0, 1, 2], default: 1 }
     ],
 
+    actions: [
+        { id: 'record', label: 'Rec', param: 'record', mode: 'toggle', default: 0 },
+        { id: 'clear', label: 'Clear', param: 'clear', mode: 'trigger', default: 0 }
+    ],
+
     inputs: [
         { id: 'audio', label: 'In', port: 'audio', type: 'audio' },
         { id: 'cv', label: 'CV', port: 'cv', type: 'cv' }
@@ -230,6 +235,19 @@ Do not mix button banks and toggle buttons in one declarative `buttons` array. T
 | `values` | number[] | Optional enum values for a button bank |
 | `default` | number | Initial value |
 
+### Action Properties
+
+Use `actions` for MIDI-visible non-knob controls whose behavior is not a value bank: transport buttons, momentary gates, and trigger commands. Action values are still stored in `params` and patch state.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | string | Unique ID |
+| `label` | string | Display label or tooltip text |
+| `param` | string | Maps to `params.{param}` |
+| `mode` | string | `toggle`, `momentary`, or `trigger` |
+| `default` | number | Initial value |
+| `midi` | boolean | Optional MIDI visibility flag; DSP-facing actions should normally be MIDI-visible |
+
 ### Jack Properties
 
 | Property | Type | Description |
@@ -257,9 +275,10 @@ The default declarative renderer lays out controls in this order:
 2. Knobs
 3. Switches
 4. Buttons
-5. Spacer
-6. Outputs
-7. Inputs
+5. Actions
+6. Spacer
+7. Outputs
+8. Inputs
 
 For modules with many jacks, the generic input/output layout can become too tall. Use `ui.socketLayout` to replace the default output/input sections with a compact socket block while keeping declarative knobs, switches, buttons, and LEDs.
 
@@ -298,7 +317,40 @@ ui: {
 
 `socketLayout.label` or `socketLayout.section` adds a section divider above the socket block. Avoid extra section/group labels on dense modules when the jack labels are already clear.
 
-For a fully bespoke panel, export a `render(container, { instance, toolkit, onParamChange })` function instead of relying only on declarative `ui`. Use `toolkit.createKnob`, `toolkit.createSwitch`, `toolkit.createButtonBank`, and `toolkit.createJack` where possible; those helpers are bound to the module id and forward param changes to the app. If you create controls manually, call `onParamChange(param, value)` whenever a value changes. Custom renderers can read live DSP/UI state with `instance.getModule()`.
+For a fully bespoke panel, export a `render(container, { instance, toolkit, onParamChange, onCleanup })` function instead of relying only on declarative `ui`. Custom renderers may create arbitrary DOM, but every rendered DSP-facing param, LED, input, and output must be declared in `ui`. Display-only controls such as copy/save/export buttons can stay custom-render-only if they do not change module params.
+
+Use `toolkit.createKnob`, `toolkit.createSwitch`, `toolkit.createButtonBank`, `toolkit.createActionButton`, and `toolkit.createJack` where possible; those helpers are bound to the module id and forward param changes to the app. If you create controls manually, call `onParamChange(param, value)` whenever a value changes.
+
+For custom visual controls whose state cannot be synced by a standard toolkit class, register a sync hook:
+
+```javascript
+render(container, { toolkit, onParamChange }) {
+    const recButton = document.createElement('button');
+    recButton.className = 'my-rec-button';
+    recButton.addEventListener('click', () => onParamChange('record', 1));
+    toolkit.registerParamControl('record', recButton, value => {
+        recButton.classList.toggle('recording', value === 1);
+    });
+    container.appendChild(recButton);
+}
+```
+
+For animation, use `toolkit.animate(draw)` instead of calling `requestAnimationFrame` directly. The renderer stops managed animations automatically when the module is removed or rerendered.
+
+```javascript
+render(container, { toolkit }) {
+    const canvas = toolkit.createCanvas({ width: 180, height: 80 });
+    const ctx = canvas.getContext('2d');
+    container.appendChild(canvas);
+
+    toolkit.animate(() => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // draw current DSP state
+    });
+}
+```
+
+Use `onCleanup(fn)` for other teardown work such as event listeners, observers, or timers. Custom renderers can read live DSP/UI state with `instance.getModule()`.
 
 ## Voltage Standards
 

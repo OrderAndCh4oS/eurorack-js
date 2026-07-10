@@ -672,9 +672,6 @@ export default {
             }, 1500);
         }
 
-        // Animation loop
-        let animationId = null;
-
         function drawPlot() {
             const width = canvas.width;
             const height = canvas.height;
@@ -712,7 +709,6 @@ export default {
                 ctx.font = '10px monospace';
                 ctx.textAlign = 'center';
                 ctx.fillText('START AUDIO', width / 2, height / 2);
-                animationId = requestAnimationFrame(drawPlot);
                 return;
             }
 
@@ -758,16 +754,10 @@ export default {
                 ctx.fillText('FROZEN', 4, 12);
             }
 
-            animationId = requestAnimationFrame(drawPlot);
         }
 
         drawPlot();
-
-        instance.cleanup = () => {
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-            }
-        };
+        toolkit.animate(drawPlot);
     },
 
     ui: {

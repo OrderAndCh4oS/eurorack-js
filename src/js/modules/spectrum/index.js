@@ -377,9 +377,6 @@ export default {
         mainContainer.appendChild(controls);
         container.appendChild(mainContainer);
 
-        // Animation loop
-        let animationId = null;
-
         function drawSpectrum() {
             const width = canvas.width;
             const height = canvas.height;
@@ -409,7 +406,6 @@ export default {
                 ctx.font = '10px monospace';
                 ctx.textAlign = 'center';
                 ctx.fillText('START AUDIO', width / 2, height / 2);
-                animationId = requestAnimationFrame(drawSpectrum);
                 return;
             }
 
@@ -492,16 +488,10 @@ export default {
                 }
             }
 
-            animationId = requestAnimationFrame(drawSpectrum);
         }
 
         drawSpectrum();
-
-        instance.cleanup = () => {
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-            }
-        };
+        toolkit.animate(drawSpectrum);
     },
 
     ui: {

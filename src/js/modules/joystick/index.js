@@ -559,7 +559,7 @@ export default {
         };
     },
 
-    render(container, { instance, toolkit, onParamChange }) {
+    render(container, { instance, toolkit, onParamChange, onCleanup }) {
         const dsp = instance.dsp;
         const getModule = instance.getModule;
         const main = document.createElement('div');
@@ -591,6 +591,21 @@ export default {
             handle.style.left = `${(clamp(x, -1, 1) + 1) * 50}%`;
             handle.style.top = `${(1 - clamp(y, -1, 1)) * 50}%`;
         }
+
+        function getLiveParams() {
+            const mod = getModule ? getModule() : null;
+            const liveDsp = mod?.instance || dsp;
+            return liveDsp?.params || mod?.params || {};
+        }
+
+        toolkit.registerParamControl('x', pad, value => {
+            const params = getLiveParams();
+            setPadPosition(value, params.y ?? 0);
+        });
+        toolkit.registerParamControl('y', pad, value => {
+            const params = getLiveParams();
+            setPadPosition(params.x ?? 0, value);
+        });
 
         function updateFromPointer(event) {
             const rect = pad.getBoundingClientRect();
@@ -626,6 +641,7 @@ export default {
         function addButton(group, label, value, param, title = label) {
             const button = document.createElement('button');
             button.className = 'octave-btn';
+            button.dataset.module = instance.id;
             button.dataset.value = value;
             button.dataset.param = param;
             button.dataset.rendererManaged = 'true';
@@ -686,6 +702,7 @@ export default {
         actions.className = 'joystick-actions';
         const gateButton = document.createElement('button');
         gateButton.className = 'octave-btn joystick-gate';
+        gateButton.dataset.module = instance.id;
         gateButton.dataset.param = 'gateButton';
         gateButton.dataset.rendererManaged = 'true';
         gateButton.textContent = 'G';
@@ -694,6 +711,9 @@ export default {
             gateButton.classList.toggle('active', value === 1);
             onParamChange('gateButton', value);
         };
+        toolkit.registerParamControl('gateButton', gateButton, value => {
+            gateButton.classList.toggle('active', (value ?? 0) >= 0.5);
+        });
         gateButton.addEventListener('pointerdown', event => {
             event.preventDefault();
             setGate(1);
@@ -706,6 +726,7 @@ export default {
         ['record', 'play'].forEach(param => {
             const button = document.createElement('button');
             button.className = 'octave-btn';
+            button.dataset.module = instance.id;
             button.dataset.param = param;
             button.dataset.rendererManaged = 'true';
             button.textContent = param === 'record' ? 'REC' : 'PLAY';
@@ -715,6 +736,9 @@ export default {
                 const value = button.classList.contains('active') ? 0 : 1;
                 button.classList.toggle('active', value === 1);
                 onParamChange(param, value);
+            });
+            toolkit.registerParamControl(param, button, value => {
+                button.classList.toggle('active', (value ?? 0) >= 0.5);
             });
             actions.appendChild(button);
         });
@@ -768,12 +792,9 @@ export default {
 
         container.appendChild(main);
 
-        let animationId = null;
-
         function syncButtons() {
             const mod = getModule ? getModule() : null;
-            const liveDsp = mod?.instance || dsp;
-            const params = liveDsp?.params || mod?.params || {};
+            const params = getLiveParams();
             setPadPosition(params.x ?? 0, params.y ?? 0);
 
             [rangeGroup, modeGroup, loopGroup].forEach(group => {
@@ -794,18 +815,9 @@ export default {
             gateButton.classList.toggle('active', (params.gateButton ?? 0) >= 0.5);
         }
 
-        function animate() {
-            syncButtons();
-            animationId = requestAnimationFrame(animate);
-        }
-
         syncButtons();
-        animate();
-
-        instance.cleanup = () => {
-            if (animationId) cancelAnimationFrame(animationId);
-            setGate(0);
-        };
+        toolkit.animate(syncButtons);
+        onCleanup?.(() => setGate(0));
     },
 
     ui: {
@@ -822,14 +834,16 @@ export default {
         ],
         switches: [
             { id: 'range', label: 'Range', param: 'range', default: 0 },
-            { id: 'sense', label: 'Move', param: 'sense', default: 1 },
-            { id: 'gateButton', label: 'Gate', param: 'gateButton', default: 0 },
-            { id: 'record', label: 'Rec', param: 'record', default: 0 },
-            { id: 'play', label: 'Play', param: 'play', default: 0 }
+            { id: 'sense', label: 'Move', param: 'sense', default: 1 }
         ],
         buttons: [
             { id: 'cvMode', label: 'CV', param: 'cvMode', values: [0, 1, 2], default: 0 },
             { id: 'loopMode', label: 'Loop', param: 'loopMode', values: [0, 1, 2], default: 1 }
+        ],
+        actions: [
+            { id: 'gateButton', label: 'Gate', param: 'gateButton', mode: 'momentary', default: 0 },
+            { id: 'record', label: 'Rec', param: 'record', mode: 'toggle', default: 0 },
+            { id: 'play', label: 'Play', param: 'play', mode: 'toggle', default: 0 }
         ],
         inputs: [
             { id: 'cv1', label: 'CV1', port: 'cv1', type: 'cv' },

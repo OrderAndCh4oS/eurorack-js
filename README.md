@@ -171,45 +171,57 @@ Runtime invariants:
 
 See the **[Module Creation Guide](docs/creating-modules.md)** for detailed documentation.
 
-Quick example:
+This basic sine LFO is a complete, useful source module:
 
 ```javascript
-// src/js/modules/mymodule/index.js
+// src/js/modules/basic-lfo/index.js
 export default {
-    id: 'mymodule',
-    name: 'My Module',
+    id: 'basic-lfo',
+    name: 'Basic LFO',
     hp: 4,
     color: 'module-color-six',
-    category: 'utility',
+    category: 'modulation',
 
-    createDSP({ bufferSize = 512 } = {}) {
-        const out = new Float32Array(bufferSize);
+    createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const sine = new Float32Array(bufferSize);
+        let phase = 0;
+
         return {
-            params: { gain: 0.5 },
-            inputs: { audio: new Float32Array(bufferSize) },
-            outputs: { out },
-            leds: {},
+            params: { rate: 1 },
+            inputs: {},
+            outputs: { sine },
+            leds: { phase: 0.5 },
+
             process() {
+                const rate = Math.max(0.05, Math.min(20, this.params.rate));
                 for (let i = 0; i < bufferSize; i++) {
-                    out[i] = this.inputs.audio[i] * this.params.gain;
+                    sine[i] = Math.sin(phase * Math.PI * 2) * 5;
+                    phase += rate / sampleRate;
+                    phase -= Math.floor(phase);
                 }
+                this.leds.phase = sine[bufferSize - 1] / 10 + 0.5;
             },
+
             reset() {
-                out.fill(0);
+                phase = 0;
+                sine.fill(0);
+                this.leds.phase = 0.5;
             }
         };
     },
 
     ui: {
-        knobs: [{ id: 'gain', label: 'Gain', param: 'gain', min: 0, max: 1, default: 0.5 }],
-        inputs: [{
-            id: 'audio', label: 'In', port: 'audio', signal: 'audio',
-            voltage: { min: -5, max: 5, normal: 0 }
-        }],
-        outputs: [{ id: 'out', label: 'Out', port: 'out', signal: 'audio' }]
+        leds: ['phase'],
+        knobs: [{ id: 'rate', label: 'Rate', param: 'rate', min: 0.05, max: 20, default: 1 }],
+        outputs: [{
+            id: 'sine', label: 'Sine', port: 'sine', signal: 'cv',
+            voltage: { min: -5, max: 5 }
+        }]
     }
 };
 ```
+
+The `ui` declaration is the public parameter and port schema. The DSP keeps its phase private, fills the same output buffer every block, and scales the waveform to the declared ±5V range. `reset()` restores both internal state and observable outputs deterministically.
 
 Built-in modules are registered in `src/js/rack/module-manifest.js`. External trusted modules are installed as plugins with `registerPlugin(manifest)` and must provide both their main-thread definitions and a worklet entry point. See the module creation guide for the manifest contract.
 

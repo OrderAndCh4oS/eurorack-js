@@ -70,6 +70,8 @@ export default {
                 "pause": 0
             },
             "nse": {
+                "rate": 1,
+                "vcaMode": 0,
                 "color": 0.5
             },
             "sh": {
@@ -94,7 +96,7 @@ export default {
                 "attack": 0.01,
                 "decay": 0.25,
                 "sustain": 0.2,
-                "release": 0.3
+                "release": 0.6133333333333334
             },
             "vca": {
                 "ch1Gain": 0.8,

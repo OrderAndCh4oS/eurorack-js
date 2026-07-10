@@ -47,7 +47,8 @@ export default {
         ],
         "params": {
             "clk": {
-                "rate": 0.25
+                "rate": 0.25,
+                "pause": 0
             },
             "arp": {
                 "root": 0,
@@ -63,8 +64,8 @@ export default {
             "adsr": {
                 "attack": 0,
                 "decay": 0.22,
-                "sustain": 0.65,
-                "release": 0
+                "sustain": 0.4033333333333333,
+                "release": 0.7333333333333333
             },
             "vca": {
                 "ch1Gain": 0.8,

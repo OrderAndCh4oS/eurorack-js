@@ -53,7 +53,8 @@ export default {
         ],
         "params": {
             "clk": {
-                "rate": 0.4
+                "rate": 0.4,
+                "pause": 0
             },
             "div": {
                 "rate1": 0.4375,
@@ -65,14 +66,14 @@ export default {
                 "glide": 5
             },
             "vcf": {
-                "cutoff": 0.36,
+                "cutoff": 0.44,
                 "resonance": 0.69
             },
             "adsr": {
                 "attack": 0,
                 "decay": 0.26,
-                "sustain": 0.71,
-                "release": 0.84
+                "sustain": 0.30999999999999994,
+                "release": 0.6733333333333333
             },
             "vca": {
                 "ch1Gain": 0.8,

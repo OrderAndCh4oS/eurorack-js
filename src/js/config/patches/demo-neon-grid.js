@@ -233,9 +233,9 @@ export default {
                 "blend": 0.42
             },
             "drumMix": {
-                "lvl1": 0.78,
+                "lvl1": 0.4133333333333334,
                 "lvl2": 0.58,
-                "lvl3": 0.4,
+                "lvl3": 0.5866666666666667,
                 "lvl4": 0
             },
             "bassSeq": {
@@ -265,7 +265,7 @@ export default {
                 "semitone": 0
             },
             "bassVco": {
-                "coarse": 0.29,
+                "coarse": 0.43,
                 "fine": -0.15,
                 "glide": 9
             },
@@ -275,9 +275,9 @@ export default {
             },
             "bassEnv": {
                 "attack": 0.02,
-                "decay": 0.26,
-                "sustain": 0.24,
-                "release": 0.08
+                "decay": 0.23333333333333336,
+                "sustain": 0.6,
+                "release": 0.6599999999999999
             },
             "bassVca": {
                 "ch1Gain": 0.9,
@@ -285,35 +285,35 @@ export default {
             },
             "leadTuring": {
                 "lock": 0.84,
-                "scale": 0.34,
+                "scale": 0.7200000000000001,
                 "length": 5
             },
             "leadQuant": {
-                "scale": 4,
-                "octave": 0,
+                "scale": 2,
+                "octave": 1,
                 "semitone": 0
             },
             "leadVco": {
-                "coarse": 0.43,
+                "coarse": 0.32999999999999985,
                 "fine": 0.07,
                 "glide": 2
             },
             "leadFilter": {
-                "cutoff": 0.58,
-                "resonance": 0.52
+                "cutoff": 0.3999999999999998,
+                "resonance": 0.3333333333333334
             },
             "leadEnv": {
-                "attack": 0.03,
+                "attack": 0.02333333333333333,
                 "decay": 0.2,
-                "sustain": 0.18,
-                "release": 0.26
+                "sustain": 0,
+                "release": 0.09333333333333325
             },
             "leadVca": {
                 "ch1Gain": 0.54,
                 "ch2Gain": 0
             },
             "modLfo": {
-                "rateKnob": 0.18,
+                "rateKnob": 0.22,
                 "waveKnob": 0.42,
                 "range": 1
             },
@@ -322,12 +322,12 @@ export default {
                 "amp": 0.32
             },
             "granulita": {
-                "blend": 0.5,
-                "pitch": 0.42,
+                "blend": 0.56,
+                "pitch": 0.21333333333333332,
                 "chord": 0.42,
-                "voice": 0.28,
-                "verb": 0.52,
-                "count": 0.62,
+                "voice": 0.4,
+                "verb": 0.62,
+                "count": 0.4,
                 "length": 0.34,
                 "direction": 1,
                 "hitMode": 1
@@ -339,13 +339,13 @@ export default {
                 "lvl4": 0
             },
             "chorus": {
-                "rate": 0.2,
+                "rate": 0.2733333333333333,
                 "depth": 0.58,
                 "mix": 0.34
             },
             "verb": {
                 "time": 0.62,
-                "damp": 0.44,
+                "damp": 0.5733333333333334,
                 "mix": 0.34
             },
             "delay": {

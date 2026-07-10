@@ -5,26 +5,26 @@ export default {
         "version": 2,
         "modules": [
             {
+                "id": "kick",
+                "type": "kick",
+                "row": 1,
+                "index": 0
+            },
+            {
                 "id": "clock",
                 "type": "clk",
                 "row": 1,
-                "index": 0
+                "index": 1
             },
             {
                 "id": "divider",
                 "type": "div",
                 "row": 1,
-                "index": 1
+                "index": 2
             },
             {
                 "id": "hatPattern",
                 "type": "euclid",
-                "row": 1,
-                "index": 2
-            },
-            {
-                "id": "kick",
-                "type": "kick",
                 "row": 1,
                 "index": 3
             },
@@ -122,37 +122,37 @@ export default {
                 "id": "lfoFilter",
                 "type": "lfo",
                 "row": 2,
-                "index": 19
+                "index": 0
             },
             {
                 "id": "drumMix",
                 "type": "mix",
                 "row": 2,
-                "index": 20
+                "index": 1
             },
             {
                 "id": "synthMix",
                 "type": "mix",
                 "row": 2,
-                "index": 21
+                "index": 2
             },
             {
                 "id": "delay",
                 "type": "dly",
                 "row": 2,
-                "index": 22
+                "index": 3
             },
             {
                 "id": "reverb",
                 "type": "verb",
                 "row": 2,
-                "index": 23
+                "index": 4
             },
             {
                 "id": "masterMix",
                 "type": "mix",
                 "row": 2,
-                "index": 24
+                "index": 5
             }
         ],
         "params": {
@@ -170,20 +170,20 @@ export default {
                 "rotate": 1
             },
             "kick": {
-                "pitch": 0.35,
-                "decay": 0.45,
-                "tone": 0.3,
-                "click": 0.4
+                "pitch": 0.12999999999999992,
+                "decay": 0.12333333333333335,
+                "tone": 0.4933333333333333,
+                "click": 0.6333333333333333
             },
             "hat": {
-                "decay": 0.15,
-                "sizzle": 0.4,
-                "blend": 0.3
+                "decay": 0,
+                "sizzle": 0.38,
+                "blend": 0.5
             },
             "clap": {
-                "snap": 0.6,
-                "decay": 0.25,
-                "pitch": 0.35
+                "snap": 0.45333333333333325,
+                "decay": 0.03666666666666665,
+                "pitch": 0.11666666666666664
             },
             "turingBass": {
                 "lock": 0.9,
@@ -196,19 +196,19 @@ export default {
                 "semitone": 0
             },
             "vcoBass": {
-                "coarse": 0.3767,
-                "fine": 0,
+                "coarse": 0.5900333333333332,
+                "fine": -0.08,
                 "glide": 12
             },
             "vcfBass": {
-                "cutoff": 0.8167,
-                "resonance": 0
+                "cutoff": 0.6433666666666668,
+                "resonance": 0.72
             },
             "adsrBass": {
-                "attack": 0.05,
-                "decay": 0.2733,
+                "attack": 0,
+                "decay": 0.1533,
                 "sustain": 0.18,
-                "release": 0
+                "release": 0.6666666666666667
             },
             "vcaBass": {
                 "ch1Gain": 0.8,
@@ -225,7 +225,7 @@ export default {
                 "semitone": 0
             },
             "vcoLead": {
-                "coarse": 0.2633,
+                "coarse": 0.25663333333333327,
                 "fine": 0,
                 "glide": 0
             },
@@ -237,10 +237,10 @@ export default {
                 "attack": 0.05,
                 "decay": 0.2,
                 "sustain": 0.1,
-                "release": 0.2967
+                "release": 0.5900333333333334
             },
             "vcaLead": {
-                "ch1Gain": 0.5,
+                "ch1Gain": 0.5466666666666666,
                 "ch2Gain": 0.5
             },
             "output": {
@@ -252,14 +252,14 @@ export default {
                 "range": 0
             },
             "drumMix": {
-                "lvl1": 0.5467,
-                "lvl2": 0.42,
-                "lvl3": 0.3333,
+                "lvl1": 0.47333333333333333,
+                "lvl2": 0.3,
+                "lvl3": 0.2266333333333333,
                 "lvl4": 0
             },
             "synthMix": {
-                "lvl1": 0.6733,
-                "lvl2": 0.6733,
+                "lvl1": 0.7799666666666667,
+                "lvl2": 0.7266333333333334,
                 "lvl3": 0,
                 "lvl4": 0
             },
@@ -472,6 +472,12 @@ export default {
                 "fromPort": "out",
                 "toModule": "output",
                 "toPort": "R"
+            },
+            {
+                "fromModule": "hatPattern",
+                "fromPort": "trig",
+                "toModule": "hat",
+                "toPort": "trigClosed"
             }
         ],
         "midiMappings": {}

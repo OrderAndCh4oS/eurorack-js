@@ -122,48 +122,48 @@ export default {
                 "id": "vcaLead",
                 "type": "vca",
                 "row": 2,
-                "index": 19
+                "index": 0
             },
             {
                 "id": "drumMix",
                 "type": "mix",
                 "row": 2,
-                "index": 20
+                "index": 1
             },
             {
                 "id": "synthMix",
                 "type": "mix",
                 "row": 2,
-                "index": 21
+                "index": 2
             },
             {
                 "id": "delay",
                 "type": "dly",
                 "row": 2,
-                "index": 22
+                "index": 3
             },
             {
                 "id": "reverb",
                 "type": "verb",
                 "row": 2,
-                "index": 23
+                "index": 4
             },
             {
                 "id": "masterMix",
                 "type": "mix",
                 "row": 2,
-                "index": 24
+                "index": 5
             },
             {
                 "id": "output",
                 "type": "out",
                 "row": 2,
-                "index": 25
+                "index": 6
             }
         ],
         "params": {
             "clock": {
-                "rate": 0.29333333333333333,
+                "rate": 0.26,
                 "pause": 0
             },
             "divider": {
@@ -181,14 +181,14 @@ export default {
                 "rotate": 0
             },
             "kick": {
-                "pitch": 0.3,
+                "pitch": 0.45999999999999996,
                 "decay": 0.5,
                 "tone": 0.2,
                 "click": 0
             },
             "hat": {
-                "decay": 0.25,
-                "sizzle": 0.5,
+                "decay": 0.11666666666666667,
+                "sizzle": 0.6533333333333333,
                 "blend": 0.5
             },
             "snare": {
@@ -207,7 +207,7 @@ export default {
                 "semitone": 0
             },
             "vcoBass": {
-                "coarse": 0.6833333333333333,
+                "coarse": 0.63,
                 "fine": -2.4000000000000004,
                 "glide": 14.666666666666671
             },
@@ -216,10 +216,10 @@ export default {
                 "resonance": 0.11333333333333336
             },
             "adsrBass": {
-                "attack": 0.3,
+                "attack": 0.09999999999999998,
                 "decay": 0.4,
                 "sustain": 0.5,
-                "release": 0.62
+                "release": 0.7666666666666666
             },
             "vcaBass": {
                 "ch1Gain": 0.7,
@@ -236,7 +236,7 @@ export default {
                 "semitone": 0
             },
             "vcoLead": {
-                "coarse": 0.3,
+                "coarse": 0.38666666666666666,
                 "fine": 0.56,
                 "glide": 14
             },
@@ -245,10 +245,10 @@ export default {
                 "sym": 0.17333333333333328
             },
             "adsrLead": {
-                "attack": 0.3,
+                "attack": 0.01999999999999999,
                 "decay": 0.4,
                 "sustain": 0.6,
-                "release": 0.5
+                "release": 0.66
             },
             "noise": {
                 "rate": 0.4866666666666667,
@@ -482,6 +482,12 @@ export default {
                 "fromPort": "out",
                 "toModule": "output",
                 "toPort": "R"
+            },
+            {
+                "fromModule": "hatPattern",
+                "fromPort": "trig",
+                "toModule": "hat",
+                "toPort": "trigOpen"
             }
         ],
         "midiMappings": {}

@@ -1,85 +1,64 @@
 # Creating Modules
 
-This guide covers everything you need to know to create built-in and trusted-plugin modules for eurorack-js. Read [Codebase Architecture and Schemas](architecture.md) first for thread ownership, routing, and patch contracts.
+This guide takes a module from research through DSP, UI, registration, patches, and tests. It covers built-in modules and trusted plugins. Read [Codebase Architecture and Schemas](architecture.md) first for thread ownership and routing.
 
-## Module Structure
+## Contract at a Glance
 
-Each module is a self-contained folder under `src/js/modules/`:
+A definition is instantiated twice:
 
-```
-src/js/modules/mymodule/
-└── index.js
-```
+- The main thread creates a stable UI mirror.
+- The AudioWorklet creates the production DSP instance.
 
-The `index.js` exports a module definition object:
+The **ui** declaration is the public schema. Every DSP-facing parameter and port must be declared there. Unknown parameters, missing module IDs, non-object parameter groups, non-finite values, invalid ports, and plugin contract mismatches are rejected.
 
-```javascript
-export default {
-    // Metadata
-    id: 'mymodule',
-    name: 'My Module',
-    hp: 4,
-    color: 'module-color-six',
-    category: 'utility',
+Core rules:
 
-    // DSP factory
-    createDSP(options) { ... },
-
-    // UI definition
-    ui: { ... }
-};
-```
-
-## Metadata Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Unique identifier (lowercase, no spaces) |
-| `name` | string | Display name shown in UI |
-| `hp` | number | Panel width (2, 3, 4, 6, 8, 10, 12, 14, or 16) |
-| `color` | string | Required theme token: `module-color-one` through `module-color-twelve`. |
-| `category` | string | Sidebar category owned by the module definition. Must be one from `CATEGORY_ORDER` in `src/js/rack/module-manifest.js`: `midi`, `clock`, `source`, `voice`, `modulation`, `sequencer`, `quantizer`, `filter`, `effect`, `utility`, `output`, `other` |
-| `telemetry` | object | Required for custom renderers. Declares bounded DSP fields, method snapshots, and optional incremental history sent from the worklet. |
+1. Allocate input and output Float32Array buffers once in createDSP().
+2. Keep buffer identities stable for the DSP lifetime.
+3. Fill every output sample during every process() call.
+4. Match declared voltage ranges and input normals.
+5. Keep UI defaults and DSP defaults identical.
+6. Keep DSP worklet-safe: no DOM, downloads, browser globals, or main-thread audio nodes.
+7. Reset all internal state, buffers, helper state, and LEDs deterministically.
+8. Use bounded telemetry for displays and module events for infrequent command results.
 
 ## Research Before Implementation
 
-Before creating a hardware-inspired module, create or update `research/modules/{moduleId}.md`. Use the research note to define the module contract before writing DSP or UI.
+Before creating or modifying a hardware-inspired module, create or update **research/modules/{moduleId}.md**. Do not implement a queue candidate until it is **spec-ready**.
 
-Capture:
+Research should include:
 
-1. Primary references: manufacturer page, manual/PDF, official firmware/source, product announcements, press releases, archived product pages, calibration notes, and hidden modes.
-2. Historical/context references when useful: old synth magazines, zines, catalogs, interviews, mailing-list posts, forum threads, patents, academic papers, app notes, and trade-show coverage.
-3. Reviews and demos: manufacturer demos, independent video demos, written reviews, forum sound examples, and comparison shootouts. Note observed sonic behavior, quirks, settings, and patch context.
-4. Practical secondary references: ModularGrid specs/panel image, retailer pages, trusted reviews, and user reports that describe behavior not captured in official specs.
-5. Panel inventory: every knob, switch, button, jack, LED, normalized connection, mode, and alternate function.
-6. Electrical behavior: audio/CV/gate/trigger ranges, thresholds, pulse lengths, pitch tracking, clipping, reset behavior, calibration tolerances, and modulation scaling.
-7. Source quality: note contradictions, which source wins, and why. Prefer primary specs for electrical facts unless better evidence is documented.
-8. DSP decision: whether the implementation is faithful, inspired-by, or adapted for this app, with trade-offs and source links.
-9. Test targets: output ranges, knob extremes, CV response, trigger edges, reset behavior, LEDs, buffer integrity, and spec-specific behavior.
+1. Primary sources: manufacturer page, manual, firmware/source, calibration notes, announcements, and archived official pages.
+2. Historical context where useful: magazines, catalogs, interviews, mailing lists, forum threads, patents, papers, and application notes.
+3. Demos and reviews: observed sound, interaction details, quirks, settings, and patch context.
+4. Practical secondary sources: ModularGrid, retailer specifications, trusted reviews, and relevant user reports.
+5. Complete panel contract: every control, jack, LED, normalization, mode, and alternate function.
+6. Electrical contract: audio/CV ranges, thresholds, pulse lengths, pitch tracking, clipping, reset behavior, and calibration tolerance.
+7. Source conflicts: what disagrees, which source wins, and why.
+8. DSP decision: faithful emulation, inspired approximation, or utility adaptation, including CPU and sound-quality trade-offs.
+9. Test targets: initialization, ranges, controls, CV, triggers, modes, LEDs, reset, buffer integrity, and documented hardware behavior.
 
-If a hardware detail cannot be verified, document the assumption and choose a range consistent with this app's voltage standards and similar modules.
+If a detail is unknown, document the assumption and choose a musically useful behavior consistent with this application's voltage standards.
 
-Every source entry should include title, author/publisher when known, date or approximate era, URL/archive URL, access date for unstable pages, and a short note explaining what fact or design choice it supports.
+Every source entry should include title, author or publisher when known, date or approximate era, URL or archive URL, access date for unstable pages, and a short note explaining what it supports.
 
-## Processing Queue Candidates
+## Queue and Worktree Workflow
 
-Use `research/module-queue.md` as the candidate board. A module must move through `candidate`, `researching`, `spec-ready`, `implementing`, and `done`; use `blocked` when a source contradiction or architecture issue prevents progress.
+Use **research/module-queue.md** as the candidate board. Statuses are **candidate**, **researching**, **spec-ready**, **implementing**, **blocked**, and **done**.
 
-To have Codex process a queued module end to end, use the copy-paste prompt in `docs/codex-process-module-command.md`.
+For the repository's end-to-end queued-module workflow, use the copy-paste request in [codex-process-module-command.md](codex-process-module-command.md).
 
-Do not start implementation until the queue item is `spec-ready`. At that point the research doc must define the panel contract, voltage contract, DSP plan, assumptions, contradictions, and test targets.
+For parallel work, isolate each module:
 
-For parallel work, isolate each module in its own branch or worktree:
-
-```bash
+~~~bash
 git worktree add ../eurorack-js-{moduleId} -b module/{moduleId}
-```
+~~~
 
-Use `research/{moduleId}` for research-only branches and `module/{moduleId}` for implementation branches. Keep shared infrastructure changes out of module branches unless they are explicitly part of that module's approved plan.
+Use **research/{moduleId}** for research-only branches and **module/{moduleId}** for implementation branches. Keep shared framework changes separate unless the implementation plan explicitly includes them.
 
-Before writing module code, add this plan to `research/modules/{moduleId}.md`:
+Before coding, add:
 
-```markdown
+~~~markdown
 ## Implementation Plan
 - Module ID:
 - Category:
@@ -93,503 +72,157 @@ Before writing module code, add this plan to `research/modules/{moduleId}.md`:
 - Focused tests:
 - Full validation command:
 - Known assumptions:
-```
+~~~
 
-Minimum focused validation for a new module:
+Write **tests/dsp/{moduleId}.test.js** before implementation. Minimum focused validation:
 
-```bash
+~~~bash
 npm test -- tests/dsp/{moduleId}.test.js tests/rack/module-contracts.test.js tests/research/module-queue.test.js
-```
+~~~
 
-If adding or changing a factory patch, also run:
+When factory patches change:
 
-```bash
+~~~bash
 npm test -- tests/config/factory-patches.test.js tests/app/patch-format.test.js
-```
+~~~
 
-Before merge, run:
+Before merge:
 
-```bash
+~~~bash
 npm test
-```
+~~~
 
-## The DSP Factory
+## Tutorial 1: Basic LFO
 
-The `createDSP` function returns a DSP instance:
+This sine LFO demonstrates metadata, sample-rate-aware state, a finite parameter, a +/-5V output, LED state, stable buffers, and reset.
 
-```javascript
-createDSP({ sampleRate = 44100, bufferSize = 512, services = {} } = {}) {
-    // Allocate output buffers (persisted across process calls)
-    const out = new Float32Array(bufferSize);
+Create **src/js/modules/basic-lfo/index.js**:
 
-    // Internal state
-    let phase = 0;
+~~~javascript
+export default {
+    id: 'basic-lfo',
+    name: 'Basic LFO',
+    hp: 4,
+    color: 'module-color-six',
+    category: 'modulation',
 
-    return {
-        // Knob/switch values (set by UI)
-        params: {
-            frequency: 0.5,
-            mode: 0
-        },
+    createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const sine = new Float32Array(bufferSize);
+        let phase = 0;
 
-        // Stable input buffers. The graph writes routed samples into these arrays.
-        inputs: {
-            cv: new Float32Array(bufferSize),
-            trigger: new Float32Array(bufferSize)
-        },
+        return {
+            params: { rate: 1 },
+            inputs: {},
+            outputs: { sine },
+            leds: { phase: 0.5 },
 
-        // Output buffers (read by downstream modules)
-        outputs: { out },
+            process() {
+                const rate = Math.max(0.05, Math.min(20, this.params.rate));
+                for (let i = 0; i < bufferSize; i++) {
+                    sine[i] = Math.sin(phase * Math.PI * 2) * 5;
+                    phase += rate / sampleRate;
+                    phase -= Math.floor(phase);
+                }
+                this.leds.phase = sine[bufferSize - 1] / 10 + 0.5;
+            },
 
-        // LED brightness values (0-1, read by UI)
-        leds: { active: 0 },
-
-        // Called every audio frame
-        process() {
-            for (let i = 0; i < bufferSize; i++) {
-                // DSP code here
-                out[i] = Math.sin(phase) * 5;
-                phase += 0.01;
+            reset() {
+                phase = 0;
+                sine.fill(0);
+                this.leds.phase = 0.5;
             }
-        },
+        };
+    },
 
-        // Optional: reset state
-        reset() {
-            phase = 0;
-            out.fill(0);
-        }
-    };
-}
-```
-
-Production `createDSP()` runs inside `AudioWorkletProcessor`. It cannot depend on `window`, `document`, DOM events, downloads, or main-thread audio nodes. MIDI and similar host facilities arrive through `services`. Allocate buffers during creation and avoid per-block allocation in `process()`.
-
-## UI Definition
-
-The `ui` object declares the module's interface:
-
-```javascript
-ui: {
-    leds: ['active', 'clip'],
-
-    knobs: [
-        { id: 'freq', label: 'Freq', param: 'frequency', min: 0, max: 1, default: 0.5 },
-        { id: 'res', label: 'Res', param: 'resonance', min: 0, max: 1, default: 0.3 }
-    ],
-
-    switches: [
-        { id: 'mode', label: 'Mode', param: 'mode', default: 0 }
-    ],
-
-    buttons: [
-        { id: 'range', label: 'Range', param: 'range', values: [0, 1, 2], default: 1 }
-    ],
-
-    actions: [
-        { id: 'record', label: 'Rec', param: 'record', mode: 'toggle', default: 0 },
-        { id: 'clear', label: 'Clear', param: 'clear', mode: 'trigger', default: 0 }
-    ],
-
-    inputs: [
-        { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
-        { id: 'cv', label: 'CV', port: 'cv', signal: 'cv' }
-    ],
-
-    outputs: [
-        { id: 'out', label: 'Out', port: 'out', signal: 'audio' }
-    ]
-}
-```
-
-### Knob Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `id` | string | Unique ID for this knob |
-| `label` | string | Display label (short) |
-| `param` | string | Maps to `params.{param}` |
-| `min` | number | Minimum value |
-| `max` | number | Maximum value |
-| `default` | number | Initial value |
-
-### Switch Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `id` | string | Unique ID |
-| `label` | string | Display label |
-| `param` | string | Maps to `params.{param}` |
-| `default` | number | Initial state (0 or 1) |
-
-### Button Properties
-
-Buttons support two declarative modes:
-
-- A button with `values` renders as a compact button bank for enum-style params.
-- Buttons without `values` render as toggle buttons in a common Gates row.
-
-Do not mix button banks and toggle buttons in one declarative `buttons` array. The renderer chooses the mode from the first button.
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `id` | string | Unique ID |
-| `label` | string | Display label or tooltip text |
-| `param` | string | Maps to `params.{param}` |
-| `values` | number[] | Optional enum values for a button bank |
-| `default` | number | Initial value |
-
-### Action Properties
-
-Use `actions` for MIDI-visible non-knob controls whose behavior is not a value bank: transport buttons, momentary gates, and trigger commands. Action values are still stored in `params` and patch state.
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `id` | string | Unique ID |
-| `label` | string | Display label or tooltip text |
-| `param` | string | Maps to `params.{param}` |
-| `mode` | string | `toggle`, `momentary`, or `trigger` |
-| `default` | number | Initial value |
-| `midi` | boolean | Optional MIDI visibility flag; DSP-facing actions should normally be MIDI-visible |
-
-### Jack Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `id` | string | Unique ID |
-| `label` | string | Display label |
-| `port` | string | Maps to `inputs.{port}` or `outputs.{port}` |
-| `signal` | string | Signal classification (see below) |
-| `voltage` | object | Optional `{ min, max, normal }`; `normal` applies to inputs |
-
-### Port Signals and Voltages
-
-| Type | Description | Typical Range |
-|------|-------------|---------------|
-| `audio` | Audio signals | ±5V |
-| `cv` | Control voltage | 0-5V or ±5V |
-| `gate` | On/off signals | 0V / 10V |
-| `trigger` | Short pulses | 5-10V pulse |
-| `any` | DC-coupled signal with no narrower semantic type | ±10V default |
-
-Signal labels are semantic metadata, not a cable compatibility barrier. Eurorack is DC-coupled, so audio and CV can be deliberately cross-patched. Direction and endpoint existence are strict.
-
-An input can override its range and normal voltage:
-
-```javascript
-{ id: 'cv', label: 'CV', port: 'cv', signal: 'cv', voltage: { min: 0, max: 5, normal: 5 } }
-```
-
-Initialize the matching DSP buffer to the same normal. Contract tests check this equality.
-
-### Advanced UI Layout
-
-The default declarative renderer lays out controls in this order:
-
-1. LEDs
-2. Knobs
-3. Switches
-4. Buttons
-5. Actions
-6. Spacer
-7. Outputs
-8. Inputs
-
-For modules with many jacks, the generic input/output layout can become too tall. Use `ui.socketLayout` to replace the default output/input sections with a compact socket block while keeping declarative knobs, switches, buttons, and LEDs.
-
-```javascript
-ui: {
-    knobs: [
-        { id: 'time', label: 'Time', param: 'time', min: 0, max: 1, default: 0.5 }
-    ],
-    inputs: [
-        { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
-        { id: 'timeCV', label: 'Time', port: 'timeCV', signal: 'cv' },
-        { id: 'tap', label: 'Tap', port: 'tap', signal: 'trigger' }
-    ],
-    outputs: [
-        { id: 'out', label: 'Out', port: 'out', signal: 'audio' },
-        { id: 'clock', label: 'Clock', port: 'clock', signal: 'gate' }
-    ],
-    socketLayout: {
-        columns: [
-            { columns: 1, ports: ['audio', 'tap'] },
-            { columns: 2, ports: ['out', 'clock', 'timeCV'] }
-        ]
+    ui: {
+        leds: ['phase'],
+        knobs: [
+            { id: 'rate', label: 'Rate', param: 'rate', min: 0.05, max: 20, default: 1 }
+        ],
+        outputs: [{
+            id: 'sine',
+            label: 'Sine',
+            port: 'sine',
+            signal: 'cv',
+            voltage: { min: -5, max: 5 }
+        }]
     }
-}
-```
+};
+~~~
 
-`socketLayout.columns[].ports` must reference exact `port` values from `ui.inputs[]` or `ui.outputs[]`. Each column can also include:
+Why it is structured this way:
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `columns` | number | Number of grid columns inside that socket group |
-| `ports` | string[] or object[] | Port names, or objects like `{ port: 'timeCV', label: 'T CV' }` for a layout-specific label |
-| `className` | string | Optional CSS class on the column |
-| `gridClassName` | string | Optional CSS class on the grid |
-| `label` | string | Optional group label. Avoid this unless it adds information beyond jack labels. |
+- Phase belongs to the DSP instance, not global module state.
+- rate / sampleRate makes frequency independent of sample rate.
+- Subtracting Math.floor(phase) keeps phase bounded over long sessions.
+- The stable output buffer is filled in place on every block.
+- DSP and UI both default rate to 1.
+- Output voltage and LED values stay inside declared ranges.
 
-`socketLayout.label` or `socketLayout.section` adds a section divider above the socket block. Avoid extra section/group labels on dense modules when the jack labels are already clear.
+### LFO Tests
 
-For a fully bespoke panel, export a `render(container, { instance, toolkit, onParamChange, onCleanup })` function instead of relying only on declarative `ui`. Custom renderers may create arbitrary DOM, but every rendered DSP-facing param, LED, input, and output must be declared in `ui`. Display-only controls such as copy/save/export buttons can stay custom-render-only if they do not change module params. Every custom-rendered definition must also declare `telemetry`, even if it is `{ fields: [], methods: [] }`.
+Create **tests/dsp/basic-lfo.test.js**:
 
-Use `toolkit.createKnob`, `toolkit.createSwitch`, `toolkit.createButtonBank`, `toolkit.createActionButton`, and `toolkit.createJack` where possible; those helpers are bound to the module id and forward param changes to the app. If you create controls manually, call `onParamChange(param, value)` whenever a value changes.
+~~~javascript
+import { describe, expect, it } from 'vitest';
+import basicLfo from '../../src/js/modules/basic-lfo/index.js';
 
-For custom visual controls whose state cannot be synced by a standard toolkit class, register a sync hook:
+describe('basic-lfo', () => {
+    it('produces finite bipolar 5V output without replacing its buffer', () => {
+        const lfo = basicLfo.createDSP({ sampleRate: 48000, bufferSize: 128 });
+        const output = lfo.outputs.sine;
 
-```javascript
-render(container, { toolkit, onParamChange }) {
-    const recButton = document.createElement('button');
-    recButton.className = 'my-rec-button';
-    recButton.addEventListener('click', () => onParamChange('record', 1));
-    toolkit.registerParamControl('record', recButton, value => {
-        recButton.classList.toggle('recording', value === 1);
+        lfo.process();
+
+        expect(lfo.outputs.sine).toBe(output);
+        expect(output.every(Number.isFinite)).toBe(true);
+        expect(Math.max(...output)).toBeLessThanOrEqual(5);
+        expect(Math.min(...output)).toBeGreaterThanOrEqual(-5);
+        expect(lfo.leds.phase).toBeGreaterThanOrEqual(0);
+        expect(lfo.leds.phase).toBeLessThanOrEqual(1);
     });
-    container.appendChild(recButton);
-}
-```
 
-For animation, use `toolkit.animate(draw)` instead of calling `requestAnimationFrame` directly. The renderer stops managed animations automatically when the module is removed or rerendered.
+    it('resets state and observable output', () => {
+        const lfo = basicLfo.createDSP({ bufferSize: 128 });
+        lfo.process();
+        lfo.reset();
 
-```javascript
-render(container, { toolkit }) {
-    const canvas = toolkit.createCanvas({ width: 180, height: 80 });
-    const ctx = canvas.getContext('2d');
-    container.appendChild(canvas);
-
-    toolkit.animate(() => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // draw current DSP state
+        expect(lfo.outputs.sine.every(sample => sample === 0)).toBe(true);
+        expect(lfo.leds.phase).toBe(0.5);
     });
-}
-```
+});
+~~~
 
-Use `onCleanup(fn)` for other teardown work such as event listeners, observers, or timers.
+Also test rate extremes and verify that changing rate changes the measured period.
 
-`instance.dsp` and `instance.getModule().instance` refer to the same stable main-thread UI mirror. The mirror exists before audio starts and is retained across start/stop. It is updated from worklet telemetry, but it is not the production DSP instance. Always call `onParamChange()` for audio-facing changes; mutating the mirror directly does not reach the worklet.
+## Tutorial 2: Simple VCA
 
-Declare only the bounded state the renderer reads:
+The VCA adds stable inputs, a non-zero input normal, CV smoothing, finite guards, output limiting, and complete helper-state reset.
 
-```javascript
-telemetry: {
-    fields: ['displayBuffer'],
-    methods: ['getStats'],
-    history: { field: 'history', maxEntries: 300 }
-}
-```
+Create **src/js/modules/simple-vca/index.js**:
 
-`params` and `leds` are always synchronized. Field snapshots are structured-cloned. Listed zero-argument methods are evaluated in the worklet and replaced on the mirror with functions returning their latest result. History sends only newly appended entries. Do not send unbounded recordings or analyzer histories as ordinary telemetry.
-
-For infrequent browser-side commands or transferable results, return events from DSP `drainEvents()` and handle them on the definition:
-
-```javascript
-// DSP instance
-drainEvents() {
-    const events = pendingEvents;
-    pendingEvents = [];
-    return events;
-}
-
-// Module definition, called on the main thread
-handleWorkletEvent(event, { moduleId, instance }) {
-    // File export or another browser-only operation.
-}
-```
-
-Typed arrays nested in module events are transferred rather than copied. Emit events at command boundaries, not every process block.
-
-## Voltage Standards
-
-Eurorack uses voltage to represent everything:
-
-### Audio Signals
-- Range: **±5V** (bipolar)
-- 0V = silence
-- Generated by: VCO, noise, filters
-
-### Control Voltage (CV)
-- Range: **0-5V** (unipolar) or **±5V** (bipolar)
-- Used for: modulation, parameter control
-- Generated by: LFO, envelope, S&H
-
-### Gates
-- Off: **0V**
-- On: **10V**
-- Threshold: **≥1V** considered "on"
-- Used for: note on/off, hold signals
-
-### Triggers
-- Short pulse: **5-10ms** at **5-10V**
-- Threshold depends on input role: many gate-style triggers use **≥1V**, clocks/tap commonly use **>2.5V**, ARP advance uses **>0.4V**
-- Used for: clock, reset, note events
-
-### Pitch CV (1V/Octave)
-- **0V** = base frequency
-- **+1V** = one octave up (2x frequency)
-- **+0.0833V** = one semitone up
-
-```javascript
-// V/Oct to frequency
-const freq = baseFreq * Math.pow(2, vOct);
-
-// With semitone offset
-const freq = baseFreq * Math.pow(2, vOct + semitones/12);
-```
-
-## Common DSP Patterns
-
-### Edge Detection (Triggers/Gates)
-
-```javascript
-let lastTrig = 0;
-const TRIGGER_THRESHOLD = 1; // Use 2.5 for clock/tap inputs, or a documented module-specific threshold.
-
-process() {
-    for (let i = 0; i < bufferSize; i++) {
-        const trig = this.inputs.trigger[i];
-
-        // Rising edge detection
-        if (trig >= TRIGGER_THRESHOLD && lastTrig < TRIGGER_THRESHOLD) {
-            // Trigger fired!
-        }
-
-        // IMPORTANT: Update AFTER the check
-        lastTrig = trig;
-    }
-}
-```
-
-### Slew Limiting (Smoothing)
-
-Use `createSlew` from the utils to smooth parameter changes and prevent clicks:
-
-```javascript
-import { createSlew } from '../../utils/slew.js';
-
-createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
-    const slew = createSlew({ sampleRate, timeMs: 5 });
-
-    return {
-        process() {
-            for (let i = 0; i < bufferSize; i++) {
-                const smoothedCV = slew.process(this.inputs.cv[i]);
-                // Use smoothedCV instead of raw CV
-            }
-        }
-    };
-}
-```
-
-### Phase Accumulator (Oscillators)
-
-```javascript
-let phase = 0;
-
-process() {
-    const freq = 440; // Hz
-    const phaseInc = freq / sampleRate;
-
-    for (let i = 0; i < bufferSize; i++) {
-        // Generate waveforms from phase (0-1)
-        const saw = phase * 2 - 1;           // -1 to +1
-        const sine = Math.sin(phase * 2 * Math.PI);
-        const square = phase < 0.5 ? 1 : -1;
-
-        // Scale to ±5V
-        out[i] = saw * 5;
-
-        // Advance and wrap phase
-        phase += phaseInc;
-        if (phase >= 1) phase -= 1;
-    }
-}
-```
-
-### LED Metering
-
-```javascript
-process() {
-    let peak = 0;
-
-    for (let i = 0; i < bufferSize; i++) {
-        out[i] = /* ... */;
-        peak = Math.max(peak, Math.abs(out[i]));
-    }
-
-    // Scale to 0-1 range (assuming ±5V signal)
-    this.leds.level = peak / 5;
-}
-```
-
-### LED Decay (Peak Hold)
-
-```javascript
-createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
-    // Decay constant for ~100ms hold
-    const ledDecay = Math.exp(-1 / (sampleRate * 0.1) * bufferSize);
-
-    return {
-        leds: { peak: 0 },
-
-        process() {
-            let currentPeak = 0;
-
-            for (let i = 0; i < bufferSize; i++) {
-                currentPeak = Math.max(currentPeak, Math.abs(out[i]));
-            }
-
-            // Peak hold with decay
-            this.leds.peak = Math.max(currentPeak / 5, this.leds.peak * ledDecay);
-        }
-    };
-}
-```
-
-### Stable Inputs and Normal Voltages
-
-Input `Float32Array` identities must remain stable for the lifetime of the DSP instance. Do not replace an input in `process()`, and do not add cable cleanup methods. The compiled graph fills routed inputs before processing and restores the port's declared normal voltage immediately after disconnection.
-
-```javascript
-inputs: { audio: new Float32Array(bufferSize), cv: new Float32Array(bufferSize).fill(5) },
-ui: {
-    inputs: [
-        { id: 'audio', port: 'audio', signal: 'audio' },
-        { id: 'cv', port: 'cv', signal: 'cv', voltage: { min: 0, max: 5, normal: 5 } }
-    ]
-}
-```
-
-## Complete Example: Simple VCA
-
-```javascript
-// src/js/modules/simplevca/index.js
+~~~javascript
 import { clamp } from '../../utils/math.js';
 import { createSlew } from '../../utils/slew.js';
 
 export default {
-    id: 'simplevca',
-    name: 'VCA',
-    hp: 2,
+    id: 'simple-vca',
+    name: 'Simple VCA',
+    hp: 4,
     color: 'module-color-eleven',
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const audio = new Float32Array(bufferSize);
+        const cv = new Float32Array(bufferSize).fill(5);
         const out = new Float32Array(bufferSize);
-        const ownAudioIn = new Float32Array(bufferSize);
-
         const cvSlew = createSlew({ sampleRate, timeMs: 5 });
-        const ledDecay = Math.exp(-1 / (sampleRate * 0.1) * bufferSize);
+        cvSlew.reset(5);
 
         return {
             params: { gain: 0.8 },
-
-            inputs: {
-                audio: ownAudioIn,
-                cv: new Float32Array(bufferSize).fill(5)
-            },
-
+            inputs: { audio, cv },
             outputs: { out },
-
             leds: { level: 0 },
 
             process() {
@@ -597,22 +230,20 @@ export default {
                 let peak = 0;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    // Smooth CV to prevent clicks
-                    const cv = cvSlew.process(this.inputs.cv[i]);
-                    const cvGain = clamp(cv / 5, 0, 1);
+                    const input = Number.isFinite(this.inputs.audio[i]) ? this.inputs.audio[i] : 0;
+                    const cvInput = Number.isFinite(this.inputs.cv[i]) ? this.inputs.cv[i] : 0;
+                    const cvGain = clamp(cvSlew.process(cvInput) / 5, 0, 1);
+                    const sample = clamp(input * gain * cvGain, -5, 5);
 
-                    // Apply both manual gain and CV
-                    const sample = this.inputs.audio[i] * gain * cvGain;
                     out[i] = sample;
-
                     peak = Math.max(peak, Math.abs(sample));
                 }
 
-                // Update LED with peak hold
-                this.leds.level = Math.max(peak / 5, this.leds.level * ledDecay);
+                this.leds.level = clamp(peak / 5, 0, 1);
             },
 
             reset() {
+                cvSlew.reset(5);
                 out.fill(0);
                 this.leds.level = 0;
             }
@@ -625,37 +256,236 @@ export default {
             { id: 'gain', label: 'Gain', param: 'gain', min: 0, max: 1, default: 0.8 }
         ],
         inputs: [
-            { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
-            { id: 'cv', label: 'CV', port: 'cv', signal: 'cv', voltage: { min: 0, max: 5, normal: 5 } }
+            {
+                id: 'audio', label: 'In', port: 'audio', signal: 'audio',
+                voltage: { min: -5, max: 5, normal: 0 }
+            },
+            {
+                id: 'cv', label: 'CV', port: 'cv', signal: 'cv',
+                voltage: { min: 0, max: 5, normal: 5 }
+            }
         ],
-        outputs: [
-            { id: 'out', label: 'Out', port: 'out', signal: 'audio' }
-        ]
+        outputs: [{
+            id: 'out', label: 'Out', port: 'out', signal: 'audio',
+            voltage: { min: -5, max: 5 }
+        }]
     }
 };
-```
+~~~
 
-## Registering a Built-In Module
+The CV buffer starts at its declared 5V normal, so an unpatched CV input leaves the VCA open. Routing writes into that same array; disconnection restores 5V. reset() restores the slew helper to the same normal.
 
-Add your module to `MODULE_MANIFEST` in `src/js/rack/module-manifest.js`:
+VCA tests should cover:
 
-```javascript
-export const MODULE_MANIFEST = [
-    // ... existing modules
-    { id: 'mymodule', load: () => import('../modules/mymodule/index.js') }
-];
-```
+- Default gain and the 5V CV normal.
+- Gain at minimum and maximum.
+- CV at 0V, 2.5V, and 5V.
+- Invalid upstream samples.
+- Output range, LED range, stable buffers, and reset.
 
-The registry loads modules from the manifest, and `MODULE_ORDER` is derived from manifest order. That order controls default processing-order tie breaks. Sidebar grouping comes from the module definition's `category` field.
+## Definition Reference
 
-AudioWorklet cannot use the manifest's runtime dynamic-import loop, so built-ins must also be statically imported in `src/js/rack/core-definitions.js` and added to `CORE_MODULE_DEFINITIONS` in the same order. `tests/rack/module-contracts.test.js` rejects any drift between these lists.
+Required fields:
 
-## Registering a Trusted Plugin
+| Field | Contract |
+|---|---|
+| id | Unique lowercase kebab-case ID. |
+| name | Non-empty display name. |
+| hp | One of 2, 3, 4, 6, 8, 10, 12, 14, or 16. |
+| color | module-color-one through module-color-twelve. |
+| category | midi, clock, source, voice, modulation, sequencer, quantizer, filter, effect, utility, output, or other. |
+| createDSP() | Factory returning the DSP contract below. |
+| ui | Authoritative controls and ports schema. |
 
-External modules use one atomic plugin manifest. Registration validates every module before exposing any of them. A plugin ID or module ID collision rejects the whole manifest.
+Optional fields:
 
-```javascript
+| Field | Purpose |
+|---|---|
+| css | Module styles injected by the renderer. |
+| render() | Bespoke panel renderer; requires telemetry. |
+| telemetry | Bounded fields, methods, and optional incremental history. |
+| role | Infrastructure role such as audio-output; ordinary modules omit it. |
+| handleWorkletEvent() | Handles infrequent DSP events on the main thread. |
+| captureRuntimeState() | Captures non-patch state such as loop buffers. |
+| restoreRuntimeState() | Restores captured state into a new DSP instance. |
+
+### DSP Instance
+
+createDSP() receives sampleRate, bufferSize, blockSize, services, and audioCtx. It returns:
+
+| Member | Contract |
+|---|---|
+| params | Contains every declared UI parameter path. Numeric leaves must be finite. |
+| inputs | Stable Float32Array buffers matching input ports and normals. |
+| outputs | Stable Float32Array buffers matching output ports. |
+| leds | Optional object of values from 0 through 1. |
+| process() | Fills every output sample for the block. |
+| reset() | Expected for stateful modules; restores deterministic initial state. |
+| dispose() | Optional cleanup for DSP-owned resources. |
+| drainEvents() | Optional source of infrequent structured-cloneable events. |
+
+Production DSP runs inside AudioWorkletProcessor. Services such as MIDI arrive through services. Allocate during creation, not inside the audio loop.
+
+## UI Schema
+
+Only parameters declared by knobs, switches, buttons, and actions are accepted:
+
+~~~javascript
+ui: {
+    knobs: [],
+    switches: [],
+    buttons: [],
+    actions: [],
+    inputs: [],
+    outputs: []
+}
+~~~
+
+### Controls
+
+Knobs support:
+
+| Property | Required | Meaning |
+|---|---|---|
+| id | yes | Unique control ID. |
+| label | yes | Short visible label. |
+| param | yes | Exact path in params. |
+| min / max | yes | UI range. |
+| default | yes | Initial value; must match DSP. |
+| step | no | Quantization step; omitted or 0 is continuous. |
+| small | no | Compact knob presentation. |
+
+Switches use id, label, param, and a default of 0 or 1.
+
+Buttons use id, label, param, and default:
+
+- Buttons with values render as enum banks.
+- Buttons without values render as toggles.
+- Do not mix the two forms in one buttons array; the first item selects rendering mode.
+
+Declarative actions use id, label, param, mode, and default:
+
+| Property | Meaning |
+|---|---|
+| mode | toggle, momentary, or trigger. |
+| durationMs | Supported by toolkit.createActionButton() in custom renderers; declarative trigger actions use 80ms. |
+
+All rendered parameter controls expose MIDI-learn metadata. There is no action-level MIDI flag.
+
+### Ports and Voltages
+
+Each port uses id, label, port, signal, and optional voltage.
+
+| Signal | Default range | Input normal |
+|---|---:|---:|
+| audio | -5V to 5V | 0V |
+| cv | -5V to 5V | 0V |
+| gate | 0V to 10V | 0V |
+| trigger | 0V to 10V | 0V |
+| any | -10V to 10V | 0V |
+
+Override hardware behavior with voltage containing min, max, and, for inputs, normal. Initialize the DSP input buffer to the same normal; contract tests verify it.
+
+Signal labels are semantic rather than a cable barrier. Eurorack is DC-coupled, but direction, endpoint existence, one-source-per-input, and buffer sizes are strict.
+
+## Declarative and Custom UI
+
+Declarative UI is preferred. For dense ports, socketLayout replaces default input/output sections:
+
+~~~javascript
+socketLayout: {
+    label: 'I/O',
+    columns: [
+        { columns: 1, ports: ['audio', 'cv'] },
+        {
+            columns: 2,
+            ports: [
+                { port: 'out', label: 'Main' },
+                { port: 'gate', label: 'Gate' }
+            ]
+        }
+    ]
+}
+~~~
+
+Socket references must match exact input or output port values. Columns also support label, className, and gridClassName.
+
+For a bespoke panel:
+
+~~~javascript
+telemetry: { fields: [], methods: [] },
+
+render(container, { toolkit, onParamChange, onCleanup }) {
+    const button = document.createElement('button');
+    const handleClick = () => onParamChange('record', 1);
+
+    button.textContent = 'Record';
+    button.addEventListener('click', handleClick);
+    onCleanup(() => button.removeEventListener('click', handleClick));
+    toolkit.registerParamControl('record', button, value => {
+        button.classList.toggle('active', value === 1);
+    });
+    container.appendChild(button);
+}
+~~~
+
+Every DSP-facing control, LED, input, and output still belongs in ui. Prefer toolkit createKnob, createSwitch, createButtonBank, createActionButton, createJack, createLED, createCanvas, and animate. Bound toolkit controls forward changes automatically.
+
+The renderer's instance.dsp is the stable main-thread mirror, not the worklet DSP. Read it for displays, but call onParamChange() for audio changes. Use onCleanup() for listeners, observers, timers, and other teardown.
+
+### Telemetry and Events
+
+Custom renderers must declare telemetry, even when empty:
+
+~~~javascript
+telemetry: {
+    fields: ['displayBuffer'],
+    methods: ['getStats'],
+    history: { field: 'history', maxEntries: 300 }
+}
+~~~
+
+Params and LEDs always synchronize. Fields are structured-cloned, zero-argument methods become snapshot functions on the mirror, and history sends only appended entries. Keep all telemetry bounded.
+
+For infrequent transferable results:
+
+~~~javascript
+// DSP
+drainEvents() {
+    const events = pendingEvents;
+    pendingEvents = [];
+    return events;
+}
+
+// Definition, main thread
+handleWorkletEvent(event, { moduleId, instance }) {
+    // Export a completed recording or perform browser-only work.
+}
+~~~
+
+Do not use module events as continuous telemetry.
+
+## Registration
+
+### Built-In Modules
+
+Add the module to MODULE_MANIFEST in **src/js/rack/module-manifest.js**:
+
+~~~javascript
+{ id: 'basic-lfo', load: () => import('../modules/basic-lfo/index.js') }
+~~~
+
+Manifest order is the deterministic processing-order tie break. Sidebar grouping comes from category.
+
+AudioWorklet imports must be static. Also import the definition in **src/js/rack/core-definitions.js** and add it to CORE_MODULE_DEFINITIONS at the same position. The module-contract test rejects list or order drift.
+
+### Trusted Plugins
+
+Plugins are trusted JavaScript, not sandboxed extensions. Main-thread registration is atomic:
+
+~~~javascript
 import { registerPlugin } from './js/index.js';
+import myModule from './my-module.js';
 
 await registerPlugin({
     id: 'my-plugin',
@@ -664,157 +494,158 @@ await registerPlugin({
     apiVersion: 1,
     patchVersion: 1,
     workletUrl: new URL('./my-plugin.worklet.js', import.meta.url).href,
-    modules: [{ id: 'mymodule', definition: myModule }]
+    modules: [{ id: 'my-module', definition: myModule }]
 });
-```
+~~~
 
-The worklet file must register the same module definitions and contract version. It executes as trusted code in the audio rendering scope:
+The worklet entry imports the same worklet-safe definition:
 
-```javascript
+~~~javascript
+import myModule from './my-module.js';
+
 globalThis.registerEurorackWorkletPlugin({
     id: 'my-plugin',
     apiVersion: 1,
     patchVersion: 1,
-    modules: new Map([['mymodule', myModule]])
+    modules: new Map([['my-module', myModule]])
 });
-```
+~~~
 
-Plugins cannot be unregistered while any live `RackHost` contains one of their module types. Plugin UI should use declarative state or bounded telemetry; it must not read or mutate the worklet DSP instance directly.
+The host loads workletUrl only when an active patch declares the plugin. The processor verifies ownership and patchVersion. A plugin cannot unload while one of its module types is live.
 
-The host loads `workletUrl` only when a patch declares the plugin. The processor verifies plugin ownership and `patchVersion` again before activating the graph. Plugins are trusted runtime code and are not sandboxed.
+Patch versions must match exactly. When patchVersion changes, update shipped patches and fixtures; the host does not run migrations.
 
-If `patchVersion` changes, update all shipped patches and fixtures that declare the plugin. Patches declaring another contract version are rejected; the host does not run plugin migrations.
+## Factory Patches
 
-## Factory Patches and Docs
+Factory patches use strict schema version 3:
 
-If the module should ship with a test or demo patch, add a version 3 factory patch in `src/js/config/patches/`:
-
-```javascript
+~~~javascript
 export default {
-    name: 'Test My Module',
+    name: 'Test - Basic LFO',
     factory: true,
     state: {
         version: 3,
         plugins: { core: 1 },
         modules: [
-            { id: 'my1', type: 'mymodule', row: 1, index: 0 },
-            { id: 'out1', type: 'out', row: 1, index: 1 }
+            { id: 'lfo', type: 'basic-lfo', row: 1, index: 0 },
+            { id: 'scope', type: 'scope', row: 1, index: 1 }
         ],
         params: {
-            my1: { gain: 0.7 }
+            lfo: { rate: 1 }
         },
         cables: [
-            { fromModule: 'my1', fromPort: 'out', toModule: 'out1', toPort: 'L' },
-            { fromModule: 'my1', fromPort: 'out', toModule: 'out1', toPort: 'R' }
+            { fromModule: 'lfo', fromPort: 'sine', toModule: 'scope', toPort: 'in1' }
         ],
         midiMappings: {}
     }
 };
-```
+~~~
 
-The example above is for a built-in core module. A plugin patch must declare its owning plugin contract too, for example `plugins: { core: 1, 'my-plugin': 1 }` when it also uses the core output module.
+Import the file in **src/js/config/patches/index.js** and add it to FACTORY_PATCHES.
 
-Then import and register it in `src/js/config/patches/index.js`:
+Patch rules:
 
-```javascript
-import testMyModule from './test-my-module.js';
+- type is the definition ID; id is the patch-local instance ID.
+- Params use instance IDs and only declared UI parameter paths.
+- Cables use exact port values, not labels or jack IDs.
+- Each destination has one source; outputs may fan out.
+- Plugin patches declare every owning plugin contract they use.
+- test-{module} patches isolate one target with only necessary support modules.
+- Multi-module musical ideas use demo naming and grouping.
 
-export const FACTORY_PATCHES = {
-    // ... existing patches
-    [testMyModule.name]: testMyModule
-};
-```
+Update README.md, AGENTS.md, research, and queue status for a built-in module. Update this guide only for a reusable authoring pattern.
 
-Patch cable endpoints must use exact `port` values from each module's `ui.inputs[]` and `ui.outputs[]`; do not use the jack `id` or label unless it is also the port name.
+## DSP Patterns
 
-Each destination input may occur only once. Repeat an output endpoint to fan it out. Use a mixer, logic module, or another explicit utility when multiple sources must combine.
+### Edge Detection
 
-For built-in modules, also update:
+~~~javascript
+let lastTrigger = 0;
+const threshold = 1;
 
-- `README.md` module table
-- `AGENTS.md` available modules list
-- `research/module-queue.md` status and research doc link
-- `docs/creating-modules.md` only when the module introduces a new reusable pattern
+process() {
+    for (let i = 0; i < bufferSize; i++) {
+        const trigger = this.inputs.trigger[i];
+        const rising = trigger >= threshold && lastTrigger < threshold;
+        if (rising) {
+            // Handle one edge.
+        }
+        lastTrigger = trigger;
+    }
+}
+~~~
 
-## Testing Your Module
+Use the documented threshold. Gates commonly use at least 1V, clocks/tap use more than 2.5V, and ARP advance uses more than 0.4V.
 
-Create a test file at `tests/dsp/mymodule.test.js`:
+### Slew
 
-```javascript
-import { describe, it, expect, beforeEach } from 'vitest';
-import myModule from '../../src/js/modules/mymodule/index.js';
+~~~javascript
+const slew = createSlew({ sampleRate, timeMs: 5 });
+slew.reset(initialValue);
 
-const createMyModule = (options = {}) => myModule.createDSP(options);
+for (let i = 0; i < bufferSize; i++) {
+    const smoothed = slew.process(input[i]);
+}
+~~~
 
-describe('myModule', () => {
-    let mod;
+Reset helper state alongside module state.
 
-    beforeEach(() => {
-        mod = createMyModule();
-    });
+### Phase, Pitch, and Aliasing
 
-    describe('initialization', () => {
-        it('should have default params', () => {
-            expect(mod.params.gain).toBe(0.8);
-        });
+~~~javascript
+phase += frequency / sampleRate;
+phase -= Math.floor(phase);
 
-        it('should create buffers', () => {
-            expect(mod.outputs.out).toBeInstanceOf(Float32Array);
-            expect(mod.outputs.out.length).toBe(512);
-        });
-    });
+const frequency = baseFrequency * Math.pow(2, vOct + semitones / 12);
+~~~
 
-    describe('processing', () => {
-        it('should not produce NaN', () => {
-            mod.process();
-            expect(mod.outputs.out.every(v => !isNaN(v))).toBe(true);
-        });
+Generate continuous sine waves directly. Naive saw, square, and pulse discontinuities are acceptable for low-frequency control signals, but audio-rate oscillators require PolyBLEP or another documented anti-aliasing method.
 
-        it('should stay within voltage range', () => {
-            // Fill input with signal
-            mod.inputs.audio.fill(5);
-            mod.process();
+### Finite Guards
 
-            const max = Math.max(...mod.outputs.out);
-            const min = Math.min(...mod.outputs.out);
+Do not assume upstream output is valid:
 
-            expect(max).toBeLessThanOrEqual(5);
-            expect(min).toBeGreaterThanOrEqual(-5);
-        });
-    });
-});
-```
+~~~javascript
+const sample = Number.isFinite(input[i]) ? input[i] : 0;
+out[i] = clamp(sample, -5, 5);
+~~~
 
-Run tests with:
+clamp() limits finite values; it does not turn NaN into a valid sample.
 
-```bash
-npm test
-```
+## Testing Checklist
 
-## Tips
+Cover every applicable contract:
 
-1. **Allocate buffers once** in `createDSP`, not in `process()`
-2. **Use slew** for any CV that controls amplitude or frequency
-3. **Clamp inputs** to prevent NaN and Infinity
-4. **Update LEDs** in `process()` for real-time feedback
-5. **Test edge cases**: zero inputs, maximum inputs, rapid parameter changes
-6. **Follow voltage standards** for interoperability with other modules
-7. **Keep DSP worklet-safe**: no DOM, downloads, or main-thread audio nodes
-8. **Bound telemetry** and use module events only for infrequent command results
-9. **Keep buffers stable** and let the compiled graph restore input normals
+1. Initialization and matching UI/DSP defaults.
+2. Buffer types, lengths, identities, and normals.
+3. Finite output filling the complete block.
+4. Declared output voltage ranges.
+5. Every knob at minimum, default, and maximum.
+6. Every CV input and its scaling.
+7. Trigger/gate edges and thresholds.
+8. Every switch, button, action, and mode.
+9. LED state and bounds.
+10. Complete reset, including helpers and histories.
+11. Dispose, runtime state, telemetry, and events when present.
+12. Manufacturer-specific research targets.
 
-## Debugging
+Use Number.isFinite for buffer integrity:
 
-Common issues:
+~~~javascript
+expect(output.every(Number.isFinite)).toBe(true);
+~~~
 
-| Problem | Cause | Fix |
-|---------|-------|-----|
-| NaN in output | Division by zero | Add guards: `x / (y \|\| 0.001)` |
-| Clicks/pops | Sudden value changes | Use `createSlew()` |
-| No sound | Wrong voltage range | Check ±5V for audio |
-| Trigger not firing | Wrong threshold | Use the module's documented threshold, commonly `>= 1` for gates/triggers or `> 2.5` for clock/tap |
-| DC offset | Unbalanced waveform | Center around 0V |
-| Custom display is blank | Missing telemetry declaration | Add every renderer-read field/method to the module's bounded `telemetry` contract |
-| UI changes do not affect sound | Renderer mutated its mirror | Call `onParamChange()` so `RackHost` forwards the value to the worklet |
-| Browser API error in `process()` | DSP attempted main-thread work | Emit a module event and handle it with `handleWorkletEvent()` |
-| Patch activation fails | Plugin/port/fan-in contract mismatch | Check v3 `plugins`, ownership, exact endpoint directions, and duplicate destinations |
+## Troubleshooting
+
+| Problem | Check |
+|---|---|
+| Patch or parameter rejected | Exact v3 plugin contract, instance ID, declared parameter, and finite value. |
+| No output | Complete buffer writes, cable endpoints, processing order, and voltage scale. |
+| NaN or Infinity | Division guards and Number.isFinite before clamping. |
+| Clicks or zipper noise | Slew amplitude/frequency controls and clean envelope endings. |
+| Trigger misses or repeats | Threshold, rising-edge state, and update order. |
+| Input remains connected | Never replace input buffers; the graph restores normals. |
+| Custom display is blank | Declare every renderer-read telemetry value. |
+| UI changes do not affect sound | Call onParamChange(); mirror mutation does not reach worklet DSP. |
+| Browser API fails in DSP | Emit a module event and handle it on the main thread. |
+| Plugin topology fails | Worklet registration, ownership, API version, and patch version. |

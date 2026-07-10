@@ -45,7 +45,8 @@ describe('factory-patches', () => {
 
         it('should have valid state structure', () => {
             Object.values(FACTORY_PATCHES).forEach(patch => {
-                expect(patch.state.version).toBe(2);
+                expect(patch.state.version).toBe(3);
+                expect(patch.state.plugins).toEqual({ core: 1 });
                 expect(Array.isArray(patch.state.modules)).toBe(true);
                 expect(patch.state.params).toBeDefined();
                 expect(typeof patch.state.params).toBe('object');
@@ -173,13 +174,24 @@ describe('factory-patches', () => {
                 .filter(definition => typeof definition.render === 'function')
                 .map(definition => definition.id);
             expect(types).toEqual(expect.arrayContaining(customRenderedTypes));
+            const connectedModuleIds = new Set(patch.state.cables.flatMap(cable => [
+                cable.fromModule,
+                cable.toModule
+            ]));
+            const customRenderedIds = patch.state.modules
+                .filter(module => customRenderedTypes.includes(module.type))
+                .map(module => module.id);
+            expect(customRenderedIds.every(id => connectedModuleIds.has(id))).toBe(true);
             expect(patch.state.cables).toEqual(expect.arrayContaining([
                 expect.objectContaining({ toModule: 'scope', toPort: 'in1' }),
                 expect.objectContaining({ toModule: 'plot', toPort: 'audio' }),
                 expect.objectContaining({ toModule: 'spectrogram', toPort: 'audio' }),
                 expect.objectContaining({ toModule: 'spectrum', toPort: 'audio' }),
                 expect.objectContaining({ toModule: 'db', toPort: 'L' }),
-                expect.objectContaining({ toModule: 'rec', toPort: 'L' })
+                expect.objectContaining({ toModule: 'rec', toPort: 'L' }),
+                expect.objectContaining({ fromModule: 'joy', toModule: 'vcf', toPort: 'resCV' }),
+                expect.objectContaining({ fromModule: 'joy', toModule: 'lpg', toPort: 'dampCV' }),
+                expect.objectContaining({ fromModule: 'lpg', toModule: 'vca', toPort: 'ch1In' })
             ]));
         });
     });

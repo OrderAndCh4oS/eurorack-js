@@ -388,17 +388,17 @@ export default {
             { id: 'retrigger', label: 'Retrig', param: 'retrigger', default: 1 }
         ],
         inputs: [
-            { id: 'trig', label: 'Trig', port: 'trig', type: 'trigger' },
-            { id: 'ping', label: 'Ping', port: 'ping', type: 'trigger' },
-            { id: 'quantityCv', label: 'Qty', port: 'quantityCv', type: 'cv' },
-            { id: 'distributionCv', label: 'Dist', port: 'distributionCv', type: 'cv' },
-            { id: 'timeCv', label: 'Time', port: 'timeCv', type: 'cv' },
-            { id: 'probabilityCv', label: 'Prob', port: 'probabilityCv', type: 'cv' }
+            { id: 'trig', label: 'Trig', port: 'trig', signal: 'trigger' },
+            { id: 'ping', label: 'Ping', port: 'ping', signal: 'trigger' },
+            { id: 'quantityCv', label: 'Qty', port: 'quantityCv', signal: 'cv' },
+            { id: 'distributionCv', label: 'Dist', port: 'distributionCv', signal: 'cv' },
+            { id: 'timeCv', label: 'Time', port: 'timeCv', signal: 'cv' },
+            { id: 'probabilityCv', label: 'Prob', port: 'probabilityCv', signal: 'cv' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', type: 'trigger' },
-            { id: 'tempo', label: 'Tempo', port: 'tempo', type: 'trigger' },
-            { id: 'eoc', label: 'EOC', port: 'eoc', type: 'trigger' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'trigger' },
+            { id: 'tempo', label: 'Tempo', port: 'tempo', signal: 'trigger' },
+            { id: 'eoc', label: 'EOC', port: 'eoc', signal: 'trigger' }
         ]
     }
 };

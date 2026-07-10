@@ -19,6 +19,7 @@ export default {
     hp: 12,
     color: 'module-color-two',
     category: 'utility',
+    telemetry: { fields: ['displayBuffer'], methods: ['getStats', 'getTimeWindow'] },
 
     css: `
         .plot-container {
@@ -271,14 +272,6 @@ export default {
                 this.leds.signal = maxAbs / 10;
 
                 // Reset inputs if replaced by routing
-                if (this.inputs.audio !== ownAudio) {
-                    ownAudio.fill(0);
-                    this.inputs.audio = ownAudio;
-                }
-                if (this.inputs.trig !== ownTrig) {
-                    ownTrig.fill(0);
-                    this.inputs.trig = ownTrig;
-                }
             },
 
             reset() {
@@ -352,14 +345,14 @@ export default {
             id: 'audio',
             label: 'Audio',
             direction: 'input',
-            type: 'audio'
+            signal: 'audio'
         }));
 
         ioColumn.appendChild(toolkit.createJack({
             id: 'trig',
             label: 'Trig',
             direction: 'input',
-            type: 'trigger'
+            signal: 'trigger'
         }));
 
         const outLabel = document.createElement('div');
@@ -371,7 +364,7 @@ export default {
             id: 'out',
             label: 'Thru',
             direction: 'output',
-            type: 'audio'
+            signal: 'audio'
         }));
 
         controls.appendChild(ioColumn);
@@ -769,11 +762,11 @@ export default {
             { id: 'freeze', label: 'Freeze', param: 'freeze', default: 0 }
         ],
         inputs: [
-            { id: 'audio', label: 'Audio', port: 'audio', type: 'audio' },
-            { id: 'trig', label: 'Trig', port: 'trig', type: 'trigger' }
+            { id: 'audio', label: 'Audio', port: 'audio', signal: 'audio' },
+            { id: 'trig', label: 'Trig', port: 'trig', signal: 'trigger' }
         ],
         outputs: [
-            { id: 'out', label: 'Thru', port: 'out', type: 'audio' }
+            { id: 'out', label: 'Thru', port: 'out', signal: 'audio' }
         ]
     }
 };

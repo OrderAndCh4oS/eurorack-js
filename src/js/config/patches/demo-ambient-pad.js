@@ -7,7 +7,8 @@ export default {
     "name": "Demo - Ambient Pad",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "clk",
@@ -44,6 +45,12 @@ export default {
                 "type": "vcf",
                 "row": 1,
                 "index": 5
+            },
+            {
+                "id": "oscMix",
+                "type": "mix",
+                "row": 1,
+                "index": 6
             },
             {
                 "id": "adsr",
@@ -97,6 +104,12 @@ export default {
                 "fine": 0.52,
                 "pw": 0.45
             },
+            "oscMix": {
+                "lvl1": 0.5,
+                "lvl2": 0.5,
+                "lvl3": 0,
+                "lvl4": 0
+            },
             "vcf": {
                 "cutoff": 0.45,
                 "resonance": 0.25
@@ -148,12 +161,18 @@ export default {
             {
                 "fromModule": "vco1",
                 "fromPort": "pulse",
-                "toModule": "vcf",
-                "toPort": "audio"
+                "toModule": "oscMix",
+                "toPort": "in1"
             },
             {
                 "fromModule": "vco2",
                 "fromPort": "ramp",
+                "toModule": "oscMix",
+                "toPort": "in2"
+            },
+            {
+                "fromModule": "oscMix",
+                "fromPort": "out",
                 "toModule": "vcf",
                 "toPort": "audio"
             },

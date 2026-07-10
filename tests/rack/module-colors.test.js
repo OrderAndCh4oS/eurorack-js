@@ -1,11 +1,10 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { loadModules, moduleRegistry } from '../../src/js/index.js';
+import { loadCorePlugin, moduleRegistry } from '../../src/js/index.js';
 import { isModuleColorToken, MODULE_COLOR_TOKENS } from '../../src/js/utils/color.js';
 
 describe('module color tokens', () => {
     beforeAll(async () => {
-        moduleRegistry.clear();
-        await loadModules();
+        await loadCorePlugin();
     });
 
     it('keeps built-in modules on the shared 12-color token palette', () => {

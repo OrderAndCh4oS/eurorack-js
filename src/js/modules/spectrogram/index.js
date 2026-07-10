@@ -18,6 +18,11 @@ export default {
     hp: 14,
     color: 'module-color-nine',
     category: 'utility',
+    telemetry: {
+        fields: [],
+        methods: ['getFFTSize', 'getSampleRate', 'getTimeWindow'],
+        history: { field: 'history', maxEntries: 300 }
+    },
 
     css: `
         .spectrogram-container {
@@ -245,7 +250,7 @@ export default {
                     timeWindow: this.getTimeWindow(),
                     fftSize: FFT_SIZE,
                     numBins: NUM_BINS,
-                    sampleRate: sampleRate,
+                    sampleRate: this.getSampleRate(),
                     snapshotInterval: SNAPSHOT_INTERVAL,
                     floor: -80 + this.params.floor * 60
                 };
@@ -288,10 +293,6 @@ export default {
                 this.leds.signal = maxAbs / 10;
 
                 // Reset input if replaced by routing
-                if (this.inputs.audio !== ownAudio) {
-                    ownAudio.fill(0);
-                    this.inputs.audio = ownAudio;
-                }
             },
 
             reset() {
@@ -357,7 +358,7 @@ export default {
             id: 'audio',
             label: 'Audio',
             direction: 'input',
-            type: 'audio'
+            signal: 'audio'
         }));
 
         const outLabel = document.createElement('div');
@@ -369,7 +370,7 @@ export default {
             id: 'out',
             label: 'Thru',
             direction: 'output',
-            type: 'audio'
+            signal: 'audio'
         }));
 
         controls.appendChild(ioColumn);
@@ -770,10 +771,10 @@ export default {
             { id: 'freeze', label: 'Freeze', param: 'freeze', default: 0 }
         ],
         inputs: [
-            { id: 'audio', label: 'Audio', port: 'audio', type: 'audio' }
+            { id: 'audio', label: 'Audio', port: 'audio', signal: 'audio' }
         ],
         outputs: [
-            { id: 'out', label: 'Thru', port: 'out', type: 'audio' }
+            { id: 'out', label: 'Thru', port: 'out', signal: 'audio' }
         ]
     }
 };

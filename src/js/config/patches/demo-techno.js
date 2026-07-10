@@ -2,7 +2,8 @@ export default {
     "name": "Demo - Techno",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "kick",

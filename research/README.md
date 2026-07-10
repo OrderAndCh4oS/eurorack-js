@@ -2,6 +2,8 @@
 
 Knowledge bank of hardware specifications, DSP implementation references, and academic resources for module development.
 
+The normative software runtime, plugin, module-port, telemetry, routing, and patch schemas live in **[docs/architecture.md](../docs/architecture.md)**. Research notes define hardware and DSP behavior; they do not override those host contracts.
+
 ## Sound Engineering Review
 
 **[sound-engineering-review.md](sound-engineering-review.md)** — Systematic analysis of each module against best practices, with prioritized improvement recommendations.

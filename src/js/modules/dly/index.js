@@ -136,13 +136,13 @@ export default {
         ],
         switches: [],
         inputs: [
-            { id: 'audio', label: 'In', port: 'audio', type: 'audio' },
-            { id: 'timeCV', label: 'Time', port: 'timeCV', type: 'cv' },
-            { id: 'feedbackCV', label: 'Fdbk', port: 'feedbackCV', type: 'cv' },
-            { id: 'mixCV', label: 'Mix', port: 'mixCV', type: 'cv' }
+            { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
+            { id: 'timeCV', label: 'Time', port: 'timeCV', signal: 'cv' },
+            { id: 'feedbackCV', label: 'Fdbk', port: 'feedbackCV', signal: 'cv' },
+            { id: 'mixCV', label: 'Mix', port: 'mixCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', type: 'audio' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'audio' }
         ]
     }
 };

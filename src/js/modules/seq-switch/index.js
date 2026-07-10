@@ -61,29 +61,6 @@ export default {
             leds.stage4 = steps > 3 && stage === 3 ? 1 : 0;
         }
 
-        function clearRoutedInputs(instance) {
-            if (instance.inputs.commonIn !== ownCommonIn) {
-                ownCommonIn.fill(0);
-                instance.inputs.commonIn = ownCommonIn;
-            }
-            if (instance.inputs.in1 !== ownIn1) {
-                ownIn1.fill(0);
-                instance.inputs.in1 = ownIn1;
-            }
-            if (instance.inputs.in2 !== ownIn2) {
-                ownIn2.fill(0);
-                instance.inputs.in2 = ownIn2;
-            }
-            if (instance.inputs.in3 !== ownIn3) {
-                ownIn3.fill(0);
-                instance.inputs.in3 = ownIn3;
-            }
-            if (instance.inputs.in4 !== ownIn4) {
-                ownIn4.fill(0);
-                instance.inputs.in4 = ownIn4;
-            }
-        }
-
         function switchTo(nextStage) {
             if (nextStage === stage) return;
             previousStage = stage;
@@ -115,19 +92,6 @@ export default {
             },
 
             leds,
-
-            clearAudioInputs() {
-                ownCommonIn.fill(0);
-                ownIn1.fill(0);
-                ownIn2.fill(0);
-                ownIn3.fill(0);
-                ownIn4.fill(0);
-                this.inputs.commonIn = ownCommonIn;
-                this.inputs.in1 = ownIn1;
-                this.inputs.in2 = ownIn2;
-                this.inputs.in3 = ownIn3;
-                this.inputs.in4 = ownIn4;
-            },
 
             process() {
                 const inputStages = [this.inputs.in1, this.inputs.in2, this.inputs.in3, this.inputs.in4];
@@ -181,7 +145,6 @@ export default {
                 }
 
                 updateLeds(quantizeSteps(this.params.steps));
-                clearRoutedInputs(this);
             },
 
             reset() {
@@ -214,20 +177,20 @@ export default {
             { id: 'steps', label: 'Steps', param: 'steps', min: 2, max: 4, step: 1, default: 4 }
         ],
         inputs: [
-            { id: 'clock', label: 'Clk', port: 'clock', type: 'trigger' },
-            { id: 'reset', label: 'Rst', port: 'reset', type: 'trigger' },
-            { id: 'commonIn', label: 'Com In', port: 'commonIn', type: 'buffer' },
-            { id: 'in1', label: 'In1', port: 'in1', type: 'buffer' },
-            { id: 'in2', label: 'In2', port: 'in2', type: 'buffer' },
-            { id: 'in3', label: 'In3', port: 'in3', type: 'buffer' },
-            { id: 'in4', label: 'In4', port: 'in4', type: 'buffer' }
+            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger' },
+            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger' },
+            { id: 'commonIn', label: 'Com In', port: 'commonIn', signal: 'any' },
+            { id: 'in1', label: 'In1', port: 'in1', signal: 'any' },
+            { id: 'in2', label: 'In2', port: 'in2', signal: 'any' },
+            { id: 'in3', label: 'In3', port: 'in3', signal: 'any' },
+            { id: 'in4', label: 'In4', port: 'in4', signal: 'any' }
         ],
         outputs: [
-            { id: 'commonOut', label: 'Com Out', port: 'commonOut', type: 'buffer' },
-            { id: 'out1', label: 'Out1', port: 'out1', type: 'buffer' },
-            { id: 'out2', label: 'Out2', port: 'out2', type: 'buffer' },
-            { id: 'out3', label: 'Out3', port: 'out3', type: 'buffer' },
-            { id: 'out4', label: 'Out4', port: 'out4', type: 'buffer' }
+            { id: 'commonOut', label: 'Com Out', port: 'commonOut', signal: 'any' },
+            { id: 'out1', label: 'Out1', port: 'out1', signal: 'any' },
+            { id: 'out2', label: 'Out2', port: 'out2', signal: 'any' },
+            { id: 'out3', label: 'Out3', port: 'out3', signal: 'any' },
+            { id: 'out4', label: 'Out4', port: 'out4', signal: 'any' }
         ]
     }
 };

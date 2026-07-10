@@ -443,14 +443,14 @@ export default {
             { id: 'interp', label: 'Morph', param: 'interp', positions: ['Step', 'Smooth'], default: 1 }
         ],
         inputs: [
-            { id: 'vOct', label: 'V/Oct', port: 'vOct', type: 'cv' },
-            { id: 'fm', label: 'FM', port: 'fm', type: 'cv' },
-            { id: 'position', label: 'Pos', port: 'position', type: 'cv' },
-            { id: 'bankCv', label: 'Bank', port: 'bankCv', type: 'cv' },
-            { id: 'sync', label: 'Sync', port: 'sync', type: 'trigger' }
+            { id: 'vOct', label: 'V/Oct', port: 'vOct', signal: 'cv' },
+            { id: 'fm', label: 'FM', port: 'fm', signal: 'cv' },
+            { id: 'position', label: 'Pos', port: 'position', signal: 'cv' },
+            { id: 'bankCv', label: 'Bank', port: 'bankCv', signal: 'cv' },
+            { id: 'sync', label: 'Sync', port: 'sync', signal: 'trigger' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', type: 'audio' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'audio' }
         ]
     }
 };

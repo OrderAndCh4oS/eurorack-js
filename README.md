@@ -118,17 +118,22 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 
 ## Architecture
 
-Self-contained module system where each module is a folder containing DSP + UI. The browser app is a thin HTML shell backed by a state-driven app layer:
+Self-contained module system where each module is a folder containing DSP + UI. `RackHost` owns the rack and synchronizes stable main-thread UI mirrors with production DSP instances in a required `AudioWorklet`.
+
+See **[Runtime Architecture and Schemas](docs/architecture.md)** for thread ownership, plugin loading, telemetry, module events, routing rules, and the complete patch and port schemas.
 
 ```
 src/js/
 ├── index.js              # Public exports
 ├── app/                  # Browser app state/controllers
 │   ├── app.js            # App bootstrap and event orchestration
+│   ├── rack-host.js      # Authoritative rack/plugin/audio host
 │   ├── rack-state.js     # Modules, rows, params, cables, patch state
-│   └── patch-format.js   # v2 patch normalization/migration
+│   └── patch-format.js   # v3 patch validation and v2 migration
 ├── audio/
-│   └── engine.js         # DSP processing loop
+│   ├── graph.js          # Compiled routing graph and feedback delays
+│   ├── worklet-engine.js # Main-thread AudioWorklet controller
+│   └── worklet/          # Audio-thread processor and plugin registry
 ├── cables/
 │   └── cable-manager.js  # Cable rendering & connections
 ├── config/
@@ -141,8 +146,9 @@ src/js/
 ├── patches/              # Patch serialization
 ├── rack/                 # Rack infrastructure
 │   ├── module-manifest.js # Module order, category taxonomy, dynamic imports
-│   ├── rack.js           # Legacy/simple rack helper
-│   └── registry.js       # Module lookup/validation
+│   ├── core-definitions.js # Static core imports for the audio worklet
+│   ├── module-contract.js # Port and DSP contract validation
+│   └── registry.js       # Atomic trusted-plugin registry
 ├── ui/
 │   ├── renderer.js       # Module UI generation
 │   └── toolkit/          # UI components
@@ -151,6 +157,15 @@ src/js/
     ├── slew.js
     └── color.js
 ```
+
+Runtime invariants:
+
+- Production DSP runs only in the audio worklet; UI mirrors never produce sound.
+- Module input and output buffers keep stable identities for their DSP lifetime.
+- Inputs accept one cable. Patching an occupied input replaces its cable; outputs support fan-out.
+- Feedback edges have an explicit one-block delay.
+- Patch activation is revision-acknowledged and atomic.
+- Trusted plugins register matching main-thread and worklet contracts.
 
 ## Creating a Module
 
@@ -184,21 +199,27 @@ export default {
 
     ui: {
         knobs: [{ id: 'gain', label: 'Gain', param: 'gain', min: 0, max: 1, default: 0.5 }],
-        inputs: [{ id: 'audio', label: 'In', port: 'audio', type: 'audio' }],
-        outputs: [{ id: 'out', label: 'Out', port: 'out', type: 'audio' }]
+        inputs: [{
+            id: 'audio', label: 'In', port: 'audio', signal: 'audio',
+            voltage: { min: -5, max: 5, normal: 0 }
+        }],
+        outputs: [{ id: 'out', label: 'Out', port: 'out', signal: 'audio' }]
     }
 };
 ```
 
-Register new modules in `src/js/rack/module-manifest.js`; the registry and default processing order are derived from that manifest, while sidebar grouping comes from the module's `category`.
+Built-in modules are registered in `src/js/rack/module-manifest.js`. External trusted modules are installed as plugins with `registerPlugin(manifest)` and must provide both their main-thread definitions and a worklet entry point. See the module creation guide for the manifest contract.
+
+Built-ins must also be statically imported by `src/js/rack/core-definitions.js`; contract tests keep its order aligned with the manifest.
 
 ## Patch Format
 
-Patch state is canonicalized to version 2:
+Patch state is canonicalized to version 3 and declares the exact plugin patch contracts it needs:
 
 ```javascript
 {
-    version: 2,
+    version: 3,
+    plugins: { core: 1 },
     modules: [{ id: 'vco_1', type: 'vco', row: 1, index: 0 }],
     params: { vco_1: { coarse: 0.35 } },
     cables: [{ fromModule: 'vco_1', fromPort: 'triangle', toModule: 'out_1', toPort: 'L' }],
@@ -206,7 +227,9 @@ Patch state is canonicalized to version 2:
 }
 ```
 
-Older factory/user patches with `knobs`, `switches`, `buttons`, and `instanceId` are normalized through `src/js/app/patch-format.js`.
+Canonical v2 patches receive a one-time v3 migration. Older legacy shapes with `knobs`, `switches`, `buttons`, or `instanceId` are rejected.
+
+Every module type must belong to a declared plugin. Missing plugins, unknown ports, missing endpoints, and duplicate input destinations reject the patch atomically.
 
 ## Voltage Standards
 
@@ -219,7 +242,10 @@ Older factory/user patches with `knobs`, `switches`, `buttons`, and `instanceId`
 
 ```bash
 npm test         # Run tests
+python3 -m http.server 8000 --directory src
 ```
+
+Open `http://localhost:8000`. AudioWorklet requires a supported browser and secure context; localhost qualifies for local development.
 
 ## License
 

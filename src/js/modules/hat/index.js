@@ -181,11 +181,11 @@ export default {
             { id: 'blend', label: 'Blend', param: 'blend', min: 0, max: 1, default: 0.5 }
         ],
         inputs: [
-            { id: 'trigOpen', label: 'Open', port: 'trigOpen', type: 'trigger' },
-            { id: 'trigClosed', label: 'Clsd', port: 'trigClosed', type: 'trigger' }
+            { id: 'trigOpen', label: 'Open', port: 'trigOpen', signal: 'trigger' },
+            { id: 'trigClosed', label: 'Clsd', port: 'trigClosed', signal: 'trigger' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', type: 'audio' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'audio' }
         ]
     }
 };

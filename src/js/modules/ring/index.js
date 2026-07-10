@@ -72,11 +72,11 @@ export default {
             { id: 'mix', label: 'Mix', param: 'mix', min: 0, max: 1, default: 1 }
         ],
         inputs: [
-            { id: 'x', label: 'X', port: 'x', type: 'audio' },
-            { id: 'y', label: 'Y', port: 'y', type: 'audio' }
+            { id: 'x', label: 'X', port: 'x', signal: 'audio' },
+            { id: 'y', label: 'Y', port: 'y', signal: 'audio' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', type: 'audio' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'audio' }
         ]
     }
 };

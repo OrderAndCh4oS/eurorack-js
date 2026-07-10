@@ -233,7 +233,8 @@ describe('patch-serializer', () => {
 
             const result = serializePatchState({ container, cables });
 
-            expect(result.version).toBe(2);
+            expect(result.version).toBe(3);
+            expect(result.plugins).toEqual({ core: 1 });
             expect(result.modules).toEqual([
                 { id: 'vco', type: 'vco', row: 1, index: 0 },
                 { id: 'lfo', type: 'lfo', row: 1, index: 1 }
@@ -269,7 +270,7 @@ describe('patch-serializer', () => {
 
     describe('createPatch', () => {
         it('should create a named patch object', () => {
-            const state = { version: 2, modules: [], params: {}, cables: [], midiMappings: {} };
+            const state = { version: 3, plugins: { core: 1 }, modules: [], params: {}, cables: [], midiMappings: {} };
             const patch = createPatch('My Patch', state);
 
             expect(patch.name).toBe('My Patch');
@@ -279,14 +280,14 @@ describe('patch-serializer', () => {
         });
 
         it('should mark factory patches', () => {
-            const state = { version: 2, modules: [], params: {}, cables: [], midiMappings: {} };
+            const state = { version: 3, plugins: { core: 1 }, modules: [], params: {}, cables: [], midiMappings: {} };
             const patch = createPatch('Factory Patch', state, true);
 
             expect(patch.factory).toBe(true);
         });
 
         it('should include ISO timestamp', () => {
-            const state = { version: 2, modules: [], params: {}, cables: [], midiMappings: {} };
+            const state = { version: 3, plugins: { core: 1 }, modules: [], params: {}, cables: [], midiMappings: {} };
             const patch = createPatch('Test', state);
 
             expect(() => new Date(patch.created)).not.toThrow();
@@ -296,7 +297,7 @@ describe('patch-serializer', () => {
     describe('isValidPatchState', () => {
         it('should validate valid state', () => {
             const state = {
-                version: 2,
+                version: 3, plugins: { core: 1 },
                 modules: [
                     { id: 'lfo', type: 'lfo', row: 1, index: 0 },
                     { id: 'vco', type: 'vco', row: 1, index: 1 }
@@ -312,7 +313,7 @@ describe('patch-serializer', () => {
         });
 
         it('should accept empty canonical state', () => {
-            const state = { version: 2, modules: [], params: {}, cables: [], midiMappings: {} };
+            const state = { version: 3, plugins: { core: 1 }, modules: [], params: {}, cables: [], midiMappings: {} };
             expect(isValidPatchState(state)).toBe(true);
         });
 
@@ -326,28 +327,28 @@ describe('patch-serializer', () => {
         });
 
         it('should reject state without params', () => {
-            const state = { version: 2, modules: [], cables: [], midiMappings: {} };
+            const state = { version: 3, plugins: { core: 1 }, modules: [], cables: [], midiMappings: {} };
             expect(isValidPatchState(state)).toBe(false);
         });
 
         it('should reject state without cables', () => {
-            const state = { version: 2, modules: [], params: {}, midiMappings: {} };
+            const state = { version: 3, plugins: { core: 1 }, modules: [], params: {}, midiMappings: {} };
             expect(isValidPatchState(state)).toBe(false);
         });
 
         it('should reject state with invalid params', () => {
-            const state = { version: 2, modules: [], params: 'invalid', cables: [], midiMappings: {} };
+            const state = { version: 3, plugins: { core: 1 }, modules: [], params: 'invalid', cables: [], midiMappings: {} };
             expect(isValidPatchState(state)).toBe(false);
         });
 
         it('should reject state with invalid cables', () => {
-            const state = { version: 2, modules: [], params: {}, cables: 'invalid', midiMappings: {} };
+            const state = { version: 3, plugins: { core: 1 }, modules: [], params: {}, cables: 'invalid', midiMappings: {} };
             expect(isValidPatchState(state)).toBe(false);
         });
 
         it('should reject cables missing fromModule', () => {
             const state = {
-                version: 2,
+                version: 3, plugins: { core: 1 },
                 modules: [],
                 params: {},
                 cables: [{ fromPort: 'out', toModule: 'vco', toPort: 'in' }],
@@ -358,7 +359,7 @@ describe('patch-serializer', () => {
 
         it('should reject cables missing toPort', () => {
             const state = {
-                version: 2,
+                version: 3, plugins: { core: 1 },
                 modules: [],
                 params: {},
                 cables: [{ fromModule: 'lfo', fromPort: 'out', toModule: 'vco' }],

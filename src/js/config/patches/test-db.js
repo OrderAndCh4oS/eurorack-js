@@ -8,7 +8,8 @@ export default {
     "name": "Test: dB Meter",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "lfo",

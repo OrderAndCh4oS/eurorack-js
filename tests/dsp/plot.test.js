@@ -324,7 +324,7 @@ describe('PLOT - Waveform Plotter', () => {
         it('should have audio input jack defined', () => {
             const audioInput = plotModule.ui.inputs.find(i => i.port === 'audio');
             expect(audioInput).toBeDefined();
-            expect(audioInput.type).toBe('audio');
+            expect(audioInput.signal).toBe('audio');
         });
 
         it('should have trigger input jack defined', () => {

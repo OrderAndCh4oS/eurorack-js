@@ -397,7 +397,7 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit) {
                 label: outDef.label,
                 moduleId,
                 direction: 'output',
-                type: outDef.type || 'buffer'
+                signal: outDef.signal || 'any'
             }));
         });
         container.appendChild(outRow);
@@ -407,11 +407,11 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit) {
     if (ui.inputs?.length) {
         if (ui.inputs.length > 4) {
             // Group inputs by type prefix
-            const cvInputs = ui.inputs.filter(i => i.id.startsWith('cv') || i.type === 'cv');
-            const trigInputs = ui.inputs.filter(i => i.id.startsWith('trig') || i.type === 'trigger');
+            const cvInputs = ui.inputs.filter(i => i.id.startsWith('cv') || i.signal === 'cv');
+            const trigInputs = ui.inputs.filter(i => i.id.startsWith('trig') || i.signal === 'trigger');
             const otherInputs = ui.inputs.filter(i =>
                 !i.id.startsWith('cv') && !i.id.startsWith('trig') &&
-                i.type !== 'cv' && i.type !== 'trigger'
+                i.signal !== 'cv' && i.signal !== 'trigger'
             );
 
             if (cvInputs.length > 0) {
@@ -423,7 +423,7 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit) {
                         label: inDef.label,
                         moduleId,
                         direction: 'input',
-                        type: inDef.type || 'cv'
+                        signal: inDef.signal || 'cv'
                     }));
                 });
                 container.appendChild(cvRow);
@@ -438,7 +438,7 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit) {
                         label: inDef.label,
                         moduleId,
                         direction: 'input',
-                        type: inDef.type || 'trigger'
+                        signal: inDef.signal || 'trigger'
                     }));
                 });
                 container.appendChild(trigRow);
@@ -453,7 +453,7 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit) {
                         label: inDef.label,
                         moduleId,
                         direction: 'input',
-                        type: inDef.type || 'buffer'
+                        signal: inDef.signal || 'any'
                     }));
                 });
                 container.appendChild(otherRow);
@@ -468,7 +468,7 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit) {
                     label: inDef.label,
                     moduleId,
                     direction: 'input',
-                    type: inDef.type || 'buffer'
+                    signal: inDef.signal || 'any'
                 }));
             });
             container.appendChild(inRow);
@@ -500,7 +500,7 @@ function createSocketJack(ui, socketRef, moduleId) {
         label: definition.label,
         moduleId,
         direction: definition.direction,
-        type: definition.type || 'buffer'
+        signal: definition.signal || 'any'
     });
 }
 

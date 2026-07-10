@@ -46,7 +46,7 @@ export default {
             inputs: {
                 vOct: new Float32Array(bufferSize),
                 fm: new Float32Array(bufferSize),
-                pwm: new Float32Array(bufferSize),
+                pwm: new Float32Array(bufferSize).fill(2.5),
                 sync: new Float32Array(bufferSize)
             },
             outputs: { triangle: tri, ramp: saw, pulse: sqr },
@@ -59,7 +59,7 @@ export default {
                 for (let i = 0; i < bufferSize; i++) {
                     const vOctVal = this.inputs.vOct[i] || 0;
                     const fmVal = this.inputs.fm[i] || 0;
-                    const pwmVal = this.inputs.pwm[i] || 2.5;
+                    const pwmVal = this.inputs.pwm[i];
                     const syncVal = this.inputs.sync[i] || 0;
 
                     const targetDuty = 0.05 + clamp(pwmVal, 0, 5) / 5 * 0.90;
@@ -104,15 +104,15 @@ export default {
             { id: 'glide', label: 'Glide', param: 'glide', min: 0, max: 100, default: 5 }
         ],
         inputs: [
-            { id: 'vOct', label: 'V/Oct', port: 'vOct', type: 'cv' },
-            { id: 'fm', label: 'FM', port: 'fm', type: 'cv' },
-            { id: 'pwm', label: 'PWM', port: 'pwm', type: 'cv' },
-            { id: 'sync', label: 'Sync', port: 'sync', type: 'trigger' }
+            { id: 'vOct', label: 'V/Oct', port: 'vOct', signal: 'cv' },
+            { id: 'fm', label: 'FM', port: 'fm', signal: 'cv' },
+            { id: 'pwm', label: 'PWM', port: 'pwm', signal: 'cv', voltage: { min: 0, max: 5, normal: 2.5 } },
+            { id: 'sync', label: 'Sync', port: 'sync', signal: 'trigger' }
         ],
         outputs: [
-            { id: 'triangle', label: 'Tri', port: 'triangle', type: 'buffer' },
-            { id: 'ramp', label: 'Saw', port: 'ramp', type: 'buffer' },
-            { id: 'pulse', label: 'Pls', port: 'pulse', type: 'buffer' }
+            { id: 'triangle', label: 'Tri', port: 'triangle', signal: 'audio' },
+            { id: 'ramp', label: 'Saw', port: 'ramp', signal: 'audio' },
+            { id: 'pulse', label: 'Pls', port: 'pulse', signal: 'audio' }
         ]
     }
 };

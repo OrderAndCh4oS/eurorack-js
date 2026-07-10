@@ -147,16 +147,16 @@ export default {
             { id: 'release', label: 'Rel', param: 'release', min: 0, max: 1, default: 0.4 }
         ],
         inputs: [
-            { id: 'gate', label: 'Gate', port: 'gate', type: 'trigger' },
-            { id: 'retrig', label: 'Retr', port: 'retrig', type: 'trigger' },
-            { id: 'attackCV', label: 'Atk', port: 'attackCV', type: 'cv' },
-            { id: 'decayCV', label: 'Dec', port: 'decayCV', type: 'cv' },
-            { id: 'releaseCV', label: 'Rel', port: 'releaseCV', type: 'cv' }
+            { id: 'gate', label: 'Gate', port: 'gate', signal: 'trigger' },
+            { id: 'retrig', label: 'Retr', port: 'retrig', signal: 'trigger' },
+            { id: 'attackCV', label: 'Atk', port: 'attackCV', signal: 'cv' },
+            { id: 'decayCV', label: 'Dec', port: 'decayCV', signal: 'cv' },
+            { id: 'releaseCV', label: 'Rel', port: 'releaseCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'env', label: 'Env', port: 'env', type: 'cv' },
-            { id: 'inv', label: 'Inv', port: 'inv', type: 'cv' },
-            { id: 'eoc', label: 'EOC', port: 'eoc', type: 'trigger' }
+            { id: 'env', label: 'Env', port: 'env', signal: 'cv' },
+            { id: 'inv', label: 'Inv', port: 'inv', signal: 'cv' },
+            { id: 'eoc', label: 'EOC', port: 'eoc', signal: 'trigger' }
         ]
     }
 };

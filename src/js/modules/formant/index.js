@@ -99,11 +99,6 @@ export default {
             outputs: { out },
             leds: { level: 0 },
 
-            clearAudioInputs() {
-                ownAudio.fill(0);
-                this.inputs.audio = ownAudio;
-            },
-
             process() {
                 const audio = this.inputs.audio;
                 const vowelCV = this.inputs.vowelCV;
@@ -151,11 +146,6 @@ export default {
                 }
 
                 this.leds.level = Math.max(clamp(peak / 5), this.leds.level * ledDecay);
-
-                if (this.inputs.audio !== ownAudio) {
-                    ownAudio.fill(0);
-                    this.inputs.audio = ownAudio;
-                }
             },
 
             reset() {
@@ -181,13 +171,13 @@ export default {
             { id: 'mix', label: 'Mix', param: 'mix', min: 0, max: 1, default: 1 }
         ],
         inputs: [
-            { id: 'audio', label: 'In', port: 'audio', type: 'buffer' },
-            { id: 'vowelCV', label: 'Vowel', port: 'vowelCV', type: 'cv' },
-            { id: 'shiftCV', label: 'Shift', port: 'shiftCV', type: 'cv' },
-            { id: 'resCV', label: 'Res', port: 'resCV', type: 'cv' }
+            { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
+            { id: 'vowelCV', label: 'Vowel', port: 'vowelCV', signal: 'cv' },
+            { id: 'shiftCV', label: 'Shift', port: 'shiftCV', signal: 'cv' },
+            { id: 'resCV', label: 'Res', port: 'resCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', type: 'buffer' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'audio' }
         ]
     }
 };

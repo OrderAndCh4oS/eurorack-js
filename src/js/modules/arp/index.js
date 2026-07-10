@@ -138,14 +138,14 @@ export default {
             { id: 'octaves', label: 'Oct', param: 'octaves', default: 1 }
         ],
         inputs: [
-            { id: 'trigger', label: 'Trig', port: 'trigger', type: 'trigger' },
-            { id: 'reset', label: 'Rst', port: 'reset', type: 'trigger' },
-            { id: 'rootCV', label: 'Root', port: 'rootCV', type: 'cv' },
-            { id: 'chordCV', label: 'Chrd', port: 'chordCV', type: 'cv' }
+            { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger' },
+            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger' },
+            { id: 'rootCV', label: 'Root', port: 'rootCV', signal: 'cv' },
+            { id: 'chordCV', label: 'Chrd', port: 'chordCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'cv', label: 'V/Oct', port: 'cv', type: 'cv' },
-            { id: 'gate', label: 'Gate', port: 'gate', type: 'gate' }
+            { id: 'cv', label: 'V/Oct', port: 'cv', signal: 'cv' },
+            { id: 'gate', label: 'Gate', port: 'gate', signal: 'gate' }
         ]
     }
 };

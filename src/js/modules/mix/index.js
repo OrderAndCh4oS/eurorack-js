@@ -46,17 +46,6 @@ export default {
             outputs: { out },
             leds,
 
-            clearAudioInputs() {
-                ownIn1.fill(0);
-                ownIn2.fill(0);
-                ownIn3.fill(0);
-                ownIn4.fill(0);
-                this.inputs.in1 = ownIn1;
-                this.inputs.in2 = ownIn2;
-                this.inputs.in3 = ownIn3;
-                this.inputs.in4 = ownIn4;
-            },
-
             process() {
                 const l1 = clamp(this.params.lvl1, 0, 1);
                 const l2 = clamp(this.params.lvl2, 0, 1);
@@ -80,22 +69,6 @@ export default {
                 leds.level = Math.max(peak / 10, leds.level * ledDecay);
 
                 // Reset replaced input buffers (audio silence pattern)
-                if (this.inputs.in1 !== ownIn1) {
-                    ownIn1.fill(0);
-                    this.inputs.in1 = ownIn1;
-                }
-                if (this.inputs.in2 !== ownIn2) {
-                    ownIn2.fill(0);
-                    this.inputs.in2 = ownIn2;
-                }
-                if (this.inputs.in3 !== ownIn3) {
-                    ownIn3.fill(0);
-                    this.inputs.in3 = ownIn3;
-                }
-                if (this.inputs.in4 !== ownIn4) {
-                    ownIn4.fill(0);
-                    this.inputs.in4 = ownIn4;
-                }
             },
 
             reset() {
@@ -114,13 +87,13 @@ export default {
             { id: 'lvl4', label: '4', param: 'lvl4', min: 0, max: 1, default: 0.8 }
         ],
         inputs: [
-            { id: 'in1', label: '1', port: 'in1', type: 'buffer' },
-            { id: 'in2', label: '2', port: 'in2', type: 'buffer' },
-            { id: 'in3', label: '3', port: 'in3', type: 'buffer' },
-            { id: 'in4', label: '4', port: 'in4', type: 'buffer' }
+            { id: 'in1', label: '1', port: 'in1', signal: 'any' },
+            { id: 'in2', label: '2', port: 'in2', signal: 'any' },
+            { id: 'in3', label: '3', port: 'in3', signal: 'any' },
+            { id: 'in4', label: '4', port: 'in4', signal: 'any' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', type: 'buffer' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'any' }
         ]
     }
 };

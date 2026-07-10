@@ -14,7 +14,8 @@ export default {
     "name": "Test - Func LFO",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "func",

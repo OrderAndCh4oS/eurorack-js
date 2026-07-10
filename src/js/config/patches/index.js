@@ -5,7 +5,7 @@
  * Each patch file exports a default object with:
  *   - name: Display name
  *   - factory: true (marks as read-only factory patch)
- *   - state: Canonical v2 patch state
+ *   - state: Canonical v3 patch state
  */
 
 // Test patches - Modules

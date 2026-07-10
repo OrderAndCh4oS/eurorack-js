@@ -19,6 +19,7 @@ export default {
     hp: 4,
     color: 'module-color-eight',
     category: 'utility',
+    telemetry: { fields: [], methods: ['getRecordingTime', 'getMaxRecordingTime'] },
 
     css: `
         .rec-container {
@@ -134,6 +135,7 @@ export default {
         let recordedL = [];
         let recordedR = [];
         let sampleCount = 0;
+        let pendingEvents = [];
 
         // Max recording time: 5 minutes to prevent memory issues
         const maxSamples = sampleRate * 60 * 5;
@@ -195,26 +197,25 @@ export default {
                 this.leds.recording = isRecording ? 1 : 0;
 
                 // Reset inputs if replaced by routing
-                if (this.inputs.L !== ownL) {
-                    ownL.fill(0);
-                    this.inputs.L = ownL;
-                }
-                if (this.inputs.R !== ownR) {
-                    ownR.fill(0);
-                    this.inputs.R = ownR;
-                }
             },
 
             exportWav() {
                 if (recordedL.length === 0) return;
-
-                const blob = encodeWav(recordedL, recordedR, sampleRate);
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-                downloadWav(blob, `recording-${timestamp}.wav`);
-
+                pendingEvents.push({
+                    type: 'recording-complete',
+                    buffersL: recordedL,
+                    buffersR: recordedR,
+                    sampleRate
+                });
                 recordedL = [];
                 recordedR = [];
                 sampleCount = 0;
+            },
+
+            drainEvents() {
+                const events = pendingEvents;
+                pendingEvents = [];
+                return events;
             },
 
             reset() {
@@ -225,10 +226,18 @@ export default {
                 isRecording = false;
                 recordedL = [];
                 recordedR = [];
+                pendingEvents = [];
                 sampleCount = 0;
                 this.leds.recording = 0;
             }
         };
+    },
+
+    handleWorkletEvent(event) {
+        if (event?.type !== 'recording-complete' || !event.buffersL?.length) return;
+        const blob = encodeWav(event.buffersL, event.buffersR, event.sampleRate);
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        downloadWav(blob, `recording-${timestamp}.wav`);
     },
 
     render(container, { instance, toolkit, onParamChange }) {
@@ -310,13 +319,13 @@ export default {
             id: 'L',
             label: 'L',
             direction: 'input',
-            type: 'audio'
+            signal: 'audio'
         }));
         inRow.appendChild(toolkit.createJack({
             id: 'R',
             label: 'R',
             direction: 'input',
-            type: 'audio'
+            signal: 'audio'
         }));
         jacks.appendChild(inRow);
 
@@ -331,13 +340,13 @@ export default {
             id: 'outL',
             label: 'L',
             direction: 'output',
-            type: 'audio'
+            signal: 'audio'
         }));
         outRow.appendChild(toolkit.createJack({
             id: 'outR',
             label: 'R',
             direction: 'output',
-            type: 'audio'
+            signal: 'audio'
         }));
         jacks.appendChild(outRow);
 
@@ -387,12 +396,12 @@ export default {
             { id: 'record', label: 'Rec', param: 'record', mode: 'toggle', default: 0 }
         ],
         inputs: [
-            { id: 'L', label: 'L', port: 'L', type: 'audio' },
-            { id: 'R', label: 'R', port: 'R', type: 'audio' }
+            { id: 'L', label: 'L', port: 'L', signal: 'audio' },
+            { id: 'R', label: 'R', port: 'R', signal: 'audio' }
         ],
         outputs: [
-            { id: 'outL', label: 'L', port: 'outL', type: 'audio' },
-            { id: 'outR', label: 'R', port: 'outR', type: 'audio' }
+            { id: 'outL', label: 'L', port: 'outL', signal: 'audio' },
+            { id: 'outR', label: 'R', port: 'outR', signal: 'audio' }
         ]
     }
 };

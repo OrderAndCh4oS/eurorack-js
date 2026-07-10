@@ -121,11 +121,11 @@ export default {
             { id: 'pause', label: 'Pause', param: 'pause', default: 0 }
         ],
         outputs: [
-            { id: 'clock', label: 'Out', port: 'clock', type: 'trigger' }
+            { id: 'clock', label: 'Out', port: 'clock', signal: 'trigger' }
         ],
         inputs: [
-            { id: 'rateCV', label: 'Rate', port: 'rateCV', type: 'cv' },
-            { id: 'pauseIn', label: 'Pause', port: 'pause', type: 'trigger' }
+            { id: 'rateCV', label: 'Rate', port: 'rateCV', signal: 'cv' },
+            { id: 'pauseIn', label: 'Pause', port: 'pause', signal: 'trigger' }
         ]
     }
 };

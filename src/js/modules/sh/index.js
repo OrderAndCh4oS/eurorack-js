@@ -121,14 +121,14 @@ export default {
             { id: 'slew2', label: 'Slew2', param: 'slew2', min: 0, max: 1, default: 0 }
         ],
         inputs: [
-            { id: 'in1', label: 'In1', port: 'in1', type: 'buffer' },
-            { id: 'in2', label: 'In2', port: 'in2', type: 'buffer' },
-            { id: 'trig1', label: 'Trg1', port: 'trig1', type: 'trigger' },
-            { id: 'trig2', label: 'Trg2', port: 'trig2', type: 'trigger' }
+            { id: 'in1', label: 'In1', port: 'in1', signal: 'any' },
+            { id: 'in2', label: 'In2', port: 'in2', signal: 'any' },
+            { id: 'trig1', label: 'Trg1', port: 'trig1', signal: 'trigger' },
+            { id: 'trig2', label: 'Trg2', port: 'trig2', signal: 'trigger' }
         ],
         outputs: [
-            { id: 'out1', label: 'Out1', port: 'out1', type: 'buffer' },
-            { id: 'out2', label: 'Out2', port: 'out2', type: 'buffer' }
+            { id: 'out1', label: 'Out1', port: 'out1', signal: 'any' },
+            { id: 'out2', label: 'Out2', port: 'out2', signal: 'any' }
         ]
     }
 };

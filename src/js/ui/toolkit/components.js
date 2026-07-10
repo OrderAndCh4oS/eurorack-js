@@ -66,7 +66,7 @@ export function createKnob({
  * @param {string} options.label - Display label
  * @param {string} options.moduleId - Parent module ID
  * @param {string} options.direction - 'input' or 'output'
- * @param {string} options.type - Signal type: 'buffer', 'cv', 'trigger'
+ * @param {string} options.signal - Signal classification
  * @returns {HTMLElement} Jack container element
  */
 export function createJack({
@@ -74,7 +74,7 @@ export function createJack({
     label,
     moduleId,
     direction,
-    type = 'buffer'
+    signal = 'any'
 }) {
     const container = document.createElement('div');
     container.className = 'jack-container';
@@ -85,7 +85,7 @@ export function createJack({
     jack.dataset.module = moduleId;
     jack.dataset.port = id;
     jack.dataset.dir = direction;
-    jack.dataset.type = type;
+    jack.dataset.signal = signal;
 
     const labelEl = document.createElement('div');
     labelEl.className = 'jack-label';

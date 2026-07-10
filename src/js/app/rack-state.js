@@ -1,4 +1,5 @@
 import { getNestedValue, setNestedValue } from '../utils/nested-access.js';
+import { getModulePort } from '../rack/module-contract.js';
 
 export const MAX_HP_PER_ROW = 84;
 
@@ -250,9 +251,20 @@ export class RackState {
         return mod ? getNestedValue(mod.params, paramPath) : undefined;
     }
 
-    connect({ fromModule, fromPort, toModule, toPort }, { replaceInput = true } = {}) {
+    connect({ fromModule, fromPort, toModule, toPort }, { replaceInput = true, registry = null } = {}) {
         if (!this.modules.has(fromModule) || !this.modules.has(toModule)) {
             return null;
+        }
+
+        if (registry) {
+            const sourceType = this.modules.get(fromModule).type;
+            const destinationType = this.modules.get(toModule).type;
+            if (!getModulePort(registry.get(sourceType), 'output', fromPort)) {
+                throw new Error(`Module "${fromModule}" has no output port "${fromPort}"`);
+            }
+            if (!getModulePort(registry.get(destinationType), 'input', toPort)) {
+                throw new Error(`Module "${toModule}" has no input port "${toPort}"`);
+            }
         }
 
         if (replaceInput) {
@@ -310,7 +322,7 @@ export class RackState {
         this.midiMappings = { ...(patchState.midiMappings || {}) };
     }
 
-    serializePatch() {
+    serializePatch(registry = null) {
         const modules = [];
         this.getRowNumbers().forEach(row => {
             this.rows[row].forEach((id, index) => {
@@ -326,8 +338,10 @@ export class RackState {
             params[id] = clone(mod.params);
         });
 
+        const moduleTypes = modules.map(module => module.type);
         return {
-            version: 2,
+            version: 3,
+            plugins: registry?.getPatchDependencies?.(moduleTypes) || { core: 1 },
             modules,
             params,
             cables: this.cables.map(cable => ({ ...cable })),

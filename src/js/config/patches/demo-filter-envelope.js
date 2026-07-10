@@ -6,7 +6,8 @@ export default {
     "name": "Demo - Filter Envelope",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "clk",
@@ -47,7 +48,8 @@ export default {
         ],
         "params": {
             "clk": {
-                "rate": 0.3
+                "rate": 0.3,
+                "pause": 0
             },
             "vco": {
                 "coarse": 0.25,
@@ -55,14 +57,14 @@ export default {
                 "glide": 0
             },
             "vcf": {
-                "cutoff": 0.15,
+                "cutoff": 0.5366666666666666,
                 "resonance": 0.75
             },
             "adsr": {
                 "attack": 0,
                 "decay": 0.35,
                 "sustain": 0.2,
-                "release": 0.4
+                "release": 0.7
             },
             "vca": {
                 "ch1Gain": 0.8,

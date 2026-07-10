@@ -13,7 +13,8 @@ export default {
     "name": "Demo - Deep Abyss",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "clk",
@@ -49,102 +50,103 @@ export default {
                 "id": "sub1",
                 "type": "vco",
                 "row": 2,
-                "index": 5
+                "index": 0
             },
             {
                 "id": "sub2",
                 "type": "vco",
                 "row": 2,
-                "index": 6
+                "index": 1
             },
             {
                 "id": "ring",
                 "type": "ring",
                 "row": 2,
-                "index": 7
+                "index": 2
             },
             {
                 "id": "droneMix",
                 "type": "mix",
                 "row": 2,
-                "index": 8
+                "index": 3
             },
             {
                 "id": "droneFilter",
                 "type": "vcf",
                 "row": 2,
-                "index": 9
+                "index": 4
             },
             {
                 "id": "seq",
                 "type": "seq",
                 "row": 3,
-                "index": 10
+                "index": 0
             },
             {
                 "id": "slew",
                 "type": "slew",
                 "row": 3,
-                "index": 11
+                "index": 1
             },
             {
                 "id": "melody",
                 "type": "vco",
                 "row": 3,
-                "index": 12
+                "index": 2
             },
             {
                 "id": "melodyFilter",
                 "type": "vcf",
                 "row": 3,
-                "index": 13
+                "index": 3
             },
             {
                 "id": "env",
                 "type": "adsr",
                 "row": 3,
-                "index": 14
+                "index": 4
             },
             {
                 "id": "melodyVca",
                 "type": "vca",
                 "row": 3,
-                "index": 15
+                "index": 5
             },
             {
                 "id": "mainMix",
                 "type": "mix",
                 "row": 4,
-                "index": 16
+                "index": 0
             },
             {
                 "id": "masterFilter",
                 "type": "vcf",
                 "row": 4,
-                "index": 17
+                "index": 1
             },
             {
                 "id": "verb",
                 "type": "verb",
                 "row": 4,
-                "index": 18
+                "index": 2
             },
             {
                 "id": "dly",
                 "type": "dly",
                 "row": 4,
-                "index": 19
+                "index": 3
             },
             {
                 "id": "out",
                 "type": "out",
                 "row": 4,
-                "index": 20
+                "index": 4
             }
         ],
         "params": {
             "clk": {
-                "rate": 0.273
+                "rate": 0.273,
+                "pause": 0
             },
             "div": {
                 "rate1": 0.2,
@@ -161,7 +163,8 @@ export default {
                 "range": 1
             },
             "nse": {
-                "rate": 1
+                "rate": 1,
+                "vcaMode": 0
             },
             "sub1": {
                 "coarse": 0.267,
@@ -177,14 +180,14 @@ export default {
                 "mix": 1
             },
             "droneMix": {
-                "lvl1": 0.8,
-                "lvl2": 0.6,
-                "lvl3": 0.3,
+                "lvl1": 0.8466666666666667,
+                "lvl2": 0.6799999999999999,
+                "lvl3": 0.38,
                 "lvl4": 0
             },
             "droneFilter": {
-                "cutoff": 0.15,
-                "resonance": 0.5
+                "cutoff": 0.65,
+                "resonance": 0.4866666666666667
             },
             "seq": {
                 "step1": 0.25,
@@ -231,13 +234,13 @@ export default {
                 "ch2Gain": 0
             },
             "mainMix": {
-                "lvl1": 0.9,
-                "lvl2": 0.4,
+                "lvl1": 0.88,
+                "lvl2": 0.7466666666666666,
                 "lvl3": 0,
                 "lvl4": 0
             },
             "masterFilter": {
-                "cutoff": 0.3,
+                "cutoff": 0.35333333333333333,
                 "resonance": 0.2
             },
             "verb": {

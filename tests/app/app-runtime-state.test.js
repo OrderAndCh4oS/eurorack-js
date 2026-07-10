@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { EurorackApp } from '../../src/js/app/app.js';
-import { moduleRegistry, registerModule } from '../../src/js/rack/registry.js';
+import { loadCorePlugin, moduleRegistry } from '../../src/js/rack/registry.js';
 import loopModule from '../../src/js/modules/loop/index.js';
 
 function recordSamples(loop, samples) {
@@ -13,10 +13,8 @@ function recordSamples(loop, samples) {
 }
 
 describe('EurorackApp runtime module state', () => {
-    beforeAll(() => {
-        if (!moduleRegistry.has('loop')) {
-            registerModule(loopModule);
-        }
+    beforeAll(async () => {
+        await loadCorePlugin();
     });
 
     it('restores module runtime state when recreating DSP instances', () => {

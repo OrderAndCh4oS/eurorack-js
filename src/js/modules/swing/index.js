@@ -253,14 +253,14 @@ export default {
             { id: 'template', label: 'Tmpl', param: 'template', min: 0, max: 3, default: 0, step: 1 }
         ],
         inputs: [
-            { id: 'clock', label: 'Clk', port: 'clock', type: 'trigger' },
-            { id: 'reset', label: 'Rst', port: 'reset', type: 'trigger' },
-            { id: 'swingCV', label: 'SwCV', port: 'swingCV', type: 'cv' },
-            { id: 'humanCV', label: 'HmCV', port: 'humanCV', type: 'cv' }
+            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger' },
+            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger' },
+            { id: 'swingCV', label: 'SwCV', port: 'swingCV', signal: 'cv' },
+            { id: 'humanCV', label: 'HmCV', port: 'humanCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'swung', label: 'Swg', port: 'swung', type: 'trigger' },
-            { id: 'straight', label: 'Str', port: 'straight', type: 'trigger' }
+            { id: 'swung', label: 'Swg', port: 'swung', signal: 'trigger' },
+            { id: 'straight', label: 'Str', port: 'straight', signal: 'trigger' }
         ]
     }
 };

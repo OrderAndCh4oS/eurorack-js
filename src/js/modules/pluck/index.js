@@ -282,14 +282,14 @@ export default {
             { id: 'position', label: 'Pos', param: 'position', min: 0, max: 1, default: 0.35 }
         ],
         inputs: [
-            { id: 'trigger', label: 'Trig', port: 'trigger', type: 'trigger' },
-            { id: 'vOct', label: 'V/O', port: 'vOct', type: 'cv' },
-            { id: 'decayCV', label: 'Dcy', port: 'decayCV', type: 'cv' },
-            { id: 'dampCV', label: 'Dmp', port: 'dampCV', type: 'cv' },
-            { id: 'positionCV', label: 'Pos', port: 'positionCV', type: 'cv' }
+            { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger' },
+            { id: 'vOct', label: 'V/O', port: 'vOct', signal: 'cv' },
+            { id: 'decayCV', label: 'Dcy', port: 'decayCV', signal: 'cv' },
+            { id: 'dampCV', label: 'Dmp', port: 'dampCV', signal: 'cv' },
+            { id: 'positionCV', label: 'Pos', port: 'positionCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', type: 'audio' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'audio' }
         ]
     }
 };

@@ -8,14 +8,13 @@
 export default {
     id: 'out',
     name: 'OUT',
+    role: 'audio-output',
     hp: 3,
     color: 'module-color-one',
     category: 'output',
 
     createDSP({ sampleRate = 44100, bufferSize = 512, audioCtx = null } = {}) {
-        // Handle case where audioCtx is not provided (testing, SSR)
-        const ctx = audioCtx || (typeof window !== 'undefined' && window.AudioContext ?
-            new window.AudioContext() : null);
+        const ctx = audioCtx;
 
         const gain = ctx ? ctx.createGain() : null;
         if (gain && ctx) {
@@ -36,13 +35,6 @@ export default {
             outputs: {},
             leds,
 
-            clearAudioInputs() {
-                ownL.fill(0);
-                ownR.fill(0);
-                this.inputs.L = ownL;
-                this.inputs.R = ownR;
-            },
-
             process(time) {
                 if (!ctx || !gain) return;
 
@@ -62,15 +54,6 @@ export default {
                 src.connect(gain);
                 gain.gain.setValueAtTime(this.params.volume, currentTime);
                 src.start(currentTime);
-
-                if (this.inputs.L !== ownL) {
-                    ownL.fill(0);
-                    this.inputs.L = ownL;
-                }
-                if (this.inputs.R !== ownR) {
-                    ownR.fill(0);
-                    this.inputs.R = ownR;
-                }
             },
 
             reset() {
@@ -88,8 +71,8 @@ export default {
             { id: 'volume', label: 'Vol', param: 'volume', min: 0, max: 1, default: 0.8 }
         ],
         inputs: [
-            { id: 'L', label: 'L', port: 'L', type: 'buffer' },
-            { id: 'R', label: 'R', port: 'R', type: 'buffer' }
+            { id: 'L', label: 'L', port: 'L', signal: 'audio' },
+            { id: 'R', label: 'R', port: 'R', signal: 'audio' }
         ]
     }
 };

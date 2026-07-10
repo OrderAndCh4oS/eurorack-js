@@ -6,7 +6,8 @@ export default {
     "name": "Test - VCO Only",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "vco",

@@ -51,7 +51,7 @@ Move one row at a time through these gates. Parallel work is allowed, but each m
 1. Intake: confirm the candidate adds a distinct capability and does not duplicate an existing module.
 2. Research: create `research/modules/{moduleId}.md`, collect varied sources, and update the row to `researching`.
 3. Spec readiness: document panel controls, ports, voltage behavior, DSP approach, assumptions, contradictions, and test targets; then update the row to `spec-ready`.
-4. Implementation: create a module branch or worktree, write `tests/dsp/{moduleId}.test.js` first, implement `src/js/modules/{moduleId}/index.js`, register the manifest entry, and update docs.
+4. Implementation: create a module branch or worktree, write `tests/dsp/{moduleId}.test.js` first, implement a worklet-safe `src/js/modules/{moduleId}/index.js` with stable buffers, register both the lazy manifest entry and static `core-definitions.js` import, and update docs.
 5. Validation: run focused tests, module contract tests, and patch tests when patches changed.
 6. Merge: run the full suite, update the queue row to `done`, and include the research doc in the same module change.
 

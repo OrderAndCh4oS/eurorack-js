@@ -177,13 +177,13 @@ export default {
             { id: 'rotate', label: 'Rotate', param: 'rotate', min: 0, max: 15, default: 0, step: 1 }
         ],
         inputs: [
-            { id: 'clock', label: 'Clk', port: 'clock', type: 'trigger' },
-            { id: 'reset', label: 'Rst', port: 'reset', type: 'trigger' },
-            { id: 'lenCV', label: 'Len', port: 'lenCV', type: 'cv' },
-            { id: 'hitsCV', label: 'Hits', port: 'hitsCV', type: 'cv' }
+            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger' },
+            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger' },
+            { id: 'lenCV', label: 'Len', port: 'lenCV', signal: 'cv' },
+            { id: 'hitsCV', label: 'Hits', port: 'hitsCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'trig', label: 'Trig', port: 'trig', type: 'trigger' }
+            { id: 'trig', label: 'Trig', port: 'trig', signal: 'trigger' }
         ]
     }
 };

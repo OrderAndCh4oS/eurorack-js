@@ -132,11 +132,11 @@ export default {
             { id: 'slope', label: 'Slope', param: 'slope', positions: ['Fast', 'Slow'], default: 0 }
         ],
         inputs: [
-            { id: 'audio', label: 'In', port: 'audio', type: 'audio' }
+            { id: 'audio', label: 'In', port: 'audio', signal: 'audio' }
         ],
         outputs: [
-            { id: 'env', label: 'Env', port: 'env', type: 'cv' },
-            { id: 'inv', label: 'Inv', port: 'inv', type: 'cv' }
+            { id: 'env', label: 'Env', port: 'env', signal: 'cv' },
+            { id: 'inv', label: 'Inv', port: 'inv', signal: 'cv' }
         ]
     }
 };

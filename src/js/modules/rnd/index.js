@@ -141,12 +141,12 @@ export default {
             { id: 'amp', label: 'Amp', param: 'amp', min: 0, max: 1, default: 1 }
         ],
         inputs: [
-            { id: 'clock', label: 'Clk', port: 'clock', type: 'trigger' }
+            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger' }
         ],
         outputs: [
-            { id: 'step', label: 'Step', port: 'step', type: 'cv' },
-            { id: 'smooth', label: 'Smth', port: 'smooth', type: 'cv' },
-            { id: 'gate', label: 'Gate', port: 'gate', type: 'gate' }
+            { id: 'step', label: 'Step', port: 'step', signal: 'cv' },
+            { id: 'smooth', label: 'Smth', port: 'smooth', signal: 'cv' },
+            { id: 'gate', label: 'Gate', port: 'gate', signal: 'gate' }
         ]
     }
 };

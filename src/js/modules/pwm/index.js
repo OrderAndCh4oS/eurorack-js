@@ -90,14 +90,6 @@ export default {
                 this.leds.inv = ledInvSmooth;
 
                 // Reset inputs if replaced by routing
-                if (this.inputs.in !== ownIn) {
-                    ownIn.fill(0);
-                    this.inputs.in = ownIn;
-                }
-                if (this.inputs.pwmCV !== ownPwmCV) {
-                    ownPwmCV.fill(0);
-                    this.inputs.pwmCV = ownPwmCV;
-                }
             },
 
             reset() {
@@ -117,12 +109,12 @@ export default {
         ],
         switches: [],
         inputs: [
-            { id: 'in', label: 'In', port: 'in', type: 'audio' },
-            { id: 'pwmCV', label: 'PWM', port: 'pwmCV', type: 'cv' }
+            { id: 'in', label: 'In', port: 'in', signal: 'audio' },
+            { id: 'pwmCV', label: 'PWM', port: 'pwmCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', type: 'audio' },
-            { id: 'inv', label: 'Inv', port: 'inv', type: 'audio' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'audio' },
+            { id: 'inv', label: 'Inv', port: 'inv', signal: 'audio' }
         ]
     }
 };

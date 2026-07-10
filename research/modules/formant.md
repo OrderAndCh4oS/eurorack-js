@@ -139,7 +139,7 @@ Use a four-band parallel resonator bank:
 - `resonance` and `resCV` increase selectivity/ringing without instability. Test broad vs. narrow settings with sine or impulse probes.
 - LED `level` rises with output and decays after silence.
 - `reset()` clears filter state, output buffer, smoothing state, and LED state.
-- `clearAudioInputs()` and post-process input restoration silence disconnected input buffers.
+- Runtime update (July 2026): the audio input buffer remains stable and the compiled graph restores its declared 0V normal on disconnection. The earlier cleanup-method plan is superseded.
 - Buffer integrity: the full output buffer is written every process call and contains no NaN or Infinity.
 - Metadata and UI port names match the research contract.
 - No switch, button, gate, trigger, clock, pitch-CV, or reset-input tests are required because the module has none.

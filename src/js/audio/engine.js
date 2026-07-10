@@ -1,358 +1,252 @@
 /**
- * Audio Engine - Core signal processing and routing
- *
- * Handles the main audio processing loop, module routing,
- * and signal flow between modules via virtual patch cables.
+ * Audio Engine - block DSP scheduling over an atomically compiled patch graph.
  */
 
 import { BUFFER, SAMPLE_RATE } from '../config/constants.js';
 import { MODULE_ORDER } from '../rack/module-manifest.js';
-import { getNestedValue, setNestedValue } from '../utils/nested-access.js';
+import { getModulePorts } from '../rack/module-contract.js';
+import { getNestedValue } from '../utils/nested-access.js';
+import { compileGraph } from './graph.js';
 
-/**
- * Compute optimal module processing order based on cable connections.
- * Uses topological sort to ensure sources process before destinations.
- * Falls back to MODULE_ORDER for cycles or unconnected modules.
- *
- * @param {Object} modules - Map of module id to {instance, type} objects
- * @param {Array} cables - Array of cable connection objects
- * @returns {string[]} Ordered array of module IDs
- */
-export function computeProcessOrder(modules, cables) {
-    const moduleIds = Object.keys(modules);
-    if (moduleIds.length === 0) return [];
-
-    // Build adjacency list and in-degree count
-    // Edge: fromModule → toModule (source must process before destination)
-    const graph = new Map();      // moduleId → Set of modules that depend on it
-    const inDegree = new Map();   // moduleId → number of dependencies
-
-    // Initialize all modules
-    moduleIds.forEach(id => {
-        graph.set(id, new Set());
-        inDegree.set(id, 0);
-    });
-
-    // Add edges from cables
-    cables.forEach(cable => {
-        const from = cable.fromModule;
-        const to = cable.toModule;
-
-        // Only add edge if both modules exist and it's not a self-loop
-        if (graph.has(from) && graph.has(to) && from !== to) {
-            // Avoid duplicate edges
-            if (!graph.get(from).has(to)) {
-                graph.get(from).add(to);
-                inDegree.set(to, inDegree.get(to) + 1);
-            }
-        }
-    });
-
-    // Kahn's algorithm for topological sort
-    // Use MODULE_ORDER as priority when multiple modules have in-degree 0
-    const moduleOrderIndex = new Map(MODULE_ORDER.map((id, i) => [id, i]));
-    const getOrderIndex = (id) => moduleOrderIndex.get(id) ?? 999;
-
-    // Priority queue: modules with in-degree 0, sorted by MODULE_ORDER
-    const queue = moduleIds
-        .filter(id => inDegree.get(id) === 0)
-        .sort((a, b) => getOrderIndex(a) - getOrderIndex(b));
-
-    const result = [];
-    const visited = new Set();
-
-    while (queue.length > 0) {
-        const current = queue.shift();
-        if (visited.has(current)) continue;
-
-        visited.add(current);
-        result.push(current);
-
-        // Process neighbors
-        const neighbors = [...graph.get(current)].sort((a, b) => getOrderIndex(a) - getOrderIndex(b));
-        for (const neighbor of neighbors) {
-            inDegree.set(neighbor, inDegree.get(neighbor) - 1);
-            if (inDegree.get(neighbor) === 0 && !visited.has(neighbor)) {
-                // Insert in sorted position based on MODULE_ORDER
-                const idx = queue.findIndex(id => getOrderIndex(id) > getOrderIndex(neighbor));
-                if (idx === -1) {
-                    queue.push(neighbor);
-                } else {
-                    queue.splice(idx, 0, neighbor);
-                }
-            }
-        }
-    }
-
-    // Handle cycles: any unvisited modules are in cycles
-    // Add them in MODULE_ORDER sequence
-    const cyclic = moduleIds
-        .filter(id => !visited.has(id))
-        .sort((a, b) => getOrderIndex(a) - getOrderIndex(b));
-
-    result.push(...cyclic);
-
-    return result;
+function compareByTypeOrder(modules, a, b) {
+    const indexes = new Map(MODULE_ORDER.map((type, index) => [type, index]));
+    const aIndex = indexes.get(modules[a]?.type || a) ?? Number.MAX_SAFE_INTEGER;
+    const bIndex = indexes.get(modules[b]?.type || b) ?? Number.MAX_SAFE_INTEGER;
+    if (aIndex !== bIndex) return aIndex - bIndex;
+    return a.localeCompare(b);
 }
 
 /**
- * Create an audio engine instance
- * @param {Object} options
- * @param {Object} options.modules - Map of module id to {instance, type} objects
- * @param {Array} options.cables - Array of cable connection objects
- * @param {AudioContext} options.audioCtx - Web Audio context
- * @param {Function} options.onLedUpdate - Callback for LED state changes
- * @returns {Object} Audio engine controller
+ * Compute deterministic processing order without instantiating a graph.
+ * Graph compilation uses the same type-based priority and additionally gives
+ * every feedback edge an explicit block delay.
  */
+export function computeProcessOrder(modules, cables) {
+    const moduleIds = Object.keys(modules);
+    const adjacency = new Map(moduleIds.map(id => [id, new Set()]));
+    const inDegree = new Map(moduleIds.map(id => [id, 0]));
+
+    cables.forEach(cable => {
+        if (cable.fromModule === cable.toModule) return;
+        if (!adjacency.has(cable.fromModule) || !adjacency.has(cable.toModule)) return;
+        if (adjacency.get(cable.fromModule).has(cable.toModule)) return;
+        adjacency.get(cable.fromModule).add(cable.toModule);
+        inDegree.set(cable.toModule, inDegree.get(cable.toModule) + 1);
+    });
+
+    const queue = moduleIds
+        .filter(id => inDegree.get(id) === 0)
+        .sort((a, b) => compareByTypeOrder(modules, a, b));
+    const result = [];
+    while (queue.length) {
+        const current = queue.shift();
+        result.push(current);
+        for (const next of adjacency.get(current)) {
+            inDegree.set(next, inDegree.get(next) - 1);
+            if (inDegree.get(next) === 0) queue.push(next);
+        }
+        queue.sort((a, b) => compareByTypeOrder(modules, a, b));
+    }
+
+    const visited = new Set(result);
+    result.push(...moduleIds.filter(id => !visited.has(id)).sort((a, b) => compareByTypeOrder(modules, a, b)));
+    return result;
+}
+
+function createCompatibilityDefinition(module) {
+    const inputs = Object.keys(module.instance?.inputs || {}).map(port => ({
+        id: port,
+        port,
+        signal: 'any',
+        voltage: {
+            min: -10,
+            max: 10,
+            normal: module.instance.inputs[port] instanceof Float32Array
+                ? module.instance.inputs[port][0]
+                : 0
+        }
+    }));
+    const outputs = Object.keys(module.instance?.outputs || {}).map(port => ({
+        id: port,
+        port,
+        signal: 'any',
+        voltage: { min: -10, max: 10 }
+    }));
+    return { id: module.type || 'test', ui: { inputs, outputs } };
+}
+
+function prepareModules(moduleMap) {
+    const orderByType = new Map(MODULE_ORDER.map((type, index) => [type, index]));
+    return Object.fromEntries(Object.entries(moduleMap).map(([id, module], rackOrder) => [id, {
+        ...module,
+        def: module.def || createCompatibilityDefinition(module),
+        order: orderByType.get(module.type) ?? Number.MAX_SAFE_INTEGER,
+        rackOrder
+    }]));
+}
+
+function restoreInputNormal(module, portName) {
+    const port = getModulePorts(module.def, 'input').find(candidate => candidate.port === portName);
+    const buffer = getNestedValue(module.instance?.inputs, portName);
+    if (buffer instanceof Float32Array && port) buffer.fill(port.voltage.normal);
+    module.instance?.onInputDisconnected?.(portName);
+}
+
+function getDisconnectedInputs(previousCables, nextCables) {
+    const next = new Set(nextCables.map(cable => `${cable.toModule}\u0000${cable.toPort}`));
+    return previousCables.filter(cable => !next.has(`${cable.toModule}\u0000${cable.toPort}`));
+}
+
 export function createAudioEngine({
     modules = {},
     cables = [],
     audioCtx = null,
     sampleRate = audioCtx?.sampleRate || SAMPLE_RATE,
-    onLedUpdate = null
+    blockSize = BUFFER,
+    onLedUpdate = null,
+    onModuleError = null
 } = {}) {
     let isRunning = false;
     let nextTime = 0;
     let timeoutId = null;
-    let processOrder = computeProcessOrder(modules, cables);
-    let bufferDuration = BUFFER / sampleRate;
-    let inputDefaults = captureInputDefaults(modules);
+    let bufferDuration = blockSize / sampleRate;
+    let preparedModules = prepareModules(modules);
+    let activeCables = [...cables];
+    let graph = compileGraph({ modules: preparedModules, cables: activeCables, blockSize });
+    const disabledModules = new Map();
 
-    function cloneSignalValue(value) {
-        if (value instanceof Float32Array) {
-            return new Float32Array(value);
-        }
-        if (Array.isArray(value)) {
-            return value.map(item => cloneSignalValue(item));
-        }
-        return value;
-    }
-
-    function captureInputDefaults(moduleMap) {
-        const defaults = new Map();
-        Object.entries(moduleMap).forEach(([moduleId, module]) => {
-            const inputs = module.instance?.inputs;
-            if (!inputs) return;
-
-            const moduleDefaults = new Map();
-            Object.entries(inputs).forEach(([port, value]) => {
-                moduleDefaults.set(port, cloneSignalValue(value));
-            });
-            defaults.set(moduleId, moduleDefaults);
-        });
-        return defaults;
-    }
-
-    function restoreInputDefault(moduleId, port) {
-        const mod = modules[moduleId]?.instance;
-        const defaultValue = inputDefaults.get(moduleId)?.get(port);
-        if (!mod?.inputs || defaultValue === undefined) return;
-
-        setNestedValue(mod.inputs, port, cloneSignalValue(defaultValue));
-    }
-
-    /**
-     * Route signals from source modules to destination inputs
-     * @param {string} moduleId - Target module ID
-     */
-    function routeSignals(moduleId) {
-        const mod = modules[moduleId]?.instance;
-        if (!mod) return;
-
-        cables.forEach(cable => {
-            if (cable.toModule === moduleId) {
-                const srcMod = modules[cable.fromModule]?.instance;
-                if (!srcMod) return;
-
-                const srcValue = getNestedValue(srcMod.outputs, cable.fromPort);
-                setNestedValue(mod.inputs, cable.toPort, srcValue);
-            }
+    function zeroModuleOutputs(module) {
+        getModulePorts(module.def, 'output').forEach(port => {
+            const output = getNestedValue(module.instance?.outputs, port.port);
+            if (output instanceof Float32Array) output.fill(0);
         });
     }
 
-    /**
-     * Process a single audio buffer cycle
-     */
-    function processBuffer() {
-        processOrder.forEach(id => {
-            if (!modules[id]?.instance) return;
-
-            // Route incoming signals
-            routeSignals(id);
-
-            // Process the module
-            const mod = modules[id].instance;
-            const modType = modules[id].type;
-            // Output module needs scheduled time for buffer playback
-            if (modType === 'out') {
-                mod.process(nextTime);
-            } else {
-                mod.process();
-            }
-        });
-
-        nextTime += bufferDuration;
-    }
-
-    /**
-     * Collect LED states from all modules
-     * @returns {Object} LED states keyed by module ID
-     */
     function collectLedStates() {
         const ledStates = {};
-
-        Object.entries(modules).forEach(([id, mod]) => {
-            if (mod.instance?.leds) {
-                ledStates[id] = { ...mod.instance.leds };
-            }
+        Object.entries(preparedModules).forEach(([id, module]) => {
+            if (module.instance?.leds) ledStates[id] = { ...module.instance.leds };
         });
-
         return ledStates;
     }
 
-    /**
-     * Main audio processing loop
-     */
+    function activateTopology(nextModules, nextCables) {
+        const nextPrepared = prepareModules(nextModules);
+        const nextGraph = compileGraph({ modules: nextPrepared, cables: nextCables, blockSize });
+        const disconnected = getDisconnectedInputs(activeCables, nextCables);
+
+        preparedModules = nextPrepared;
+        activeCables = [...nextCables];
+        graph = nextGraph;
+        disconnected.forEach(cable => {
+            const module = preparedModules[cable.toModule];
+            if (module) restoreInputNormal(module, cable.toPort);
+        });
+
+        for (const id of disabledModules.keys()) {
+            if (!preparedModules[id]) disabledModules.delete(id);
+        }
+    }
+
+    function processBuffer() {
+        for (const id of graph.processOrder) {
+            const module = preparedModules[id];
+            if (!module?.instance) continue;
+            graph.route(id);
+            if (disabledModules.has(id)) {
+                zeroModuleOutputs(module);
+                continue;
+            }
+
+            try {
+                if (module.def.role === 'audio-output' || module.type === 'out') {
+                    module.instance.process(nextTime);
+                } else {
+                    module.instance.process({ time: nextTime, sampleRate, blockSize });
+                }
+            } catch (error) {
+                disabledModules.set(id, error);
+                zeroModuleOutputs(module);
+                onModuleError?.({ moduleId: id, type: module.type, error });
+            }
+        }
+        graph.commitFeedback();
+        nextTime += bufferDuration;
+    }
+
     function processAudio() {
         if (!isRunning || !audioCtx) return;
 
-        // Process buffers to stay ahead of playback
-        while (nextTime < audioCtx.currentTime + 0.1) {
-            processBuffer();
+        if (nextTime < audioCtx.currentTime - bufferDuration) {
+            nextTime = audioCtx.currentTime;
         }
-
-        // Update LEDs
-        if (onLedUpdate) {
-            onLedUpdate(collectLedStates());
-        }
-
-        // Schedule next iteration
+        while (nextTime < audioCtx.currentTime + 0.1) processBuffer();
+        onLedUpdate?.(collectLedStates());
         timeoutId = setTimeout(processAudio, 20);
     }
 
     return {
-        /**
-         * Start the audio engine
-         */
         start() {
             if (isRunning) return;
-
-            if (!audioCtx) {
-                throw new Error('AudioContext required to start engine');
-            }
-
+            if (!audioCtx) throw new Error('AudioContext required to start engine');
             isRunning = true;
             nextTime = audioCtx.currentTime;
             processAudio();
         },
 
-        /**
-         * Stop the audio engine
-         */
         stop() {
             isRunning = false;
-            if (timeoutId) {
-                clearTimeout(timeoutId);
-                timeoutId = null;
-            }
+            if (timeoutId !== null) clearTimeout(timeoutId);
+            timeoutId = null;
         },
 
-        /**
-         * Check if engine is running
-         * @returns {boolean}
-         */
         get running() {
             return isRunning;
         },
 
-        /**
-         * Update modules reference
-         * @param {Object} newModules
-         */
-        setModules(newModules) {
-            modules = newModules;
-            inputDefaults = captureInputDefaults(modules);
-            processOrder = computeProcessOrder(modules, cables);
+        setTopology(nextModules, nextCables) {
+            activateTopology(nextModules, nextCables);
         },
 
-        /**
-         * Update cables reference
-         * @param {Array} newCables
-         */
-        setCables(newCables) {
-            // Find module inputs that were connected but now aren't.
-            const oldByModule = new Map();
-            cables.forEach(c => {
-                if (!oldByModule.has(c.toModule)) oldByModule.set(c.toModule, new Set());
-                oldByModule.get(c.toModule).add(c.toPort);
-            });
-            const newByModule = new Map();
-            newCables.forEach(c => {
-                if (!newByModule.has(c.toModule)) newByModule.set(c.toModule, new Set());
-                newByModule.get(c.toModule).add(c.toPort);
-            });
-
-            // Restore disconnected inputs to their normalled/default values so
-            // stale trigger, gate, CV, or audio buffers cannot keep sounding.
-            for (const [modId, oldPorts] of oldByModule) {
-                const newPorts = newByModule.get(modId) || new Set();
-                const lostPorts = [...oldPorts].filter(p => !newPorts.has(p));
-                if (lostPorts.length > 0) {
-                    const mod = modules[modId]?.instance;
-                    lostPorts.forEach(port => {
-                        restoreInputDefault(modId, port);
-                        mod?.onInputDisconnected?.(port);
-                    });
-
-                    if (mod?.clearAudioInputs) {
-                        mod.clearAudioInputs();
-                    }
-                }
-            }
-
-            cables = newCables;
-            processOrder = computeProcessOrder(modules, cables);
+        setModules(nextModules) {
+            const validCables = activeCables.filter(cable => nextModules[cable.fromModule] && nextModules[cable.toModule]);
+            activateTopology(nextModules, validCables);
         },
 
-        /**
-         * Update AudioContext
-         * @param {AudioContext} ctx
-         */
+        setCables(nextCables) {
+            activateTopology(Object.fromEntries(Object.entries(preparedModules).map(([id, module]) => [id, module])), nextCables);
+        },
+
         setAudioContext(ctx) {
             audioCtx = ctx;
             sampleRate = ctx?.sampleRate || SAMPLE_RATE;
-            bufferDuration = BUFFER / sampleRate;
+            bufferDuration = blockSize / sampleRate;
         },
 
-        /**
-         * Process a single buffer (for testing)
-         */
         tick() {
-            if (audioCtx) {
-                nextTime = audioCtx.currentTime;
-            }
+            if (audioCtx) nextTime = audioCtx.currentTime;
             processBuffer();
             return collectLedStates();
         },
 
-        /**
-         * Route signals for a specific module (exposed for testing)
-         */
-        routeSignals,
+        routeSignals(moduleId) {
+            graph.route(moduleId);
+        },
 
-        /**
-         * Get current processing order (for debugging/testing)
-         */
+        retryModule(moduleId) {
+            return disabledModules.delete(moduleId);
+        },
+
+        getModuleError(moduleId) {
+            return disabledModules.get(moduleId) || null;
+        },
+
         get processOrder() {
-            return [...processOrder];
+            return [...graph.processOrder];
         }
     };
 }
 
-/**
- * Create a simple mock audio context for testing
- * @returns {Object} Mock AudioContext
- */
 export function createMockAudioContext() {
     let time = 0;
     return {

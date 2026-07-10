@@ -15,6 +15,32 @@ Priority levels: **Critical** (audible artifacts), **High** (noticeable improvem
 
 ---
 
+## Cross-Cutting Audio Runtime
+
+### Completed July 2026
+
+- Production DSP moved to a required `AudioWorklet`; the browser timer/reference engine is no longer an application fallback.
+- Cable topology is precompiled with deterministic source-before-destination ordering.
+- Feedback strongly connected components use explicit one-block delays instead of accidental manifest-order behavior.
+- DSP input/output buffers keep stable identities. The graph copies routed samples and restores declared input normal voltages on disconnection.
+- Inputs have one source and outputs retain fan-out. Combining sources now requires an explicit mixer/logic utility.
+- Patch activation is revision-acknowledged and atomic; graph compilation failure leaves the previous graph active.
+- Module processing faults are isolated by zeroing and disabling only the failing instance.
+- Custom displays use declared, bounded telemetry rather than direct audio-thread state access. Scrolling histories send incremental entries.
+- Large command-boundary results such as recorder buffers use transferable module events and complete browser-only work on the main thread.
+- Raw MIDI is handled in the worklet through an injected service.
+
+### Deliberate Trade-Offs
+
+- Every edge inside a feedback component is delayed by one worklet block. This is predictable and stable, but it does not model sub-block analog feedback.
+- Signal labels remain semantic rather than prohibiting cross-type patching, preserving DC-coupled Eurorack behavior.
+- Runtime plugins are trusted code. Matching main-thread/worklet ownership and patch contracts prevent accidental collisions but do not provide a security sandbox.
+- Analyzer telemetry is bounded and UI-rate, so displays intentionally lag DSP by a small amount and are not sample-accurate control surfaces.
+
+See `docs/architecture.md` for the normative runtime and schema contracts.
+
+---
+
 ## VCO (Voltage Controlled Oscillator)
 
 ### Current Implementation

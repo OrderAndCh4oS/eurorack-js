@@ -138,10 +138,6 @@ export default {
                 }
 
                 // Reset own input if replaced by routing
-                if (this.inputs.rateCV !== ownRateCV) {
-                    ownRateCV.fill(0);
-                    this.inputs.rateCV = ownRateCV;
-                }
             },
 
             reset() {
@@ -163,17 +159,17 @@ export default {
         ],
         switches: [],
         inputs: [
-            { id: 'rateCV', label: 'CV', port: 'rateCV', type: 'cv' }
+            { id: 'rateCV', label: 'CV', port: 'rateCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'out1', label: '1', port: 'out1', type: 'cv' },
-            { id: 'out2', label: '2', port: 'out2', type: 'cv' },
-            { id: 'out3', label: '3', port: 'out3', type: 'cv' },
-            { id: 'out4', label: '4', port: 'out4', type: 'cv' },
-            { id: 'out5', label: '5', port: 'out5', type: 'cv' },
-            { id: 'out6', label: '6', port: 'out6', type: 'cv' },
-            { id: 'out7', label: '7', port: 'out7', type: 'cv' },
-            { id: 'out8', label: '8', port: 'out8', type: 'cv' }
+            { id: 'out1', label: '1', port: 'out1', signal: 'cv' },
+            { id: 'out2', label: '2', port: 'out2', signal: 'cv' },
+            { id: 'out3', label: '3', port: 'out3', signal: 'cv' },
+            { id: 'out4', label: '4', port: 'out4', signal: 'cv' },
+            { id: 'out5', label: '5', port: 'out5', signal: 'cv' },
+            { id: 'out6', label: '6', port: 'out6', signal: 'cv' },
+            { id: 'out7', label: '7', port: 'out7', signal: 'cv' },
+            { id: 'out8', label: '8', port: 'out8', signal: 'cv' }
         ]
     }
 };

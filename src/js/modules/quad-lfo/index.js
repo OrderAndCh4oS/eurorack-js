@@ -144,16 +144,16 @@ export default {
             { id: 'rateCvAmt', label: 'CV Amt', param: 'rateCvAmt', min: -1, max: 1, default: 0 }
         ],
         inputs: [
-            { id: 'rateCV', label: '1V/Oct', port: 'rateCV', type: 'cv' },
-            { id: 'rateMod', label: 'FM', port: 'rateMod', type: 'cv' },
-            { id: 'reset', label: 'Reset', port: 'reset', type: 'trigger' },
-            { id: 'hold', label: 'Hold', port: 'hold', type: 'gate' }
+            { id: 'rateCV', label: '1V/Oct', port: 'rateCV', signal: 'cv' },
+            { id: 'rateMod', label: 'FM', port: 'rateMod', signal: 'cv' },
+            { id: 'reset', label: 'Reset', port: 'reset', signal: 'trigger' },
+            { id: 'hold', label: 'Hold', port: 'hold', signal: 'gate' }
         ],
         outputs: [
-            { id: 'out0', label: '0', port: 'out0', type: 'cv' },
-            { id: 'out90', label: '90', port: 'out90', type: 'cv' },
-            { id: 'out180', label: '180', port: 'out180', type: 'cv' },
-            { id: 'out270', label: '270', port: 'out270', type: 'cv' }
+            { id: 'out0', label: '0', port: 'out0', signal: 'cv' },
+            { id: 'out90', label: '90', port: 'out90', signal: 'cv' },
+            { id: 'out180', label: '180', port: 'out180', signal: 'cv' },
+            { id: 'out270', label: '270', port: 'out270', signal: 'cv' }
         ]
     }
 };

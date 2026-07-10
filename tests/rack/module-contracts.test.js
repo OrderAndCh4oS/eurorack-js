@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CATEGORY_ORDER, MODULE_MANIFEST, MODULE_ORDER } from '../../src/js/rack/module-manifest.js';
-import { registerModule } from '../../src/js/rack/registry.js';
+import { CORE_MODULE_DEFINITIONS } from '../../src/js/rack/core-definitions.js';
+import { PluginRegistry } from '../../src/js/rack/registry.js';
+import { SIGNAL_TYPES, getModulePorts } from '../../src/js/rack/module-contract.js';
+import { getNestedValue } from '../../src/js/utils/nested-access.js';
 import { cleanupRenderedModule, renderModule } from '../../src/js/ui/renderer.js';
-
-const PORT_TYPES = ['audio', 'cv', 'gate', 'trigger', 'buffer'];
 
 async function loadManifestDefinitions() {
     const entries = await Promise.all(MODULE_MANIFEST.map(async entry => ({
@@ -69,17 +70,35 @@ describe('module contracts', () => {
         });
     });
 
+    it('keeps the statically imported worklet bundle aligned with the core manifest', () => {
+        expect(CORE_MODULE_DEFINITIONS.map(definition => definition.id)).toEqual(MODULE_ORDER);
+    });
+
     it('loads modules whose self-contained metadata is valid', async () => {
         const entries = await loadManifestDefinitions();
 
         entries.forEach(({ entry, definition }) => {
             expect(definition.id).toBe(entry.id);
             expect(CATEGORY_ORDER).toContain(definition.category);
+            if (definition.render) {
+                expect(definition.telemetry, `${definition.id} custom telemetry`).toEqual(expect.objectContaining({
+                    fields: expect.any(Array),
+                    methods: expect.any(Array)
+                }));
+            }
         });
     });
 
-    it('rejects module categories outside the shared taxonomy', () => {
-        expect(() => registerModule({
+    it('rejects module categories outside the shared taxonomy', async () => {
+        const registry = new PluginRegistry({ blockSize: 16 });
+        await expect(registry.registerPlugin({
+            id: 'bad-plugin',
+            name: 'Bad Plugin',
+            version: '1.0.0',
+            apiVersion: 1,
+            patchVersion: 1,
+            workletUrl: 'test://bad-worklet.js',
+            modules: [{ definition: {
             id: 'bad-category',
             name: 'Bad Category',
             hp: 2,
@@ -92,7 +111,8 @@ describe('module contracts', () => {
                 process() {}
             }),
             ui: {}
-        })).toThrow('invalid category');
+            }}]
+        })).rejects.toThrow('invalid category');
     });
 
     it('keeps UI params and ports aligned with DSP instances', async () => {
@@ -107,13 +127,38 @@ describe('module contracts', () => {
             });
 
             (ui.inputs || []).forEach(input => {
-                expect(PORT_TYPES, `${definition.id}.${input.port} has invalid input type`).toContain(input.type);
+                expect(SIGNAL_TYPES, `${definition.id}.${input.port} has invalid input signal`).toContain(input.signal);
                 expect(dsp.inputs, `${definition.id} missing inputs.${input.port}`).toHaveProperty(input.port);
             });
 
             (ui.outputs || []).forEach(output => {
-                expect(PORT_TYPES, `${definition.id}.${output.port} has invalid output type`).toContain(output.type);
+                expect(SIGNAL_TYPES, `${definition.id}.${output.port} has invalid output signal`).toContain(output.signal);
                 expect(dsp.outputs, `${definition.id} missing outputs.${output.port}`).toHaveProperty(output.port);
+            });
+        });
+    });
+
+    it('declares finite voltage contracts and stable block buffers', async () => {
+        const entries = await loadManifestDefinitions();
+
+        entries.forEach(({ definition }) => {
+            const dsp = definition.createDSP({ sampleRate: 44100, bufferSize: 16 });
+            const inputRefs = new Map();
+            const outputRefs = new Map();
+            getModulePorts(definition, 'input').forEach(port => {
+                const buffer = getNestedValue(dsp.inputs, port.port);
+                inputRefs.set(port.port, buffer);
+                expect(port.voltage.normal, `${definition.id}.${port.port} normal`).toBeTypeOf('number');
+                expect(buffer.every(value => value === port.voltage.normal), `${definition.id}.${port.port} initial normal`).toBe(true);
+            });
+            getModulePorts(definition, 'output').forEach(port => outputRefs.set(port.port, getNestedValue(dsp.outputs, port.port)));
+
+            dsp.process();
+
+            inputRefs.forEach((buffer, port) => expect(getNestedValue(dsp.inputs, port), `${definition.id}.${port} input identity`).toBe(buffer));
+            outputRefs.forEach((buffer, port) => {
+                expect(getNestedValue(dsp.outputs, port), `${definition.id}.${port} output identity`).toBe(buffer);
+                expect(buffer.every(Number.isFinite), `${definition.id}.${port} finite output`).toBe(true);
             });
         });
     });

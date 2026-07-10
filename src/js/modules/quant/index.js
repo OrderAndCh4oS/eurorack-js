@@ -90,11 +90,11 @@ export default {
             { id: 'semitone', label: 'Semi', param: 'semitone', min: 0, max: 11, default: 0, step: 1 }
         ],
         inputs: [
-            { id: 'cv', label: 'In', port: 'cv', type: 'cv' }
+            { id: 'cv', label: 'In', port: 'cv', signal: 'cv' }
         ],
         outputs: [
-            { id: 'cv', label: 'Out', port: 'cv', type: 'cv' },
-            { id: 'trigger', label: 'Trig', port: 'trigger', type: 'trigger' }
+            { id: 'cv', label: 'Out', port: 'cv', signal: 'cv' },
+            { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger' }
         ]
     }
 };

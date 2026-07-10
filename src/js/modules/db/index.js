@@ -19,6 +19,7 @@ export default {
     hp: 4,
     color: 'module-color-one',
     category: 'utility',
+    telemetry: { fields: [], methods: [] },
 
     // Custom CSS for VU meter display
     css: `
@@ -307,14 +308,6 @@ export default {
                 }
 
                 // Reset inputs if replaced by routing
-                if (this.inputs.L !== ownL) {
-                    ownL.fill(0);
-                    this.inputs.L = ownL;
-                }
-                if (this.inputs.R !== ownR) {
-                    ownR.fill(0);
-                    this.inputs.R = ownR;
-                }
             },
 
             reset() {
@@ -450,13 +443,13 @@ export default {
             id: 'L',
             label: 'L',
             direction: 'input',
-            type: 'audio'
+            signal: 'audio'
         }));
         inJackRow.appendChild(toolkit.createJack({
             id: 'R',
             label: 'R',
             direction: 'input',
-            type: 'audio'
+            signal: 'audio'
         }));
         controls.appendChild(inJackRow);
 
@@ -472,13 +465,13 @@ export default {
             id: 'outL',
             label: 'L',
             direction: 'output',
-            type: 'audio'
+            signal: 'audio'
         }));
         outJackRow.appendChild(toolkit.createJack({
             id: 'outR',
             label: 'R',
             direction: 'output',
-            type: 'audio'
+            signal: 'audio'
         }));
         controls.appendChild(outJackRow);
 
@@ -548,12 +541,12 @@ export default {
             { id: 'hold', label: 'Hold', param: 'hold', positions: ['Off', 'On'], default: 1 }
         ],
         inputs: [
-            { id: 'L', label: 'L', port: 'L', type: 'audio' },
-            { id: 'R', label: 'R', port: 'R', type: 'audio' }
+            { id: 'L', label: 'L', port: 'L', signal: 'audio' },
+            { id: 'R', label: 'R', port: 'R', signal: 'audio' }
         ],
         outputs: [
-            { id: 'outL', label: 'L', port: 'outL', type: 'audio' },
-            { id: 'outR', label: 'R', port: 'outR', type: 'audio' }
+            { id: 'outL', label: 'L', port: 'outL', signal: 'audio' },
+            { id: 'outR', label: 'R', port: 'outR', signal: 'audio' }
         ]
     }
 };

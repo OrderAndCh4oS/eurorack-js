@@ -10,7 +10,8 @@ export default {
     "name": "Test: CMP2",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "ochd",
@@ -57,35 +58,37 @@ export default {
         ],
         "params": {
             "ochd": {
-                "rate": 0.73
+                "rate": 0.67
             },
             "cmp2": {
-                "shift1": -1,
-                "size1": 3.93,
-                "shift2": 1,
-                "size2": 3.47
+                "shift1": -0.3333333333333339,
+                "size1": 2.7299999999999986,
+                "shift2": -1.2666666666666657,
+                "size2": 3.2700000000000014
             },
             "vco": {
-                "coarse": 0.34,
-                "fine": -1.04,
+                "coarse": 0.4,
+                "fine": 2,
                 "glide": 0
             },
             "vcf": {
-                "cutoff": 0.58,
-                "resonance": 0.15
+                "cutoff": 0.6933333333333332,
+                "resonance": 0.5566666666666666
             },
             "adsr": {
                 "attack": 0,
-                "decay": 0.24,
-                "sustain": 0.29,
-                "release": 0.49
+                "decay": 0.31333333333333335,
+                "sustain": 0.04666666666666667,
+                "release": 0.29333333333333333
             },
             "vca": {
-                "ch1Gain": 0.8,
-                "ch2Gain": 0
+                "ch1Gain": 0.7533333333333334,
+                "ch2Gain": 0,
+                "gain1": 0.7,
+                "gain2": 0.7
             },
             "out": {
-                "volume": 0.6
+                "volume": 0.7066666666666667
             }
         },
         "cables": [

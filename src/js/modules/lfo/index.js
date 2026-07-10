@@ -117,13 +117,13 @@ export default {
             { id: 'range', label: 'Fast', param: 'range', default: 0 }
         ],
         inputs: [
-            { id: 'rateCV', label: 'Rate', port: 'rateCV', type: 'cv' },
-            { id: 'waveCV', label: 'Wave', port: 'waveCV', type: 'cv' },
-            { id: 'reset', label: 'Reset', port: 'reset', type: 'trigger' }
+            { id: 'rateCV', label: 'Rate', port: 'rateCV', signal: 'cv' },
+            { id: 'waveCV', label: 'Wave', port: 'waveCV', signal: 'cv' },
+            { id: 'reset', label: 'Reset', port: 'reset', signal: 'trigger' }
         ],
         outputs: [
-            { id: 'primary', label: 'Pri', port: 'primary', type: 'buffer' },
-            { id: 'secondary', label: 'Sec', port: 'secondary', type: 'buffer' }
+            { id: 'primary', label: 'Pri', port: 'primary', signal: 'cv' },
+            { id: 'secondary', label: 'Sec', port: 'secondary', signal: 'cv' }
         ]
     }
 };

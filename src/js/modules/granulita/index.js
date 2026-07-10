@@ -166,7 +166,7 @@ export default {
             grain.position = (writeHead - offset + audioBufferSize) % audioBufferSize;
         }
 
-        function clearInputBuffers(instance) {
+        function clearInputBuffers() {
             ownInL.fill(0);
             ownInR.fill(0);
             ownHit.fill(0);
@@ -177,17 +177,6 @@ export default {
             ownVerbCV.fill(0);
             ownCountCV.fill(0);
             ownLengthCV.fill(0);
-
-            instance.inputs.inL = ownInL;
-            instance.inputs.inR = ownInR;
-            instance.inputs.hit = ownHit;
-            instance.inputs.blendCV = ownBlendCV;
-            instance.inputs.pitchCV = ownPitchCV;
-            instance.inputs.chordCV = ownChordCV;
-            instance.inputs.voiceCV = ownVoiceCV;
-            instance.inputs.verbCV = ownVerbCV;
-            instance.inputs.countCV = ownCountCV;
-            instance.inputs.lengthCV = ownLengthCV;
         }
 
         function clearTextureState() {
@@ -238,23 +227,6 @@ export default {
             lastGate = 0;
         }
 
-        function restoreRoutedInputs(instance) {
-            if (
-                instance.inputs.inL !== ownInL ||
-                instance.inputs.inR !== ownInR ||
-                instance.inputs.hit !== ownHit ||
-                instance.inputs.blendCV !== ownBlendCV ||
-                instance.inputs.pitchCV !== ownPitchCV ||
-                instance.inputs.chordCV !== ownChordCV ||
-                instance.inputs.voiceCV !== ownVoiceCV ||
-                instance.inputs.verbCV !== ownVerbCV ||
-                instance.inputs.countCV !== ownCountCV ||
-                instance.inputs.lengthCV !== ownLengthCV
-            ) {
-                clearInputBuffers(instance);
-            }
-        }
-
         return {
             params: {
                 blend: 0.5,      // 0-1 dry/wet
@@ -288,12 +260,6 @@ export default {
 
             leds: {
                 active: 0
-            },
-
-            clearAudioInputs() {
-                clearInputBuffers(this);
-                clearTextureState();
-                this.leds.active = 0;
             },
 
             process() {
@@ -515,12 +481,10 @@ export default {
                 // Update LED
                 this.leds.active = Math.min(1, peakLevel / 5);
 
-                // Reset inputs if they were replaced by routing.
-                restoreRoutedInputs(this);
             },
 
             reset() {
-                clearInputBuffers(this);
+                clearInputBuffers();
                 clearTextureState();
 
                 this.leds.active = 0;
@@ -544,20 +508,20 @@ export default {
             { id: 'hitMode', label: 'Hit', param: 'hitMode', positions: ['FRZ', 'SYNC', 'TRIG'], default: 1 }
         ],
         inputs: [
-            { id: 'inL', label: 'In L', port: 'inL', type: 'audio' },
-            { id: 'inR', label: 'In R', port: 'inR', type: 'audio' },
-            { id: 'hit', label: 'Hit', port: 'hit', type: 'gate' },
-            { id: 'blendCV', label: 'Blend', port: 'blendCV', type: 'cv' },
-            { id: 'pitchCV', label: 'Pitch', port: 'pitchCV', type: 'cv' },
-            { id: 'chordCV', label: 'Chord', port: 'chordCV', type: 'cv' },
-            { id: 'voiceCV', label: 'Voice', port: 'voiceCV', type: 'cv' },
-            { id: 'verbCV', label: 'Verb', port: 'verbCV', type: 'cv' },
-            { id: 'countCV', label: 'Count', port: 'countCV', type: 'cv' },
-            { id: 'lengthCV', label: 'Length', port: 'lengthCV', type: 'cv' }
+            { id: 'inL', label: 'In L', port: 'inL', signal: 'audio' },
+            { id: 'inR', label: 'In R', port: 'inR', signal: 'audio' },
+            { id: 'hit', label: 'Hit', port: 'hit', signal: 'gate' },
+            { id: 'blendCV', label: 'Blend', port: 'blendCV', signal: 'cv' },
+            { id: 'pitchCV', label: 'Pitch', port: 'pitchCV', signal: 'cv' },
+            { id: 'chordCV', label: 'Chord', port: 'chordCV', signal: 'cv' },
+            { id: 'voiceCV', label: 'Voice', port: 'voiceCV', signal: 'cv' },
+            { id: 'verbCV', label: 'Verb', port: 'verbCV', signal: 'cv' },
+            { id: 'countCV', label: 'Count', port: 'countCV', signal: 'cv' },
+            { id: 'lengthCV', label: 'Length', port: 'lengthCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'outL', label: 'Out L', port: 'outL', type: 'audio' },
-            { id: 'outR', label: 'Out R', port: 'outR', type: 'audio' }
+            { id: 'outL', label: 'Out L', port: 'outL', signal: 'audio' },
+            { id: 'outR', label: 'Out R', port: 'outR', signal: 'audio' }
         ]
     }
 };

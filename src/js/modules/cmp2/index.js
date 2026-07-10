@@ -197,30 +197,6 @@ export default {
                 this.leds.ff = ff[bufferSize - 1] > 0 ? 1 : 0;
 
                 // Reset own inputs if replaced by routing
-                if (this.inputs.in1 !== ownIn1) {
-                    ownIn1.fill(0);
-                    this.inputs.in1 = ownIn1;
-                }
-                if (this.inputs.in2 !== ownIn2) {
-                    ownIn2.fill(0);
-                    this.inputs.in2 = ownIn2;
-                }
-                if (this.inputs.shiftCV1 !== ownShiftCV1) {
-                    ownShiftCV1.fill(0);
-                    this.inputs.shiftCV1 = ownShiftCV1;
-                }
-                if (this.inputs.sizeCV1 !== ownSizeCV1) {
-                    ownSizeCV1.fill(0);
-                    this.inputs.sizeCV1 = ownSizeCV1;
-                }
-                if (this.inputs.shiftCV2 !== ownShiftCV2) {
-                    ownShiftCV2.fill(0);
-                    this.inputs.shiftCV2 = ownShiftCV2;
-                }
-                if (this.inputs.sizeCV2 !== ownSizeCV2) {
-                    ownSizeCV2.fill(0);
-                    this.inputs.sizeCV2 = ownSizeCV2;
-                }
             },
 
             reset() {
@@ -256,22 +232,22 @@ export default {
         ],
         switches: [],
         inputs: [
-            { id: 'in1', label: 'In', port: 'in1', type: 'cv' },
-            { id: 'shiftCV1', label: 'Sh', port: 'shiftCV1', type: 'cv' },
-            { id: 'sizeCV1', label: 'Sz', port: 'sizeCV1', type: 'cv' },
-            { id: 'in2', label: 'In', port: 'in2', type: 'cv' },
-            { id: 'shiftCV2', label: 'Sh', port: 'shiftCV2', type: 'cv' },
-            { id: 'sizeCV2', label: 'Sz', port: 'sizeCV2', type: 'cv' }
+            { id: 'in1', label: 'In', port: 'in1', signal: 'cv' },
+            { id: 'shiftCV1', label: 'Sh', port: 'shiftCV1', signal: 'cv' },
+            { id: 'sizeCV1', label: 'Sz', port: 'sizeCV1', signal: 'cv' },
+            { id: 'in2', label: 'In', port: 'in2', signal: 'cv' },
+            { id: 'shiftCV2', label: 'Sh', port: 'shiftCV2', signal: 'cv' },
+            { id: 'sizeCV2', label: 'Sz', port: 'sizeCV2', signal: 'cv' }
         ],
         outputs: [
-            { id: 'out1', label: 'Out', port: 'out1', type: 'gate' },
-            { id: 'not1', label: 'Not', port: 'not1', type: 'gate' },
-            { id: 'out2', label: 'Out', port: 'out2', type: 'gate' },
-            { id: 'not2', label: 'Not', port: 'not2', type: 'gate' },
-            { id: 'and', label: 'AND', port: 'and', type: 'gate' },
-            { id: 'or', label: 'OR', port: 'or', type: 'gate' },
-            { id: 'xor', label: 'XOR', port: 'xor', type: 'gate' },
-            { id: 'ff', label: 'FF', port: 'ff', type: 'gate' }
+            { id: 'out1', label: 'Out', port: 'out1', signal: 'gate' },
+            { id: 'not1', label: 'Not', port: 'not1', signal: 'gate' },
+            { id: 'out2', label: 'Out', port: 'out2', signal: 'gate' },
+            { id: 'not2', label: 'Not', port: 'not2', signal: 'gate' },
+            { id: 'and', label: 'AND', port: 'and', signal: 'gate' },
+            { id: 'or', label: 'OR', port: 'or', signal: 'gate' },
+            { id: 'xor', label: 'XOR', port: 'xor', signal: 'gate' },
+            { id: 'ff', label: 'FF', port: 'ff', signal: 'gate' }
         ]
     }
 };

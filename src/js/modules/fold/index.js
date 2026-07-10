@@ -101,12 +101,12 @@ export default {
             { id: 'sym', label: 'Sym', param: 'sym', min: -1, max: 1, default: 0 }
         ],
         inputs: [
-            { id: 'audio', label: 'In', port: 'audio', type: 'audio' },
-            { id: 'foldCV', label: 'Fold', port: 'foldCV', type: 'cv' },
-            { id: 'symCV', label: 'Sym', port: 'symCV', type: 'cv' }
+            { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
+            { id: 'foldCV', label: 'Fold', port: 'foldCV', signal: 'cv' },
+            { id: 'symCV', label: 'Sym', port: 'symCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', type: 'audio' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'audio' }
         ]
     }
 };

@@ -349,43 +349,30 @@ describe('GRANULITA (Granular Chord Generator)', () => {
     });
 
     describe('reset', () => {
-        it('restores routed trigger and CV inputs after processing', () => {
-            const routedHit = new Float32Array(512).fill(5);
-            const routedPitch = new Float32Array(512).fill(2.5);
-
-            granulita.inputs.hit = routedHit;
-            granulita.inputs.pitchCV = routedPitch;
+        it('keeps trigger and CV input identities stable across processing', () => {
+            const hit = granulita.inputs.hit;
+            const pitch = granulita.inputs.pitchCV;
+            hit.fill(5);
+            pitch.fill(2.5);
             granulita.process();
 
-            expect(granulita.inputs.hit).not.toBe(routedHit);
-            expect(granulita.inputs.pitchCV).not.toBe(routedPitch);
-            expect(granulita.inputs.hit.every(v => v === 0)).toBe(true);
-            expect(granulita.inputs.pitchCV.every(v => v === 0)).toBe(true);
+            expect(granulita.inputs.hit).toBe(hit);
+            expect(granulita.inputs.pitchCV).toBe(pitch);
         });
 
-        it('clearAudioInputs clears every routed input buffer', () => {
-            const routedIn = new Float32Array(512).fill(3);
-            const routedHit = new Float32Array(512).fill(5);
-            const routedPitch = new Float32Array(512).fill(2.5);
-            const routedCount = new Float32Array(512).fill(2.5);
+        it('reset clears every input buffer without replacing it', () => {
+            const inputs = { ...granulita.inputs };
+            Object.values(granulita.inputs).forEach(buffer => buffer.fill(3));
+            granulita.reset();
 
-            granulita.inputs.inL = routedIn;
-            granulita.inputs.hit = routedHit;
-            granulita.inputs.pitchCV = routedPitch;
-            granulita.inputs.countCV = routedCount;
-            granulita.clearAudioInputs();
-
-            expect(granulita.inputs.inL).not.toBe(routedIn);
-            expect(granulita.inputs.hit).not.toBe(routedHit);
-            expect(granulita.inputs.pitchCV).not.toBe(routedPitch);
-            expect(granulita.inputs.countCV).not.toBe(routedCount);
+            Object.entries(inputs).forEach(([name, buffer]) => expect(granulita.inputs[name]).toBe(buffer));
             expect(granulita.inputs.inL.every(v => v === 0)).toBe(true);
             expect(granulita.inputs.hit.every(v => v === 0)).toBe(true);
             expect(granulita.inputs.pitchCV.every(v => v === 0)).toBe(true);
             expect(granulita.inputs.countCV.every(v => v === 0)).toBe(true);
         });
 
-        it('clearAudioInputs clears captured grains and reverb after audio has passed through', () => {
+        it('reset clears captured grains and reverb after audio has passed through', () => {
             const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
             granulita.params.blend = 1;
             granulita.params.verb = 0.4;
@@ -415,7 +402,7 @@ describe('GRANULITA (Granular Chord Generator)', () => {
 
                 expect(Math.max(...granulita.outputs.outL.map(Math.abs))).toBeGreaterThan(0.001);
 
-                granulita.clearAudioInputs();
+                granulita.reset();
                 granulita.process();
 
                 expect(Math.max(...granulita.outputs.outL.map(Math.abs))).toBeLessThan(0.001);

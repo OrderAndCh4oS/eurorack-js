@@ -185,10 +185,10 @@ export default {
         ],
         inputs: [],
         outputs: [
-            { id: 'pitch', label: 'Pitch', port: 'pitch', type: 'cv' },
-            { id: 'gate', label: 'Gate', port: 'gate', type: 'gate' },
-            { id: 'velocity', label: 'Vel', port: 'velocity', type: 'cv' },
-            { id: 'mod', label: 'Mod', port: 'mod', type: 'cv' }
+            { id: 'pitch', label: 'Pitch', port: 'pitch', signal: 'cv' },
+            { id: 'gate', label: 'Gate', port: 'gate', signal: 'gate' },
+            { id: 'velocity', label: 'Vel', port: 'velocity', signal: 'cv' },
+            { id: 'mod', label: 'Mod', port: 'mod', signal: 'cv' }
         ]
     }
 };

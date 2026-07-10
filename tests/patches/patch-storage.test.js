@@ -16,7 +16,7 @@ Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock });
 
 function canonicalState(value = 0.5) {
     return {
-        version: 2,
+        version: 3, plugins: { core: 1 },
         modules: [{ id: 'vco', type: 'vco', row: 1, index: 0 }],
         params: { vco: { frequency: value } },
         cables: [],
@@ -31,7 +31,7 @@ vi.mock('../../src/js/config/factory-patches.js', () => ({
             name: 'Factory One',
             factory: true,
             state: {
-                version: 2,
+                version: 3, plugins: { core: 1 },
                 modules: [{ id: 'vco', type: 'vco', row: 1, index: 0 }],
                 params: { vco: { frequency: 0.5 } },
                 cables: [],
@@ -42,7 +42,7 @@ vi.mock('../../src/js/config/factory-patches.js', () => ({
             name: 'Factory Two',
             factory: true,
             state: {
-                version: 2,
+                version: 3, plugins: { core: 1 },
                 modules: [{ id: 'out', type: 'out', row: 1, index: 0 }],
                 params: { out: { volume: 0.5 } },
                 cables: [],

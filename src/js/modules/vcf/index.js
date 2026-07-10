@@ -37,11 +37,6 @@ export default {
             outputs: { lpf, bpf, hpf },
             leds: { cutoff: 0 },
 
-            clearAudioInputs() {
-                ownAudio.fill(0);
-                this.inputs.audio = ownAudio;
-            },
-
             process() {
                 const audioIn = this.inputs.audio;
                 const cutoffCV = this.inputs.cutoffCV;
@@ -88,11 +83,6 @@ export default {
                 }
 
                 this.leds.cutoff = cutoffKnob;
-
-                if (this.inputs.audio !== ownAudio) {
-                    ownAudio.fill(0);
-                    this.inputs.audio = ownAudio;
-                }
             },
 
             reset() {
@@ -113,14 +103,14 @@ export default {
             { id: 'resonance', label: 'Res', param: 'resonance', min: 0, max: 1, default: 0.3 }
         ],
         inputs: [
-            { id: 'audio', label: 'In', port: 'audio', type: 'buffer' },
-            { id: 'cutoffCV', label: 'Freq', port: 'cutoffCV', type: 'cv' },
-            { id: 'resCV', label: 'Res', port: 'resCV', type: 'cv' }
+            { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
+            { id: 'cutoffCV', label: 'Freq', port: 'cutoffCV', signal: 'cv' },
+            { id: 'resCV', label: 'Res', port: 'resCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'lpf', label: 'LP', port: 'lpf', type: 'buffer' },
-            { id: 'bpf', label: 'BP', port: 'bpf', type: 'buffer' },
-            { id: 'hpf', label: 'HP', port: 'hpf', type: 'buffer' }
+            { id: 'lpf', label: 'LP', port: 'lpf', signal: 'audio' },
+            { id: 'bpf', label: 'BP', port: 'bpf', signal: 'audio' },
+            { id: 'hpf', label: 'HP', port: 'hpf', signal: 'audio' }
         ]
     }
 };

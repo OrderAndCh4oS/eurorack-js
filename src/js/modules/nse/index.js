@@ -134,10 +134,10 @@ export default {
             { id: 'vcaMode', label: 'VCA', param: 'vcaMode', default: 0 }
         ],
         inputs: [
-            { id: 'trigger', label: 'Trig', port: 'trigger', type: 'trigger' }
+            { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger' }
         ],
         outputs: [
-            { id: 'noise', label: 'Out', port: 'noise', type: 'buffer' }
+            { id: 'noise', label: 'Out', port: 'noise', signal: 'audio' }
         ]
     }
 };

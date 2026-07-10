@@ -14,7 +14,8 @@ export default {
     "name": "Test: MIDI-CC",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "midi",

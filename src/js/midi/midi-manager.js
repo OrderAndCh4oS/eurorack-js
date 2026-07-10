@@ -17,6 +17,7 @@ export function createMidiManager() {
     let learningKnob = null;  // { element, moduleId, paramId, min, max }
     let onMidiLearnComplete = null;  // Callback when CC is captured
     let onMidiMessage = null;  // Callback for CC value changes
+    let onRawMidiMessage = null;
     let onConnectionChange = null;  // Callback for device connect/disconnect
 
     // Event queues for MIDI modules (per channel)
@@ -90,6 +91,7 @@ export function createMidiManager() {
      * @param {MIDIMessageEvent} event
      */
     function handleMidiMessage(event) {
+        onRawMidiMessage?.(event.data);
         const [status, data1, data2] = event.data;
         const messageType = status & 0xF0;
         const channel = status & 0x0F;
@@ -263,6 +265,7 @@ export function createMidiManager() {
         // Callbacks
         setOnMidiLearnComplete(callback) { onMidiLearnComplete = callback; },
         setOnMidiMessage(callback) { onMidiMessage = callback; },
+        setOnRawMidiMessage(callback) { onRawMidiMessage = callback; },
         setOnConnectionChange(callback) { onConnectionChange = callback; },
 
         // === MIDI Module API ===

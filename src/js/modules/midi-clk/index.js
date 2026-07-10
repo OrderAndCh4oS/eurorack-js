@@ -172,9 +172,9 @@ export default {
         switches: [],
         inputs: [],
         outputs: [
-            { id: 'clock', label: 'Clk', port: 'clock', type: 'trigger' },
-            { id: 'reset', label: 'Rst', port: 'reset', type: 'trigger' },
-            { id: 'run', label: 'Run', port: 'run', type: 'gate' }
+            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger' },
+            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger' },
+            { id: 'run', label: 'Run', port: 'run', signal: 'gate' }
         ]
     }
 };

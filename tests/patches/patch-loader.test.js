@@ -286,7 +286,7 @@ describe('patch-loader', () => {
         });
 
         it('should clear existing cables first', () => {
-            const state = { version: 2, modules: [], params: {}, cables: [], midiMappings: {} };
+            const state = { version: 3, plugins: { core: 1 }, modules: [], params: {}, cables: [], midiMappings: {} };
 
             applyPatchState(state, { container, modules, clearCables, addCable });
 
@@ -308,7 +308,7 @@ describe('patch-loader', () => {
             container.appendChild(sw);
 
             const state = {
-                version: 2,
+                version: 3, plugins: { core: 1 },
                 modules: [
                     { id: 'vco', type: 'vco', row: 1, index: 0 },
                     { id: 'lfo', type: 'lfo', row: 1, index: 1 }
@@ -326,7 +326,7 @@ describe('patch-loader', () => {
 
         it('should return applied counts', () => {
             const state = {
-                version: 2,
+                version: 3, plugins: { core: 1 },
                 modules: [{ id: 'vco', type: 'vco', row: 1, index: 0 }],
                 params: { vco: { freq: 440, sync: 1, octave: 2 }, lfo: { rate: 2 } },
                 cables: [],
@@ -340,7 +340,7 @@ describe('patch-loader', () => {
         });
 
         it('should reject missing state properties', () => {
-            const state = { version: 2, modules: [], params: {}, cables: [] };
+            const state = { version: 3, plugins: { core: 1 }, modules: [], params: {}, cables: [] };
 
             expect(() => applyPatchState(state, { container, modules, clearCables, addCable }))
                 .toThrow('Patch state midiMappings must be an object');

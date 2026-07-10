@@ -65,6 +65,15 @@ export const MODULE_MANIFEST = [
 
 export const MODULE_ORDER = MODULE_MANIFEST.map(mod => mod.id);
 
+export const CORE_PLUGIN_MANIFEST = Object.freeze({
+    id: 'core',
+    name: 'Eurorack Core',
+    version: '1.0.0',
+    apiVersion: 1,
+    patchVersion: 1,
+    modules: MODULE_MANIFEST
+});
+
 export const CATEGORY_ORDER = [
     'midi',
     'clock',

@@ -1,277 +1,207 @@
-import { CATEGORY_ORDER, MODULE_MANIFEST } from './module-manifest.js';
+import { CATEGORY_ORDER, CORE_PLUGIN_MANIFEST } from './module-manifest.js';
 import { isHexColor, isModuleColorToken } from '../utils/color.js';
+import { validateModuleDefinition } from './module-contract.js';
 
-/**
- * Module Registry
- *
- * Central registry for managing available module definitions.
- * Handles registration, validation, and lookup of modules.
- */
+export const PLUGIN_API_VERSION = 1;
 
-/**
- * Module Registry class
- */
-class ModuleRegistry {
-    constructor() {
-        /** @type {Map<string, ModuleDefinition>} */
+function assertManifest(manifest) {
+    if (!manifest || typeof manifest !== 'object') throw new Error('Plugin manifest must be an object');
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(manifest.id || '')) throw new Error('Plugin manifest has an invalid id');
+    if (!manifest.name || typeof manifest.name !== 'string') throw new Error(`Plugin "${manifest.id}" has an invalid name`);
+    if (!manifest.version || typeof manifest.version !== 'string') throw new Error(`Plugin "${manifest.id}" has an invalid version`);
+    if (manifest.apiVersion !== PLUGIN_API_VERSION) {
+        throw new Error(`Plugin "${manifest.id}" requires API ${manifest.apiVersion}; host provides ${PLUGIN_API_VERSION}`);
+    }
+    if (!Number.isInteger(manifest.patchVersion) || manifest.patchVersion < 1) {
+        throw new Error(`Plugin "${manifest.id}" has an invalid patchVersion`);
+    }
+    if (!Array.isArray(manifest.modules) || manifest.modules.length === 0) {
+        throw new Error(`Plugin "${manifest.id}" must provide modules`);
+    }
+    if (manifest.id !== 'core' && typeof manifest.workletUrl !== 'string') {
+        throw new Error(`Plugin "${manifest.id}" must provide a workletUrl`);
+    }
+}
+
+async function loadModuleDefinition(entry) {
+    if (entry.definition) return entry.definition;
+    if (typeof entry.load !== 'function') throw new Error(`Module entry "${entry.id || 'unknown'}" is missing a loader`);
+    const imported = await entry.load();
+    return imported.default || imported;
+}
+
+function manifestsEqual(a, b) {
+    return a.id === b.id && a.version === b.version && a.apiVersion === b.apiVersion && a.patchVersion === b.patchVersion;
+}
+
+export class PluginRegistry {
+    constructor({ sampleRate = 44100, blockSize = 512 } = {}) {
+        this.sampleRate = sampleRate;
+        this.blockSize = blockSize;
         this.modules = new Map();
-
-        /** @type {Map<string, string[]>} */
-        this.categories = new Map();
+        this.plugins = new Map();
+        this.moduleOwners = new Map();
+        this.moduleOrder = new Map();
+        this.listeners = new Set();
+        this.usageResolvers = new Set();
+        this.nextOrder = 0;
     }
 
-    /**
-     * Register a module definition
-     * @param {Object} definition - Module definition object
-     * @returns {ModuleRegistry} this (for chaining)
-     * @throws {Error} If definition is invalid
-     */
-    register(definition) {
-        // Validate required fields
-        this.validate(definition);
-
-        // Store module
-        this.modules.set(definition.id, definition);
-
-        // Track by category
-        const category = definition.category || 'other';
-        if (!this.categories.has(category)) {
-            this.categories.set(category, []);
+    async registerPlugin(manifest) {
+        assertManifest(manifest);
+        const existing = this.plugins.get(manifest.id);
+        if (existing) {
+            if (manifestsEqual(existing.manifest, manifest)) return existing;
+            throw new Error(`Plugin "${manifest.id}" is already registered`);
         }
-        this.categories.get(category).push(definition.id);
 
-        return this;
-    }
-
-    /**
-     * Validate a module definition
-     * @param {Object} def - Module definition
-     * @throws {Error} If validation fails
-     */
-    validate(def) {
-        const required = ['id', 'name', 'hp', 'color', 'createDSP'];
-
-        for (const field of required) {
-            if (def[field] === undefined || def[field] === null) {
-                throw new Error(`Module "${def.id || 'unknown'}" missing required field: ${field}`);
+        const definitions = await Promise.all(manifest.modules.map(loadModuleDefinition));
+        definitions.forEach((definition, index) => {
+            const entry = manifest.modules[index];
+            if (entry.id && entry.id !== definition.id) {
+                throw new Error(`Plugin "${manifest.id}" entry "${entry.id}" loaded module "${definition.id}"`);
             }
-        }
+            if (this.modules.has(definition.id)) {
+                throw new Error(`Module "${definition.id}" is already registered by plugin "${this.moduleOwners.get(definition.id)}"`);
+            }
+            this.validate(definition);
+        });
 
-        // Validate hp is a valid size
-        if (![2, 3, 4, 6, 8, 10, 12, 14, 16].includes(def.hp)) {
-            throw new Error(`Module "${def.id}" has invalid hp: ${def.hp}. Must be 2, 3, 4, 6, 8, 10, 12, 14, or 16.`);
-        }
-
-        if (!CATEGORY_ORDER.includes(def.category)) {
-            throw new Error(`Module "${def.id}" has invalid category: ${def.category}. Must be one of: ${CATEGORY_ORDER.join(', ')}.`);
-        }
-
-        // Built-in modules use theme color tokens; hex remains supported for custom modules.
-        if (!isModuleColorToken(def.color) && !isHexColor(def.color)) {
-            throw new Error(`Module "${def.id}" has invalid color: ${def.color}. Use a module color token or #rrggbb hex value.`);
-        }
-
-        // Must have either ui definition or render function
-        if (!def.ui && !def.render) {
-            throw new Error(`Module "${def.id}" must have either "ui" or "render" defined`);
-        }
-
-        // Validate ui structure if present
-        if (def.ui) {
-            this.validateUI(def.id, def.ui);
-        }
-
-        // Validate createDSP is a function
-        if (typeof def.createDSP !== 'function') {
-            throw new Error(`Module "${def.id}" createDSP must be a function`);
-        }
+        const record = { manifest, definitions: [...definitions] };
+        this.plugins.set(manifest.id, record);
+        definitions.forEach(definition => {
+            this.modules.set(definition.id, definition);
+            this.moduleOwners.set(definition.id, manifest.id);
+            this.moduleOrder.set(definition.id, this.nextOrder++);
+        });
+        this.emit({ type: 'registered', pluginId: manifest.id, moduleIds: definitions.map(definition => definition.id) });
+        return record;
     }
 
-    /**
-     * Validate UI definition structure
-     * @param {string} moduleId - Module ID for error messages
-     * @param {Object} ui - UI definition object
-     */
-    validateUI(moduleId, ui) {
-        // Validate knobs
-        if (ui.knobs) {
-            ui.knobs.forEach((knob, i) => {
-                if (!knob.id) throw new Error(`Module "${moduleId}" knob[${i}] missing id`);
-                if (!knob.param) throw new Error(`Module "${moduleId}" knob "${knob.id}" missing param`);
-                if (knob.min === undefined) throw new Error(`Module "${moduleId}" knob "${knob.id}" missing min`);
-                if (knob.max === undefined) throw new Error(`Module "${moduleId}" knob "${knob.id}" missing max`);
-            });
-        }
+    unregisterPlugin(pluginId, { activeModuleTypes = [] } = {}) {
+        const record = this.plugins.get(pluginId);
+        if (!record) return false;
+        const ownedTypes = new Set(record.definitions.map(definition => definition.id));
+        const allActiveTypes = [
+            ...activeModuleTypes,
+            ...[...this.usageResolvers].flatMap(resolve => resolve() || [])
+        ];
+        const active = allActiveTypes.find(type => ownedTypes.has(type));
+        if (active) throw new Error(`Cannot unregister plugin "${pluginId}" while module type "${active}" is in use`);
 
-        // Validate inputs
-        if (ui.inputs) {
-            ui.inputs.forEach((input, i) => {
-                if (!input.id) throw new Error(`Module "${moduleId}" input[${i}] missing id`);
-                if (!input.port) throw new Error(`Module "${moduleId}" input "${input.id}" missing port`);
-            });
-        }
-
-        // Validate outputs
-        if (ui.outputs) {
-            ui.outputs.forEach((output, i) => {
-                if (!output.id) throw new Error(`Module "${moduleId}" output[${i}] missing id`);
-                if (!output.port) throw new Error(`Module "${moduleId}" output "${output.id}" missing port`);
-            });
-        }
-
-        if (ui.actions) {
-            ui.actions.forEach((action, i) => {
-                if (!action.id) throw new Error(`Module "${moduleId}" action[${i}] missing id`);
-                if (!action.param) throw new Error(`Module "${moduleId}" action "${action.id}" missing param`);
-                if (action.mode && !['toggle', 'momentary', 'trigger'].includes(action.mode)) {
-                    throw new Error(`Module "${moduleId}" action "${action.id}" has invalid mode: ${action.mode}`);
-                }
-            });
-        }
+        record.definitions.forEach(definition => {
+            this.modules.delete(definition.id);
+            this.moduleOwners.delete(definition.id);
+            this.moduleOrder.delete(definition.id);
+        });
+        this.plugins.delete(pluginId);
+        this.emit({ type: 'unregistered', pluginId, moduleIds: [...ownedTypes] });
+        return true;
     }
 
-    /**
-     * Get a module definition by ID
-     * @param {string} id - Module ID
-     * @returns {Object|undefined} Module definition or undefined
-     */
+    validate(definition) {
+        if (![2, 3, 4, 6, 8, 10, 12, 14, 16].includes(definition.hp)) {
+            throw new Error(`Module "${definition.id}" has invalid hp: ${definition.hp}`);
+        }
+        if (!CATEGORY_ORDER.includes(definition.category)) {
+            throw new Error(`Module "${definition.id}" has invalid category: ${definition.category}`);
+        }
+        if (!isModuleColorToken(definition.color) && !isHexColor(definition.color)) {
+            throw new Error(`Module "${definition.id}" has invalid color: ${definition.color}`);
+        }
+        if (!definition.ui || (!definition.render && typeof definition.ui !== 'object')) {
+            throw new Error(`Module "${definition.id}" must declare a ui contract`);
+        }
+        validateModuleDefinition(definition, {
+            sampleRate: this.sampleRate,
+            blockSize: this.blockSize
+        });
+    }
+
+    subscribe(listener) {
+        this.listeners.add(listener);
+        return () => this.listeners.delete(listener);
+    }
+
+    addUsageResolver(resolve) {
+        this.usageResolvers.add(resolve);
+        return () => this.usageResolvers.delete(resolve);
+    }
+
+    emit(event) {
+        this.listeners.forEach(listener => listener(event));
+    }
+
     get(id) {
         return this.modules.get(id);
     }
 
-    /**
-     * Check if a module is registered
-     * @param {string} id - Module ID
-     * @returns {boolean}
-     */
     has(id) {
         return this.modules.has(id);
     }
 
-    /**
-     * Get all registered module IDs
-     * @returns {string[]} Array of module IDs
-     */
     getAll() {
         return [...this.modules.keys()];
     }
 
-    /**
-     * Get all module definitions
-     * @returns {Object[]} Array of module definitions
-     */
     getAllDefinitions() {
         return [...this.modules.values()];
     }
 
-    /**
-     * Get modules by category
-     * @param {string} category - Category name
-     * @returns {Object[]} Array of module definitions in category
-     */
     getByCategory(category) {
-        const ids = this.categories.get(category) || [];
-        return ids.map(id => this.modules.get(id));
+        return this.getAllDefinitions().filter(definition => definition.category === category);
     }
 
-    /**
-     * Get all categories
-     * @returns {string[]} Array of category names
-     */
     getCategories() {
-        return [...this.categories.keys()];
+        return CATEGORY_ORDER.filter(category => this.getByCategory(category).length > 0);
     }
 
-    /**
-     * Unregister a module
-     * @param {string} id - Module ID to remove
-     * @returns {boolean} True if module was removed
-     */
-    unregister(id) {
-        const def = this.modules.get(id);
-        if (!def) return false;
-
-        this.modules.delete(id);
-
-        // Remove from category
-        const category = def.category || 'other';
-        const categoryList = this.categories.get(category);
-        if (categoryList) {
-            const idx = categoryList.indexOf(id);
-            if (idx >= 0) {
-                categoryList.splice(idx, 1);
-            }
-            // Remove empty category
-            if (categoryList.length === 0) {
-                this.categories.delete(category);
-            }
-        }
-
-        return true;
+    getModuleOrder(id) {
+        return this.moduleOrder.get(id) ?? Number.MAX_SAFE_INTEGER;
     }
 
-    /**
-     * Clear all registered modules
-     */
-    clear() {
-        this.modules.clear();
-        this.categories.clear();
+    getPlugin(id) {
+        return this.plugins.get(id) || null;
     }
 
-    /**
-     * Get count of registered modules
-     * @returns {number}
-     */
+    getPluginForModule(moduleId) {
+        return this.moduleOwners.get(moduleId) || null;
+    }
+
+    getPatchDependencies(moduleTypes = this.getAll()) {
+        const dependencies = {};
+        moduleTypes.forEach(type => {
+            const pluginId = this.getPluginForModule(type);
+            const plugin = pluginId ? this.plugins.get(pluginId) : null;
+            if (plugin) dependencies[pluginId] = plugin.manifest.patchVersion;
+        });
+        return dependencies;
+    }
+
     get count() {
         return this.modules.size;
     }
 }
 
-// Singleton instance
-export const moduleRegistry = new ModuleRegistry();
+export const pluginRegistry = new PluginRegistry();
+export const moduleRegistry = pluginRegistry;
 
-/**
- * Load modules from module folders
- * This function imports all module definitions and registers them
- * @returns {Promise<ModuleRegistry>}
- */
-export async function loadModules() {
-    const moduleImports = await Promise.all(MODULE_MANIFEST.map(mod => mod.load()));
+let coreLoadPromise = null;
 
-    // Register each module
-    moduleImports.forEach(mod => {
-        moduleRegistry.register(mod.default);
-    });
-
-    return moduleRegistry;
-}
-
-/**
- * Register a single module (for dynamic loading or custom modules)
- * @param {Object} definition - Module definition
- * @returns {ModuleRegistry}
- */
-export function registerModule(definition) {
-    return moduleRegistry.register(definition);
-}
-
-/**
- * Hot-reload a module (for development)
- * @param {string} id - Module ID
- * @returns {Promise<Object>} Reloaded module definition
- */
-export async function hotReloadModule(id) {
-    // Note: Cache busting for development
-    const timestamp = Date.now();
-    const modulePath = `../modules/${id}/index.js?t=${timestamp}`;
-
-    try {
-        const module = await import(modulePath);
-        moduleRegistry.unregister(id);
-        moduleRegistry.register(module.default);
-        return module.default;
-    } catch (error) {
-        console.error(`Failed to hot-reload module "${id}":`, error);
-        throw error;
+export function loadCorePlugin() {
+    if (!coreLoadPromise) {
+        coreLoadPromise = pluginRegistry.registerPlugin(CORE_PLUGIN_MANIFEST).catch(error => {
+            coreLoadPromise = null;
+            throw error;
+        });
     }
+    return coreLoadPromise.then(() => pluginRegistry);
+}
+
+export function registerPlugin(manifest) {
+    return pluginRegistry.registerPlugin(manifest);
+}
+
+export function unregisterPlugin(pluginId, options) {
+    return pluginRegistry.unregisterPlugin(pluginId, options);
 }

@@ -69,8 +69,6 @@ export default {
         const ownIn2 = new Float32Array(bufferSize);
         const ownIn3 = new Float32Array(bufferSize);
         const ownIn4 = new Float32Array(bufferSize);
-        const inputs = [ownIn1, ownIn2, ownIn3, ownIn4];
-
         const outA = new Float32Array(bufferSize);
         const outB = new Float32Array(bufferSize);
         const outC = new Float32Array(bufferSize);
@@ -125,17 +123,6 @@ export default {
 
             leds,
 
-            clearAudioInputs() {
-                ownIn1.fill(0);
-                ownIn2.fill(0);
-                ownIn3.fill(0);
-                ownIn4.fill(0);
-                this.inputs.in1 = ownIn1;
-                this.inputs.in2 = ownIn2;
-                this.inputs.in3 = ownIn3;
-                this.inputs.in4 = ownIn4;
-            },
-
             process() {
                 const routedInputs = [
                     this.inputs.in1,
@@ -163,23 +150,6 @@ export default {
 
                     leds[outputConfig.led] = Math.max(clamp(peak / 10, 0, 1), leds[outputConfig.led] * ledDecay);
                 });
-
-                if (this.inputs.in1 !== inputs[0]) {
-                    ownIn1.fill(0);
-                    this.inputs.in1 = ownIn1;
-                }
-                if (this.inputs.in2 !== inputs[1]) {
-                    ownIn2.fill(0);
-                    this.inputs.in2 = ownIn2;
-                }
-                if (this.inputs.in3 !== inputs[2]) {
-                    ownIn3.fill(0);
-                    this.inputs.in3 = ownIn3;
-                }
-                if (this.inputs.in4 !== inputs[3]) {
-                    ownIn4.fill(0);
-                    this.inputs.in4 = ownIn4;
-                }
             },
 
             reset() {
@@ -205,16 +175,16 @@ export default {
             { id: 'modeD', label: 'D Pol', param: 'modeD', default: 0 }
         ],
         inputs: [
-            { id: 'in1', label: 'In1', port: 'in1', type: 'buffer' },
-            { id: 'in2', label: 'In2', port: 'in2', type: 'buffer' },
-            { id: 'in3', label: 'In3', port: 'in3', type: 'buffer' },
-            { id: 'in4', label: 'In4', port: 'in4', type: 'buffer' }
+            { id: 'in1', label: 'In1', port: 'in1', signal: 'any' },
+            { id: 'in2', label: 'In2', port: 'in2', signal: 'any' },
+            { id: 'in3', label: 'In3', port: 'in3', signal: 'any' },
+            { id: 'in4', label: 'In4', port: 'in4', signal: 'any' }
         ],
         outputs: [
-            { id: 'outA', label: 'A', port: 'outA', type: 'buffer' },
-            { id: 'outB', label: 'B', port: 'outB', type: 'buffer' },
-            { id: 'outC', label: 'C', port: 'outC', type: 'buffer' },
-            { id: 'outD', label: 'D', port: 'outD', type: 'buffer' }
+            { id: 'outA', label: 'A', port: 'outA', signal: 'any' },
+            { id: 'outB', label: 'B', port: 'outB', signal: 'any' },
+            { id: 'outC', label: 'C', port: 'outC', signal: 'any' },
+            { id: 'outD', label: 'D', port: 'outD', signal: 'any' }
         ]
     }
 };

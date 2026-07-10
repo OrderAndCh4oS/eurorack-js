@@ -8,7 +8,7 @@ import {
 } from '../../src/js/app/app.js';
 import { createPatchUrlHash, parsePatchUrlHash } from '../../src/js/app/patch-format.js';
 import { PATCH_STORAGE_KEY } from '../../src/js/config/constants.js';
-import { moduleRegistry, registerModule } from '../../src/js/rack/registry.js';
+import { loadCorePlugin, moduleRegistry, registerPlugin } from '../../src/js/rack/registry.js';
 
 const testModule = {
     id: 'filetest',
@@ -69,8 +69,17 @@ function readBlobText(blob) {
 describe('patch file JSON import/export', () => {
     let alertSpy;
 
-    beforeAll(() => {
-        registerModule(testModule);
+    beforeAll(async () => {
+        await loadCorePlugin();
+        await registerPlugin({
+            id: 'filetest-plugin',
+            name: 'File Test Plugin',
+            version: '1.0.0',
+            apiVersion: 1,
+            patchVersion: 1,
+            workletUrl: 'test://filetest-worklet.js',
+            modules: [{ id: 'filetest', definition: testModule }]
+        });
     });
 
     beforeEach(() => {
@@ -88,7 +97,7 @@ describe('patch file JSON import/export', () => {
 
     it('parses raw patch state from a JSON file as a named single patch', () => {
         const imported = parseImportedPatchJson(JSON.stringify({
-            version: 2,
+            version: 3, plugins: { 'filetest-plugin': 1 },
             modules: [{ id: 'filetest_1', type: 'filetest', row: 3, index: 0 }],
             params: { filetest_1: { level: 0.75 } },
             cables: [],
@@ -105,13 +114,13 @@ describe('patch file JSON import/export', () => {
         const imported = parseImportedPatchJson(JSON.stringify({
             schema: PATCH_EXPORT_SCHEMA,
             version: PATCH_EXPORT_VERSION,
-            patchVersion: 2,
+            patchVersion: 3,
             exportedAt: '2026-07-02T00:00:00.000Z',
             patch: {
                 name: 'Versioned Patch',
                 factory: false,
                 state: {
-                    version: 2,
+                    version: 3, plugins: { 'filetest-plugin': 1 },
                     modules: [{ id: 'filetest_1', type: 'filetest', row: 3, index: 0 }],
                     params: { filetest_1: { level: 0.8 } },
                     cables: [],
@@ -132,7 +141,7 @@ describe('patch file JSON import/export', () => {
             version: PATCH_EXPORT_VERSION + 1,
             patch: {
                 name: 'Future Patch',
-                state: { version: 2, modules: [], params: {}, cables: [], midiMappings: {} }
+                state: { version: 3, plugins: { core: 1, 'filetest-plugin': 1 }, modules: [], params: {}, cables: [], midiMappings: {} }
             }
         }))).toThrow(`Unsupported patch export version: ${PATCH_EXPORT_VERSION + 1}`);
     });
@@ -155,7 +164,7 @@ describe('patch file JSON import/export', () => {
         app.cacheElements();
 
         const result = await app.importPatchJson(JSON.stringify({
-            version: 2,
+            version: 3, plugins: { 'filetest-plugin': 1 },
             modules: [{ id: 'filetest_1', type: 'filetest', row: 3, index: 0 }],
             params: { filetest_1: { level: 0.9 } },
             cables: [],
@@ -216,7 +225,7 @@ describe('patch file JSON import/export', () => {
         const saved = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY));
         const sharedPatch = await parsePatchUrlHash(window.location.hash, { moduleRegistry });
         expect(saved['Share Me'].state).toMatchObject({
-            version: 2,
+            version: 3, plugins: { 'filetest-plugin': 1 },
             modules: [{ id: 'filetest_1', type: 'filetest', row: 1, index: 0 }],
             params: { filetest_1: { level: 0.64 } },
             cables: [],
@@ -248,7 +257,7 @@ describe('patch file JSON import/export', () => {
 
     it('loads a shared patch URL hash into the rack', async () => {
         const sharedState = {
-            version: 2,
+            version: 3, plugins: { 'filetest-plugin': 1 },
             modules: [{ id: 'filetest_1', type: 'filetest', row: 2, index: 0 }],
             params: { filetest_1: { level: 0.22 } },
             cables: [],
@@ -293,12 +302,12 @@ describe('patch file JSON import/export', () => {
         expect(parsed.hash).toMatch(/^#patch=/);
         expect(window.location.hash).toBe(parsed.hash);
         expect(sharedPatch.name).toBe('Clipboard Patch');
-        expect(sharedPatch.state.version).toBe(2);
+        expect(sharedPatch.state.version).toBe(3);
         expect(sharedPatch.state.params.filetest_1.level).toBe(0.77);
         expect(sharedPatch.state.knobs).toBeUndefined();
     });
 
-    it('copies the current patch as canonical v2 state JSON', async () => {
+    it('copies the current patch as canonical v3 state JSON', async () => {
         const app = new EurorackApp(document);
         app.cacheElements();
         app.state.addModule('filetest', moduleRegistry, {
@@ -318,7 +327,7 @@ describe('patch file JSON import/export', () => {
 
         const copied = JSON.parse(writeText.mock.calls[0][0]);
         expect(copied).toMatchObject({
-            version: 2,
+            version: 3, plugins: { 'filetest-plugin': 1 },
             modules: [{ id: 'filetest_1', type: 'filetest', row: 1, index: 0 }],
             params: { filetest_1: { level: 0.66 } },
             cables: [],
@@ -361,7 +370,7 @@ describe('patch file JSON import/export', () => {
         expect(downloads).toEqual(['bass-lead.json']);
         expect(exported.schema).toBe(PATCH_EXPORT_SCHEMA);
         expect(exported.version).toBe(PATCH_EXPORT_VERSION);
-        expect(exported.patchVersion).toBe(2);
+        expect(exported.patchVersion).toBe(3);
         expect(exported.patch.name).toBe('Bass Lead');
         expect(exported.patch.factory).toBe(false);
         expect(exported.patch.state.modules).toEqual([

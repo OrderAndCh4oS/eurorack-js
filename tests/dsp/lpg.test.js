@@ -351,56 +351,19 @@ describe('LPG module', () => {
             expect(lpg.leds.open).toBe(0);
         });
 
-        it('resets replaced audio input buffers so disconnection silences the next process call', () => {
+        it('keeps all input buffer identities stable across processing and reset', () => {
             const lpg = createLPG({ bufferSize: 64 });
-            const externalAudio = new Float32Array(64).fill(3);
+            const inputs = { ...lpg.inputs };
 
-            lpg.params.mode = 1;
-            lpg.params.level = 1;
-            lpg.inputs.audio = externalAudio;
+            lpg.inputs.audio.fill(3);
+            lpg.inputs.cv.fill(5);
+            lpg.inputs.strike.fill(10);
+            lpg.inputs.dampCV.fill(5);
             lpg.process();
+            Object.entries(inputs).forEach(([name, buffer]) => expect(lpg.inputs[name]).toBe(buffer));
 
-            expect(peak(lpg.outputs.out)).toBeGreaterThan(0);
-            expect(lpg.inputs.audio).not.toBe(externalAudio);
-            expect(lpg.inputs.audio.every(value => value === 0)).toBe(true);
-
-            lpg.process();
-
-            expect(lpg.outputs.out.every(value => value === 0)).toBe(true);
-        });
-
-        it('restores replaced CV and trigger buffers after processing and cable clearing', () => {
-            const lpg = createLPG({ bufferSize: 64 });
-            const externalAudio = new Float32Array(64).fill(3);
-            const externalCV = new Float32Array(64).fill(5);
-            const externalStrike = new Float32Array(64).fill(10);
-            const externalDampCV = new Float32Array(64).fill(5);
-
-            lpg.inputs.audio = externalAudio;
-            lpg.inputs.cv = externalCV;
-            lpg.inputs.strike = externalStrike;
-            lpg.inputs.dampCV = externalDampCV;
-            lpg.process();
-
-            expect(lpg.inputs.audio).not.toBe(externalAudio);
-            expect(lpg.inputs.cv).not.toBe(externalCV);
-            expect(lpg.inputs.strike).not.toBe(externalStrike);
-            expect(lpg.inputs.dampCV).not.toBe(externalDampCV);
-            expect(lpg.inputs.cv.every(value => value === 0)).toBe(true);
-            expect(lpg.inputs.strike.every(value => value === 0)).toBe(true);
-            expect(lpg.inputs.dampCV.every(value => value === 0)).toBe(true);
-
-            lpg.inputs.cv = externalCV;
-            lpg.inputs.strike = externalStrike;
-            lpg.inputs.dampCV = externalDampCV;
-            lpg.clearAudioInputs();
-
-            expect(lpg.inputs.cv).not.toBe(externalCV);
-            expect(lpg.inputs.strike).not.toBe(externalStrike);
-            expect(lpg.inputs.dampCV).not.toBe(externalDampCV);
-            expect(lpg.inputs.cv.every(value => value === 0)).toBe(true);
-            expect(lpg.inputs.strike.every(value => value === 0)).toBe(true);
-            expect(lpg.inputs.dampCV.every(value => value === 0)).toBe(true);
+            lpg.reset();
+            Object.entries(inputs).forEach(([name, buffer]) => expect(lpg.inputs[name]).toBe(buffer));
         });
     });
 });

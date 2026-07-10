@@ -76,7 +76,7 @@ export default {
             leds,
 
             process() {
-                const midiManager = window.midiManager;
+                const midiManager = this.midiManager || (typeof window !== 'undefined' ? window.midiManager : null);
                 if (!midiManager) {
                     // No MIDI - clear outputs
                     for (let p = 0; p < 8; p++) {
@@ -172,15 +172,15 @@ export default {
         ],
         inputs: [],
         outputs: [
-            { id: 'trig1', label: 'Kick', port: 'trig1', type: 'trigger' },
-            { id: 'trig2', label: 'Snr', port: 'trig2', type: 'trigger' },
-            { id: 'trig3', label: 'CHat', port: 'trig3', type: 'trigger' },
-            { id: 'trig4', label: 'OHat', port: 'trig4', type: 'trigger' },
-            { id: 'trig5', label: 'LTom', port: 'trig5', type: 'trigger' },
-            { id: 'trig6', label: 'MTom', port: 'trig6', type: 'trigger' },
-            { id: 'trig7', label: 'Clap', port: 'trig7', type: 'trigger' },
-            { id: 'trig8', label: 'Ride', port: 'trig8', type: 'trigger' },
-            { id: 'velocity', label: 'Vel', port: 'velocity', type: 'cv' }
+            { id: 'trig1', label: 'Kick', port: 'trig1', signal: 'trigger' },
+            { id: 'trig2', label: 'Snr', port: 'trig2', signal: 'trigger' },
+            { id: 'trig3', label: 'CHat', port: 'trig3', signal: 'trigger' },
+            { id: 'trig4', label: 'OHat', port: 'trig4', signal: 'trigger' },
+            { id: 'trig5', label: 'LTom', port: 'trig5', signal: 'trigger' },
+            { id: 'trig6', label: 'MTom', port: 'trig6', signal: 'trigger' },
+            { id: 'trig7', label: 'Clap', port: 'trig7', signal: 'trigger' },
+            { id: 'trig8', label: 'Ride', port: 'trig8', signal: 'trigger' },
+            { id: 'velocity', label: 'Vel', port: 'velocity', signal: 'cv' }
         ]
     }
 };

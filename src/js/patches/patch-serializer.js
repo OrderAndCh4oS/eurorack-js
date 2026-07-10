@@ -1,7 +1,7 @@
 /**
  * Patch Serializer - Serialize and deserialize patch state
  *
- * Converts synth state to/from canonical v2 patch state.
+ * Converts synth state to/from canonical v3 patch state.
  */
 import { normalizePatch } from '../app/patch-format.js';
 
@@ -130,10 +130,17 @@ export function serializeModules(container = document, params = serializeParams(
  * @param {Array} options.cables - Cable connections
  * @returns {Object} Complete patch state
  */
-export function serializePatchState({ container = document, cables = [], modules = null, midiMappings = {} } = {}) {
+export function serializePatchState({
+    container = document,
+    cables = [],
+    modules = null,
+    midiMappings = {},
+    plugins = { core: 1 }
+} = {}) {
     const params = serializeParams(container);
     return {
-        version: 2,
+        version: 3,
+        plugins: { ...plugins },
         modules: modules || serializeModules(container, params),
         params,
         cables: serializeCables(cables),

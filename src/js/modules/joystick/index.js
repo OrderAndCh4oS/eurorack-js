@@ -69,6 +69,7 @@ export default {
     hp: 10,
     color: 'module-color-six',
     category: 'utility',
+    telemetry: { fields: [], methods: [] },
 
     css: `
         .joystick-container {
@@ -772,7 +773,7 @@ export default {
                 id: port,
                 label: port.toUpperCase(),
                 direction: 'output',
-                type: 'cv'
+                signal: 'cv'
             }));
         });
         main.appendChild(outRowTwo);
@@ -846,20 +847,20 @@ export default {
             { id: 'play', label: 'Play', param: 'play', mode: 'toggle', default: 0 }
         ],
         inputs: [
-            { id: 'cv1', label: 'CV1', port: 'cv1', type: 'cv' },
-            { id: 'cv2', label: 'CV2', port: 'cv2', type: 'cv' },
-            { id: 'trigger', label: 'Trig', port: 'trigger', type: 'trigger' },
-            { id: 'reset', label: 'Rst', port: 'reset', type: 'trigger' }
+            { id: 'cv1', label: 'CV1', port: 'cv1', signal: 'cv' },
+            { id: 'cv2', label: 'CV2', port: 'cv2', signal: 'cv' },
+            { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger' },
+            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger' }
         ],
         outputs: [
-            { id: 'x', label: 'X', port: 'x', type: 'cv' },
-            { id: 'y', label: 'Y', port: 'y', type: 'cv' },
-            { id: 'a', label: 'A', port: 'a', type: 'cv' },
-            { id: 'b', label: 'B', port: 'b', type: 'cv' },
-            { id: 'c', label: 'C', port: 'c', type: 'cv' },
-            { id: 'd', label: 'D', port: 'd', type: 'cv' },
-            { id: 'gate', label: 'Gate', port: 'gate', type: 'gate' },
-            { id: 'trig', label: 'Trig', port: 'trig', type: 'trigger' }
+            { id: 'x', label: 'X', port: 'x', signal: 'cv' },
+            { id: 'y', label: 'Y', port: 'y', signal: 'cv' },
+            { id: 'a', label: 'A', port: 'a', signal: 'cv' },
+            { id: 'b', label: 'B', port: 'b', signal: 'cv' },
+            { id: 'c', label: 'C', port: 'c', signal: 'cv' },
+            { id: 'd', label: 'D', port: 'd', signal: 'cv' },
+            { id: 'gate', label: 'Gate', port: 'gate', signal: 'gate' },
+            { id: 'trig', label: 'Trig', port: 'trig', signal: 'trigger' }
         ]
     }
 };

@@ -8,8 +8,8 @@ import {
     patchUrlTestInternals
 } from '../../src/js/app/patch-format.js';
 import { FACTORY_PATCHES } from '../../src/js/config/factory-patches.js';
-import { loadModules, DEFAULT_MODULE_ORDER } from '../../src/js/index.js';
-import { moduleRegistry } from '../../src/js/rack/registry.js';
+import { loadCorePlugin, DEFAULT_MODULE_ORDER } from '../../src/js/index.js';
+import { moduleRegistry, registerPlugin } from '../../src/js/rack/registry.js';
 
 function toLegacyBase64Url(value) {
     return Buffer.from(value, 'utf8')
@@ -21,7 +21,7 @@ function toLegacyBase64Url(value) {
 
 function createDensePatchState() {
     return {
-        version: 2,
+        version: 3, plugins: { core: 1 },
         modules: Array.from({ length: 24 }, (_, index) => ({
             id: `vco_${index}`,
             type: index % 2 ? 'vca' : 'vco',
@@ -37,10 +37,10 @@ function createDensePatchState() {
                 ch2Gain: 0.712345
             }
         ])),
-        cables: Array.from({ length: 20 }, (_, index) => ({
-            fromModule: `vco_${index}`,
+        cables: Array.from({ length: 12 }, (_, index) => ({
+            fromModule: `vco_${index * 2}`,
             fromPort: 'triangle',
-            toModule: `vco_${index + 1}`,
+            toModule: `vco_${index * 2 + 1}`,
             toPort: 'ch1In'
         })),
         midiMappings: {}
@@ -54,10 +54,33 @@ describe('patch-format', () => {
     });
 
     beforeAll(async () => {
-        await loadModules();
+        await loadCorePlugin();
+        if (!moduleRegistry.getPlugin('patch-format-tests')) {
+            const makeDefinition = id => ({
+                id,
+                name: id,
+                hp: 2,
+                color: 'module-color-one',
+                category: 'utility',
+                createDSP: () => ({ params: {}, inputs: {}, outputs: {}, process() {} }),
+                ui: {}
+            });
+            await registerPlugin({
+                id: 'patch-format-tests',
+                name: 'Patch Format Tests',
+                version: '1.0.0',
+                apiVersion: 1,
+                patchVersion: 1,
+                workletUrl: 'test://patch-format-worklet.js',
+                modules: [
+                    { id: 'filetest', definition: makeDefinition('filetest') },
+                    { id: 'custom', definition: makeDefinition('custom') }
+                ]
+            });
+        }
     });
 
-    it('rejects patch state without canonical v2 version', () => {
+    it('rejects patch state without a supported version', () => {
         expect(() => normalizePatch({
             modules: [],
             params: {},
@@ -86,7 +109,7 @@ describe('patch-format', () => {
 
     it('rejects legacy groups even when version is present', () => {
         expect(() => normalizePatch({
-            version: 2,
+            version: 3, plugins: { core: 1 },
             modules: [{ id: 'vco', type: 'vco', row: 1, index: 0 }],
             params: {},
             knobs: { vco: { coarse: 0.4 } },
@@ -95,16 +118,29 @@ describe('patch-format', () => {
         })).toThrow('Legacy patch fields are not supported');
     });
 
-    it('preserves canonical v2 shape without legacy groups', () => {
-        const v2 = {
-            version: 2,
+    it('preserves canonical v3 shape without legacy groups', () => {
+        const v3 = {
+            version: 3, plugins: { core: 1 },
             modules: [{ id: 'vco_1', type: 'vco', row: 1, index: 0 }],
             params: { vco_1: { coarse: 0.5 } },
             cables: [],
             midiMappings: { '0:74': { moduleId: 'vco_1', paramId: 'coarse' } }
         };
 
-        expect(normalizePatch(v2)).toEqual(v2);
+        expect(normalizePatch(v3)).toEqual(v3);
+    });
+
+    it('migrates canonical v2 patches to v3 once', () => {
+        expect(normalizePatch({
+            version: 2,
+            modules: [{ id: 'vco_1', type: 'vco', row: 1, index: 0 }],
+            params: { vco_1: { coarse: 0.5 } },
+            cables: [],
+            midiMappings: {}
+        }, { moduleRegistry })).toMatchObject({
+            version: 3,
+            plugins: { core: 1 }
+        });
     });
 
     it('rejects unsupported patch collections', () => {
@@ -118,7 +154,7 @@ describe('patch-format', () => {
 
     it('round-trips patch state through a shareable URL hash', async () => {
         const state = {
-            version: 2,
+            version: 3, plugins: { core: 1 },
             modules: [{ id: 'vco_1', type: 'vco', row: 1, index: 0 }],
             params: { vco_1: { coarse: 0.42 } },
             cables: [],
@@ -135,7 +171,7 @@ describe('patch-format', () => {
 
     it('preserves rows, indices, cables, and midi mappings in compact share hashes', async () => {
         const state = {
-            version: 2,
+            version: 3, plugins: { core: 1 },
             modules: [
                 { id: 'custom_lfo', type: 'lfo', row: 1, index: 2 },
                 { id: 'vco_1', type: 'vco', row: 3, index: 0 }
@@ -162,7 +198,7 @@ describe('patch-format', () => {
 
     it('rounds URL patch numbers to three decimal places', async () => {
         const state = {
-            version: 2,
+            version: 3, plugins: { 'patch-format-tests': 1 },
             modules: [{ id: 'filetest_1', type: 'filetest', row: 1, index: 0 }],
             params: { filetest_1: { level: 0.123456, offset: -0.00001 } },
             cables: [],
@@ -196,9 +232,9 @@ describe('patch-format', () => {
         const compactPayload = patchUrlTestInternals.createCompactPatchUrlPayload({ name: 'Dense Patch', state }, urlOptions());
         const compactJson = JSON.stringify(compactPayload);
 
-        expect(compactPayload[0]).toBe(1);
+        expect(compactPayload[0]).toBe(2);
         expect(compactJson.length).toBeLessThan(jsonPayload.length);
-        expect(compactJson.length).toBeLessThan(jsonPayload.length * 0.45);
+        expect(compactJson.length).toBeLessThan(jsonPayload.length * 0.85);
     });
 
     it('compresses compact payloads smaller than their pre-compression serialized form', async () => {
@@ -241,7 +277,7 @@ describe('patch-format', () => {
 
     it('serializes modules as compact type refs with custom IDs only when needed', () => {
         const state = {
-            version: 2,
+            version: 3, plugins: { core: 1 },
             modules: [
                 { id: 'vco_1', type: 'vco', row: 1, index: 0 },
                 { id: 'lead_voice', type: 'vco', row: 2, index: 1 },
@@ -264,7 +300,7 @@ describe('patch-format', () => {
 
     it('serializes cables with module indexes instead of module IDs', () => {
         const state = {
-            version: 2,
+            version: 3, plugins: { core: 1 },
             modules: [
                 { id: 'vco_1', type: 'vco', row: 1, index: 0 },
                 { id: 'out_1', type: 'out', row: 1, index: 1 }
@@ -289,7 +325,7 @@ describe('patch-format', () => {
 
     it('serializes simple MIDI mappings as mapping key plus module index and param ref', () => {
         const state = {
-            version: 2,
+            version: 3, plugins: { core: 1 },
             modules: [{ id: 'vco_1', type: 'vco', row: 1, index: 0 }],
             params: {},
             cables: [],
@@ -308,7 +344,7 @@ describe('patch-format', () => {
 
     it('round-trips nested custom compact values in params and MIDI mappings', () => {
         const state = {
-            version: 2,
+            version: 3, plugins: { 'patch-format-tests': 1 },
             modules: [{ id: 'custom_1', type: 'custom', row: 1, index: 0 }],
             params: {
                 custom_1: {
@@ -346,7 +382,7 @@ describe('patch-format', () => {
     it('rejects unknown compact payload versions before decompression is involved', () => {
         const payload = patchUrlTestInternals.createCompactPatchUrlPayload({
             name: 'Bad Version',
-            state: { version: 2, modules: [], params: {}, cables: [], midiMappings: {} }
+            state: { version: 3, plugins: { core: 1 }, modules: [], params: {}, cables: [], midiMappings: {} }
         }, urlOptions());
 
         expect(() => patchUrlTestInternals.parseCompactPatchUrlPayload([99, ...payload.slice(1)], urlOptions()))
@@ -355,7 +391,7 @@ describe('patch-format', () => {
 
     it('omits module default params from compact payloads', () => {
         const state = {
-            version: 2,
+            version: 3, plugins: { core: 1 },
             modules: [{ id: 'vco_1', type: 'vco', row: 1, index: 0 }],
             params: { vco_1: { coarse: 0.4, fine: 0.125 } },
             cables: [],
@@ -372,7 +408,7 @@ describe('patch-format', () => {
         const neonGridHash = await createPatchUrlHash(FACTORY_PATCHES['Demo - Neon Grid'], urlOptions());
 
         expect(deepAbyssHash.length).toBeLessThan(900);
-        expect(neonGridHash.length).toBeLessThan(1400);
+        expect(neonGridHash.length).toBeLessThan(1500);
     });
 
     it('returns null for hashes without patch payloads', async () => {

@@ -176,13 +176,6 @@ export default {
             ownMixCV.fill(0);
             ownTap.fill(0);
             ownFreezeGate.fill(0);
-            inputs.audio = ownAudio;
-            inputs.timeCV = ownTimeCV;
-            inputs.speedCV = ownSpeedCV;
-            inputs.feedbackCV = ownFeedbackCV;
-            inputs.mixCV = ownMixCV;
-            inputs.tap = ownTap;
-            inputs.freezeGate = ownFreezeGate;
         }
 
         function clearState() {
@@ -323,11 +316,6 @@ export default {
             outputs: { out, clock },
             leds,
 
-            clearAudioInputs() {
-                clearInputBuffers();
-                lastTapHigh = false;
-            },
-
             process() {
                 const audio = this.inputs.audio;
                 const timeCV = this.inputs.timeCV;
@@ -410,17 +398,6 @@ export default {
                 leds.clock = lastClock;
                 leds.dropout = clamp(lastDropout, 0, 1);
 
-                if (
-                    this.inputs.audio !== ownAudio ||
-                    this.inputs.timeCV !== ownTimeCV ||
-                    this.inputs.speedCV !== ownSpeedCV ||
-                    this.inputs.feedbackCV !== ownFeedbackCV ||
-                    this.inputs.mixCV !== ownMixCV ||
-                    this.inputs.tap !== ownTap ||
-                    this.inputs.freezeGate !== ownFreezeGate
-                ) {
-                    clearInputBuffers();
-                }
             },
 
             reset() {
@@ -463,17 +440,17 @@ export default {
             { id: 'headMode', label: 'Heads', param: 'headMode', values: [0, 1, 2], default: 1 }
         ],
         inputs: [
-            { id: 'audio', label: 'In', port: 'audio', type: 'audio' },
-            { id: 'timeCV', label: 'Time', port: 'timeCV', type: 'cv' },
-            { id: 'speedCV', label: 'Speed', port: 'speedCV', type: 'cv' },
-            { id: 'feedbackCV', label: 'Fdbk', port: 'feedbackCV', type: 'cv' },
-            { id: 'mixCV', label: 'Mix', port: 'mixCV', type: 'cv' },
-            { id: 'tap', label: 'Tap', port: 'tap', type: 'trigger' },
-            { id: 'freezeGate', label: 'Freeze', port: 'freezeGate', type: 'gate' }
+            { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
+            { id: 'timeCV', label: 'Time', port: 'timeCV', signal: 'cv' },
+            { id: 'speedCV', label: 'Speed', port: 'speedCV', signal: 'cv' },
+            { id: 'feedbackCV', label: 'Fdbk', port: 'feedbackCV', signal: 'cv' },
+            { id: 'mixCV', label: 'Mix', port: 'mixCV', signal: 'cv' },
+            { id: 'tap', label: 'Tap', port: 'tap', signal: 'trigger' },
+            { id: 'freezeGate', label: 'Freeze', port: 'freezeGate', signal: 'gate' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', type: 'audio' },
-            { id: 'clock', label: 'Clock', port: 'clock', type: 'gate' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'audio' },
+            { id: 'clock', label: 'Clock', port: 'clock', signal: 'gate' }
         ],
         socketLayout: {
             columns: [

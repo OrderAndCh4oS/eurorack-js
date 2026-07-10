@@ -144,14 +144,6 @@ export default {
                 }
 
                 // Reset own inputs if replaced by routing
-                if (this.inputs.clock !== ownClock) {
-                    ownClock.fill(0);
-                    this.inputs.clock = ownClock;
-                }
-                if (this.inputs.lockCV !== ownLockCV) {
-                    ownLockCV.fill(0);
-                    this.inputs.lockCV = ownLockCV;
-                }
             },
 
             reset() {
@@ -187,12 +179,12 @@ export default {
         ],
         switches: [],
         inputs: [
-            { id: 'clock', label: 'Clk', port: 'clock', type: 'trigger' },
-            { id: 'lockCV', label: 'CV', port: 'lockCV', type: 'cv' }
+            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger' },
+            { id: 'lockCV', label: 'CV', port: 'lockCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'cv', label: 'CV', port: 'cv', type: 'cv' },
-            { id: 'pulse', label: 'Pulse', port: 'pulse', type: 'gate' }
+            { id: 'cv', label: 'CV', port: 'cv', signal: 'cv' },
+            { id: 'pulse', label: 'Pulse', port: 'pulse', signal: 'gate' }
         ]
     }
 };

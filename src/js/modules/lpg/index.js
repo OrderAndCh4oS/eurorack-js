@@ -27,13 +27,13 @@ const LPG_UI = {
         { id: 'mode', label: 'Mode', param: 'mode', values: [0, 1, 2], default: 1 }
     ],
     inputs: [
-        { id: 'audio', label: 'In', port: 'audio', type: 'buffer' },
-        { id: 'cv', label: 'CV', port: 'cv', type: 'cv' },
-        { id: 'strike', label: 'Strike', port: 'strike', type: 'trigger' },
-        { id: 'dampCV', label: 'Damp', port: 'dampCV', type: 'cv' }
+        { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
+        { id: 'cv', label: 'CV', port: 'cv', signal: 'cv' },
+        { id: 'strike', label: 'Strike', port: 'strike', signal: 'trigger' },
+        { id: 'dampCV', label: 'Damp', port: 'dampCV', signal: 'cv' }
     ],
     outputs: [
-        { id: 'out', label: 'Out', port: 'out', type: 'buffer' }
+        { id: 'out', label: 'Out', port: 'out', signal: 'audio' }
     ]
 };
 
@@ -120,6 +120,7 @@ export default {
     hp: 6,
     color: 'module-color-three',
     category: 'filter',
+    telemetry: { fields: [], methods: [] },
 
     css: `
         .lpg-mode-bank .octave-btn {
@@ -200,11 +201,6 @@ export default {
             outputs: { out },
             leds,
 
-            clearAudioInputs() {
-                restoreInputBuffers();
-                clearFilterState();
-            },
-
             process() {
                 const mode = modeFromParam(this.params.mode);
                 const level = clampFinite(this.params.level);
@@ -266,15 +262,6 @@ export default {
 
                 leds.open = clamp(vactrol, 0, 1);
 
-                if (
-                    this.inputs.audio !== ownAudio ||
-                    this.inputs.cv !== ownCV ||
-                    this.inputs.strike !== ownStrike ||
-                    this.inputs.dampCV !== ownDampCV
-                ) {
-                    restoreInputBuffers();
-                    clearFilterState();
-                }
             },
 
             reset() {
@@ -337,7 +324,7 @@ export default {
                 id: output.port,
                 label: output.label,
                 direction: 'output',
-                type: output.type
+                signal: output.signal
             }));
         });
         container.appendChild(outRow);
@@ -348,7 +335,7 @@ export default {
                 id: input.port,
                 label: input.label,
                 direction: 'input',
-                type: input.type
+                signal: input.signal
             }));
         });
         container.appendChild(inputRow);

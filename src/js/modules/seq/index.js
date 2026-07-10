@@ -27,6 +27,7 @@ export default {
     hp: 6,
     color: 'module-color-three',
     category: 'sequencer',
+    telemetry: { fields: [], methods: [] },
 
     css: `
         .seq-container {
@@ -355,8 +356,8 @@ export default {
         inLabel.className = 'seq-io-label';
         inLabel.textContent = 'IN';
         inGroup.appendChild(inLabel);
-        inGroup.appendChild(toolkit.createJack({ id: 'clock', label: 'Clk', direction: 'input', type: 'trigger' }));
-        inGroup.appendChild(toolkit.createJack({ id: 'reset', label: 'Rst', direction: 'input', type: 'trigger' }));
+        inGroup.appendChild(toolkit.createJack({ id: 'clock', label: 'Clk', direction: 'input', signal: 'trigger' }));
+        inGroup.appendChild(toolkit.createJack({ id: 'reset', label: 'Rst', direction: 'input', signal: 'trigger' }));
         io.appendChild(inGroup);
 
         // Outputs
@@ -366,8 +367,8 @@ export default {
         outLabel.className = 'seq-io-label';
         outLabel.textContent = 'OUT';
         outGroup.appendChild(outLabel);
-        outGroup.appendChild(toolkit.createJack({ id: 'cv', label: 'CV', direction: 'output', type: 'cv' }));
-        outGroup.appendChild(toolkit.createJack({ id: 'gate', label: 'Gate', direction: 'output', type: 'gate' }));
+        outGroup.appendChild(toolkit.createJack({ id: 'cv', label: 'CV', direction: 'output', signal: 'cv' }));
+        outGroup.appendChild(toolkit.createJack({ id: 'gate', label: 'Gate', direction: 'output', signal: 'gate' }));
         io.appendChild(outGroup);
 
         mainContainer.appendChild(io);
@@ -401,12 +402,12 @@ export default {
             { id: 'gate8', label: 'G8', param: 'gate8', default: 1 }
         ],
         inputs: [
-            { id: 'clock', label: 'Clk', port: 'clock', type: 'trigger' },
-            { id: 'reset', label: 'Rst', port: 'reset', type: 'trigger' }
+            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger' },
+            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger' }
         ],
         outputs: [
-            { id: 'cv', label: 'CV', port: 'cv', type: 'cv' },
-            { id: 'gate', label: 'Gate', port: 'gate', type: 'gate' }
+            { id: 'cv', label: 'CV', port: 'cv', signal: 'cv' },
+            { id: 'gate', label: 'Gate', port: 'gate', signal: 'gate' }
         ]
     }
 };

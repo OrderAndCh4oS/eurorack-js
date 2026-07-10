@@ -157,12 +157,12 @@ export default {
         ],
         switches: [],
         inputs: [
-            { id: 'inL', label: 'In L', port: 'inL', type: 'audio' },
-            { id: 'inR', label: 'In R', port: 'inR', type: 'audio' }
+            { id: 'inL', label: 'In L', port: 'inL', signal: 'audio' },
+            { id: 'inR', label: 'In R', port: 'inR', signal: 'audio' }
         ],
         outputs: [
-            { id: 'outL', label: 'Out L', port: 'outL', type: 'audio' },
-            { id: 'outR', label: 'Out R', port: 'outR', type: 'audio' }
+            { id: 'outL', label: 'Out L', port: 'outL', signal: 'audio' },
+            { id: 'outR', label: 'Out R', port: 'outR', signal: 'audio' }
         ]
     }
 };

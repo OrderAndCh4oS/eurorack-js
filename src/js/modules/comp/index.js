@@ -92,13 +92,6 @@ export default {
             return Math.exp(-1 / Math.max(1, sampleRate * timeMs * 0.001));
         }
 
-        function resetInput(instance, name, ownBuffer) {
-            if (instance.inputs[name] !== ownBuffer) {
-                ownBuffer.fill(0);
-                instance.inputs[name] = ownBuffer;
-            }
-        }
-
         const dsp = {
             params: {
                 threshold: 24 / 36,                  // -12 dB
@@ -127,15 +120,6 @@ export default {
 
             outputs: { outL, outR, env, gr },
             leds,
-
-            clearAudioInputs() {
-                ownInL.fill(0);
-                ownInR.fill(0);
-                ownSidechain.fill(0);
-                this.inputs.inL = ownInL;
-                this.inputs.inR = ownInR;
-                this.inputs.sidechain = ownSidechain;
-            },
 
             process() {
                 const inputL = this.inputs.inL;
@@ -244,14 +228,6 @@ export default {
                 leds.gainReduction = isBypassed ? 0 : Math.max(clamp(maxReductionDb / MAX_GR_DB), leds.gainReduction * ledDecay);
                 leds.limit = isLimitMode ? 1 : Math.max(clipped ? 1 : 0, leds.limit * ledDecay);
 
-                resetInput(this, 'inL', ownInL);
-                resetInput(this, 'inR', ownInR);
-                resetInput(this, 'sidechain', ownSidechain);
-                resetInput(this, 'thresholdCV', ownThresholdCV);
-                resetInput(this, 'attackCV', ownAttackCV);
-                resetInput(this, 'releaseCV', ownReleaseCV);
-                resetInput(this, 'makeupCV', ownMakeupCV);
-                resetInput(this, 'filterCV', ownFilterCV);
             },
 
             reset() {
@@ -269,15 +245,6 @@ export default {
                 ownReleaseCV.fill(0);
                 ownMakeupCV.fill(0);
                 ownFilterCV.fill(0);
-
-                this.inputs.inL = ownInL;
-                this.inputs.inR = ownInR;
-                this.inputs.sidechain = ownSidechain;
-                this.inputs.thresholdCV = ownThresholdCV;
-                this.inputs.attackCV = ownAttackCV;
-                this.inputs.releaseCV = ownReleaseCV;
-                this.inputs.makeupCV = ownMakeupCV;
-                this.inputs.filterCV = ownFilterCV;
 
                 outL.fill(0);
                 outR.fill(0);
@@ -310,20 +277,20 @@ export default {
             { id: 'bypass', label: 'Byp', param: 'bypass', positions: ['On', 'Byp'], default: 0 }
         ],
         inputs: [
-            { id: 'inL', label: 'L', port: 'inL', type: 'audio' },
-            { id: 'inR', label: 'R', port: 'inR', type: 'audio' },
-            { id: 'sidechain', label: 'SC', port: 'sidechain', type: 'audio' },
-            { id: 'thresholdCV', label: 'Thr', port: 'thresholdCV', type: 'cv' },
-            { id: 'attackCV', label: 'Atk', port: 'attackCV', type: 'cv' },
-            { id: 'releaseCV', label: 'Rel', port: 'releaseCV', type: 'cv' },
-            { id: 'makeupCV', label: 'Mak', port: 'makeupCV', type: 'cv' },
-            { id: 'filterCV', label: 'Flt', port: 'filterCV', type: 'cv' }
+            { id: 'inL', label: 'L', port: 'inL', signal: 'audio' },
+            { id: 'inR', label: 'R', port: 'inR', signal: 'audio' },
+            { id: 'sidechain', label: 'SC', port: 'sidechain', signal: 'audio' },
+            { id: 'thresholdCV', label: 'Thr', port: 'thresholdCV', signal: 'cv' },
+            { id: 'attackCV', label: 'Atk', port: 'attackCV', signal: 'cv' },
+            { id: 'releaseCV', label: 'Rel', port: 'releaseCV', signal: 'cv' },
+            { id: 'makeupCV', label: 'Mak', port: 'makeupCV', signal: 'cv' },
+            { id: 'filterCV', label: 'Flt', port: 'filterCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'outL', label: 'L', port: 'outL', type: 'audio' },
-            { id: 'outR', label: 'R', port: 'outR', type: 'audio' },
-            { id: 'env', label: 'Env', port: 'env', type: 'cv' },
-            { id: 'gr', label: 'GR', port: 'gr', type: 'cv' }
+            { id: 'outL', label: 'L', port: 'outL', signal: 'audio' },
+            { id: 'outR', label: 'R', port: 'outR', signal: 'audio' },
+            { id: 'env', label: 'Env', port: 'env', signal: 'cv' },
+            { id: 'gr', label: 'GR', port: 'gr', signal: 'cv' }
         ]
     }
 };

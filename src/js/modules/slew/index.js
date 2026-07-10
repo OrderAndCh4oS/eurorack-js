@@ -110,14 +110,14 @@ export default {
             { id: 'rate2', label: 'Rate2', param: 'rate2', min: 0, max: 1, default: 0.1 }
         ],
         inputs: [
-            { id: 'in1', label: 'In1', port: 'in1', type: 'buffer' },
-            { id: 'cv1', label: 'CV1', port: 'cv1', type: 'cv' },
-            { id: 'in2', label: 'In2', port: 'in2', type: 'buffer' },
-            { id: 'cv2', label: 'CV2', port: 'cv2', type: 'cv' }
+            { id: 'in1', label: 'In1', port: 'in1', signal: 'any' },
+            { id: 'cv1', label: 'CV1', port: 'cv1', signal: 'cv' },
+            { id: 'in2', label: 'In2', port: 'in2', signal: 'any' },
+            { id: 'cv2', label: 'CV2', port: 'cv2', signal: 'cv' }
         ],
         outputs: [
-            { id: 'out1', label: 'Out1', port: 'out1', type: 'buffer' },
-            { id: 'out2', label: 'Out2', port: 'out2', type: 'buffer' }
+            { id: 'out1', label: 'Out1', port: 'out1', signal: 'any' },
+            { id: 'out2', label: 'Out2', port: 'out2', signal: 'any' }
         ]
     }
 };

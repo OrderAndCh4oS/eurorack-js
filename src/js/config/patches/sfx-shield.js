@@ -15,7 +15,8 @@ export default {
     "name": "SFX - Shield Impact",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "clk",

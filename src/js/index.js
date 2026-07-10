@@ -1,35 +1,32 @@
-/**
- * Eurorack System Entry Point
- *
- * Main entry point for the rack and module system.
- * Exports everything needed to work with modules.
- *
- * Usage:
- *   import { loadModules, createRack } from './index.js';
- *
- *   await loadModules();
- *   const rack = createRack({
- *     container: document.getElementById('rack'),
- *     modules: ['clk', 'div', 'vco', 'vcf', 'vca', 'out']
- *   });
- *   rack.render();
- */
+/** Public Eurorack host and trusted-plugin API. */
 
-import { MODULE_ORDER as DEFAULT_MODULE_ORDER } from './rack/module-manifest.js';
-
-// Registry exports
 export {
-    moduleRegistry,
-    loadModules,
-    registerModule,
-    hotReloadModule
+    PLUGIN_API_VERSION,
+    PluginRegistry,
+    pluginRegistry,
+    pluginRegistry as moduleRegistry,
+    loadCorePlugin,
+    registerPlugin,
+    unregisterPlugin
 } from './rack/registry.js';
 
-// Rack exports
-export { createRack } from './rack/rack.js';
-export { MODULE_MANIFEST, MODULE_ORDER, CATEGORY_ORDER, CATEGORY_LABELS } from './rack/module-manifest.js';
+export { RackHost, createRackHost } from './app/rack-host.js';
+export {
+    MODULE_MANIFEST,
+    MODULE_ORDER,
+    MODULE_ORDER as DEFAULT_MODULE_ORDER,
+    CORE_PLUGIN_MANIFEST,
+    CATEGORY_ORDER,
+    CATEGORY_LABELS
+} from './rack/module-manifest.js';
+export {
+    SIGNAL_TYPES,
+    getModulePort,
+    getModulePorts,
+    normalizePortDefinition,
+    validateModuleDefinition
+} from './rack/module-contract.js';
 
-// Renderer exports
 export {
     cleanupRenderedModule,
     renderModule,
@@ -38,12 +35,10 @@ export {
     applyParamsToUI
 } from './ui/renderer.js';
 
-// Toolkit exports (for custom modules)
 export {
     createModuleToolkit,
     THEMES,
     LED_THRESHOLDS,
-    // Individual component factories
     createKnob,
     createJack,
     createSwitch,
@@ -51,7 +46,6 @@ export {
     createButtonBank,
     createActionButton,
     createCanvas,
-    // Layout helpers
     createRow,
     createSection,
     createSpacer,
@@ -60,7 +54,6 @@ export {
     createPanel,
     groupInRow,
     appendAll,
-    // Utility functions
     updateKnobRotation,
     setupKnobDrag,
     setKnobValue,
@@ -69,42 +62,6 @@ export {
     setSwitchState
 } from './ui/toolkit/index.js';
 
-// Re-export commonly used utilities for module authors
 export { clamp, expMap } from './utils/math.js';
 export { createSlew } from './utils/slew.js';
 export { SAMPLE_RATE, BUFFER, CABLE_COLORS } from './config/constants.js';
-
-/**
- * Default module order (can be customized)
- */
-export { MODULE_ORDER as DEFAULT_MODULE_ORDER } from './rack/module-manifest.js';
-
-/**
- * Convenience function to set up a complete rack
- * @param {HTMLElement} container - DOM container
- * @param {Object} options - Options
- * @param {string[]} options.modules - Module IDs (default: DEFAULT_MODULE_ORDER)
- * @param {AudioContext} options.audioCtx - Audio context
- * @returns {Promise<Object>} Initialized rack
- */
-export async function setupRack(container, options = {}) {
-    const {
-        modules = DEFAULT_MODULE_ORDER,
-        audioCtx = null
-    } = options;
-
-    // Load all module definitions
-    await loadModules();
-
-    // Create and render rack
-    const { createRack } = await import('./rack/rack.js');
-    const rack = createRack({
-        container,
-        modules,
-        audioCtx
-    });
-
-    rack.render();
-
-    return rack;
-}

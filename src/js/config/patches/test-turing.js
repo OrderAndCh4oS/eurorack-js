@@ -9,7 +9,8 @@ export default {
     "name": "Test: Turing",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "clk",
@@ -86,13 +87,15 @@ export default {
             },
             "vca": {
                 "ch1Gain": 0.8,
-                "ch2Gain": 0.8
+                "ch2Gain": 0.8,
+                "gain1": 0.7,
+                "gain2": 0.7
             },
             "adsr": {
                 "attack": 0,
                 "decay": 0.3,
                 "sustain": 0.4,
-                "release": 0
+                "release": 0.7066666666666667
             },
             "out": {
                 "volume": 0.8

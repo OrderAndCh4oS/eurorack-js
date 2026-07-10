@@ -214,13 +214,13 @@ export default {
             { id: 'rate2', label: 'Rate2', param: 'rate2', min: 0, max: 1, default: 0.5 }
         ],
         inputs: [
-            { id: 'clock', label: 'In', port: 'clock', type: 'trigger' },
-            { id: 'rate1CV', label: 'CV1', port: 'rate1CV', type: 'cv' },
-            { id: 'rate2CV', label: 'CV2', port: 'rate2CV', type: 'cv' }
+            { id: 'clock', label: 'In', port: 'clock', signal: 'trigger' },
+            { id: 'rate1CV', label: 'CV1', port: 'rate1CV', signal: 'cv' },
+            { id: 'rate2CV', label: 'CV2', port: 'rate2CV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'out1', label: 'Out1', port: 'out1', type: 'trigger' },
-            { id: 'out2', label: 'Out2', port: 'out2', type: 'trigger' }
+            { id: 'out1', label: 'Out1', port: 'out1', signal: 'trigger' },
+            { id: 'out2', label: 'Out2', port: 'out2', signal: 'trigger' }
         ]
     }
 };

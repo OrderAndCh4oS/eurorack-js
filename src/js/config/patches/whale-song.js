@@ -14,7 +14,8 @@ export default {
     "name": "Demo - Whale Song",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "clk",
@@ -111,6 +112,12 @@ export default {
                 "type": "vca",
                 "row": 3,
                 "index": 15
+            },
+            {
+                "id": "melodyModMix",
+                "type": "mix",
+                "row": 3,
+                "index": 16
             },
             {
                 "id": "mainMix",
@@ -213,6 +220,12 @@ export default {
                 "cutoff": 0.35,
                 "resonance": 0.3
             },
+            "melodyModMix": {
+                "lvl1": 0.35,
+                "lvl2": 0.65,
+                "lvl3": 0,
+                "lvl4": 0
+            },
             "env": {
                 "attack": 0.4,
                 "decay": 0.5,
@@ -288,8 +301,8 @@ export default {
             {
                 "fromModule": "ochd",
                 "fromPort": "out3",
-                "toModule": "melodyFilter",
-                "toPort": "cutoffCV"
+                "toModule": "melodyModMix",
+                "toPort": "in1"
             },
             {
                 "fromModule": "drone1",
@@ -348,6 +361,12 @@ export default {
             {
                 "fromModule": "env",
                 "fromPort": "env",
+                "toModule": "melodyModMix",
+                "toPort": "in2"
+            },
+            {
+                "fromModule": "melodyModMix",
+                "fromPort": "out",
                 "toModule": "melodyFilter",
                 "toPort": "cutoffCV"
             },

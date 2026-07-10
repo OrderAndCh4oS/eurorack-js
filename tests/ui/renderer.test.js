@@ -250,12 +250,12 @@ describe('renderModule', () => {
             createDSP: () => ({}),
             ui: {
                 inputs: [
-                    { id: 'audio', label: 'In', port: 'audio', type: 'audio' },
-                    { id: 'tap', label: 'Tap', port: 'tap', type: 'trigger' },
-                    { id: 'timeCV', label: 'Time', port: 'timeCV', type: 'cv' }
+                    { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
+                    { id: 'tap', label: 'Tap', port: 'tap', signal: 'trigger' },
+                    { id: 'timeCV', label: 'Time', port: 'timeCV', signal: 'cv' }
                 ],
                 outputs: [
-                    { id: 'out', label: 'Out', port: 'out', type: 'audio' }
+                    { id: 'out', label: 'Out', port: 'out', signal: 'audio' }
                 ],
                 socketLayout: {
                     columns: [
@@ -284,13 +284,13 @@ describe('renderModule', () => {
         const jacks = [...panel.querySelectorAll('.jack')].map(jack => ({
             port: jack.dataset.port,
             dir: jack.dataset.dir,
-            type: jack.dataset.type
+            signal: jack.dataset.signal
         }));
         expect(jacks).toEqual([
-            { port: 'audio', dir: 'input', type: 'audio' },
-            { port: 'tap', dir: 'input', type: 'trigger' },
-            { port: 'out', dir: 'output', type: 'audio' },
-            { port: 'timeCV', dir: 'input', type: 'cv' }
+            { port: 'audio', dir: 'input', signal: 'audio' },
+            { port: 'tap', dir: 'input', signal: 'trigger' },
+            { port: 'out', dir: 'output', signal: 'audio' },
+            { port: 'timeCV', dir: 'input', signal: 'cv' }
         ]);
     });
 

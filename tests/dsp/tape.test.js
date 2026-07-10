@@ -560,17 +560,17 @@ describe('TAPE module', () => {
             expect(tape.outputs.clock.slice(0, 48).every(value => value === 0)).toBe(true);
         });
 
-        it('restores routed input buffers to silent owned buffers after processing', () => {
+        it('keeps input buffers stable across processing and clears them on reset', () => {
             const tape = createTape({ sampleRate: 1000, bufferSize: 80 });
-            const externalAudio = new Float32Array(80).fill(2);
-            const externalCV = new Float32Array(80).fill(5);
+            const inputs = { ...tape.inputs };
 
-            tape.inputs.audio = externalAudio;
-            tape.inputs.timeCV = externalCV;
+            tape.inputs.audio.fill(2);
+            tape.inputs.timeCV.fill(5);
             tape.process();
+            Object.entries(inputs).forEach(([name, buffer]) => expect(tape.inputs[name]).toBe(buffer));
 
-            expect(tape.inputs.audio).not.toBe(externalAudio);
-            expect(tape.inputs.timeCV).not.toBe(externalCV);
+            tape.reset();
+            Object.entries(inputs).forEach(([name, buffer]) => expect(tape.inputs[name]).toBe(buffer));
             expect(tape.inputs.audio.every(value => value === 0)).toBe(true);
             expect(tape.inputs.timeCV.every(value => value === 0)).toBe(true);
         });

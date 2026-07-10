@@ -13,7 +13,8 @@ export default {
     "name": "Test - Func EOC",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "func",

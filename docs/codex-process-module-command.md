@@ -16,12 +16,14 @@ Hard requirements:
 - Update `research/module-queue.md` as the module moves through `researching`, `spec-ready`, `implementing`, and `done` or `blocked`.
 - Add an `Implementation Plan` section to the research doc before writing module code.
 - Write `tests/dsp/{moduleId}.test.js` before or alongside implementation, covering initialization, voltage/output ranges, params, CV/audio/gate/trigger behavior, reset, LEDs, and buffer integrity.
-- Implement `src/js/modules/{moduleId}/index.js` as a self-contained module with metadata, `createDSP()`, and declarative/custom UI.
+- Implement `src/js/modules/{moduleId}/index.js` as a self-contained, worklet-safe module with metadata, stable buffers, `createDSP()`, and declarative/custom UI. Custom renderers must declare bounded telemetry.
 - Register the module in `src/js/rack/module-manifest.js` with `{ id: '{moduleId}', load: () => import('../modules/{moduleId}/index.js') }`. The module definition owns `category`.
+- Add the matching static import to `src/js/rack/core-definitions.js` in manifest order so the module is registered in the AudioWorklet.
 - Update `AGENTS.md`, `README.md`, and `docs/creating-modules.md` if the module adds a new module, pattern, category guidance, or workflow detail.
 - Create a factory test patch at `src/js/config/patches/test-{moduleId}.js` that demonstrates the module connected to audible or visible output.
 - Import that patch in `src/js/config/patches/index.js` and add it to `FACTORY_PATCHES` so it appears in the app dropdown.
 - Use exact port names from each module definition's `ui.inputs[]` and `ui.outputs[]`; do not guess cable ports.
+- Use `signal` plus explicit voltage normals where needed. Keep one source per input and use explicit utility modules for fan-in.
 - Keep unrelated changes out of the module work.
 
 Validation:
@@ -48,12 +50,14 @@ Hard requirements:
 - Update `research/module-queue.md` as the module moves through `researching`, `spec-ready`, `implementing`, and `done` or `blocked`.
 - Add an `Implementation Plan` section to the research doc before writing module code.
 - Write `tests/dsp/matrix.test.js` before or alongside implementation, covering initialization, voltage/output ranges, params, CV/audio/gate/trigger behavior, reset, LEDs, and buffer integrity.
-- Implement `src/js/modules/matrix/index.js` as a self-contained module with metadata, `createDSP()`, and declarative/custom UI.
+- Implement `src/js/modules/matrix/index.js` as a self-contained, worklet-safe module with metadata, stable buffers, `createDSP()`, and declarative/custom UI. Custom renderers must declare bounded telemetry.
 - Register the module in `src/js/rack/module-manifest.js` with `{ id: 'matrix', load: () => import('../modules/matrix/index.js') }`. The module definition owns `category`.
+- Add the matching static import to `src/js/rack/core-definitions.js` in manifest order so the module is registered in the AudioWorklet.
 - Update `AGENTS.md`, `README.md`, and `docs/creating-modules.md` if the module adds a new module, pattern, category guidance, or workflow detail.
 - Create a factory test patch at `src/js/config/patches/test-matrix.js` that demonstrates the module connected to audible or visible output.
 - Import that patch in `src/js/config/patches/index.js` and add it to `FACTORY_PATCHES` so it appears in the app dropdown.
 - Use exact port names from each module definition's `ui.inputs[]` and `ui.outputs[]`; do not guess cable ports.
+- Use `signal` plus explicit voltage normals where needed. Keep one source per input and use explicit utility modules for fan-in.
 - Keep unrelated changes out of the module work.
 
 Validation:

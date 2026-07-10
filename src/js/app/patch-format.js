@@ -1,7 +1,8 @@
 import { createDefaultParams } from './rack-state.js';
+import { getModulePort } from '../rack/module-contract.js';
 
-export const PATCH_VERSION = 2;
-export const COMPACT_PATCH_URL_VERSION = 1;
+export const PATCH_VERSION = 3;
+export const COMPACT_PATCH_URL_VERSION = 2;
 export const PATCH_URL_FORMAT = 'gz1';
 const PATCH_COMPRESSION_FORMAT = 'gzip';
 const URL_NUMBER_DECIMALS = 3;
@@ -227,10 +228,89 @@ function isPlainObject(value) {
     return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-function normalizeCables(cables) {
+function inferPluginDependencies(modules, moduleRegistry) {
+    if (!moduleRegistry?.getPatchDependencies) return { core: 1 };
+    return moduleRegistry.getPatchDependencies(modules.map(module => module.type));
+}
+
+function migratePatchState(state, options) {
+    if (state.version === PATCH_VERSION) return state;
+    if (state.version !== 2) {
+        throw new Error(`Unsupported patch state version: ${state.version ?? 'missing'}`);
+    }
+    return {
+        ...state,
+        version: PATCH_VERSION,
+        plugins: inferPluginDependencies(state.modules || [], options.moduleRegistry)
+    };
+}
+
+function migratePluginDependencies(state, moduleRegistry) {
+    if (!moduleRegistry) return state;
+    let migrated = state;
+    Object.entries(state.plugins).forEach(([pluginId, patchVersion]) => {
+        const record = moduleRegistry.getPlugin?.(pluginId);
+        if (!record) throw new Error(`Patch requires missing plugin "${pluginId}"`);
+        const currentVersion = record.manifest.patchVersion;
+        if (patchVersion === currentVersion) return;
+        if (typeof record.manifest.migratePatch !== 'function') {
+            throw new Error(`Patch requires ${pluginId} patch contract ${patchVersion}; installed contract is ${currentVersion}`);
+        }
+        migrated = record.manifest.migratePatch(clone(migrated), {
+            fromVersion: patchVersion,
+            toVersion: currentVersion
+        });
+        if (!isPlainObject(migrated)) throw new Error(`Plugin "${pluginId}" returned an invalid migrated patch`);
+        migrated.plugins = { ...migrated.plugins, [pluginId]: currentVersion };
+    });
+    return migrated;
+}
+
+function validatePluginDependencies(plugins, modules, moduleRegistry) {
+    if (!moduleRegistry) return;
+    Object.entries(plugins).forEach(([pluginId, patchVersion]) => {
+        const record = moduleRegistry.getPlugin?.(pluginId);
+        if (!record) throw new Error(`Patch requires missing plugin "${pluginId}"`);
+        const currentVersion = record.manifest.patchVersion;
+        if (patchVersion !== currentVersion) {
+            throw new Error(`Patch requires ${pluginId} patch contract ${patchVersion}; installed contract is ${currentVersion}`);
+        }
+    });
+    modules.forEach(module => {
+        const pluginId = moduleRegistry.getPluginForModule?.(module.type);
+        if (!pluginId) throw new Error(`Patch references unregistered module type "${module.type}"`);
+        if (plugins[pluginId] === undefined) {
+            throw new Error(`Patch module type "${module.type}" requires undeclared plugin "${pluginId}"`);
+        }
+    });
+}
+
+function normalizeCables(cables, modules, moduleRegistry) {
+    const modulesById = new Map(modules.map(module => [module.id, module]));
+    const destinations = new Set();
     return cables.map((cable, index) => {
         if (!cable.fromModule || !cable.fromPort || !cable.toModule || !cable.toPort) {
             throw new Error(`Patch cable at index ${index} must include fromModule/fromPort/toModule/toPort`);
+        }
+        const source = modulesById.get(cable.fromModule);
+        const destination = modulesById.get(cable.toModule);
+        if (!source) throw new Error(`Patch cable at index ${index} references missing source module "${cable.fromModule}"`);
+        if (!destination) throw new Error(`Patch cable at index ${index} references missing destination module "${cable.toModule}"`);
+        const destinationKey = `${cable.toModule}\u0000${cable.toPort}`;
+        if (destinations.has(destinationKey)) throw new Error(`Patch input "${cable.toModule}.${cable.toPort}" has more than one source`);
+        destinations.add(destinationKey);
+
+        if (moduleRegistry) {
+            const sourceDefinition = moduleRegistry.get(source.type);
+            const destinationDefinition = moduleRegistry.get(destination.type);
+            if (!sourceDefinition) throw new Error(`Patch references unregistered module type "${source.type}"`);
+            if (!destinationDefinition) throw new Error(`Patch references unregistered module type "${destination.type}"`);
+            if (!getModulePort(sourceDefinition, 'output', cable.fromPort)) {
+                throw new Error(`Module "${cable.fromModule}" has no output port "${cable.fromPort}"`);
+            }
+            if (!getModulePort(destinationDefinition, 'input', cable.toPort)) {
+                throw new Error(`Module "${cable.toModule}" has no input port "${cable.toPort}"`);
+            }
         }
         return {
             fromModule: cable.fromModule,
@@ -241,10 +321,11 @@ function normalizeCables(cables) {
     });
 }
 
-export function normalizePatch(rawPatchOrState) {
-    const state = rawPatchOrState?.state || rawPatchOrState;
+export function normalizePatch(rawPatchOrState, options = {}) {
+    const rawState = rawPatchOrState?.state || rawPatchOrState;
+    let state = isPlainObject(rawState) ? migratePatchState(rawState, options) : rawState;
     if (!isPlainObject(state)) {
-        throw new Error('Patch state must be a canonical v2 object');
+        throw new Error('Patch state must be a supported canonical patch object');
     }
     if (state.version !== PATCH_VERSION) {
         throw new Error(`Unsupported patch state version: ${state.version ?? 'missing'}`);
@@ -264,22 +345,36 @@ export function normalizePatch(rawPatchOrState) {
     if (!isPlainObject(state.midiMappings)) {
         throw new Error('Patch state midiMappings must be an object');
     }
+    if (!isPlainObject(state.plugins)) {
+        throw new Error('Patch state plugins must be an object');
+    }
+    state = migratePluginDependencies(state, options.moduleRegistry);
+    validatePluginDependencies(state.plugins, state.modules, options.moduleRegistry);
+
+    const seenModuleIds = new Set();
+    const modules = state.modules.map((mod, index) => {
+        if (!mod.id || !mod.type || mod.instanceId !== undefined) {
+            throw new Error(`Patch module at index ${index} must use v3 id/type fields`);
+        }
+        if (seenModuleIds.has(mod.id)) throw new Error(`Patch has duplicate module id "${mod.id}"`);
+        seenModuleIds.add(mod.id);
+        if (options.moduleRegistry && !options.moduleRegistry.has(mod.type)) {
+            throw new Error(`Patch references unregistered module type "${mod.type}"`);
+        }
+        return {
+            id: mod.id,
+            type: mod.type,
+            row: mod.row,
+            index: mod.index
+        };
+    });
 
     return {
         version: PATCH_VERSION,
-        modules: state.modules.map((mod, index) => {
-            if (!mod.id || !mod.type || mod.instanceId !== undefined) {
-                throw new Error(`Patch module at index ${index} must use v2 id/type fields`);
-            }
-            return {
-                id: mod.id,
-                type: mod.type,
-                row: mod.row,
-                index: mod.index
-            };
-        }),
+        plugins: clone(state.plugins),
+        modules,
         params: clone(state.params),
-        cables: normalizeCables(state.cables),
+        cables: normalizeCables(state.cables, modules, options.moduleRegistry),
         midiMappings: clone(state.midiMappings)
     };
 }
@@ -293,14 +388,14 @@ export function createVersionedPatch(name, state, factory = false) {
     };
 }
 
-export function normalizePatchCollection(patches) {
+export function normalizePatchCollection(patches, options = {}) {
     const normalized = {};
 
     Object.entries(patches || {}).forEach(([name, patch]) => {
         normalized[name] = {
             ...patch,
             name: patch.name || name,
-            state: normalizePatch(patch.state || patch)
+            state: normalizePatch(patch.state || patch, options)
         };
     });
 
@@ -309,7 +404,7 @@ export function normalizePatchCollection(patches) {
 
 function createCompactPatchUrlPayload(patch, options = {}) {
     const name = patch?.name || 'Shared Patch';
-    const state = normalizePatch(patch?.state || patch);
+    const state = normalizePatch(patch?.state || patch, options);
     const references = createReferenceTables(options);
     const definitionsById = createDefinitionsById(options);
     const moduleIndexById = new Map(state.modules.map((mod, index) => [mod.id, index]));
@@ -361,14 +456,15 @@ function createCompactPatchUrlPayload(patch, options = {}) {
             encodeCompactValue(value, references.ref)
         ];
     });
+    const pluginDependencies = Object.entries(state.plugins).map(([pluginId, version]) => [
+        references.ref(pluginId),
+        version
+    ]);
     const payload = [
         COMPACT_PATCH_URL_VERSION,
         references.localTokens,
-        [references.ref(name), modules, params, cables]
+        [references.ref(name), modules, params, cables, midiMappings, pluginDependencies]
     ];
-    if (Object.keys(state.midiMappings || {}).length > 0) {
-        payload[2].push(midiMappings);
-    }
 
     return payload;
 }
@@ -391,7 +487,7 @@ function parseCompactPatchUrlPayload(payload, options = {}) {
     const [, localTokens = [], body = []] = payload;
     const references = createReferenceTables(options);
     references.localTokens.splice(0, references.localTokens.length, ...localTokens);
-    const [nameRef, modules = [], params = [], cables = [], midiMappings = []] = body;
+    const [nameRef, modules = [], params = [], cables = [], midiMappings = [], pluginDependencies = []] = body;
     const typeCounts = {};
     const reconstructedModules = modules.map((mod, position) => {
         const type = references.resolve(mod[0]);
@@ -411,6 +507,10 @@ function parseCompactPatchUrlPayload(payload, options = {}) {
         factory: false,
         state: normalizePatch({
             version: PATCH_VERSION,
+            plugins: Object.fromEntries(pluginDependencies.map(([pluginRef, version]) => [
+                references.resolve(pluginRef),
+                version
+            ])),
             modules: reconstructedModules,
             params: Object.fromEntries((params || []).map(([moduleRef, entries]) => [
                 reconstructedModules[moduleRef]?.id,
@@ -438,7 +538,7 @@ function parseCompactPatchUrlPayload(payload, options = {}) {
                     decodeCompactValue(mapping[1], references.resolve)
                 ];
             })),
-        })
+        }, options)
     };
 }
 

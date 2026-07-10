@@ -208,25 +208,15 @@ describe('Matrix - 4x4 Matrix Mixer', () => {
         });
     });
 
-    describe('input clearing', () => {
-        it('clears own input buffers on demand', () => {
+    describe('stable inputs', () => {
+        it('keeps input buffer identities across processing', () => {
+            const inputs = { ...matrix.inputs };
             matrix.inputs.in1.fill(3);
-            matrix.clearAudioInputs();
             matrix.params.a1 = 1;
             matrix.process();
 
-            expectBufferValue(matrix.outputs.outA, 0);
-        });
-
-        it('restores own buffers after processing routed buffers', () => {
-            const routed = new Float32Array(512).fill(4);
-            matrix.inputs.in1 = routed;
-            matrix.params.a1 = 1;
-            matrix.process();
-
-            expectBufferValue(matrix.outputs.outA, 4);
-            expect(matrix.inputs.in1).not.toBe(routed);
-            expectBufferValue(matrix.inputs.in1, 0);
+            expectBufferValue(matrix.outputs.outA, 3);
+            Object.entries(inputs).forEach(([name, buffer]) => expect(matrix.inputs[name]).toBe(buffer));
         });
     });
 

@@ -1,18 +1,17 @@
 import {
-    loadModules,
     moduleRegistry,
     DEFAULT_MODULE_ORDER,
     CATEGORY_ORDER,
     CATEGORY_LABELS
 } from '../index.js';
-import { BUFFER, CABLE_COLORS, PATCH_STORAGE_KEY } from '../config/constants.js';
+import { CABLE_COLORS, PATCH_STORAGE_KEY } from '../config/constants.js';
 import { FACTORY_PATCHES } from '../config/factory-patches.js';
-import { createAudioEngine } from '../audio/engine.js';
 import { createCablePath, getJackCenter } from '../cables/cable-manager.js';
 import { createMidiManager } from '../midi/midi-manager.js';
 import { cleanupRenderedModule, renderModule, syncParamToModuleUI, updateModuleLEDs } from '../ui/renderer.js';
 import { updateKnobRotation } from '../ui/toolkit/components.js';
 import { RackState } from './rack-state.js';
+import { createRackHost } from './rack-host.js';
 import {
     PATCH_VERSION,
     createPatchUrlHash,
@@ -20,7 +19,6 @@ import {
     normalizePatchCollection,
     parsePatchUrlHash
 } from './patch-format.js';
-import { setNestedValue } from '../utils/nested-access.js';
 import { adjustColor, getModuleColorToken, isHexColor } from '../utils/color.js';
 
 export const PATCH_EXPORT_SCHEMA = 'eurorack-js/patch-export';
@@ -35,11 +33,12 @@ function isPlainObject(value) {
 
 function isPatchStateLike(value) {
     return isPlainObject(value) && (
-        value.version === PATCH_VERSION &&
+        (value.version === PATCH_VERSION || value.version === 2) &&
         Array.isArray(value.modules) &&
         isPlainObject(value.params) &&
         Array.isArray(value.cables) &&
-        isPlainObject(value.midiMappings)
+        isPlainObject(value.midiMappings) &&
+        (value.version === 2 || isPlainObject(value.plugins))
     );
 }
 
@@ -175,7 +174,13 @@ export function parseImportedPatchJson(json, { suggestedName = '' } = {}) {
 export class EurorackApp {
     constructor(documentRef = document) {
         this.document = documentRef;
-        this.state = new RackState();
+        this.host = createRackHost({
+            registry: moduleRegistry,
+            state: new RackState(),
+            onLedUpdate: ledStates => this.updateLEDs(ledStates),
+            onModuleError: ({ moduleId, error }) => console.error(`Module "${moduleId}" disabled:`, error)
+        });
+        this.state = this.host.state;
         this.audioCtx = null;
         this.engine = null;
         this.midiManager = null;
@@ -192,10 +197,13 @@ export class EurorackApp {
     }
 
     async init() {
-        await loadModules();
+        await this.host.init();
         this.cacheElements();
         this.applySavedSkin();
         this.populateSidebar();
+        this.host.subscribe(event => {
+            if (event.type === 'registry') this.populateSidebar();
+        });
         this.bindEvents();
         await this.initMidi();
         this.cleanUserPatches();
@@ -339,7 +347,7 @@ export class EurorackApp {
         window.addEventListener('resize', () => this.renderAllCables());
         this.rackContainer?.addEventListener('scroll', () => this.renderAllCables(), { passive: true });
 
-        this.startButton.addEventListener('click', () => this.toggleAudio());
+        this.startButton.addEventListener('click', () => { void this.toggleAudio(); });
         this.document.getElementById('clearCables').addEventListener('click', () => this.clearAllCables());
         this.document.getElementById('copyPatch').addEventListener('click', () => this.copyPatchToClipboard());
         this.document.getElementById('sharePatch')?.addEventListener('click', () => this.sharePatchUrl());
@@ -467,7 +475,7 @@ export class EurorackApp {
     addModule(type, options = {}) {
         let moduleState;
         try {
-            moduleState = this.state.addModule(type, moduleRegistry, options);
+            moduleState = this.host.addModule(type, options);
         } catch (error) {
             console.warn(error.message);
             return null;
@@ -540,7 +548,7 @@ export class EurorackApp {
 
         cleanupRenderedModule(mod.element);
         mod.element?.remove();
-        this.state.removeModule(id);
+        this.host.removeModule(id);
         this.visualCables
             .filter(cable => cable.fromModule === id || cable.toModule === id)
             .forEach(cable => cable.pathEl?.remove());
@@ -552,11 +560,7 @@ export class EurorackApp {
     }
 
     setParam(moduleId, param, value) {
-        this.state.setParam(moduleId, param, value);
-        const dsp = this.getDSP(moduleId);
-        if (dsp?.params) {
-            setNestedValue(dsp.params, param, value);
-        }
+        this.host.setParam(moduleId, param, value);
     }
 
     getDSP(moduleId) {
@@ -564,78 +568,35 @@ export class EurorackApp {
     }
 
     createDSP(moduleState) {
-        const definition = moduleRegistry.get(moduleState.type);
-        const dsp = definition.createDSP({
-            sampleRate: this.audioCtx?.sampleRate || 44100,
-            bufferSize: BUFFER,
-            audioCtx: this.audioCtx
-        });
-
-        if (dsp && this.midiManager) {
-            dsp.midiManager = this.midiManager;
-        }
-
-        Object.entries(moduleState.params).forEach(([param, value]) => {
-            setNestedValue(dsp.params, param, value);
-        });
-
-        if (moduleState.runtimeState && definition.restoreRuntimeState) {
-            definition.restoreRuntimeState(dsp, moduleState.runtimeState);
-        }
-
-        moduleState.instance = dsp;
-        return dsp;
+        return this.host.createDSP(moduleState);
     }
 
     syncEngineModules() {
-        if (!this.engine) return;
-        this.engine.setModules(this.getEngineModules());
-        this.engine.setCables(this.state.cables);
+        this.host.syncTopology();
+        this.engine = this.host.engine;
     }
 
-    getEngineModules() {
-        const modules = {};
-        this.state.modules.forEach((moduleState, id) => {
-            if (!moduleState.instance && this.audioCtx) {
-                this.createDSP(moduleState);
-            }
-            modules[id] = {
-                instance: moduleState.instance,
-                type: moduleState.type,
-                def: moduleRegistry.get(moduleState.type)
-            };
-        });
-        return modules;
-    }
-
-    toggleAudio() {
-        if (this.engine) {
-            this.engine.stop();
+    async toggleAudio() {
+        if (this.host.engine) {
+            const context = await this.host.stopAudio();
             this.engine = null;
-            this.audioCtx?.close();
+            await context?.close();
             this.audioCtx = null;
-            this.state.modules.forEach(moduleState => {
-                const definition = moduleRegistry.get(moduleState.type);
-                if (moduleState.instance && definition?.captureRuntimeState) {
-                    moduleState.runtimeState = definition.captureRuntimeState(moduleState.instance);
-                }
-                moduleState.instance = null;
-            });
             this.startButton.textContent = 'Start';
             this.startButton.classList.remove('active');
             return;
         }
 
         this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        this.state.modules.forEach(moduleState => this.createDSP(moduleState));
-        this.engine = createAudioEngine({
-            modules: this.getEngineModules(),
-            cables: this.state.cables,
-            audioCtx: this.audioCtx,
-            sampleRate: this.audioCtx.sampleRate,
-            onLedUpdate: ledStates => this.updateLEDs(ledStates)
-        });
-        this.engine.start();
+        try {
+            this.engine = await this.host.startAudio(this.audioCtx);
+        } catch (error) {
+            await this.audioCtx.close();
+            this.audioCtx = null;
+            this.engine = null;
+            alert(error.message);
+            return;
+        }
         this.startButton.textContent = 'Stop';
         this.startButton.classList.add('active');
     }
@@ -800,7 +761,7 @@ export class EurorackApp {
         if (targetJack && targetJack !== this.dragState.startJack && targetJack.dataset.dir !== this.dragState.startDir) {
             const fromJack = this.dragState.startDir === 'output' ? this.dragState.startJack : targetJack;
             const toJack = this.dragState.startDir === 'input' ? this.dragState.startJack : targetJack;
-            this.addCable(fromJack, toJack, { color, replaceInput: !event.shiftKey });
+            this.addCable(fromJack, toJack, { color, replaceInput: true });
         }
 
         this.dragState = null;
@@ -813,12 +774,12 @@ export class EurorackApp {
                 .forEach(cable => this.removeCable(cable));
         }
 
-        const pureCable = cableState || (updateState ? this.state.connect({
+        const pureCable = cableState || (updateState ? this.host.connect({
             fromModule: fromJack.dataset.module,
             fromPort: fromJack.dataset.port,
             toModule: toJack.dataset.module,
             toPort: toJack.dataset.port
-        }, { replaceInput: false }) : {
+        }) : {
             fromModule: fromJack.dataset.module,
             fromPort: fromJack.dataset.port,
             toModule: toJack.dataset.module,
@@ -841,7 +802,7 @@ export class EurorackApp {
 
     removeCable(cable) {
         cable.pathEl?.remove();
-        this.state.removeCable(cable);
+        this.host.disconnect(cable);
         this.visualCables = this.visualCables.filter(item => item !== cable);
         this.markConnectedJacks();
         this.engine?.setCables(this.state.cables);
@@ -849,8 +810,7 @@ export class EurorackApp {
 
     clearAllCables() {
         this.clearVisualCables();
-        this.state.clearCables();
-        this.engine?.setCables([]);
+        this.host.clearCables();
     }
 
     clearVisualCables() {
@@ -1004,7 +964,7 @@ export class EurorackApp {
         }
         const patches = this.getUserPatches();
         const patchName = name.trim();
-        const patch = createCanonicalPatch(patchName, this.state.serializePatch());
+        const patch = createCanonicalPatch(patchName, this.host.serializePatch());
         patches[patchName] = patch;
         this.saveUserPatches(patches);
         this.updatePatchSelect();
@@ -1017,21 +977,13 @@ export class EurorackApp {
         return true;
     }
 
-    loadPatchState(patchState) {
-        const previous = this.state.serializePatch();
-        const normalized = normalizePatch(patchState);
+    async loadPatchState(patchState) {
+        const normalized = normalizePatch(patchState, { moduleRegistry });
         try {
-            this.state.loadPatch(normalized, moduleRegistry);
-            if (this.audioCtx) {
-                this.state.modules.forEach(moduleState => this.createDSP(moduleState));
-            }
+            await this.host.loadPatch(normalized);
             this.rerenderRack();
             return true;
         } catch (error) {
-            this.state.loadPatch(previous, moduleRegistry);
-            if (this.audioCtx) {
-                this.state.modules.forEach(moduleState => this.createDSP(moduleState));
-            }
             this.rerenderRack();
             throw error;
         }
@@ -1044,7 +996,7 @@ export class EurorackApp {
             return false;
         }
         const normalized = normalizePatch(patch);
-        const loaded = this.loadPatchState(normalized);
+        const loaded = await this.loadPatchState(normalized);
         if (loaded) {
             try {
                 await this.updatePatchUrl({
@@ -1120,7 +1072,7 @@ export class EurorackApp {
         }
 
         if (!patch) return false;
-        const loaded = this.loadPatchState(patch.state);
+        const loaded = await this.loadPatchState(patch.state);
         const input = this.document.getElementById('patchName');
         const select = this.document.getElementById('patchSelect');
         if (input) input.value = patch.name;
@@ -1129,7 +1081,7 @@ export class EurorackApp {
     }
 
     copyPatchToClipboard() {
-        const json = JSON.stringify(this.state.serializePatch(), null, 4);
+        const json = JSON.stringify(this.host.serializePatch(), null, 4);
         navigator.clipboard.writeText(json).then(() => {
             const btn = this.document.getElementById('copyPatch');
             const oldText = btn.textContent;
@@ -1157,7 +1109,7 @@ export class EurorackApp {
 
     async sharePatchUrl() {
         const name = this.getCurrentPatchName();
-        const patch = createCanonicalPatch(name, this.state.serializePatch());
+        const patch = createCanonicalPatch(name, this.host.serializePatch());
 
         let url;
         try {
@@ -1189,7 +1141,7 @@ export class EurorackApp {
 
     exportCurrentPatchToFile() {
         const name = this.getCurrentPatchName();
-        const patch = createCanonicalPatch(name, this.state.serializePatch());
+        const patch = createCanonicalPatch(name, this.host.serializePatch());
         const json = JSON.stringify(createPatchExport(patch), null, 2);
         const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -1220,7 +1172,7 @@ export class EurorackApp {
 
             if (imported.type === 'single') {
                 const patch = imported.patches[imported.names[0]];
-                this.loadPatchState(patch.state);
+                await this.loadPatchState(patch.state);
                 await this.updatePatchUrl(patch);
             }
 
@@ -1244,6 +1196,8 @@ export class EurorackApp {
 
     async initMidi() {
         this.midiManager = createMidiManager();
+        this.host.setService('midiManager', this.midiManager);
+        this.midiManager.setOnRawMidiMessage(data => this.host.engine?.sendMidi?.(data));
         window.midiManager = this.midiManager;
         const success = await this.midiManager.init();
         const btn = this.document.getElementById('midiLearnBtn');

@@ -91,12 +91,12 @@ export default {
     ui: {
         leds: ['and', 'or'],
         inputs: [
-            { id: 'in1', label: 'In 1', port: 'in1', type: 'gate' },
-            { id: 'in2', label: 'In 2', port: 'in2', type: 'gate' }
+            { id: 'in1', label: 'In 1', port: 'in1', signal: 'gate' },
+            { id: 'in2', label: 'In 2', port: 'in2', signal: 'gate' }
         ],
         outputs: [
-            { id: 'and', label: 'AND', port: 'and', type: 'gate' },
-            { id: 'or', label: 'OR', port: 'or', type: 'gate' }
+            { id: 'and', label: 'AND', port: 'and', signal: 'gate' },
+            { id: 'or', label: 'OR', port: 'or', signal: 'gate' }
         ]
     }
 };

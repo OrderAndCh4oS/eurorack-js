@@ -8,7 +8,8 @@ export default {
     "name": "Test: Chorus",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "vco",
@@ -31,13 +32,17 @@ export default {
         ],
         "params": {
             "vco": {
-                "coarse": 0.4,
-                "fine": 0
+                "coarse": 0.5566666666666665,
+                "fine": 0,
+                "glide": 5
             },
             "chorus": {
-                "rate": 0.4,
-                "depth": 0.6,
-                "mix": 0.5
+                "rate": 0.3533333333333334,
+                "depth": 0.4666666666666667,
+                "mix": 0.7
+            },
+            "out": {
+                "volume": 0.8
             }
         },
         "cables": [

@@ -340,7 +340,7 @@ describe('SPECTRUM - Spectrum Analyzer', () => {
         it('should have audio input jack defined', () => {
             const audioInput = spectrumModule.ui.inputs.find(i => i.port === 'audio');
             expect(audioInput).toBeDefined();
-            expect(audioInput.type).toBe('audio');
+            expect(audioInput.signal).toBe('audio');
         });
 
         it('should have output jack defined', () => {

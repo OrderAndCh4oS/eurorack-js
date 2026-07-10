@@ -298,6 +298,7 @@ The hardware target is 2HP, but the browser module uses `hp: 6` to avoid cramped
 
 - Add `src/js/modules/loop/index.js`.
 - Add `loop` to `src/js/rack/module-manifest.js` under `effect`.
+- Add the matching static import to `src/js/rack/core-definitions.js` for AudioWorklet registration.
 - Implement mono record/playback with first-pass loop length.
 - Implement four record modes.
 - Implement reverse and half-speed playback.

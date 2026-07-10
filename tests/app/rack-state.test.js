@@ -103,13 +103,13 @@ describe('RackState', () => {
         expect(rack.cables).toEqual([]);
     });
 
-    it('serializes canonical v2 patch state', () => {
+    it('serializes canonical v3 patch state', () => {
         const rack = new RackState();
         rack.addModule('vco', registry, { id: 'vco_1' });
         rack.setParam('vco_1', 'coarse', 0.7);
 
         expect(rack.serializePatch()).toMatchObject({
-            version: 2,
+            version: 3, plugins: { core: 1 },
             modules: [{ id: 'vco_1', type: 'vco', row: 1, index: 0 }],
             params: { vco_1: { coarse: 0.7 } }
         });
@@ -119,7 +119,7 @@ describe('RackState', () => {
         const rack = new RackState();
 
         rack.loadPatch({
-            version: 2,
+            version: 3, plugins: { core: 1 },
             modules: [
                 { id: 'vco_1', type: 'vco', row: 3, index: 0 }
             ],

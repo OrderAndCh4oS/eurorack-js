@@ -19,6 +19,10 @@ export default {
     hp: 16,
     color: 'module-color-four',
     category: 'utility',
+    telemetry: {
+        fields: ['displayBuffer1', 'displayBuffer2', 'displaySize'],
+        methods: ['getDetectedFreq', 'getWriteIndex']
+    },
 
     // Custom CSS for scope display
     css: `
@@ -198,14 +202,6 @@ export default {
                 this.leds.ch2 = max2 / 10;
 
                 // Reset inputs if replaced by routing
-                if (this.inputs.in1 !== ownIn1) {
-                    ownIn1.fill(0);
-                    this.inputs.in1 = ownIn1;
-                }
-                if (this.inputs.in2 !== ownIn2) {
-                    ownIn2.fill(0);
-                    this.inputs.in2 = ownIn2;
-                }
             },
 
             reset() {
@@ -280,13 +276,13 @@ export default {
             id: 'in1',
             label: '1',
             direction: 'input',
-            type: 'buffer'
+            signal: 'any'
         }));
         inputRow.appendChild(toolkit.createJack({
             id: 'in2',
             label: '2',
             direction: 'input',
-            type: 'buffer'
+            signal: 'any'
         }));
         ioColumn.appendChild(inputRow);
 
@@ -302,13 +298,13 @@ export default {
             id: 'out1',
             label: '1',
             direction: 'output',
-            type: 'buffer'
+            signal: 'any'
         }));
         outRow.appendChild(toolkit.createJack({
             id: 'out2',
             label: '2',
             direction: 'output',
-            type: 'buffer'
+            signal: 'any'
         }));
         ioColumn.appendChild(outRow);
 
@@ -663,12 +659,12 @@ export default {
             { id: 'mode', label: 'Mode', param: 'mode', values: [0, 1, 2], default: 0 }
         ],
         inputs: [
-            { id: 'in1', label: '1', port: 'in1', type: 'buffer' },
-            { id: 'in2', label: '2', port: 'in2', type: 'buffer' }
+            { id: 'in1', label: '1', port: 'in1', signal: 'any' },
+            { id: 'in2', label: '2', port: 'in2', signal: 'any' }
         ],
         outputs: [
-            { id: 'out1', label: '1', port: 'out1', type: 'buffer' },
-            { id: 'out2', label: '2', port: 'out2', type: 'buffer' }
+            { id: 'out1', label: '1', port: 'out1', signal: 'any' },
+            { id: 'out2', label: '2', port: 'out2', signal: 'any' }
         ]
     }
 };

@@ -278,17 +278,17 @@ export default {
             { id: 'cycle', label: 'Cycle', param: 'cycle', positions: ['Off', 'On'], default: 0 }
         ],
         inputs: [
-            { id: 'in', label: 'In', port: 'in', type: 'cv' },
-            { id: 'trig', label: 'Trig', port: 'trig', type: 'trigger' },
-            { id: 'riseCV', label: 'R CV', port: 'riseCV', type: 'cv' },
-            { id: 'fallCV', label: 'F CV', port: 'fallCV', type: 'cv' },
-            { id: 'cycleCV', label: 'Cyc', port: 'cycleCV', type: 'gate' }
+            { id: 'in', label: 'In', port: 'in', signal: 'cv' },
+            { id: 'trig', label: 'Trig', port: 'trig', signal: 'trigger' },
+            { id: 'riseCV', label: 'R CV', port: 'riseCV', signal: 'cv' },
+            { id: 'fallCV', label: 'F CV', port: 'fallCV', signal: 'cv' },
+            { id: 'cycleCV', label: 'Cyc', port: 'cycleCV', signal: 'gate' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', type: 'cv' },
-            { id: 'inv', label: 'Inv', port: 'inv', type: 'cv' },
-            { id: 'eor', label: 'EOR', port: 'eor', type: 'gate' },
-            { id: 'eoc', label: 'EOC', port: 'eoc', type: 'gate' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'cv' },
+            { id: 'inv', label: 'Inv', port: 'inv', signal: 'cv' },
+            { id: 'eor', label: 'EOR', port: 'eor', signal: 'gate' },
+            { id: 'eoc', label: 'EOC', port: 'eoc', signal: 'gate' }
         ]
     }
 };

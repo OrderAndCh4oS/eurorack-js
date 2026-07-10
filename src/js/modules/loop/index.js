@@ -41,6 +41,7 @@ export default {
     hp: 6,
     color: 'module-color-ten',
     category: 'effect',
+    telemetry: { fields: [], methods: ['getLoopInfo'] },
 
     css: `
         .loop-container {
@@ -337,19 +338,6 @@ export default {
                 this.leds.recording = recording ? 1 : 0;
                 this.leds.playing = hasLoop ? 1 : 0;
                 this.leds.hasLoop = hasLoop ? 1 : 0;
-
-                if (this.inputs.in !== ownIn) {
-                    ownIn.fill(0);
-                    this.inputs.in = ownIn;
-                }
-                if (this.inputs.recTrig !== ownRecTrig) {
-                    ownRecTrig.fill(0);
-                    this.inputs.recTrig = ownRecTrig;
-                }
-                if (this.inputs.reverseTrig !== ownReverseTrig) {
-                    ownReverseTrig.fill(0);
-                    this.inputs.reverseTrig = ownReverseTrig;
-                }
             },
 
             reset() {
@@ -521,15 +509,15 @@ export default {
         main.appendChild(toolkit.createSection('Out'));
 
         const outRow = toolkit.createRow();
-        outRow.appendChild(toolkit.createJack({ id: 'out', label: 'Out', direction: 'output', type: 'audio' }));
+        outRow.appendChild(toolkit.createJack({ id: 'out', label: 'Out', direction: 'output', signal: 'audio' }));
         main.appendChild(outRow);
 
         main.appendChild(toolkit.createSection('In'));
 
         const inRow = toolkit.createRow();
-        inRow.appendChild(toolkit.createJack({ id: 'in', label: 'In', direction: 'input', type: 'audio' }));
-        inRow.appendChild(toolkit.createJack({ id: 'recTrig', label: 'Rec', direction: 'input', type: 'trigger' }));
-        inRow.appendChild(toolkit.createJack({ id: 'reverseTrig', label: 'Rev', direction: 'input', type: 'trigger' }));
+        inRow.appendChild(toolkit.createJack({ id: 'in', label: 'In', direction: 'input', signal: 'audio' }));
+        inRow.appendChild(toolkit.createJack({ id: 'recTrig', label: 'Rec', direction: 'input', signal: 'trigger' }));
+        inRow.appendChild(toolkit.createJack({ id: 'reverseTrig', label: 'Rev', direction: 'input', signal: 'trigger' }));
         main.appendChild(inRow);
 
         container.appendChild(main);
@@ -570,12 +558,12 @@ export default {
             { id: 'clear', label: 'Clr', param: 'clear', mode: 'trigger', default: 0 }
         ],
         inputs: [
-            { id: 'in', label: 'In', port: 'in', type: 'audio' },
-            { id: 'recTrig', label: 'Rec', port: 'recTrig', type: 'trigger' },
-            { id: 'reverseTrig', label: 'Rev', port: 'reverseTrig', type: 'trigger' }
+            { id: 'in', label: 'In', port: 'in', signal: 'audio' },
+            { id: 'recTrig', label: 'Rec', port: 'recTrig', signal: 'trigger' },
+            { id: 'reverseTrig', label: 'Rev', port: 'reverseTrig', signal: 'trigger' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', type: 'audio' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'audio' }
         ]
     }
 };

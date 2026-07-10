@@ -503,30 +503,24 @@ describe('createAudioEngine', () => {
             expect(modules.vco.instance.inputs.vOct).toBeDefined();
         });
 
-        it('should handle missing source module gracefully', () => {
+        it('should reject a missing source module', () => {
             cables.push({
                 fromModule: 'nonexistent',
                 fromPort: 'output',
                 toModule: 'vco',
                 toPort: 'vOct'
             });
-            engine.setCables(cables);
-
-            // Should not throw
-            expect(() => engine.routeSignals('vco')).not.toThrow();
+            expect(() => engine.setCables(cables)).toThrow('missing source module');
         });
 
-        it('should handle missing target module gracefully', () => {
+        it('should reject a missing target module', () => {
             cables.push({
                 fromModule: 'lfo',
                 fromPort: 'primary',
                 toModule: 'nonexistent',
                 toPort: 'input'
             });
-            engine.setCables(cables);
-
-            // Should not throw
-            expect(() => engine.routeSignals('nonexistent')).not.toThrow();
+            expect(() => engine.setCables(cables)).toThrow('missing destination module');
         });
     });
 });

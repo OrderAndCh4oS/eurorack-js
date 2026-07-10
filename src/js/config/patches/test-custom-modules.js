@@ -9,7 +9,8 @@ export default {
     "name": "Test - Custom Modules",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "clock",
@@ -268,14 +269,44 @@ export default {
             {
                 "fromModule": "vcf",
                 "fromPort": "lpf",
-                "toModule": "vca",
-                "toPort": "ch1In"
+                "toModule": "lpg",
+                "toPort": "audio"
             },
             {
                 "fromModule": "env",
                 "fromPort": "env",
+                "toModule": "lpg",
+                "toPort": "cv"
+            },
+            {
+                "fromModule": "seq",
+                "fromPort": "gate",
+                "toModule": "lpg",
+                "toPort": "strike"
+            },
+            {
+                "fromModule": "joy",
+                "fromPort": "x",
+                "toModule": "vcf",
+                "toPort": "resCV"
+            },
+            {
+                "fromModule": "joy",
+                "fromPort": "y",
+                "toModule": "lpg",
+                "toPort": "dampCV"
+            },
+            {
+                "fromModule": "joy",
+                "fromPort": "trig",
+                "toModule": "loop",
+                "toPort": "reverseTrig"
+            },
+            {
+                "fromModule": "lpg",
+                "fromPort": "out",
                 "toModule": "vca",
-                "toPort": "ch1CV"
+                "toPort": "ch1In"
             },
             {
                 "fromModule": "vca",

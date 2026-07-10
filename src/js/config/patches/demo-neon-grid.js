@@ -9,7 +9,8 @@ export default {
     "name": "Demo - Neon Grid",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "clock",
@@ -190,6 +191,12 @@ export default {
                 "type": "out",
                 "row": 3,
                 "index": 8
+            },
+            {
+                "id": "leadModMix",
+                "type": "mix",
+                "row": 3,
+                "index": 9
             }
         ],
         "params": {
@@ -301,6 +308,12 @@ export default {
             "leadFilter": {
                 "cutoff": 0.3999999999999998,
                 "resonance": 0.3333333333333334
+            },
+            "leadModMix": {
+                "lvl1": 0.65,
+                "lvl2": 0.35,
+                "lvl3": 0,
+                "lvl4": 0
             },
             "leadEnv": {
                 "attack": 0.02333333333333333,
@@ -511,8 +524,8 @@ export default {
             {
                 "fromModule": "leadEnv",
                 "fromPort": "env",
-                "toModule": "leadFilter",
-                "toPort": "cutoffCV"
+                "toModule": "leadModMix",
+                "toPort": "in1"
             },
             {
                 "fromModule": "leadFilter",
@@ -541,6 +554,12 @@ export default {
             {
                 "fromModule": "modLfo",
                 "fromPort": "secondary",
+                "toModule": "leadModMix",
+                "toPort": "in2"
+            },
+            {
+                "fromModule": "leadModMix",
+                "fromPort": "out",
                 "toModule": "leadFilter",
                 "toPort": "cutoffCV"
             },

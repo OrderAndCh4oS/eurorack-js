@@ -226,14 +226,6 @@ export default {
                 this.leds.active = Math.min(1, peakLevel / 5);
 
                 // Reset inputs if they were replaced by routing
-                if (this.inputs.audioL !== ownAudioL) {
-                    ownAudioL.fill(0);
-                    this.inputs.audioL = ownAudioL;
-                }
-                if (this.inputs.audioR !== ownAudioR) {
-                    ownAudioR.fill(0);
-                    this.inputs.audioR = ownAudioR;
-                }
             },
 
             reset() {
@@ -280,13 +272,13 @@ export default {
         ],
         switches: [],
         inputs: [
-            { id: 'audioL', label: 'L', port: 'audioL', type: 'audio' },
-            { id: 'audioR', label: 'R', port: 'audioR', type: 'audio' },
-            { id: 'mixCV', label: 'Mix', port: 'mixCV', type: 'cv' }
+            { id: 'audioL', label: 'L', port: 'audioL', signal: 'audio' },
+            { id: 'audioR', label: 'R', port: 'audioR', signal: 'audio' },
+            { id: 'mixCV', label: 'Mix', port: 'mixCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'outL', label: 'L', port: 'outL', type: 'audio' },
-            { id: 'outR', label: 'R', port: 'outR', type: 'audio' }
+            { id: 'outL', label: 'L', port: 'outL', signal: 'audio' },
+            { id: 'outR', label: 'R', port: 'outR', signal: 'audio' }
         ]
     }
 };

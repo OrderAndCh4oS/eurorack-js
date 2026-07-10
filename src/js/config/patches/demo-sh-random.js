@@ -7,7 +7,8 @@ export default {
     "name": "Demo - S&H Random",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "clk",

@@ -111,14 +111,14 @@ describe('FORMANT module', () => {
                 'drive',
                 'mix'
             ]);
-            expect(formantModule.ui.inputs.map(input => [input.port, input.type])).toEqual([
-                ['audio', 'buffer'],
+            expect(formantModule.ui.inputs.map(input => [input.port, input.signal])).toEqual([
+                ['audio', 'audio'],
                 ['vowelCV', 'cv'],
                 ['shiftCV', 'cv'],
                 ['resCV', 'cv']
             ]);
-            expect(formantModule.ui.outputs.map(output => [output.port, output.type])).toEqual([
-                ['out', 'buffer']
+            expect(formantModule.ui.outputs.map(output => [output.port, output.signal])).toEqual([
+                ['out', 'audio']
             ]);
         });
     });
@@ -376,19 +376,14 @@ describe('FORMANT module', () => {
             expect(Math.max(...Array.from(dsp.outputs.out).map(Math.abs))).toBeLessThan(1e-6);
         });
 
-        it('supports clearAudioInputs and restores routed audio buffers after processing', () => {
+        it('keeps its input buffer stable and clears it on reset', () => {
+            const input = dsp.inputs.audio;
             dsp.inputs.audio.fill(2);
-            dsp.clearAudioInputs();
-
-            expect(Array.from(dsp.inputs.audio).every(sample => sample === 0)).toBe(true);
             dsp.process();
-            expect(Array.from(dsp.outputs.out).every(sample => sample === 0)).toBe(true);
+            expect(dsp.inputs.audio).toBe(input);
 
-            const externalAudio = new Float32Array(bufferSize).fill(1.5);
-            dsp.inputs.audio = externalAudio;
-            dsp.process();
-
-            expect(dsp.inputs.audio).not.toBe(externalAudio);
+            dsp.reset();
+            expect(dsp.inputs.audio).toBe(input);
             expect(Array.from(dsp.inputs.audio).every(sample => sample === 0)).toBe(true);
         });
     });

@@ -16,7 +16,8 @@ export default {
     "name": "Test: MIDI-DRUM",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "drum",

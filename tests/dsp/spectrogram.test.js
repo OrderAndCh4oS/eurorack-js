@@ -280,7 +280,7 @@ describe('SPECTROGRAM - Frequency Over Time', () => {
         it('should have audio input jack defined', () => {
             const audioInput = spectrogramModule.ui.inputs.find(i => i.port === 'audio');
             expect(audioInput).toBeDefined();
-            expect(audioInput.type).toBe('audio');
+            expect(audioInput.signal).toBe('audio');
         });
 
         it('should have output jack defined', () => {

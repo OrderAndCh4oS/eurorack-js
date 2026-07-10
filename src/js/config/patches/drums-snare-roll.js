@@ -6,7 +6,8 @@ export default {
     "name": "Drums - Snare Roll",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "clk",

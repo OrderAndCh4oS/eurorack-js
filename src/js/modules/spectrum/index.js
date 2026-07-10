@@ -18,6 +18,7 @@ export default {
     hp: 12,
     color: 'module-color-two',
     category: 'utility',
+    telemetry: { fields: ['magnitudes', 'peaks'], methods: ['getFFTSize', 'getSampleRate'] },
 
     css: `
         .spectrum-container {
@@ -194,6 +195,7 @@ export default {
             peaks,
 
             getFFTSize() { return FFT_SIZE; },
+            getSampleRate() { return sampleRate; },
 
             binToFreq(bin) {
                 return bin * sampleRate / FFT_SIZE;
@@ -241,10 +243,6 @@ export default {
                 this.leds.signal = maxAbs / 10; // +-10V range
 
                 // Reset input if replaced by routing
-                if (this.inputs.audio !== ownAudio) {
-                    ownAudio.fill(0);
-                    this.inputs.audio = ownAudio;
-                }
             },
 
             reset() {
@@ -308,7 +306,7 @@ export default {
             id: 'audio',
             label: 'Audio',
             direction: 'input',
-            type: 'audio'
+            signal: 'audio'
         }));
 
         const outLabel = document.createElement('div');
@@ -320,7 +318,7 @@ export default {
             id: 'out',
             label: 'Thru',
             direction: 'output',
-            type: 'audio'
+            signal: 'audio'
         }));
 
         controls.appendChild(ioColumn);
@@ -423,7 +421,7 @@ export default {
             const barWidth = width / numBars - 1;
 
             // Map bins to bars
-            const sampleRate = 44100;
+            const sampleRate = dsp.getSampleRate();
             const fftSize = dsp.getFFTSize();
             const nyquist = sampleRate / 2;
 
@@ -504,10 +502,10 @@ export default {
             { id: 'scale', label: 'Log/Lin', param: 'scale', default: 0 }
         ],
         inputs: [
-            { id: 'audio', label: 'Audio', port: 'audio', type: 'audio' }
+            { id: 'audio', label: 'Audio', port: 'audio', signal: 'audio' }
         ],
         outputs: [
-            { id: 'out', label: 'Thru', port: 'out', type: 'audio' }
+            { id: 'out', label: 'Thru', port: 'out', signal: 'audio' }
         ]
     }
 };

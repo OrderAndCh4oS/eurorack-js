@@ -253,7 +253,7 @@ describe('2hp Hat - Hi-Hat Cymbal Synthesizer', () => {
         });
 
         it('should have 2 trigger inputs (open and closed)', () => {
-            const triggerInputs = hatModule.ui.inputs.filter(i => i.type === 'trigger');
+            const triggerInputs = hatModule.ui.inputs.filter(i => i.signal === 'trigger');
             expect(triggerInputs.length).toBe(2);
         });
 

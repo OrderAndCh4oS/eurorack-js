@@ -151,41 +151,29 @@ describe('create2hpOut', () => {
         });
     });
 
-    describe('clearAudioInputs', () => {
-        it('should zero input buffers', () => {
+    describe('stable inputs', () => {
+        it('keeps input buffer identities across processing', () => {
+            const left = output.inputs.L;
+            const right = output.inputs.R;
             // Fill with audio
             for (let i = 0; i < 512; i++) {
                 output.inputs.L[i] = 5;
                 output.inputs.R[i] = 3;
             }
 
-            output.clearAudioInputs();
-
-            expect(output.inputs.L.every(v => v === 0)).toBe(true);
-            expect(output.inputs.R.every(v => v === 0)).toBe(true);
+            output.process();
+            expect(output.inputs.L).toBe(left);
+            expect(output.inputs.R).toBe(right);
         });
 
-        it('should reset input references to own buffers', () => {
-            // Simulate routing replacing input with foreign buffer
-            const foreignBuffer = new Float32Array(512);
-            foreignBuffer.fill(5);
-            output.inputs.L = foreignBuffer;
-
-            output.clearAudioInputs();
-
-            // Should now point to internal zeroed buffer, not foreign buffer
-            expect(output.inputs.L).not.toBe(foreignBuffer);
-            expect(output.inputs.L.every(v => v === 0)).toBe(true);
-        });
-
-        it('should result in silence after process', () => {
+        it('zeros inputs and produces silence after reset', () => {
             // Fill with audio
             for (let i = 0; i < 512; i++) {
                 output.inputs.L[i] = 5;
                 output.inputs.R[i] = 5;
             }
 
-            output.clearAudioInputs();
+            output.reset();
             output.process();
 
             // LEDs should show zero (silence)

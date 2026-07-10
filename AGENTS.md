@@ -14,10 +14,13 @@ Software Eurorack modular synthesizer. Modules pass voltages; sound only at outp
 index.html
 └── js/app/app.js                 Browser bootstrap, DOM events, audio lifecycle
     ├── app/rack-state.js         Source of truth for modules, params, rows, cables
-    ├── app/patch-format.js       v2 patch normalization and legacy migration
-    ├── audio/engine.js           DSP processing loop and cable routing
+    ├── app/rack-host.js          Authoritative rack/plugin/audio lifecycle
+    ├── app/patch-format.js       v3 validation and canonical v2 migration
+    ├── audio/worklet-engine.js   Required AudioWorklet controller
+    ├── audio/graph.js            Compiled routing and feedback delays
     ├── rack/module-manifest.js   Module imports, category taxonomy, default order
-    ├── rack/registry.js          Module lookup and validation
+    ├── rack/core-definitions.js  Static core imports for the audio worklet
+    ├── rack/registry.js          Atomic trusted-plugin registry
     ├── ui/renderer.js            Declarative/custom module UI rendering
     └── modules/{module}/index.js Self-contained DSP + UI definitions
 ```
@@ -34,11 +37,13 @@ src/js/
 ├── app/                   # Browser app state/controllers
 │   ├── app.js             # App bootstrap and event orchestration
 │   ├── rack-state.js      # Modules, rows, params, cables, patch state
-│   └── patch-format.js    # v2 patch normalization/migration
+│   ├── rack-host.js       # Runtime ownership and worklet synchronization
+│   └── patch-format.js    # v3 validation and v2 migration
 ├── rack/                  # Rack infrastructure
 │   ├── module-manifest.js # Module imports, order, category taxonomy
-│   ├── rack.js            # Legacy/simple rack helper
-│   └── registry.js        # Module lookup & validation
+│   ├── core-definitions.js # Static worklet imports matching manifest order
+│   ├── module-contract.js # Module/port contract validation
+│   └── registry.js        # Plugin and module registration
 ├── ui/
 │   ├── renderer.js        # Declarative UI → DOM
 │   └── toolkit/           # UI component factories
@@ -48,7 +53,10 @@ src/js/
 ├── modules/               # Self-contained modules
 │   └── {moduleId}/
 │       └── index.js       # DSP + UI definition
-├── audio/engine.js        # DSP processing loop
+├── audio/
+│   ├── graph.js           # Compiled routing graph
+│   ├── worklet-engine.js  # Main-thread worklet controller
+│   └── worklet/           # Audio-thread processor/plugin registry
 ├── config/
 │   ├── factory-patches.js # Aggregate factory patch export
 │   └── patches/           # Factory patch definitions
@@ -59,11 +67,15 @@ tests/dsp/{module}.test.js # Module tests
 
 ## Module Processing Order
 
-Processing order is computed dynamically from cable connections using `computeProcessOrder()`:
-- Sources process before destinations (topological sort)
-- Ties are broken by `MODULE_ORDER` from `src/js/rack/module-manifest.js`
-- Cycles (feedback patches) fall back to `MODULE_ORDER`
-- Recomputed when cables or modules change
+Production processing order is compiled in the AudioWorklet by `compileGraph()`:
+- Sources process before destinations using a topological sort of strongly connected components
+- Ties are broken by module manifest order, rack order, then instance ID
+- Every edge inside a feedback component uses an explicit one-block delay, including self-feedback
+- Inputs accept one source; a new UI cable replaces the occupied input, while output fan-out remains legal
+- Imported duplicate destinations reject the patch instead of being silently rewritten
+- Topology revisions activate atomically after worklet acknowledgement
+
+`src/js/audio/engine.js` is a main-thread reference/test engine, not the production browser audio path.
 
 ## Researching a Module
 
@@ -146,13 +158,25 @@ export default {
         leds: ['active'],
         knobs: [{ id: 'knob', label: 'Knob', param: 'knob', min: 0, max: 1, default: 0.5 }],
         switches: [{ id: 'switch', label: 'Mode', param: 'switch', default: 0 }],
-        inputs: [{ id: 'cv', label: 'CV', port: 'cv', type: 'cv' }],
-        outputs: [{ id: 'out', label: 'Out', port: 'out', type: 'audio' }]
+        inputs: [{ id: 'cv', label: 'CV', port: 'cv', signal: 'cv' }],
+        outputs: [{ id: 'out', label: 'Out', port: 'out', signal: 'audio' }]
     }
 };
 ```
 
-**Port types**: `audio` | `cv` | `gate` | `trigger` | `buffer`
+Custom-rendered modules must also declare bounded worklet telemetry, even when they only use params and LEDs:
+
+```javascript
+telemetry: {
+    fields: ['displayBuffer'],
+    methods: ['getStats'],
+    history: { field: 'history', maxEntries: 300 }
+}
+```
+
+The main-thread UI mirror is stable across audio start/stop. It is not the production DSP instance. Custom controls must call `onParamChange`; direct mirror mutation does not control audio. Browser-only work initiated by DSP must cross the `drainEvents()` / `handleWorkletEvent()` module-event boundary.
+
+**Port signals**: `audio` | `cv` | `gate` | `trigger` | `any`. Inputs may declare `voltage: { min, max, normal }`.
 
 **Module categories**: Module definitions own their own sidebar category. Use one of `midi`, `clock`, `source`, `voice`, `modulation`, `sequencer`, `quantizer`, `filter`, `effect`, `utility`, `output`, or `other` from `CATEGORY_ORDER` in `src/js/rack/module-manifest.js`.
 
@@ -167,7 +191,9 @@ After creating `src/js/modules/{moduleId}/index.js`, register it in the manifest
 { id: '{moduleId}', load: () => import('../modules/{moduleId}/index.js') },
 ```
 
-The manifest controls dynamic imports and default processing-order tie breaks. Sidebar grouping comes from the module definition's `category` field.
+Also add a static import to `src/js/rack/core-definitions.js` and append the definition in the same position as `MODULE_MANIFEST`. The manifest controls main-thread lazy imports and default processing-order tie breaks; the static list builds the worklet bundle. Contract tests require their IDs and order to match.
+
+External trusted modules use `registerPlugin(manifest)` instead of editing core lists. A plugin provides `id`, `name`, package `version`, `apiVersion`, `patchVersion`, `workletUrl`, and `modules`. Its worklet file must call `globalThis.registerEurorackWorkletPlugin()` with matching ownership and patch versions. See `docs/architecture.md` and `docs/creating-modules.md`.
 
 Update documentation:
 - Add to `AGENTS.md` available modules list
@@ -198,9 +224,9 @@ freq = baseFreq * Math.pow(2, vOct) * Math.pow(2, fine / 12);
 
 **PolyBLEP:** Apply at saw/pulse discontinuities for anti-aliasing
 
-**Unpatched audio silence:** Two-part pattern ensures silence when cables are removed:
-1. Module-level: Audio-path modules (output, VCA, VCF) reset inputs after `process()` IF replaced by routing: `if (this.inputs.x !== ownX) { ownX.fill(0); this.inputs.x = ownX; }`
-2. Engine-level: `setCables()` zeroes disconnected audio inputs immediately when cables change
+**Stable inputs and disconnection:** DSP input `Float32Array` identities never change. The compiled graph writes routed samples into them and restores each input's declared normal voltage on disconnection. Modules must not replace input arrays or implement cable cleanup methods.
+
+**Worklet restrictions:** `createDSP()` and `process()` cannot depend on `window`, `document`, DOM events, or main-thread Web Audio nodes. Use injected `services` for MIDI. Use bounded telemetry for displays and module events for infrequent transferable data such as completed recordings.
 
 ## Writing Patches
 
@@ -211,7 +237,8 @@ export default {
     name: 'Patch Name',
     factory: true,
     state: {
-        version: 2,
+        version: 3,
+        plugins: { core: 1 },
         modules: [
             // id = your chosen name for this instance
             // type = module id from the module definition
@@ -239,9 +266,11 @@ export default {
 - `type` = Module id (from module's `id` field, e.g., `'lfo'`, `'vco'`)
 - `id` = Your name for this instance (used in `params` and `cables`)
 - `fromPort`/`toPort` = Port name from module's `ui.inputs[]` or `ui.outputs[]`
-- Legacy patches using `instanceId`, `knobs`, `switches`, and `buttons` are normalized by `src/js/app/patch-format.js`, but new patches should use version 2.
+- Canonical v2 patches receive a one-time v3 migration. Legacy shapes using `instanceId`, `knobs`, `switches`, or `buttons` are rejected; new patches must use version 3 and declare `plugins`.
 
 **IMPORTANT**: Cable port names must match the `port` field in each module's `ui.inputs[]` and `ui.outputs[]`. Always check the module's index.js for exact port names.
+
+Each input may appear at most once in `cables`. Output fan-out is represented by repeating a source endpoint across cables. Use a mixer or logic module for fan-in rather than declaring multiple cables to one input.
 
 ### Module Port Reference
 
@@ -267,7 +296,10 @@ When module specs change (renamed/removed params, inputs, outputs, switches):
 - **Clicks** — Use slew for params, ensure envelopes end at zero, apply PolyBLEP
 - **DC offset** — Test mean ≈ 0 for audio outputs
 - **Trigger not firing** — Check threshold, ensure lastTrig updated AFTER edge check
-- **CV delayed** — Check `engine.processOrder` to verify sources process before destinations
+- **CV delayed** — Inspect the compiled worklet topology and feedback components; feedback routes intentionally add one block
+- **Custom UI blank/stale** — Ensure the module declares every required telemetry field/method and reads the stable UI mirror
+- **Browser API error in DSP** — Move DOM/file work to `handleWorkletEvent()` and emit it from worklet `drainEvents()`
+- **Patch rejected** — Check v3 plugin dependencies, module ownership, exact endpoint directions, and duplicate input destinations
 
 ## Checklist
 
@@ -282,6 +314,9 @@ When module specs change (renamed/removed params, inputs, outputs, switches):
 - [ ] Factory patches updated if specs changed
 
 ## Links
+
+- [Runtime Architecture and Schemas](docs/architecture.md) — Thread ownership, plugin contracts, routing, telemetry, and patch v3
+- [Creating Modules](docs/creating-modules.md) — Built-in and trusted-plugin authoring guide
 
 - [ModularGrid](https://modulargrid.net) — Module database
 - [2hp](https://www.twohp.com/modules) — Official manuals

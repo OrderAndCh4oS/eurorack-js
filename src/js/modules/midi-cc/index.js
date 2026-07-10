@@ -113,10 +113,10 @@ export default {
         switches: [],
         inputs: [],
         outputs: [
-            { id: 'cv1', label: 'CV1', port: 'cv1', type: 'cv' },
-            { id: 'cv2', label: 'CV2', port: 'cv2', type: 'cv' },
-            { id: 'cv3', label: 'CV3', port: 'cv3', type: 'cv' },
-            { id: 'cv4', label: 'CV4', port: 'cv4', type: 'cv' }
+            { id: 'cv1', label: 'CV1', port: 'cv1', signal: 'cv' },
+            { id: 'cv2', label: 'CV2', port: 'cv2', signal: 'cv' },
+            { id: 'cv3', label: 'CV3', port: 'cv3', signal: 'cv' },
+            { id: 'cv4', label: 'CV4', port: 'cv4', signal: 'cv' }
         ]
     }
 };

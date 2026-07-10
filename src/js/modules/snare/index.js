@@ -170,13 +170,13 @@ export default {
             { id: 'pitch', label: 'Pitch', param: 'pitch', min: 0, max: 1, default: 0.5 }
         ],
         inputs: [
-            { id: 'trigger', label: 'Trig', port: 'trigger', type: 'trigger' },
-            { id: 'pitchCV', label: 'V/O', port: 'pitchCV', type: 'cv' },
-            { id: 'decayCV', label: 'Dcy', port: 'decayCV', type: 'cv' },
-            { id: 'snapCV', label: 'Snp', port: 'snapCV', type: 'cv' }
+            { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger' },
+            { id: 'pitchCV', label: 'V/O', port: 'pitchCV', signal: 'cv' },
+            { id: 'decayCV', label: 'Dcy', port: 'decayCV', signal: 'cv' },
+            { id: 'snapCV', label: 'Snp', port: 'snapCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', type: 'audio' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'audio' }
         ]
     }
 };

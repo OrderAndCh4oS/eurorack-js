@@ -218,14 +218,14 @@ export default {
         switches: [],
         inputs: [],
         outputs: [
-            { id: 'pitch1', label: 'P1', port: 'pitch1', type: 'cv' },
-            { id: 'gate1', label: 'G1', port: 'gate1', type: 'gate' },
-            { id: 'pitch2', label: 'P2', port: 'pitch2', type: 'cv' },
-            { id: 'gate2', label: 'G2', port: 'gate2', type: 'gate' },
-            { id: 'pitch3', label: 'P3', port: 'pitch3', type: 'cv' },
-            { id: 'gate3', label: 'G3', port: 'gate3', type: 'gate' },
-            { id: 'pitch4', label: 'P4', port: 'pitch4', type: 'cv' },
-            { id: 'gate4', label: 'G4', port: 'gate4', type: 'gate' }
+            { id: 'pitch1', label: 'P1', port: 'pitch1', signal: 'cv' },
+            { id: 'gate1', label: 'G1', port: 'gate1', signal: 'gate' },
+            { id: 'pitch2', label: 'P2', port: 'pitch2', signal: 'cv' },
+            { id: 'gate2', label: 'G2', port: 'gate2', signal: 'gate' },
+            { id: 'pitch3', label: 'P3', port: 'pitch3', signal: 'cv' },
+            { id: 'gate3', label: 'G3', port: 'gate3', signal: 'gate' },
+            { id: 'pitch4', label: 'P4', port: 'pitch4', signal: 'cv' },
+            { id: 'gate4', label: 'G4', port: 'gate4', signal: 'gate' }
         ]
     }
 };

@@ -57,7 +57,7 @@ The same formula is used for outputs B-D. Gains are derived once per block from 
 - 4ms documents a soft-limit effect. Linear summing is preferred here because this module is a routing utility, not a saturation effect, and the repo's `mix` module already passes summed voltage without clipping.
 
 ### Code Notes
-- Use four own input buffers and a `clearAudioInputs()` method so disconnected audio/CV inputs silence immediately in the engine.
+- Runtime update (July 2026): keep four stable input buffers. The compiled graph restores declared 0V normals when cables disconnect; the earlier `clearAudioInputs()` plan is superseded.
 - Reset clears all outputs and LEDs, but does not alter user params.
 - Keep UI declarative even with 16 knobs; no custom renderer is required for the first pass.
 
@@ -69,7 +69,7 @@ The same formula is used for outputs B-D. Gains are derived once per block from 
 - Multiple inputs sum linearly and preserve DC values.
 - Audio-rate bipolar signals pass through without NaN and with expected cancellation when inverted.
 - Output LEDs rise with signal and decay with silence.
-- `clearAudioInputs()` and `process()` restore own buffers after routed buffers are replaced.
+- Input buffer identities remain stable across `process()` and `reset()`.
 - `reset()` clears outputs and LEDs.
 - Metadata, UI control params, and port names match the module contract.
 
@@ -79,7 +79,7 @@ The same formula is used for outputs B-D. Gains are derived once per block from 
 - Branch/worktree: current worktree `/Users/orderandchaos/code/eurorack-js`
 - DSP model: 4 x 4 DC-coupled weighted sum matrix, Doepfer-style per-output unipolar/bipolar modes, no clipping.
 - Params: 16 route amount knobs (`a1`..`d4`) and four mode switches (`modeA`..`modeD`).
-- Inputs: `in1`, `in2`, `in3`, `in4` as `buffer`.
+- Inputs: `in1`, `in2`, `in3`, `in4` with `signal: 'any'` and 0V normals.
 - Outputs: `outA`, `outB`, `outC`, `outD` as `buffer`.
 - LEDs: `outA`, `outB`, `outC`, `outD` peak indicators.
 - Factory patch: `src/js/config/patches/test-matrix.js`, using LFO and VCO signals routed through `matrix` to demonstrate modulation and audio summing into `out`.

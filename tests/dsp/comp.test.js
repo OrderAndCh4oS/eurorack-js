@@ -395,26 +395,24 @@ describe('COMP Module', () => {
             expect(dsp.leds).toEqual({ level: 0, gainReduction: 0, limit: 0 });
         });
 
-        it('reclaims replaced input buffers after processing so disconnected ports return to silence', () => {
+        it('keeps input buffers stable across processing and clears them on reset', () => {
             configureFastCompressor(dsp);
-            const external = new Float32Array(bufferSize).fill(2);
-            const externalCv = new Float32Array(bufferSize).fill(1);
+            const inputs = { ...dsp.inputs };
 
-            dsp.inputs.inL = external;
-            dsp.inputs.inR = external;
-            dsp.inputs.sidechain = external;
-            dsp.inputs.thresholdCV = externalCv;
-            dsp.inputs.attackCV = externalCv;
-            dsp.inputs.releaseCV = externalCv;
-            dsp.inputs.makeupCV = externalCv;
-            dsp.inputs.filterCV = externalCv;
+            dsp.inputs.inL.fill(2);
+            dsp.inputs.inR.fill(2);
+            dsp.inputs.sidechain.fill(2);
+            dsp.inputs.thresholdCV.fill(1);
+            dsp.inputs.attackCV.fill(1);
+            dsp.inputs.releaseCV.fill(1);
+            dsp.inputs.makeupCV.fill(1);
+            dsp.inputs.filterCV.fill(1);
 
             dsp.process();
+            Object.entries(inputs).forEach(([name, buffer]) => expect(dsp.inputs[name]).toBe(buffer));
 
-            expect(dsp.inputs.inL).not.toBe(external);
-            expect(dsp.inputs.inR).not.toBe(external);
-            expect(dsp.inputs.sidechain).not.toBe(external);
-            expect(dsp.inputs.thresholdCV).not.toBe(externalCv);
+            dsp.reset();
+            Object.entries(inputs).forEach(([name, buffer]) => expect(dsp.inputs[name]).toBe(buffer));
             for (const buffer of Object.values(dsp.inputs)) expect(maxAbs(buffer)).toBe(0);
         });
     });

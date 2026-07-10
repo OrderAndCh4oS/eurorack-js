@@ -10,7 +10,8 @@ export default {
     "name": "Test: OCHD",
     "factory": true,
     "state": {
-        "version": 2,
+        "version": 3,
+        "plugins": { "core": 1 },
         "modules": [
             {
                 "id": "ochd",

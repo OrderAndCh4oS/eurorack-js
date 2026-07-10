@@ -84,16 +84,16 @@ export default {
 
     ui: {
         inputs: [
-            { id: 'in1', label: 'In 1', port: 'in1', type: 'buffer' },
-            { id: 'in2', label: 'In 2', port: 'in2', type: 'buffer' }
+            { id: 'in1', label: 'In 1', port: 'in1', signal: 'any' },
+            { id: 'in2', label: 'In 2', port: 'in2', signal: 'any' }
         ],
         outputs: [
-            { id: 'out1a', label: '1A', port: 'out1a', type: 'buffer' },
-            { id: 'out1b', label: '1B', port: 'out1b', type: 'buffer' },
-            { id: 'out1c', label: '1C', port: 'out1c', type: 'buffer' },
-            { id: 'out2a', label: '2A', port: 'out2a', type: 'buffer' },
-            { id: 'out2b', label: '2B', port: 'out2b', type: 'buffer' },
-            { id: 'out2c', label: '2C', port: 'out2c', type: 'buffer' }
+            { id: 'out1a', label: '1A', port: 'out1a', signal: 'any' },
+            { id: 'out1b', label: '1B', port: 'out1b', signal: 'any' },
+            { id: 'out1c', label: '1C', port: 'out1c', signal: 'any' },
+            { id: 'out2a', label: '2A', port: 'out2a', signal: 'any' },
+            { id: 'out2b', label: '2B', port: 'out2b', signal: 'any' },
+            { id: 'out2c', label: '2C', port: 'out2c', signal: 'any' }
         ]
     }
 };

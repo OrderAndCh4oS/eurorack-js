@@ -6,6 +6,7 @@
  */
 
 import { clamp } from '../../utils/math.js';
+import { softLimitVoltage } from '../../utils/voltage.js';
 import { createSlew } from '../../utils/slew.js';
 
 export default {
@@ -77,9 +78,9 @@ export default {
                         delay[p] = stage[p] + v;
                     }
 
-                    lpf[i] = stage[3] * 5;
-                    bpf[i] = (stage[1] - stage[3]) * 5;
-                    hpf[i] = (u - stage[1]) * 5;
+                    lpf[i] = softLimitVoltage(stage[3] * 5, 5);
+                    bpf[i] = softLimitVoltage((stage[1] - stage[3]) * 5, 5);
+                    hpf[i] = softLimitVoltage((u - stage[1]) * 5, 5);
                 }
 
                 this.leds.cutoff = cutoffKnob;

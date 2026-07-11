@@ -22,7 +22,8 @@ export default {
     color: 'module-color-eleven',
     category: 'midi',
 
-    createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+    createDSP({ sampleRate = 44100, bufferSize = 512, services = {} } = {}) {
+        const midi = services.midiManager || null;
         // Output buffers for 4 voices
         const pitch1 = new Float32Array(bufferSize);
         const pitch2 = new Float32Array(bufferSize);
@@ -120,15 +121,12 @@ export default {
                 v1: 0, v2: 0, v3: 0, v4: 0
             },
 
-            midiManager: null,
-
             process() {
                 const channel = Math.floor(this.params.channel);
                 const transpose = Math.floor(this.params.transpose);
                 const bendRange = this.params.bendRange;
                 const mode = Math.floor(this.params.mode);
 
-                const midi = this.midiManager || window.midiManager;
                 if (!midi) {
                     pitch1.fill(0); pitch2.fill(0); pitch3.fill(0); pitch4.fill(0);
                     gate1.fill(0); gate2.fill(0); gate3.fill(0); gate4.fill(0);
@@ -136,31 +134,8 @@ export default {
                 }
 
                 // Process MIDI events
-                const events = midi.consumeNoteEvents(channel);
-
-                for (const event of events) {
-                    if (event.type === 'noteOn') {
-                        // Check if note is already playing (retrigger it)
-                        let voiceIdx = findVoiceWithNote(event.note);
-
-                        if (voiceIdx < 0) {
-                            // Allocate new voice
-                            voiceIdx = findVoice(mode);
-                        }
-
-                        voices[voiceIdx].note = event.note;
-                        voices[voiceIdx].velocity = event.velocity;
-                        voices[voiceIdx].age = ageCounter++;
-                        retriggerSamples[voiceIdx] = retriggerLength;
-                    }
-                    else if (event.type === 'noteOff') {
-                        const voiceIdx = findVoiceWithNote(event.note);
-                        if (voiceIdx >= 0) {
-                            voices[voiceIdx].note = -1;
-                            voices[voiceIdx].velocity = 0;
-                        }
-                    }
-                }
+                const events = midi.getNoteEvents(channel);
+                let eventIndex = 0;
 
                 // Get pitch bend
                 const pitchBend = midi.getPitchBend(channel);
@@ -170,13 +145,29 @@ export default {
                 const pitchOuts = [pitch1, pitch2, pitch3, pitch4];
                 const gateOuts = [gate1, gate2, gate3, gate4];
 
-                for (let v = 0; v < 4; v++) {
-                    const voice = voices[v];
-                    const noteWithTranspose = voice.note >= 0 ? voice.note + transpose : 60;
-                    const pitchCV = (noteWithTranspose - 60 + bendSemitones) / 12;
-                    const gateHigh = voice.note >= 0;
+                for (let i = 0; i < bufferSize; i++) {
+                    while (eventIndex < events.length && events[eventIndex].sampleOffset <= i) {
+                        const event = events[eventIndex++];
+                        if (event.type === 'noteOn') {
+                            let voiceIndex = findVoiceWithNote(event.note);
+                            if (voiceIndex < 0) voiceIndex = findVoice(mode);
+                            voices[voiceIndex].note = event.note;
+                            voices[voiceIndex].velocity = event.velocity;
+                            voices[voiceIndex].age = ageCounter++;
+                            retriggerSamples[voiceIndex] = retriggerLength;
+                        } else if (event.type === 'noteOff') {
+                            const voiceIndex = findVoiceWithNote(event.note);
+                            if (voiceIndex >= 0) {
+                                voices[voiceIndex].note = -1;
+                                voices[voiceIndex].velocity = 0;
+                            }
+                        }
+                    }
 
-                    for (let i = 0; i < bufferSize; i++) {
+                    for (let v = 0; v < 4; v++) {
+                        const voice = voices[v];
+                        const noteWithTranspose = voice.note >= 0 ? voice.note + transpose : 60;
+                        const pitchCV = (noteWithTranspose - 60 + bendSemitones) / 12;
                         pitchOuts[v][i] = voice.note >= 0 ? pitchCV : 0;
 
                         // Gate with retrigger gap
@@ -184,13 +175,11 @@ export default {
                             gateOuts[v][i] = 0;
                             retriggerSamples[v]--;
                         } else {
-                            gateOuts[v][i] = gateHigh ? 10 : 0;
+                            gateOuts[v][i] = voice.note >= 0 ? 10 : 0;
                         }
                     }
-
-                    // Update LED
-                    this.leds[`v${v + 1}`] = gateHigh ? 1 : 0;
                 }
+                for (let v = 0; v < 4; v++) this.leds[`v${v + 1}`] = voices[v].note >= 0 ? 1 : 0;
             },
 
             reset() {
@@ -213,18 +202,19 @@ export default {
         knobs: [
             { id: 'channel', label: 'Chan', param: 'channel', min: 0, max: 15, default: 0, step: 1 },
             { id: 'transpose', label: 'Trans', param: 'transpose', min: -24, max: 24, default: 0, step: 1 },
+            { id: 'bendRange', label: 'Bend', param: 'bendRange', min: 0, max: 12, default: 2, step: 1 },
             { id: 'mode', label: 'Mode', param: 'mode', min: 0, max: 2, default: 0, step: 1 }
         ],
         switches: [],
         inputs: [],
         outputs: [
-            { id: 'pitch1', label: 'P1', port: 'pitch1', signal: 'cv' },
+            { id: 'pitch1', label: 'P1', port: 'pitch1', signal: 'cv', voltage: { min: -8, max: 103 / 12 } },
             { id: 'gate1', label: 'G1', port: 'gate1', signal: 'gate' },
-            { id: 'pitch2', label: 'P2', port: 'pitch2', signal: 'cv' },
+            { id: 'pitch2', label: 'P2', port: 'pitch2', signal: 'cv', voltage: { min: -8, max: 103 / 12 } },
             { id: 'gate2', label: 'G2', port: 'gate2', signal: 'gate' },
-            { id: 'pitch3', label: 'P3', port: 'pitch3', signal: 'cv' },
+            { id: 'pitch3', label: 'P3', port: 'pitch3', signal: 'cv', voltage: { min: -8, max: 103 / 12 } },
             { id: 'gate3', label: 'G3', port: 'gate3', signal: 'gate' },
-            { id: 'pitch4', label: 'P4', port: 'pitch4', signal: 'cv' },
+            { id: 'pitch4', label: 'P4', port: 'pitch4', signal: 'cv', voltage: { min: -8, max: 103 / 12 } },
             { id: 'gate4', label: 'G4', port: 'gate4', signal: 'gate' }
         ]
     }

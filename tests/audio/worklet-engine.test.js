@@ -120,4 +120,33 @@ describe('AudioWorkletEngine', () => {
 
         expect(onModuleEvent).toHaveBeenCalledWith({ moduleId: 'rec_1', event });
     });
+
+    it('maps MIDI received timestamps onto AudioContext time', () => {
+        const engine = new AudioWorkletEngine({ audioCtx: { currentTime: 4 } });
+        engine.node = { port: { postMessage: vi.fn() } };
+        const now = performance.now();
+
+        engine.sendMidi(Uint8Array.from([0x90, 60, 100]), now + 25);
+
+        expect(engine.node.port.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'midi',
+            data: [0x90, 60, 100],
+            audioTime: expect.closeTo(4.025, 2)
+        }));
+    });
+
+    it('requests opt-in profiling reports', async () => {
+        const engine = new AudioWorkletEngine({ requestTimeoutMs: 100 });
+        engine.node = { port: { postMessage: vi.fn() } };
+        engine.setProfiling(true, { reset: true });
+        const pending = engine.requestProfilingReport();
+        const request = engine.node.port.postMessage.mock.calls.at(-1)[0];
+        const report = { deadlineMs: 2.67, blocks: { samples: 10 }, modules: {} };
+        engine.handleMessage({ type: 'profiling-report', requestId: request.requestId, report });
+
+        await expect(pending).resolves.toEqual(report);
+        expect(engine.node.port.postMessage).toHaveBeenCalledWith({
+            type: 'profiling', enabled: true, reset: true
+        });
+    });
 });

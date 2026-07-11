@@ -33,10 +33,8 @@ describe('clamp', () => {
         expect(clamp(10, -5, 5)).toBe(5);
     });
 
-    it('handles inverted range gracefully', () => {
-        // When lo > hi, clamp(v, 10, 0) = min(0, max(10, v))
-        // For v=5: max(10, 5)=10, min(0, 10)=0
-        expect(clamp(5, 10, 0)).toBe(0);
+    it('rejects inverted ranges', () => {
+        expect(() => clamp(5, 10, 0)).toThrow(/minimum/);
     });
 });
 
@@ -77,5 +75,10 @@ describe('expMap', () => {
         const slow = expMap(0.5, 1/27, 20);
         expect(slow).toBeGreaterThan(1/27);
         expect(slow).toBeLessThan(20);
+    });
+
+    it('rejects non-positive or inverted exponential ranges', () => {
+        expect(() => expMap(0.5, 0, 10)).toThrow(/positive/);
+        expect(() => expMap(0.5, 10, 1)).toThrow(/minimum/);
     });
 });

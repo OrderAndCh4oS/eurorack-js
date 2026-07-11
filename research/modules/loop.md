@@ -355,3 +355,11 @@ Only after the 2hp-style looper is stable:
 - [Strymon Magneto](https://www.strymon.net/product/magneto/)
 - [ADDAC112 VC Looper & Granular Processor](https://www.addacsystem.com/en/products/modules/addac100-series/addac112)
 - [Qu-Bit Nebulae](https://www.qubitelectronix.com/shop/nebulae)
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Matrix sweep**: No voltage-contract violation was observed across the full matrix control sweep.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/loop.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).

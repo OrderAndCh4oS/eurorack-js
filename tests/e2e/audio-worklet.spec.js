@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+test.describe.configure({ mode: 'serial' });
+
 test('runs the custom-module patch and switches topology while audio is active', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));
@@ -29,4 +31,35 @@ test('runs the custom-module patch and switches topology while audio is active',
     await page.locator('#startButton').click();
     await expect(page.locator('#startButton')).not.toHaveClass(/active/);
     expect(pageErrors).toEqual([]);
+});
+
+test('collects opt-in AudioWorklet profiling without module failures', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.host);
+    await page.locator('#patchSelect').selectOption('Test: Chorus');
+    await page.locator('#loadPatch').click();
+    await page.waitForFunction(() => window.eurorackApp.state.getModule('chorus'));
+    await page.locator('#startButton').click();
+    await expect(page.locator('#startButton')).toHaveClass(/active/);
+
+    await page.evaluate(() => window.eurorackApp.host.engine.setProfiling(true, { reset: true }));
+    await expect.poll(async () => page.evaluate(async () => {
+        const report = await window.eurorackApp.host.engine.requestProfilingReport();
+        return report.blocks.samples;
+    })).toBeGreaterThan(0);
+    await expect.poll(async () => page.evaluate(async () => {
+        const report = await window.eurorackApp.host.engine.requestProfilingReport();
+        return report.modules.chorus?.samples || 0;
+    })).toBeGreaterThan(0);
+    const report = await page.evaluate(async () => {
+        const result = await window.eurorackApp.host.engine.requestProfilingReport();
+        window.eurorackApp.host.engine.setProfiling(false);
+        return result;
+    });
+
+    expect(report.deadlineMs).toBeGreaterThan(0);
+    expect(report.blocks.samples).toBeGreaterThan(0);
+    expect(report.blocks.p99).toBeGreaterThanOrEqual(0);
+    expect(report.blocks.p99Utilization).toBeGreaterThanOrEqual(0);
+    expect(report.modules.chorus.samples).toBeGreaterThan(0);
 });

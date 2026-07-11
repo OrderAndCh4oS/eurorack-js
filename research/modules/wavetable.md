@@ -307,3 +307,11 @@ Suggested banks:
 - [MusicDSP: Arbitrary shaped band-limited waveform generation](https://www.musicdsp.org/en/latest/Synthesis/134-arbitary-shaped-band-limited-waveform-generation-using-oversampling-and-low-pass-filtering.html) - MusicDSP community source, accessed 2026-07-09. Supports precomputed bandlimited waveform sets, interpolation/oversampling discussion, and FFT/IFFT trade-offs.
 - [Vital source repository](https://github.com/mtytel/vital) - Matt Tytel, open-source GPLv3 repository, accessed 2026-07-09. Supports modern "spectral warping wavetable synth" context only; do not copy code due GPL and scope mismatch.
 - [MusicRadar Serum 2 review](https://www.musicradar.com/music-tech/plugins/a-copy-of-serum-might-be-the-smartest-investment-any-budding-producer-makes-xfer-serum-2-review) - MusicRadar, 2025 review, accessed 2026-07-09. Supports modern software wavetable expectations: clean anti-aliased oscillators, editor workflow, warp modes, and flexible modulation.
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Matrix sweep**: No voltage-contract violation was observed across the full matrix control sweep.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/wavetable.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).

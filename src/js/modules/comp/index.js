@@ -289,8 +289,8 @@ export default {
         outputs: [
             { id: 'outL', label: 'L', port: 'outL', signal: 'audio' },
             { id: 'outR', label: 'R', port: 'outR', signal: 'audio' },
-            { id: 'env', label: 'Env', port: 'env', signal: 'cv' },
-            { id: 'gr', label: 'GR', port: 'gr', signal: 'cv' }
+            { id: 'env', label: 'Env', port: 'env', signal: 'cv', voltage: { min: 0, max: 10 } },
+            { id: 'gr', label: 'GR', port: 'gr', signal: 'cv', voltage: { min: 0, max: 10 } }
         ]
     }
 };

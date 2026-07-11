@@ -5,6 +5,8 @@
  * @returns {string} Adjusted hex color
  */
 export function adjustColor(hex, amount) {
+    if (!isHexColor(hex)) throw new TypeError('Color must be a six-digit hex value');
+    if (!Number.isFinite(amount)) throw new TypeError('Color adjustment must be finite');
     const num = parseInt(hex.slice(1), 16);
     const r = Math.min(255, Math.max(0, (num >> 16) + amount));
     const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amount));

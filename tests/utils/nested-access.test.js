@@ -31,6 +31,11 @@ describe('getNestedValue', () => {
         expect(getNestedValue(outputs, 'cv[1]')[0]).toBe(4);
         expect(getNestedValue(outputs, 'primary')).toBeInstanceOf(Float32Array);
     });
+
+    it('rejects unsupported or malformed paths', () => {
+        expect(() => getNestedValue({}, 'cv[0].value')).toThrow(/path/);
+        expect(() => getNestedValue({}, '__proto__')).toThrow(/path/);
+    });
 });
 
 describe('setNestedValue', () => {
@@ -51,6 +56,11 @@ describe('setNestedValue', () => {
         const src = new Float32Array([1, 2, 3]);
         setNestedValue(obj, 'buffer', src);
         expect(Array.from(obj.buffer)).toEqual([1, 2, 3]);
+    });
+
+    it('rejects mismatched Float32Array lengths', () => {
+        const obj = { buffer: new Float32Array(3) };
+        expect(() => setNestedValue(obj, 'buffer', new Float32Array(2))).toThrow(/length/);
     });
 
     it('copies Float32Array data to array element Float32Array', () => {

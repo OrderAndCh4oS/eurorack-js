@@ -144,7 +144,7 @@ export default {
             { id: 'chordCV', label: 'Chrd', port: 'chordCV', signal: 'cv' }
         ],
         outputs: [
-            { id: 'cv', label: 'V/Oct', port: 'cv', signal: 'cv' },
+            { id: 'cv', label: 'V/Oct', port: 'cv', signal: 'cv', voltage: { min: -5, max: 47 / 6 } },
             { id: 'gate', label: 'Gate', port: 'gate', signal: 'gate' }
         ]
     }

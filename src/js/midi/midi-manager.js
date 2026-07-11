@@ -91,7 +91,7 @@ export function createMidiManager() {
      * @param {MIDIMessageEvent} event
      */
     function handleMidiMessage(event) {
-        onRawMidiMessage?.(event.data);
+        onRawMidiMessage?.(event.data, event.receivedTime);
         const [status, data1, data2] = event.data;
         const messageType = status & 0xF0;
         const channel = status & 0x0F;

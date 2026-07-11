@@ -164,6 +164,16 @@ handleWorkletEvent(event, { moduleId, instance }) {
 
 This path is for command-boundary data such as completed recordings, not continuous telemetry.
 
+The core recorder stores one-second stereo chunks and emits `recording-complete` with `buffersL`, `buffersR`, `sampleRate`, and the exact valid `sampleCount`. The final chunk may be padded; main-thread WAV encoding must stop at `sampleCount`.
+
+### MIDI Timing
+
+Raw MIDI messages cross to the worklet with an AudioContext timestamp. At the start of each render quantum, the MIDI service exposes non-destructive note and clock/transport event arrays containing `sampleOffset`. Every MIDI module sees the same block events; late events use offset zero and future events remain queued. CC, mod wheel, and pitch bend are block-rate state. DSP modules receive this service through `createDSP({ services })` and must not read browser globals.
+
+### Worklet Profiling
+
+`AudioWorkletEngine.setProfiling(enabled, { reset })` enables bounded, opt-in timing capture. `requestProfilingReport()` returns render deadline plus block and per-module p50/p95/p99 milliseconds and p99 utilization. Profiling is disabled by default and its machine-dependent values are diagnostic, not CI pass/fail thresholds.
+
 ## Compiled Signal Graph
 
 Topology activation validates every module, endpoint, direction, and block buffer before replacing the active graph. The worklet acknowledges the topology revision; `RackHost.loadPatch()` does not commit until that revision is active.
@@ -233,6 +243,14 @@ Modules marked `role: 'audio-output'` are worklet sinks. Their stereo inputs are
 | `src/js/modules/{moduleId}/index.js` | Self-contained module DSP, UI contract, renderer, and optional telemetry/hooks |
 | `src/js/ui/renderer.js` | Declarative and custom module DOM rendering |
 | `src/js/ui/toolkit/` | Shared controls, layout helpers, and interactions |
+| `src/js/utils/math.js` | Clamp and exponential parameter mapping with explicit range contracts |
+| `src/js/utils/oscillator.js` | Optional normalized phase wrapping and PolyBLEP primitives |
+| `src/js/utils/interpolation.js` | Optional linear and fixed circular-buffer interpolation primitives |
+| `src/js/utils/slew.js` | Optional stateful RC smoothing primitive |
+| `src/js/utils/voltage.js` | Optional documented soft voltage rails |
+| `src/js/utils/fft.js` | Optional preallocated, calibrated real FFT analysis |
+| `src/js/utils/color.js` | Internal theme-token and fallback color handling |
+| `src/js/utils/nested-access.js` | Internal validated parameter/port path access with stable-buffer copying |
 | `src/js/config/patches/` | Individual factory patch definitions |
 | `src/js/config/patches/index.js` | Factory patch aggregation and display ordering |
 | `src/js/index.js` | Public host, plugin, contract, renderer, toolkit, and utility exports |
@@ -248,5 +266,6 @@ Modules marked `role: 'audio-output'` are worklet sinks. Their stereo inputs are
 - **Change rack ownership or lifecycle**: edit `app/rack-host.js`.
 - **Change the patch schema or persistence**: edit `app/patch-format.js`, app import/export handling, and patch tests together.
 - **Change module panels**: edit the module's `ui`/`render` definition and shared renderer/toolkit only when the behavior is reusable.
+- **Add a DSP primitive**: add a focused utility with boundary tests, migrate only behaviorally equivalent call sites, export module-facing APIs from `src/js/index.js`, and update the module creation guide.
 - **Add a factory patch**: add one file under `config/patches/` and register it in that directory's `index.js`.
 - **Change the public API**: edit `src/js/index.js` and update the architecture/module-authoring documentation.

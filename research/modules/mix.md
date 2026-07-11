@@ -55,3 +55,12 @@ output = Σ(input[n] × level[n])
 ## Sources
 - [2hp Mix Product Page](http://www.twohp.com/modules/p/mix)
 - [ModularGrid - 2hp Mix](https://www.modulargrid.net/e/2hp-mix)
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Before remediation**: `out` (any) measured -20.00..20.00 V against -10..10 V
+- **After remediation**: The sum remains linear through 9.6 V and softly approaches the declared ±10 V rails; strict matrix peak is 10 V.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/mix.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.

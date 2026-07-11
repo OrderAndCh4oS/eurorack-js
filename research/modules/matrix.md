@@ -103,3 +103,12 @@ The same formula is used for outputs B-D. Gains are derived once per block from 
 - [ADDAC System 814 6x6 Stereo Matrix Mixer review](https://www.musicradar.com/music-tech/synths/addac-system-814-6x6-stereo-matrix-mixer-review) - Rob Redman, MusicRadar/Future, published 2026-02-13, accessed 2026-07-08, supports: modern review observations about matrix routing, feedback loops, DC-coupled audio/CV use, live usability, and subtle control of feedback patches.
 - [src/js/modules/mix/index.js](../../src/js/modules/mix/index.js) - eurorack-js local implementation, accessed 2026-07-08, supports: existing DC-coupled mixer behavior, no-clipping summing, LED decay, and input clearing pattern.
 - [src/js/modules/atten/index.js](../../src/js/modules/atten/index.js) - eurorack-js local implementation, accessed 2026-07-08, supports: existing attenuverter mapping from 0..1 to -1..+1 and DC offset utility separation.
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Before remediation**: `outA` (any) measured -20.00..20.00 V against -10..10 V; `outB` (any) measured -20.00..20.00 V against -10..10 V; `outC` (any) measured -20.00..20.00 V against -10..10 V; `outD` (any) measured -20.00..20.00 V against -10..10 V
+- **After remediation**: Every output remains linear through 9.6 V and softly approaches the declared ±10 V rails; strict matrix peak is 10 V.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/matrix.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.

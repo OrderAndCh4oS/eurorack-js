@@ -22,7 +22,7 @@
 - Polyphonic + multitimbral
 - Source: https://modwiggler.com/forum/viewtopic.php?t=254551
 
-## Proposed Module Suite
+## Implemented Module Suite
 
 ### 1. MIDI-CV (4HP) - Basic Monophonic
 Inspired by: Simple MIDI-CV converters
@@ -49,6 +49,12 @@ Inspired by: Yarns clock output
 - **Outputs**: Clock, Reset/Start, Run gate
 - **Controls**: Division (1/1, 1/2, 1/4, 1/8, 1/16)
 - **Use case**: Sync sequencers to DAW
+
+### 5. MIDI-DRUM - Drum Trigger Converter
+
+- **Outputs**: Five 0/10 V triggers and one 0-10 V velocity output
+- **Controls**: Channel, trigger duration, and note assignment per voice
+- **Use case**: Driving modular percussion from MIDI clips and pads
 
 ## Voltage Standards (from AGENTS.md)
 
@@ -100,12 +106,15 @@ src/js/modules/
 ├── midi-cv/index.js      # Monophonic MIDI-CV
 ├── midi-4/index.js       # 4-voice polyphonic
 ├── midi-cc/index.js      # CC to CV
-└── midi-clk/index.js     # Clock/transport
+├── midi-clk/index.js     # Clock/transport
+└── midi-drum/index.js    # Drum notes to triggers
 ```
 
 ## Sources
 
-- [Yarns Documentation](https://pichenettes.github.io/mutable-instruments-documentation/modules/yarns/)
-- [FH-2 Specifications](https://www.expert-sleepers.co.uk/fh2.html)
+- [MIDI 1.0 Core Specifications](https://midi.org/midi-1-0-core-specifications) - MIDI Association, accessed 2026-07-11; canonical MIDI 1.0 message contract.
+- [Expanded MIDI 1.0 Messages List](https://midi.org/expanded-midi-1-0-messages-list) - MIDI Association, accessed 2026-07-11; note, CC, transport, and clock status bytes.
+- [Yarns Documentation](https://pichenettes.github.io/mutable-instruments-documentation/modules/yarns/) - Mutable Instruments; musical converter precedent.
+- [FH-2 Specifications](https://www.expert-sleepers.co.uk/fh2.html) - Expert Sleepers; configurable MIDI/CV precedent.
 - [MIDI to CV Overview - Perfect Circuit](https://www.perfectcircuit.com/signal/midi-to-cv)
 - [ModWiggler Discussion](https://modwiggler.com/forum/viewtopic.php?t=283343)

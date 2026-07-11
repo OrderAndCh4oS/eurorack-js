@@ -12,6 +12,8 @@
  * - LFO LED indicator
  */
 
+import { createLinearCircularReader } from '../../utils/interpolation.js';
+
 // Delay line parameters
 const BASE_DELAY_MS = 20;   // Base delay time in ms
 const MOD_DEPTH_MS = 10;    // Maximum modulation depth in ms
@@ -32,6 +34,8 @@ export default {
         const delayBufferSize = Math.ceil(sampleRate * MAX_DELAY_MS / 1000) + bufferSize;
         const delayBufferL = new Float32Array(delayBufferSize);
         const delayBufferR = new Float32Array(delayBufferSize);
+        const readDelayL = createLinearCircularReader(delayBufferL);
+        const readDelayR = createLinearCircularReader(delayBufferR);
         let writeIndex = 0;
 
         // LFO state
@@ -83,16 +87,16 @@ export default {
                     const delayR = baseDelaySamples + lfoR * modDepthSamples;
 
                     // Read from delay buffers with linear interpolation
-                    const readDelayL = readInterpolated(delayBufferL, writeIndex, delayL, delayBufferSize);
-                    const readDelayR = readInterpolated(delayBufferR, writeIndex, delayR, delayBufferSize);
+                    const delayedL = readDelayL(writeIndex - delayL);
+                    const delayedR = readDelayR(writeIndex - delayR);
 
                     // Write input to delay buffers
                     delayBufferL[writeIndex] = inL[i];
                     delayBufferR[writeIndex] = inR[i];
 
                     // Mix dry and wet
-                    outL[i] = inL[i] * (1 - mix) + readDelayL * mix;
-                    outR[i] = inR[i] * (1 - mix) + readDelayR * mix;
+                    outL[i] = inL[i] * (1 - mix) + delayedL * mix;
+                    outR[i] = inR[i] * (1 - mix) + delayedR * mix;
 
                     // Advance write index
                     writeIndex = (writeIndex + 1) % delayBufferSize;
@@ -119,21 +123,6 @@ export default {
             }
         };
 
-        // Helper: read from circular buffer with linear interpolation
-        function readInterpolated(buffer, writeIdx, delaySamples, bufSize) {
-            const readIndexFloat = writeIdx - delaySamples;
-            let idx0 = Math.floor(readIndexFloat);
-            let idx1 = idx0 + 1;
-            const frac = readIndexFloat - idx0;
-
-            // Wrap indices
-            while (idx0 < 0) idx0 += bufSize;
-            while (idx1 < 0) idx1 += bufSize;
-            idx0 = idx0 % bufSize;
-            idx1 = idx1 % bufSize;
-
-            return buffer[idx0] * (1 - frac) + buffer[idx1] * frac;
-        }
     },
 
     ui: {

@@ -9,6 +9,7 @@
  */
 
 import { clamp } from '../../utils/math.js';
+import { softLimitVoltage } from '../../utils/voltage.js';
 
 export default {
     id: 'mix',
@@ -32,10 +33,10 @@ export default {
 
         return {
             params: {
-                lvl1: 1,
-                lvl2: 1,
-                lvl3: 1,
-                lvl4: 1
+                lvl1: 0.8,
+                lvl2: 0.8,
+                lvl3: 0.8,
+                lvl4: 0.8
             },
             inputs: {
                 in1: ownIn1,
@@ -61,8 +62,8 @@ export default {
                         this.inputs.in3[i] * l3 +
                         this.inputs.in4[i] * l4;
 
-                    out[i] = sum;
-                    peak = Math.max(peak, Math.abs(sum));
+                    out[i] = softLimitVoltage(sum, 10);
+                    peak = Math.max(peak, Math.abs(out[i]));
                 }
 
                 // Update LED with peak and decay
@@ -93,7 +94,7 @@ export default {
             { id: 'in4', label: '4', port: 'in4', signal: 'any' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', signal: 'any' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'any', voltage: { min: -10, max: 10 } }
         ]
     }
 };

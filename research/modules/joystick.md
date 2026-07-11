@@ -187,3 +187,11 @@
 - Internal reference: `src/js/modules/atten/index.js` - eurorack-js local implementation, accessed 2026-07-09, supports: existing attenuverter and offset mapping.
 - Internal reference: `src/js/modules/loop/index.js` - eurorack-js local implementation, accessed 2026-07-09, supports: runtime recording state and custom-rendered record/play control pattern.
 - Internal reference: `src/js/utils/slew.js` - eurorack-js local implementation, accessed 2026-07-09, supports: local smoothing utility for avoiding abrupt CV jumps.
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Matrix sweep**: No voltage-contract violation was observed across the full matrix control sweep.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/joystick.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).

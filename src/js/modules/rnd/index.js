@@ -144,8 +144,8 @@ export default {
             { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger' }
         ],
         outputs: [
-            { id: 'step', label: 'Step', port: 'step', signal: 'cv' },
-            { id: 'smooth', label: 'Smth', port: 'smooth', signal: 'cv' },
+            { id: 'step', label: 'Step', port: 'step', signal: 'cv', voltage: { min: 0, max: 10 } },
+            { id: 'smooth', label: 'Smth', port: 'smooth', signal: 'cv', voltage: { min: 0, max: 10 } },
             { id: 'gate', label: 'Gate', port: 'gate', signal: 'gate' }
         ]
     }

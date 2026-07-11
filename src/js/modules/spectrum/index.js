@@ -1,3 +1,5 @@
+import { createRealFft } from '../../utils/fft.js';
+
 /**
  * SPECTRUM - FFT Spectrum Analyzer Module
  *
@@ -95,86 +97,14 @@ export default {
 
         // Buffers for FFT
         const inputBuffer = new Float32Array(FFT_SIZE);
-        const windowBuffer = new Float32Array(FFT_SIZE);
-        const realBuffer = new Float32Array(FFT_SIZE);
-        const imagBuffer = new Float32Array(FFT_SIZE);
         const magnitudes = new Float32Array(NUM_BINS);
         const peaks = new Float32Array(NUM_BINS);
+        const analyzer = createRealFft({ size: FFT_SIZE });
 
         let writeIndex = 0;
 
-        // Pre-compute Hann window
-        for (let i = 0; i < FFT_SIZE; i++) {
-            windowBuffer[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (FFT_SIZE - 1)));
-        }
-
-        // Pre-compute bit-reversal indices for FFT
-        const bitReversed = new Uint16Array(FFT_SIZE);
-        const bits = Math.log2(FFT_SIZE);
-        for (let i = 0; i < FFT_SIZE; i++) {
-            let reversed = 0;
-            let n = i;
-            for (let j = 0; j < bits; j++) {
-                reversed = (reversed << 1) | (n & 1);
-                n >>= 1;
-            }
-            bitReversed[i] = reversed;
-        }
-
-        // Pre-compute twiddle factors
-        const twiddleReal = new Float32Array(FFT_SIZE / 2);
-        const twiddleImag = new Float32Array(FFT_SIZE / 2);
-        for (let i = 0; i < FFT_SIZE / 2; i++) {
-            const angle = -2 * Math.PI * i / FFT_SIZE;
-            twiddleReal[i] = Math.cos(angle);
-            twiddleImag[i] = Math.sin(angle);
-        }
-
-        // Cooley-Tukey FFT implementation
         function performFFT() {
-            // Apply window and copy to real buffer, clear imag
-            for (let i = 0; i < FFT_SIZE; i++) {
-                realBuffer[bitReversed[i]] = inputBuffer[i] * windowBuffer[i];
-                imagBuffer[bitReversed[i]] = 0;
-            }
-
-            // FFT butterfly operations
-            for (let size = 2; size <= FFT_SIZE; size *= 2) {
-                const halfSize = size / 2;
-                const step = FFT_SIZE / size;
-
-                for (let i = 0; i < FFT_SIZE; i += size) {
-                    for (let j = 0; j < halfSize; j++) {
-                        const twiddleIdx = j * step;
-                        const evenIdx = i + j;
-                        const oddIdx = i + j + halfSize;
-
-                        const tReal = twiddleReal[twiddleIdx];
-                        const tImag = twiddleImag[twiddleIdx];
-
-                        const oddReal = realBuffer[oddIdx];
-                        const oddImag = imagBuffer[oddIdx];
-
-                        const tOddReal = oddReal * tReal - oddImag * tImag;
-                        const tOddImag = oddReal * tImag + oddImag * tReal;
-
-                        realBuffer[oddIdx] = realBuffer[evenIdx] - tOddReal;
-                        imagBuffer[oddIdx] = imagBuffer[evenIdx] - tOddImag;
-                        realBuffer[evenIdx] = realBuffer[evenIdx] + tOddReal;
-                        imagBuffer[evenIdx] = imagBuffer[evenIdx] + tOddImag;
-                    }
-                }
-            }
-
-            // Calculate magnitudes (in dB)
-            const scale = 2 / FFT_SIZE;
-            for (let i = 0; i < NUM_BINS; i++) {
-                const re = realBuffer[i] * scale;
-                const im = imagBuffer[i] * scale;
-                const mag = Math.sqrt(re * re + im * im);
-                // Convert to dB, with floor at -100dB
-                magnitudes[i] = mag > 0.00001 ? 20 * Math.log10(mag) : -100;
-            }
+            analyzer.analyzeCircular(inputBuffer, writeIndex, magnitudes);
         }
 
         const ownAudio = new Float32Array(bufferSize);

@@ -1,465 +1,135 @@
-# Sound Engineering Review
+# DSP And Sound Engineering Audit
 
-A systematic analysis of each module comparing current implementation against research-backed best practices. Each recommendation includes the rationale, expected improvement, implementation options, and priority level.
+Last audited: 2026-07-11
 
-## Review Methodology
+This is the central index for the 62 registered core modules. Detailed hardware context, algorithm notes, sources, and the current measured audit record live in `research/modules/{moduleId}.md`.
 
-For each module we evaluate:
-1. **Algorithm Quality** - Is the DSP approach optimal for sound quality?
-2. **Analog Modeling Accuracy** - Does it capture the character of hardware?
-3. **Parameter Ranges** - Are they musical and useful?
-4. **Numerical Stability** - Are there denormal, overflow, or precision issues?
-5. **Modulation Response** - Do CV inputs behave musically?
+## Scope And Method
 
-Priority levels: **Critical** (audible artifacts), **High** (noticeable improvement), **Medium** (subtle refinement), **Low** (nice-to-have)
+The audit combines four evidence layers:
 
----
+1. **Contract inspection**: module metadata, controls, signal/voltage declarations, DSP state, reset, and telemetry.
+2. **Automated stimulus**: deterministic audio, CV, gate, trigger, MIDI note/CC/clock, and control-extreme scenarios.
+3. **Runtime matrix**: 44.1, 48, and 96 kHz at block sizes 128 and 512.
+4. **Research review**: existing primary/secondary sources plus refreshed canonical references for MIDI, Compare 2, Loop, MATHS/FUNC, and analyzer behavior.
 
-## Cross-Cutting Audio Runtime
+The harness measures finite samples, min/max/peak, RMS, DC, zero-crossing frequency, spectral centroid, upper-band energy, voltage-contract compliance, stable buffer identity, reset behavior, and advisory execution time. Generic measurements detect regressions; they do not prove hardware fidelity or perceptual quality.
 
-### Completed July 2026
+Run the baseline:
 
-- Production DSP moved to a required `AudioWorklet`; the browser timer/reference engine is no longer an application fallback.
-- Cable topology is precompiled with deterministic source-before-destination ordering.
-- Feedback strongly connected components use explicit one-block delays instead of accidental manifest-order behavior.
-- DSP input/output buffers keep stable identities. The graph copies routed samples and restores declared input normal voltages on disconnection.
-- Inputs have one source and outputs retain fan-out. Combining sources now requires an explicit mixer/logic utility.
-- Patch activation is revision-acknowledged and atomic; graph compilation failure leaves the previous graph active.
-- Module processing faults are isolated by zeroing and disabling only the failing instance.
-- Custom displays use declared, bounded telemetry rather than direct audio-thread state access. Scrolling histories send incremental entries.
-- Large command-boundary results such as recorder buffers use transferable module events and complete browser-only work on the main thread.
-- Raw MIDI is handled in the worklet through an injected service.
-
-### Deliberate Trade-Offs
-
-- Every edge inside a feedback component is delayed by one worklet block. This is predictable and stable, but it does not model sub-block analog feedback.
-- Signal labels remain semantic rather than prohibiting cross-type patching, preserving DC-coupled Eurorack behavior.
-- Runtime plugins are trusted code. Matching main-thread/worklet ownership and patch contracts prevent accidental collisions but do not provide a security sandbox.
-- Analyzer telemetry is bounded and UI-rate, so displays intentionally lag DSP by a small amount and are not sample-accurate control surfaces.
-
-See `docs/architecture.md` for the normative runtime and schema contracts.
-
----
-
-## VCO (Voltage Controlled Oscillator)
-
-### Current Implementation
-- PolyBLEP anti-aliasing for saw and pulse
-- Slew-limited pitch CV for glide
-- FM input with linear frequency offset
-- Hard sync on rising edge
-
-### Findings
-
-| Issue | Current | Recommendation | Priority |
-|-------|---------|----------------|----------|
-| Triangle aliasing | No anti-aliasing applied | Apply PolyBLAMP for triangle wave | Medium |
-| FM implementation | Linear FM only | Add through-zero FM option | High |
-| Sync discontinuity | Abrupt phase reset | Apply PolyBLEP residual at sync point | Medium |
-| DC offset | No DC blocking | Add optional DC blocker for external mixing | Low |
-
-### Detailed Recommendations
-
-#### 1. Triangle Anti-Aliasing (PolyBLAMP)
-**Current**: Triangle is calculated as `4 * Math.abs(t - 0.5) - 1` without anti-aliasing.
-**Issue**: While triangle has no discontinuities (continuous derivative), the *corner* at the peak/trough creates weak aliasing at high frequencies.
-**Solution**: Apply PolyBLAMP (integrated PolyBLEP) at the corner points.
-**Expected Improvement**: Cleaner high-frequency triangles, less intermodulation with other oscillators.
-
-```javascript
-function polyBlamp(t, dt) {
-    if (t < dt) {
-        const x = t / dt;
-        const x2 = x * x;
-        return (x2 * x / 3 - x2 / 2) * dt;
-    } else if (t > 1 - dt) {
-        const x = (t - 1) / dt;
-        const x2 = x * x;
-        return -(x2 * x / 3 + x2 / 2) * dt;
-    }
-    return 0;
-}
-// Apply at t=0.5 (peak) by adjusting triangle calculation
+```bash
+npm run audit:dsp
+npm run audit:dsp -- --matrix --strict-voltage
+npm run audit:dsp -- --module vcf --json
 ```
 
-#### 2. Through-Zero FM
-**Current**: FM adds linearly to frequency: `freq + fmVal * fmVoltsPerHz`
-**Issue**: Linear FM can't go below 0Hz, causing asymmetric sidebands.
-**Solution**: Implement phase modulation (mathematically equivalent to true FM).
-**Expected Improvement**: Cleaner, more musical FM timbres.
-
-```javascript
-// Phase modulation approach (true FM equivalent)
-const fmAmount = fmVal * fmIndex;
-phase = (phase + inc + fmAmount / sampleRate) % 1;
-```
-
-#### 3. Hard Sync PolyBLEP
-**Current**: Phase resets to 0 on sync edge.
-**Issue**: Creates discontinuity not smoothed by PolyBLEP.
-**Solution**: Apply PolyBLEP correction at sync point based on where in the cycle we were.
-**Expected Improvement**: Smoother sync sweeps at high frequencies.
-
----
-
-## VCF (Voltage Controlled Filter)
-
-### Current Implementation
-- Zero-delay feedback (ZDF) ladder topology
-- 4 cascaded one-pole filters
-- Tanh soft clipping in feedback path
-- Simultaneous LP/BP/HP outputs
-
-### Findings
-
-| Issue | Current | Recommendation | Priority |
-|-------|---------|----------------|----------|
-| Resonance compensation | None | Add gain compensation at high resonance | High |
-| Cutoff CV | Per-buffer modulation | Per-sample CV tracking | Medium |
-| Self-oscillation tuning | Uncompensated | Tune resonance for accurate pitch | Medium |
-| Oversampling | None | Add 2x oversampling option | Low |
-
-### Detailed Recommendations
-
-#### 1. Resonance Gain Compensation
-**Current**: High resonance causes significant volume drop (Moog ladder characteristic).
-**Issue**: Makes mixing difficult when sweeping resonance.
-**Solution**: Apply input gain boost proportional to resonance.
-**Expected Improvement**: More consistent levels during filter sweeps.
-
-```javascript
-// Gain compensation (empirically tuned)
-const compensation = 1 + k * 0.5;  // k = resonance * 4
-const input = (audioIn[i] / 5) * compensation;
-```
-
-#### 2. Per-Sample Cutoff Modulation
-**Current**: `cvModVal = this.inputs.cutoffCV[0]` - uses only first sample.
-**Issue**: Fast LFO or audio-rate filter FM is stepped/chunky.
-**Solution**: Read CV per-sample like the audio input.
-**Expected Improvement**: Smoother filter modulation, enables audio-rate FM.
-
-```javascript
-// Inside the sample loop:
-const cvModVal = this.inputs.cutoffCV[i] || 0;
-```
-
-#### 3. Self-Oscillation Pitch Accuracy
-**Current**: Resonant peak frequency drifts slightly from cutoff.
-**Issue**: When self-oscillating, pitch doesn't perfectly track 1V/Oct.
-**Solution**: Pre-warp the cutoff frequency accounting for resonance shift.
-**Reference**: Zavalishin "The Art of VA Filter Design" Chapter 3.
-
----
-
-## ADSR (Envelope Generator)
-
-### Current Implementation
-- One-pole exponential approach (RC charging curve)
-- Attack overshoots to 5.5V for punchy peak
-- Coefficient-based decay calculation
-
-### Findings
-
-| Issue | Current | Recommendation | Priority |
-|-------|---------|----------------|----------|
-| Attack curve | Fixed exponential | Add curve shape control | Medium |
-| Minimum times | 2ms minimum | Allow sub-ms for clicks/transients | Low |
-| Retrigger mode | Full restart | Add legato/resume option | Medium |
-| CV inputs | None | Add CV modulation of ADSR times | High |
-
-### Detailed Recommendations
-
-#### 1. Attack Curve Shaping
-**Current**: Fixed exponential curve via one-pole filter.
-**Issue**: Can't achieve punchy linear attacks or slow logarithmic attacks.
-**Solution**: Add curve parameter interpolating between log, linear, and exponential.
-**Reference**: AS3310 datasheet offers multiple curve options.
-
-```javascript
-// Curve parameter: 0 = log, 0.5 = linear, 1 = exponential
-function applyCurve(linear, curve) {
-    if (curve < 0.5) {
-        // Logarithmic (fast start, slow end)
-        const amt = curve * 2;
-        return Math.pow(linear, 1 + (1 - amt) * 2);
-    } else {
-        // Exponential (slow start, fast end)
-        const amt = (curve - 0.5) * 2;
-        return Math.pow(linear, 1 / (1 + amt * 2));
-    }
-}
-```
-
-#### 2. CV Inputs for Times
-**Current**: No CV modulation of attack, decay, or release.
-**Issue**: Can't create velocity-sensitive envelopes or evolving timbres.
-**Solution**: Add CV inputs for A, D, R times (sustain already has level CV via gate).
-**Expected Improvement**: Much more expressive patches.
-
----
-
-## Drums (KICK, SNARE, HAT)
-
-### KICK - Current Implementation
-- Sine oscillator with pitch envelope
-- Exponential amplitude decay
-- Tanh soft clipping for tone
-
-### Findings
-
-| Issue | Current | Recommendation | Priority |
-|-------|---------|----------------|----------|
-| Pitch envelope | Fixed 2-octave sweep | Make sweep amount controllable | High |
-| Click transient | None | Add initial click/transient | High |
-| Sub-harmonic | None | Add sub-octave component | Medium |
-| 808 authenticity | Generic sine | Consider bridged-T oscillator model | Low |
-
-### Detailed Recommendations
-
-#### 1. Controllable Pitch Sweep
-**Current**: Fixed `PITCH_SWEEP_OCTAVES = 2`
-**Solution**: Make this a parameter or add "Click" knob that controls sweep amount.
-**Expected Improvement**: Range from subtle thump to zappy 808 kick.
-
-#### 2. Click Transient
-**Current**: Pure sine with no attack transient.
-**Issue**: Lacks the initial "hit" of a drum stick impact.
-**Solution**: Add short noise burst or impulse at trigger.
-**Reference**: 808 has a distinct click from the bridged-T circuit.
-
-```javascript
-// On trigger, also set clickEnv = 1
-let clickEnv = 0;
-// Fast decay (1-2ms)
-const click = (Math.random() * 2 - 1) * clickEnv;
-sample += click * clickAmount;
-clickEnv *= 0.95; // Very fast decay
-```
-
-### SNARE - Current Implementation
-- Triangle oscillator + filtered noise
-- Separate envelopes for body and noise
-- Simple highpass on noise
-
-### Findings
-
-| Issue | Current | Recommendation | Priority |
-|-------|---------|----------------|----------|
-| Body oscillator | Single triangle | Add second oscillator for resonance | Medium |
-| Noise filter | Simple HPF | Use bandpass for more accurate snare wire | High |
-| Snare rattle | Missing | Add subtle ring modulation | Medium |
-
-### Detailed Recommendations
-
-#### 1. Improved Noise Filtering
-**Current**: Simple DC-blocking highpass.
-**Solution**: Use proper bandpass (1-5kHz) for snare wire character.
-**Reference**: TR-909 uses lowpass-highpass chain for snare wires.
-
-```javascript
-// Bandpass for snare noise (around 2-4kHz)
-const bpFreq = 3000;
-const bpQ = 2;
-// Use biquad bandpass coefficients
-```
-
-### HAT - Current Implementation
-- 6 square wave oscillators at inharmonic ratios
-- Bandpass filter for cymbal character
-- Open/closed with choke
-
-### Findings
-
-| Issue | Current | Recommendation | Priority |
-|-------|---------|----------------|----------|
-| Square waves | Naive (aliased) | Apply PolyBLEP to hat oscillators | Medium |
-| 808 frequencies | Approximate | Use authentic 808 frequencies | Low |
-| Filter chain | Single bandpass | Add 808-style HPF chain | Medium |
-
-### Detailed Recommendations
-
-#### 1. Anti-Aliased Square Waves
-**Current**: `metallic += oscPhases[o] < 0.5 ? 1 : -1` - naive squares.
-**Issue**: At high sizzle settings, frequencies are high enough to alias.
-**Solution**: Apply PolyBLEP to each of the 6 oscillators.
-**Expected Improvement**: Cleaner high-frequency hats.
-
-#### 2. Authentic 808 Frequencies
-**Current**: `[205, 295, 370, 523, 620, 840]`
-**808 Actual**: `[205.3, 304.4, 369.6, 522.7, 540, 800]`
-**Solution**: Update to match 808 more closely (minor change).
-
----
-
-## DLY (Digital Delay)
-
-### Current Implementation
-- Linear interpolation for fractional delay
-- One-pole lowpass in feedback
-- Dry/wet mix with CV
-
-### Findings
-
-| Issue | Current | Recommendation | Priority |
-|-------|---------|----------------|----------|
-| Interpolation | Linear | Consider allpass for cleaner modulation | Medium |
-| Modulation depth | Full range | Add depth limiting to prevent artifacts | Low |
-| Ping-pong | Not available | Add stereo ping-pong mode | Medium |
-| Tape saturation | None | Add optional tape saturation | Low |
-
-### Detailed Recommendations
-
-#### 1. Allpass Interpolation
-**Current**: Linear interpolation smooths time modulation.
-**Issue**: Linear has slight low-pass effect on delayed signal.
-**Solution**: Use first-order allpass interpolation (same cost, no filtering).
-**Reference**: CCRMA Physical Audio Signal Processing.
-
-```javascript
-// Allpass interpolation coefficient
-const d = frac; // fractional delay
-const apCoeff = (1 - d) / (1 + d);
-// y = apCoeff * (x - lastY) + lastX
-```
-
----
-
-## VERB (Stereo Reverb)
-
-### Current Implementation
-- Freeverb algorithm (8 comb + 4 allpass)
-- Stereo spread via delay offset
-- Damping in comb filter feedback
-
-### Findings
-
-| Issue | Current | Recommendation | Priority |
-|-------|---------|----------------|----------|
-| Early reflections | None | Add early reflection network | High |
-| Modulation | None | Add subtle delay modulation | Medium |
-| Pre-delay | None | Add pre-delay control | Medium |
-| Density | Fixed | Make comb filter count adjustable | Low |
-
-### Detailed Recommendations
-
-#### 1. Early Reflections
-**Current**: Only late reverb (comb + allpass).
-**Issue**: Reverb sounds detached from source, lacks spatial cues.
-**Solution**: Add 4-8 short delays (5-50ms) before the late reverb.
-**Reference**: Dattorro plate reverb design.
-
-```javascript
-// Simple early reflections (multi-tap delay)
-const earlyTaps = [0.011, 0.017, 0.023, 0.031, 0.041, 0.053];
-let early = 0;
-for (const tap of earlyTaps) {
-    early += readDelay(tap * sampleRate) * 0.3;
-}
-```
-
-#### 2. Delay Modulation
-**Current**: Static delay times.
-**Issue**: Reverb can sound metallic or "ringy".
-**Solution**: Slowly modulate comb filter delay times by ±1-2 samples.
-**Expected Improvement**: Smoother, more natural reverb tail.
-
----
-
-## LFO (Low Frequency Oscillator)
-
-### Current Implementation
-- 8 waveforms via morphing
-- Two frequency ranges (slow/fast)
-- Reset input
-
-### Findings
-
-| Issue | Current | Recommendation | Priority |
-|-------|---------|----------------|----------|
-| CV processing | Per-buffer | Per-sample for audio rate use | Medium |
-| Waveform aliasing | None at high speeds | Add anti-aliasing in fast mode | Low |
-| Sync | Reset only | Add frequency sync option | Low |
-
-### Detailed Recommendations
-
-#### 1. Per-Sample CV Processing
-**Current**: `const cvOct = clamp(this.inputs.rateCV[0] || 0, 0, 5)` - first sample only.
-**Issue**: In fast mode, LFO can reach audio rates but modulation is stepped.
-**Solution**: Process CV per-sample like the VCO does.
-
----
-
-## NSE (Noise Generator)
-
-### Current Implementation
-- Math.random() white noise
-- Downsample for lo-fi
-- VCA mode with envelope
-
-### Findings
-
-| Issue | Current | Recommendation | Priority |
-|-------|---------|----------------|----------|
-| Noise quality | Math.random() | Use better PRNG (xorshift) | Low |
-| Pink noise | Not available | Add pink/red noise option | Medium |
-| VCA envelope | Linear | Use exponential for punchier bursts | Low |
-
-### Detailed Recommendations
-
-#### 1. Pink Noise Option
-**Current**: White noise only.
-**Issue**: Pink noise (1/f) is more useful for many synthesis applications.
-**Solution**: Add filter bank or Voss-McCartney algorithm.
-**Reference**: MusicDSP.org pink noise algorithms.
-
----
-
-## Summary: Priority Implementation Order
-
-### Critical (Fix First)
-*None identified - modules are functional*
-
-### High Priority
-1. **VCF per-sample CV** - Enables audio-rate filter modulation
-2. **Kick click transient** - Much punchier drums
-3. **Kick pitch sweep control** - More versatile kick sounds
-4. **VCF resonance compensation** - Consistent mixing levels
-5. **ADSR CV inputs** - Essential for expressive patches
-6. **Verb early reflections** - Much more natural reverb
-
-### Medium Priority
-1. VCO through-zero FM
-2. VCO triangle PolyBLAMP
-3. Snare bandpass noise filter
-4. Hat anti-aliased oscillators
-5. Delay allpass interpolation
-6. Verb delay modulation
-7. LFO per-sample CV
-
-### Low Priority
-1. VCO DC blocker
-2. VCF oversampling
-3. Delay tape saturation
-4. Noise pink/red filter
-5. Various minor refinements
-
----
-
-## Testing Methodology
-
-When implementing improvements:
-
-1. **A/B Comparison** - Record before/after at same settings
-2. **Frequency Analysis** - Check spectrum for aliasing reduction
-3. **Modulation Tests** - Sweep parameters to check for artifacts
-4. **CPU Profiling** - Ensure improvements don't impact performance
-5. **Patch Compatibility** - Verify existing patches still sound correct
-
-## References
-
-- [CCRMA Physical Audio Signal Processing](https://ccrma.stanford.edu/~jos/pasp/)
-- [Zavalishin: VA Filter Design](https://www.native-instruments.com/fileadmin/ni_media/downloads/pdf/VAFilterDesign_2.1.0.pdf)
-- [DAFx Paper Archive](https://dafx.de/paper-archive/)
-- [MusicDSP.org](https://www.musicdsp.org/)
-- Project research docs in `/research/modules/` and `/research/topics/`
+## Baseline Result
+
+- All 62 modules instantiated and processed without exceptions.
+- All captured samples were finite at every sample rate and block size.
+- All modules retained stable input and output buffer identities.
+- Deterministic MIDI and action scenarios now exercise event-driven modules instead of accepting silence as a pass.
+- All 62 modules now have focused DSP coverage; MIDI timing/allocation and recorder/WAV behavior have dedicated tests.
+- The strict matrix reports zero voltage-contract violations.
+- The Node timing column is diagnostic only. It includes stimulus/capture overhead and is not a real-time AudioWorklet benchmark.
+
+## Remediation Completed
+
+### Signal And Voltage Contracts
+
+| Modules | Resolution |
+|---|---|
+| `midi-cv`, `midi-4`, `midi-cc`, `midi-drum` | Pitch ranges now cover all supported note/transpose/bend controls; velocity, modulation, and CC outputs explicitly declare 0-10 V. |
+| `envf`, `func`, `comp`, `rnd` | Unipolar CV outputs explicitly declare 0-10 V. |
+| `quant`, `arp` | Pitch outputs declare their theoretical control/input extrema without clamping valid pitch. |
+| `mix`, `matrix` | DC sums remain linear below 9.6 V and smoothly approach explicit ±10 V rails under overload. |
+
+### Audio Rails And Stability
+
+| Modules | Resolution |
+|---|---|
+| `vco` | Frequency requests are capped at 45% of sample rate before PolyBLEP and outputs use ±5 V soft rails. Extreme pitch/FM tests pass at 44.1, 48, and 96 kHz. |
+| `vcf` | LP/BP/HP outputs smoothly approach ±5 V; resonant, audio-rate-modulated long runs remain finite and bounded. |
+| `dly`, `phaser`, `flanger` | Output and feedback/write state use ±5 V soft rails; 500-block extreme-feedback tests remain finite and bounded. |
+
+### MIDI, Recording, And Analysis
+
+- MIDI note and clock events carry AudioContext timestamps and sample offsets, remain visible to every MIDI module in a block, and never use browser globals from DSP.
+- Recorder storage uses one-second chunks and exact sample counts instead of one allocation per render quantum; WAV tests cover padded final chunks.
+- `spectrum` and `spectrogram` share a preallocated Hann-window real FFT calibrated so a coherent-bin 5 V peak sine is 0 dBFS.
+- `--strict-voltage` turns audit voltage flags into failures, and CI coverage runs every control scenario through the supported matrix.
+
+### P2: Verify Spectral And Modulation Quality
+
+| Area | Modules | Next experiment |
+|---|---|---|
+| Discontinuous oscillators | `vco`, `wavetable`, `pwm` | Frequency-swept alias-energy fixtures, hard-sync residual tests, and audio-rate FM/PWM tests. Compare PolyBLEP/wavetable behavior at 44.1 and 96 kHz. |
+| Nonlinear voices/processors | `pluck`, `fold`, `ring`, `lpg`, `formant`, `kick`, `snare`, `hat` | Level sweeps, DC checks, decay invariance, and oversampling comparisons where nonlinear aliasing is measurable. |
+| Filters | `vcf`, `lpg`, `formant` | Cutoff tracking, resonance stability, modulation sidebands, and sample-rate invariance. |
+| Delay modulation | `dly`, `tape`, `chorus`, `phaser`, `flanger`, `loop`, `granulita` | Interpolation sidebands, zipper/click tests, feedback decay, stereo correlation, and long-run bounds. |
+| Envelopes/control | `lfo`, `quad-lfo`, `ochd`, `adsr`, `func`, `slew`, `envf`, `rnd`, `sh` | Time-constant accuracy, block-boundary continuity, trigger latency, and rate invariance. |
+
+### Analyzer DSP
+
+The shared FFT and calibrated-bin tests are complete. `scope` and `plot` retain exact trigger, frequency, peak, RMS, and DC fixtures; all analyzers remain sample-identical passthroughs.
+
+### Worklet Performance
+
+Opt-in AudioWorklet profiling now reports bounded block and per-module p50/p95/p99 timing plus p99 deadline utilization. Chromium exercises the real reporting path. Values remain diagnostic rather than machine-dependent CI thresholds; investigate a single-module p95 above 50% or representative-patch p99 above 75%.
+
+## Module Index
+
+All listed modules pass the finite/stable-buffer baseline and strict voltage matrix. Remaining P2 work is sound-quality characterization, not a known contract defect.
+
+| Area | Modules and status |
+|---|---|
+| MIDI | `midi-cv`, `midi-4`, `midi-cc`, `midi-clk`, `midi-drum` baseline |
+| Clock | `clk`, `div`, `swing`, `burst` baseline |
+| Modulation | `lfo`, `quad-lfo`, `adsr`, `slew`, `ochd`, `rnd`, `func`, `envf` baseline |
+| Sources/voices | `nse`, `vco`, `wavetable`, `pluck`, `kick`, `snare`, `hat` baseline |
+| Sequencing/pitch | `sh`, `quant`, `arp`, `seq`, `seq-switch`, `euclid`, `turing` baseline |
+| Filters/nonlinear | `vcf`, `lpg`, `formant`, `fold`, `ring` baseline |
+| Utilities | `logic`, `mult`, `matrix`, `mix`, `joystick`, `vca`, `atten`, `db`, `pwm`, `cmp2`, `comp` baseline |
+| Effects | `dly`, `phaser`, `flanger`, `tape`, `verb`, `chorus`, `crush`, `loop`, `granulita` baseline |
+| Analysis/recording | `scope`, `spectrum`, `plot`, `spectrogram`, `rec` baseline |
+| Output | `out` baseline |
+
+## Contentious Decisions
+
+### Voltage Declarations Versus Clamping
+
+Do not solve every mismatch with a clamp. Pitch CV must preserve pitch range, and unipolar modulation should declare 0-10 V. Summing and resonant audio are different: they need an explicit product decision about headroom and overload character. The preferred default is soft, documented rail behavior for audio and explicit wider declarations only where downstream modules are designed to accept them.
+
+### Fidelity Versus Utility Adaptation
+
+Some modules emulate named hardware; others are utilities inspired by a class of devices. Research files must label the model as faithful emulation, inspired approximation, or utility adaptation. Tests should enforce the stated target, not undocumented assumptions about the source hardware.
+
+### Shared DSP Extraction
+
+The optional library now covers phase wrapping, PolyBLEP, linear/circular interpolation, slew, voltage limiting, and calibrated FFT analysis. Equivalent phase and circular-reader implementations were migrated behind focused utility and module tests. Modules continue to own state, saturation, timing, waveform, and reset policy; extract further primitives only after equivalence tests exist.
+
+The existing utility layer was reviewed at the same boundary. Math helpers now reject inverted or invalid exponential ranges, slew construction and runtime updates share one validated time contract, FFT calibration and buffer arguments validate explicitly, nested paths are anchored and block prototype keys, typed-buffer copies require equal lengths, and color adjustment rejects malformed input. The looper retains its local interpolator because its active circular length changes at runtime; clock phase wrapping remains local because wrapping also defines pulse-edge state.
+
+### Performance Gates
+
+Do not turn the Node microbenchmark into a CI failure threshold. Browser scheduling, JIT warm-up, telemetry transfer, and graph size determine real-time safety. Use deterministic Node timing to spot regressions, then confirm them in an AudioWorklet benchmark.
+
+## Acceptance Gates For Follow-Up Work
+
+1. Update the relevant `research/modules/{id}.md` with the chosen behavior and source evidence.
+2. Add or tighten focused tests before changing DSP.
+3. Run `npm run audit:dsp -- --module {id} --matrix` and the focused tests.
+4. For contract changes, run module-contract and factory-patch validation.
+5. For audio changes, include objective before/after measurements and a listening protocol.
+6. Run the full test suite before merge.
+
+## Primary References Refreshed
+
+- [MIDI 1.0 Core Specifications](https://midi.org/midi-1-0-core-specifications) - MIDI Association, accessed 2026-07-11.
+- [Compare 2 product page and manual link](https://joranalogue.com/products/compare-2) - Joranalogue Audio Design, accessed 2026-07-11.
+- [Loop](https://www.twohp.com/modules/loop) - 2hp, accessed 2026-07-11.
+- [MATHS manual](https://www.makenoisemusic.com/wp-content/uploads/2024/03/MATHSmanual2013.pdf) - Make Noise, accessed 2026-07-11.
+- [Web Audio API: AnalyserNode](https://www.w3.org/TR/webaudio-1.0/#the-analysernode-interface) - W3C Recommendation, accessed 2026-07-11.
+- [Antialiasing Oscillators in Subtractive Synthesis](https://ieeexplore.ieee.org/document/4117934) - Välimäki and Huovilainen, IEEE Signal Processing Magazine, 2007.
+- [The Art of VA Filter Design](https://www.native-instruments.com/fileadmin/ni_media/downloads/pdf/VAFilterDesign_2.1.0.pdf) - Vadim Zavalishin.
+- [Effect Design, Part 1 and 2](https://ccrma.stanford.edu/~dattorro/) - Jon Dattorro.

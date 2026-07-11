@@ -98,6 +98,80 @@ describe('Eurorack AudioWorkletProcessor', () => {
         );
     });
 
+    it('shares sample-offset MIDI notes across every module consumer', () => {
+        const processor = new Processor();
+        processor.handleMessage({
+            type: 'topology',
+            topology: {
+                revision: 1,
+                plugins: { core: 1 },
+                modules: [
+                    { id: 'mono', type: 'midi-cv', pluginId: 'core', params: {}, order: 0, rackOrder: 0 },
+                    { id: 'poly', type: 'midi-4', pluginId: 'core', params: {}, order: 1, rackOrder: 1 }
+                ],
+                cables: []
+            }
+        });
+        processor.handleMessage({ type: 'midi', data: [0x90, 72, 100], audioTime: 64 / 48000 });
+
+        processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+
+        expect(processor.modules.mono.instance.outputs.pitch[63]).toBe(0);
+        expect(processor.modules.mono.instance.outputs.pitch[64]).toBe(1);
+        expect(processor.modules.poly.instance.outputs.pitch1[63]).toBe(0);
+        expect(processor.modules.poly.instance.outputs.pitch1[64]).toBe(1);
+    });
+
+    it('applies MIDI transport at its sample offset', () => {
+        const processor = new Processor();
+        processor.handleMessage({
+            type: 'topology',
+            topology: {
+                revision: 1,
+                plugins: { core: 1 },
+                modules: [{ id: 'clock', type: 'midi-clk', pluginId: 'core', params: {}, order: 0, rackOrder: 0 }],
+                cables: []
+            }
+        });
+        processor.handleMessage({ type: 'midi', data: [0xfa], audioTime: 32 / 48000 });
+
+        processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+
+        expect(processor.modules.clock.instance.outputs.run[31]).toBe(0);
+        expect(processor.modules.clock.instance.outputs.run[32]).toBe(10);
+        expect(processor.modules.clock.instance.outputs.reset[32]).toBe(10);
+    });
+
+    it('reports bounded opt-in block and module profiling percentiles', () => {
+        const processor = new Processor();
+        processor.handleMessage({
+            type: 'topology',
+            topology: {
+                revision: 1,
+                plugins: { core: 1 },
+                modules: [{ id: 'vco', type: 'vco', pluginId: 'core', params: {}, order: 0, rackOrder: 0 }],
+                cables: []
+            }
+        });
+        processor.handleMessage({ type: 'profiling', enabled: true, reset: true });
+        for (let index = 0; index < 4; index++) {
+            processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+        }
+        processor.handleMessage({ type: 'profiling-report', requestId: 7 });
+
+        expect(processor.port.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'profiling-report',
+            requestId: 7,
+            report: expect.objectContaining({
+                deadlineMs: expect.any(Number),
+                blocks: expect.objectContaining({ samples: 4 }),
+                modules: expect.objectContaining({
+                    vco: expect.objectContaining({ samples: 4, p99: expect.any(Number) })
+                })
+            })
+        }));
+    });
+
     it('rejects undeclared parameter messages', () => {
         const processor = new Processor();
         processor.handleMessage({

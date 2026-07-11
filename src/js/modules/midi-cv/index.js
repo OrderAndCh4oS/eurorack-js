@@ -25,7 +25,8 @@ export default {
     color: 'module-color-eleven',
     category: 'midi',
 
-    createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+    createDSP({ sampleRate = 44100, bufferSize = 512, services = {} } = {}) {
+        const midi = services.midiManager || null;
         const pitchOut = new Float32Array(bufferSize);
         const gateOut = new Float32Array(bufferSize);
         const velocityOut = new Float32Array(bufferSize);
@@ -62,17 +63,12 @@ export default {
                 gate: 0
             },
 
-            // Reference to MIDI manager (set by rack)
-            midiManager: null,
-
             process() {
                 const channel = Math.floor(this.params.channel);
                 const transpose = Math.floor(this.params.transpose);
                 const bendRange = this.params.bendRange;
                 const legato = this.params.legato > 0.5;
 
-                // Get MIDI manager from global (set by rack initialization)
-                const midi = this.midiManager || window.midiManager;
                 if (!midi) {
                     // No MIDI available, output silence
                     pitchOut.fill(0);
@@ -83,64 +79,40 @@ export default {
                 }
 
                 // Process MIDI events
-                const events = midi.consumeNoteEvents(channel);
-
-                for (const event of events) {
-                    if (event.type === 'noteOn') {
-                        // Add to held notes stack
-                        heldNotes.push({ note: event.note, velocity: event.velocity });
-
-                        // Update current note (last note priority)
-                        const wasPlaying = currentNote >= 0;
-                        currentNote = event.note;
-                        currentVelocity = event.velocity;
-
-                        // Handle retriggering
-                        if (!legato || !wasPlaying) {
-                            retriggerSamples = retriggerLength;
-                        }
-                        gateHigh = true;
-                    }
-                    else if (event.type === 'noteOff') {
-                        // Remove from held notes
-                        const idx = heldNotes.findIndex(n => n.note === event.note);
-                        if (idx >= 0) {
-                            heldNotes.splice(idx, 1);
-                        }
-
-                        // If this was the current note, fall back to previous held note
-                        if (event.note === currentNote) {
-                            if (heldNotes.length > 0) {
-                                const prev = heldNotes[heldNotes.length - 1];
-                                currentNote = prev.note;
-                                currentVelocity = prev.velocity;
-                            } else {
-                                currentNote = -1;
-                                currentVelocity = 0;
-                                gateHigh = false;
-                            }
-                        }
-                    }
-                }
+                const events = midi.getNoteEvents(channel);
+                let eventIndex = 0;
 
                 // Get pitch bend and mod wheel
                 const pitchBend = midi.getPitchBend(channel);
                 const modWheel = midi.getModWheel(channel);
 
-                // Calculate CV values
-                // Pitch: 1V/octave, 0V = C4 (MIDI note 60)
-                const noteWithTranspose = currentNote >= 0 ? currentNote + transpose : 60;
                 const bendSemitones = (pitchBend / 8192) * bendRange;
-                const pitchCV = (noteWithTranspose - 60 + bendSemitones) / 12;
-
-                // Velocity: 0-10V
-                const velocityCV = (currentVelocity / 127) * 10;
-
-                // Mod wheel: 0-10V
                 const modCV = (modWheel / 127) * 10;
 
-                // Fill output buffers
                 for (let i = 0; i < bufferSize; i++) {
+                    while (eventIndex < events.length && events[eventIndex].sampleOffset <= i) {
+                        const event = events[eventIndex++];
+                        if (event.type === 'noteOn') {
+                            heldNotes.push({ note: event.note, velocity: event.velocity });
+                            const wasPlaying = currentNote >= 0;
+                            currentNote = event.note;
+                            currentVelocity = event.velocity;
+                            if (!legato || !wasPlaying) retriggerSamples = retriggerLength;
+                            gateHigh = true;
+                        } else if (event.type === 'noteOff') {
+                            const index = heldNotes.findIndex(note => note.note === event.note);
+                            if (index >= 0) heldNotes.splice(index, 1);
+                            if (event.note === currentNote) {
+                                const previous = heldNotes[heldNotes.length - 1];
+                                currentNote = previous?.note ?? -1;
+                                currentVelocity = previous?.velocity ?? 0;
+                                gateHigh = Boolean(previous);
+                            }
+                        }
+                    }
+
+                    const noteWithTranspose = currentNote >= 0 ? currentNote + transpose : 60;
+                    const pitchCV = (noteWithTranspose - 60 + bendSemitones) / 12;
                     pitchOut[i] = currentNote >= 0 ? pitchCV : 0;
 
                     // Gate with retrigger gap
@@ -151,7 +123,7 @@ export default {
                         gateOut[i] = gateHigh ? 10 : 0;
                     }
 
-                    velocityOut[i] = velocityCV;
+                    velocityOut[i] = (currentVelocity / 127) * 10;
                     modOut[i] = modCV;
                 }
 
@@ -185,10 +157,10 @@ export default {
         ],
         inputs: [],
         outputs: [
-            { id: 'pitch', label: 'Pitch', port: 'pitch', signal: 'cv' },
+            { id: 'pitch', label: 'Pitch', port: 'pitch', signal: 'cv', voltage: { min: -8, max: 103 / 12 } },
             { id: 'gate', label: 'Gate', port: 'gate', signal: 'gate' },
-            { id: 'velocity', label: 'Vel', port: 'velocity', signal: 'cv' },
-            { id: 'mod', label: 'Mod', port: 'mod', signal: 'cv' }
+            { id: 'velocity', label: 'Vel', port: 'velocity', signal: 'cv', voltage: { min: 0, max: 10 } },
+            { id: 'mod', label: 'Mod', port: 'mod', signal: 'cv', voltage: { min: 0, max: 10 } }
         ]
     }
 };

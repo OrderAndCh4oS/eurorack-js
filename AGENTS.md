@@ -203,6 +203,7 @@ Create a focused DSP test in `tests/dsp/{moduleId}.test.js` and, when useful, a 
 Validation for a new module:
 - Run `npm test -- tests/dsp/{moduleId}.test.js tests/rack/module-contracts.test.js tests/research/module-queue.test.js`
 - If factory patches changed, run `npm test -- tests/config/factory-patches.test.js tests/app/patch-format.test.js`
+- Run `npm run audit:dsp -- --module {moduleId} --matrix --strict-voltage` for DSP changes
 - Before merge, run `npm test`
 
 ## Common DSP Patterns
@@ -220,7 +221,13 @@ freq = baseFreq * Math.pow(2, vOct) * Math.pow(2, fine / 12);
 
 **Slew limiting:** Use `createSlew()` from `src/js/utils/slew.js`
 
-**PolyBLEP:** Apply at saw/pulse discontinuities for anti-aliasing
+**Oscillators:** Use `wrapPhase()` and `polyBlep()` from `src/js/utils/oscillator.js`; modules still own oscillator state and waveform policy.
+
+**Delay interpolation:** Create `createLinearCircularReader()` once per fixed delay buffer from `src/js/utils/interpolation.js`; do not allocate readers inside `process()`.
+
+**Voltage rails:** Use `softLimitVoltage()` only when the module research specifies bounded saturation; declare wider CV ranges instead of clamping valid control voltage.
+
+**FFT analysis:** Use `createRealFft()` from `src/js/utils/fft.js` and reuse its buffers.
 
 **Stable inputs and disconnection:** DSP input `Float32Array` identities never change. The compiled graph writes routed samples into them and restores each input's declared normal voltage on disconnection. Modules must not replace input arrays or implement cable cleanup methods.
 
@@ -327,6 +334,8 @@ Module documentation and DSP references are maintained in `/research/`:
 - `research/modules/` — Per-module specs, manuals, and implementation references
 - `research/topics/` — Cross-cutting DSP topics (filters, anti-aliasing, etc.)
 - `research/sound-engineering-review.md` — Sound quality improvements and recommendations
+
+The reusable baseline is `npm run audit:dsp`. Use `--module {moduleId}` for focused work, `--matrix --strict-voltage` for every supported sample-rate/block-size combination with enforced voltage contracts, and `--json` when exact measurements are needed. It is a regression and triage tool, not a replacement for focused assertions, browser AudioWorklet profiling, or listening tests.
 
 When implementing or modifying modules, consult and update the relevant research docs to maintain a trail of source material.
 

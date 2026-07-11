@@ -13,6 +13,9 @@
  * - LFO LED indicator
  */
 
+import { createLinearCircularReader } from '../../utils/interpolation.js';
+import { softLimitVoltage } from '../../utils/voltage.js';
+
 // Delay line parameters (shorter than chorus for flanging)
 const BASE_DELAY_MS = 2;    // Base delay time in ms
 const MOD_DEPTH_MS = 5;     // Maximum modulation depth in ms
@@ -33,6 +36,8 @@ export default {
         const delayBufferSize = Math.ceil(sampleRate * MAX_DELAY_MS / 1000) + bufferSize;
         const delayBufferL = new Float32Array(delayBufferSize);
         const delayBufferR = new Float32Array(delayBufferSize);
+        const readDelayL = createLinearCircularReader(delayBufferL);
+        const readDelayR = createLinearCircularReader(delayBufferR);
         let writeIndex = 0;
 
         // LFO state
@@ -88,16 +93,16 @@ export default {
                     const delayR = baseDelaySamples + (lfoR + 1) / 2 * modDepthSamples;
 
                     // Read from delay buffers with linear interpolation
-                    const wetL = readInterpolated(delayBufferL, writeIndex, delayL, delayBufferSize);
-                    const wetR = readInterpolated(delayBufferR, writeIndex, delayR, delayBufferSize);
+                    const wetL = readDelayL(writeIndex - delayL);
+                    const wetR = readDelayR(writeIndex - delayR);
 
                     // Write input + feedback to delay buffers
-                    delayBufferL[writeIndex] = inL[i] + wetL * fb;
-                    delayBufferR[writeIndex] = inR[i] + wetR * fb;
+                    delayBufferL[writeIndex] = softLimitVoltage(inL[i] + wetL * fb, 5);
+                    delayBufferR[writeIndex] = softLimitVoltage(inR[i] + wetR * fb, 5);
 
                     // Mix dry and wet
-                    outL[i] = inL[i] * (1 - mix) + wetL * mix;
-                    outR[i] = inR[i] * (1 - mix) + wetR * mix;
+                    outL[i] = softLimitVoltage(inL[i] * (1 - mix) + wetL * mix, 5);
+                    outR[i] = softLimitVoltage(inR[i] * (1 - mix) + wetR * mix, 5);
 
                     // Advance write index
                     writeIndex = (writeIndex + 1) % delayBufferSize;
@@ -124,21 +129,6 @@ export default {
             }
         };
 
-        // Helper: read from circular buffer with linear interpolation
-        function readInterpolated(buffer, writeIdx, delaySamples, bufSize) {
-            const readIndexFloat = writeIdx - delaySamples;
-            let idx0 = Math.floor(readIndexFloat);
-            let idx1 = idx0 + 1;
-            const frac = readIndexFloat - idx0;
-
-            // Wrap indices
-            while (idx0 < 0) idx0 += bufSize;
-            while (idx1 < 0) idx1 += bufSize;
-            idx0 = idx0 % bufSize;
-            idx1 = idx1 % bufSize;
-
-            return buffer[idx0] * (1 - frac) + buffer[idx1] * frac;
-        }
     },
 
     ui: {

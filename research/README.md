@@ -1,181 +1,64 @@
 # Eurorack Emulator Research
 
-Knowledge bank of hardware specifications, DSP implementation references, and academic resources for module development.
+This directory records hardware evidence, DSP decisions, assumptions, contradictions, and measurable acceptance targets. Normative runtime and schema contracts live in [the architecture guide](../docs/architecture.md); research documents do not override them.
 
-The normative software runtime, plugin, module-port, telemetry, routing, and patch schemas live in **[docs/architecture.md](../docs/architecture.md)**. Research notes define hardware and DSP behavior; they do not override those host contracts.
+## Audit Index
 
-## Sound Engineering Review
+[DSP and Sound Engineering Audit](sound-engineering-review.md) is the central status and priority index for every registered core module. Each registered ID has exactly one canonical `research/modules/{id}.md` record with a dated audit section.
 
-**[sound-engineering-review.md](sound-engineering-review.md)** — Systematic analysis of each module against best practices, with prioritized improvement recommendations.
+```bash
+npm run audit:dsp
+npm run audit:dsp -- --matrix
+npm run audit:dsp -- --module vco --json
+```
 
-### High Priority Improvements
-1. VCF per-sample CV tracking (enables audio-rate filter modulation)
-2. Kick click transient (punchier drums)
-3. Kick pitch sweep control (more versatile)
-4. VCF resonance compensation (consistent mixing levels)
-5. ADSR CV inputs (essential for expressive patches)
-6. Verb early reflections (more natural reverb)
+The harness measures runtime invariants, levels, basic signal statistics, broad spectral properties, buffer identity, reset behavior, and advisory timing. It supplements focused tests and listening; it does not prove hardware fidelity.
 
-See the full review for complete analysis and implementation guidance.
+## Module Records
 
----
+| Area | Canonical records |
+|---|---|
+| MIDI | [midi-cv](modules/midi-cv.md), [midi-4](modules/midi-4.md), [midi-cc](modules/midi-cc.md), [midi-clk](modules/midi-clk.md), [midi-drum](modules/midi-drum.md) |
+| Clock | [clk](modules/clk.md), [div](modules/div.md), [swing](modules/swing.md), [burst](modules/burst.md) |
+| Sources and voices | [nse](modules/nse.md), [vco](modules/vco.md), [wavetable](modules/wavetable.md), [pluck](modules/pluck.md), [kick](modules/kick.md), [snare](modules/snare.md), [hat](modules/hat.md) |
+| Modulation | [lfo](modules/lfo.md), [quad-lfo](modules/quad-lfo.md), [rnd](modules/rnd.md), [envf](modules/envf.md), [func](modules/func.md), [adsr](modules/adsr.md), [slew](modules/slew.md), [ochd](modules/ochd.md) |
+| Sequencing and pitch | [sh](modules/sh.md), [quant](modules/quant.md), [arp](modules/arp.md), [seq](modules/seq.md), [seq-switch](modules/seq-switch.md), [euclid](modules/euclid.md), [turing](modules/turing.md) |
+| Filters and nonlinear | [vcf](modules/vcf.md), [lpg](modules/lpg.md), [formant](modules/formant.md), [fold](modules/fold.md), [ring](modules/ring.md) |
+| Effects | [dly](modules/dly.md), [tape](modules/tape.md), [verb](modules/verb.md), [chorus](modules/chorus.md), [phaser](modules/phaser.md), [flanger](modules/flanger.md), [crush](modules/crush.md), [loop](modules/loop.md), [granulita](modules/granulita.md) |
+| Utilities | [logic](modules/logic.md), [mult](modules/mult.md), [matrix](modules/matrix.md), [joystick](modules/joystick.md), [vca](modules/vca.md), [atten](modules/atten.md), [db](modules/db.md), [pwm](modules/pwm.md), [cmp2](modules/cmp2.md), [comp](modules/comp.md), [mix](modules/mix.md) |
+| Analysis and recording | [scope](modules/scope.md), [spectrum](modules/spectrum.md), [plot](modules/plot.md), [spectrogram](modules/spectrogram.md), [rec](modules/rec.md) |
+| Output | [out](modules/out.md) |
 
-## Module Documentation
-
-Each module has a dedicated research file documenting hardware specs, DSP algorithms, and implementation references.
-
-**[module-queue.md](module-queue.md)** - Candidate backlog for new modules that add distinct capabilities. Items in the queue require their own cited research document before implementation.
-
-### Sources
-| Module | Description | Status |
-|--------|-------------|--------|
-| [clk](modules/clk.md) | Clock Generator | ✅ Complete |
-| [lfo](modules/lfo.md) | Low Frequency Oscillator | ✅ Complete |
-| [nse](modules/nse.md) | Noise Generator | ✅ Complete |
-| [vco](modules/vco.md) | Voltage Controlled Oscillator | ✅ Complete |
-
-### Modulators
-| Module | Description | Status |
-|--------|-------------|--------|
-| [div](modules/div.md) | Clock Divider | ✅ Complete |
-| [swing](modules/swing.md) | Swing Clock Processor | ✅ Complete |
-| [burst](modules/burst.md) | Burst Generator | ✅ Complete |
-| [quad-lfo](modules/quad-lfo.md) | Quadrature LFO | ✅ Complete |
-| [sh](modules/sh.md) | Sample & Hold | ✅ Complete |
-| [quant](modules/quant.md) | Quantizer | ✅ Complete |
-| [adsr](modules/adsr.md) | Envelope Generator | ✅ Complete |
-
-### Sequencing
-| Module | Description | Status |
-|--------|-------------|--------|
-| [arp](modules/arp.md) | Arpeggiator | ✅ Complete |
-| [seq](modules/seq.md) | Step Sequencer | ✅ Complete |
-| [seq-switch](modules/seq-switch.md) | Sequential Switch | ✅ Complete |
-
-### Processing
-| Module | Description | Status |
-|--------|-------------|--------|
-| [vcf](modules/vcf.md) | Voltage Controlled Filter | ✅ Complete |
-| [lpg](modules/lpg.md) | Low Pass Gate | ✅ Complete |
-| [vca](modules/vca.md) | Voltage Controlled Amplifier | ✅ Complete |
-| [mix](modules/mix.md) | Mixer | ✅ Complete |
-| [matrix](modules/matrix.md) | Matrix Mixer | ✅ Complete |
-| [joystick](modules/joystick.md) | Joystick Controller | ✅ Complete |
-| [scope](modules/scope.md) | Oscilloscope | ✅ Complete |
-
-### Effects
-| Module | Description | Status |
-|--------|-------------|--------|
-| [dly](modules/dly.md) | Digital Delay | ✅ Complete |
-| [verb](modules/verb.md) | Reverb | ✅ Complete |
-
-### Drums
-| Module | Description | Status |
-|--------|-------------|--------|
-| [kick](modules/kick.md) | Kick Drum | ✅ Complete |
-| [snare](modules/snare.md) | Snare Drum | ✅ Complete |
-| [hat](modules/hat.md) | Hi-Hat | ✅ Complete |
-
-### Output
-| Module | Description | Status |
-|--------|-------------|--------|
-| [out](modules/out.md) | Output Module | ✅ Complete |
+[Module Queue](module-queue.md) tracks candidates that are not registered yet. A queued module cannot move to implementation until its research is spec-ready.
 
 ## Topic Guides
 
-Cross-cutting DSP topics and techniques.
+- [Anti-aliasing](topics/anti-aliasing.md)
+- [Effects](topics/effects.md)
+- [Filters](topics/filters.md)
+- [MIDI modules](topics/midi-modules.md)
+- [Oscillators](topics/oscillators.md)
 
-| Topic | Description |
-|-------|-------------|
-| [Anti-Aliasing](topics/anti-aliasing.md) | PolyBLEP, oversampling, band-limiting |
-| [Filters](topics/filters.md) | SVF, ladder, biquad topologies |
-| [Oscillators](topics/oscillators.md) | Waveform generation techniques |
-| [Effects](topics/effects.md) | Delay lines, reverb algorithms |
+## Evidence Standard
 
-## Key Reference Sources
+1. Start with manufacturer pages, manuals, schematics/firmware, standards, and original papers.
+2. Use independent demos, reviews, historical material, and forums to document observed behavior and contradictions.
+3. State whether the target is a faithful emulation, inspired approximation, or utility adaptation.
+4. Translate hardware into this project's voltage and worklet contracts explicitly.
+5. Record exact test targets and label unknown behavior as an assumption.
+6. Give sources a title, publisher/author, date or era where known, URL, access date for unstable pages, and a note stating what each supports.
 
-### Manufacturer Documentation
-- [2hp Modules](https://www.twohp.com/modules) — Official manuals for 2hp modules
-- [ModularGrid](https://modulargrid.net) — Eurorack module database with specs
-- [Intellijel](https://intellijel.com/) — Zeroscope reference
-- [Doepfer](https://www.doepfer.de/) — Classic module designs
+## Module Document Minimum
 
-### Open Source DSP
-- [Mutable Instruments GitHub](https://github.com/pichenettes/eurorack) — Émilie Gillet's open source module code
-- [Synthesis Toolkit (STK)](https://ccrma.stanford.edu/software/stk/) — Perry Cook's C++ DSP library
-- [MoogLadders](https://github.com/ddiakopoulos/MoogLadders) — Filter implementations
-- [Freeverb3](https://freeverb3-vst.sourceforge.io/) — Reverb algorithms
+Every module record should contain:
 
-### Academic Resources
-- [CCRMA Physical Audio Signal Processing](https://ccrma.stanford.edu/~jos/pasp/) — Julius O. Smith's textbook (free)
-- [DAFX Book](https://www.dafx.de/) — Digital Audio Effects textbook
-- [MusicDSP.org](https://www.musicdsp.org/) — Community code snippets archive
-- [DAFx Paper Archive](https://dafx.de/paper-archive/) — Conference papers
+- reference hardware or utility scope;
+- complete controls, inputs, outputs, normalizations, LEDs, and modes;
+- voltage, timing, threshold, and reset contracts;
+- DSP model and quality/performance trade-offs;
+- observed behavior, contradictions, and assumptions;
+- focused test targets;
+- `## DSP Audit (YYYY-MM-DD)` with measured findings and next action;
+- linked sources.
 
-### Historical and Context Sources
-- Old synth magazines, zines, newsletters, and catalogs — panel context, intended use, and period language
-- Product announcements, press releases, and trade-show coverage — launch claims and feature intent
-- Interviews, mailing lists, forum archives, and user groups — undocumented behavior and design rationale
-- Patents, application notes, and service manuals — circuit behavior and implementation clues
-- Archived product pages via web archives — discontinued specs and revision history
-
-### Reviews and Demos
-- Manufacturer demos — intended feature presentation, canonical patch examples, and official settings
-- Independent video demos — observed sonic behavior, knob response, patch context, and performance quirks
-- Written reviews and magazine reviews — comparative language, strengths/weaknesses, and period reception
-- Forum sound examples and comparison shootouts — edge cases, user-discovered behavior, and practical patching notes
-
-### Key Papers
-- [Välimäki & Huovilainen: Antialiasing Oscillators](https://ieeexplore.ieee.org/document/4117934)
-- [Huovilainen: Non-Linear Moog Filter](https://dafx.de/paper-archive/2004/P_061.PDF)
-- [Zavalishin: The Art of VA Filter Design](https://www.native-instruments.com/fileadmin/ni_media/downloads/pdf/VAFilterDesign_2.1.0.pdf)
-- [Dattorro: Effect Design Part 1 & 2](https://ccrma.stanford.edu/~dattorro/)
-
-### Community Forums
-- [KVR Audio DSP Forum](https://www.kvraudio.com/forum/viewforum.php?f=33)
-- [DSP Stack Exchange](https://dsp.stackexchange.com/)
-
-## Document Template
-
-When adding new module documentation, use this template:
-
-```markdown
-# {Module Name} ({ID})
-
-## Hardware Reference
-- **Based on**: [Manufacturer Module Name](link)
-- **Manual**: [PDF link]
-- **ModularGrid**: [link]
-- **Historical/context sources**: magazines, zines, catalogs, announcements, interviews, forums, patents, or archives
-- **Reviews/demos**: manufacturer demos, independent demos, written reviews, sound examples, or comparison shootouts
-
-## Specifications
-- Knobs: list with ranges
-- CV Inputs: voltage ranges
-- Outputs: signal types
-- Special modes/features
-- Contradictions or unknowns: note source conflicts and assumptions
-
-## DSP Implementation
-
-### Algorithm Overview
-Brief description of the DSP approach
-
-### Observed Behavior From Reviews/Demos
-- Sonic character:
-- Interaction/knob behavior:
-- Demo patch notes:
-- Quirks or edge cases:
-
-### Key References
-- [Paper/Book Title](link) - Brief description
-
-### Code Notes
-Implementation details specific to our version
-
-## Potential Improvements
-- Feature ideas for future development
-
-## Sources
-- [Source title](url) — author/publisher, date/era, accessed YYYY-MM-DD, supports: specific fact or design choice
-```
+Cross-cutting references include the [Web Audio API](https://www.w3.org/TR/webaudio-1.0/), [Physical Audio Signal Processing](https://ccrma.stanford.edu/~jos/pasp/), [DAFx papers](https://dafx.de/paper-archive/), [Mutable Instruments source](https://github.com/pichenettes/eurorack), and manufacturer documentation. Prefer original sources over summaries for electrical or algorithmic claims.

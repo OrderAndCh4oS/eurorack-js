@@ -93,7 +93,7 @@ export default {
             { id: 'cv', label: 'In', port: 'cv', signal: 'cv' }
         ],
         outputs: [
-            { id: 'cv', label: 'Out', port: 'cv', signal: 'cv' },
+            { id: 'cv', label: 'Out', port: 'cv', signal: 'cv', voltage: { min: -7, max: 95 / 12 } },
             { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger' }
         ]
     }

@@ -125,7 +125,7 @@ export default {
         }
     `,
 
-    createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+    createDSP({ sampleRate = 44100, bufferSize = 512, maxRecordingSeconds = 300 } = {}) {
         const ownL = new Float32Array(bufferSize);
         const ownR = new Float32Array(bufferSize);
         const outL = new Float32Array(bufferSize);
@@ -137,8 +137,19 @@ export default {
         let sampleCount = 0;
         let pendingEvents = [];
 
-        // Max recording time: 5 minutes to prevent memory issues
-        const maxSamples = sampleRate * 60 * 5;
+        const chunkSize = Math.max(bufferSize, Math.floor(sampleRate));
+        const maxSamples = Math.max(1, Math.floor(sampleRate * maxRecordingSeconds));
+
+        function appendSample(left, right) {
+            const chunkOffset = sampleCount % chunkSize;
+            if (chunkOffset === 0) {
+                recordedL.push(new Float32Array(chunkSize));
+                recordedR.push(new Float32Array(chunkSize));
+            }
+            recordedL[recordedL.length - 1][chunkOffset] = left;
+            recordedR[recordedR.length - 1][chunkOffset] = right;
+            sampleCount++;
+        }
 
         return {
             params: { record: 0 },
@@ -182,21 +193,18 @@ export default {
 
                 // Capture audio if recording (with max time limit)
                 if (isRecording) {
-                    if (sampleCount < maxSamples) {
-                        recordedL.push(new Float32Array(inputL));
-                        recordedR.push(new Float32Array(inputR));
-                        sampleCount += bufferSize;
-                    } else {
-                        // Auto-stop at max recording time
-                        isRecording = false;
-                        this.params.record = 0;
-                        this.exportWav();
+                    for (let index = 0; index < bufferSize && isRecording; index++) {
+                        appendSample(inputL[index], inputR[index]);
+                        if (sampleCount >= maxSamples) {
+                            // Auto-stop exactly at the configured sample bound.
+                            isRecording = false;
+                            this.params.record = 0;
+                            this.exportWav();
+                        }
                     }
                 }
 
                 this.leds.recording = isRecording ? 1 : 0;
-
-                // Reset inputs if replaced by routing
             },
 
             exportWav() {
@@ -205,7 +213,8 @@ export default {
                     type: 'recording-complete',
                     buffersL: recordedL,
                     buffersR: recordedR,
-                    sampleRate
+                    sampleRate,
+                    sampleCount
                 });
                 recordedL = [];
                 recordedR = [];
@@ -235,7 +244,7 @@ export default {
 
     handleWorkletEvent(event) {
         if (event?.type !== 'recording-complete' || !event.buffersL?.length) return;
-        const blob = encodeWav(event.buffersL, event.buffersR, event.sampleRate);
+        const blob = encodeWav(event.buffersL, event.buffersR, event.sampleRate, event.sampleCount);
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         downloadWav(blob, `recording-${timestamp}.wav`);
     },

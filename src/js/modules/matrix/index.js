@@ -6,6 +6,7 @@
  */
 
 import { clamp } from '../../utils/math.js';
+import { softLimitVoltage } from '../../utils/voltage.js';
 
 const OUTPUTS = [
     {
@@ -144,8 +145,8 @@ export default {
                             routedInputs[2][i] * gains[2] +
                             routedInputs[3][i] * gains[3];
 
-                        output[i] = sum;
-                        peak = Math.max(peak, Math.abs(sum));
+                        output[i] = softLimitVoltage(sum, 10);
+                        peak = Math.max(peak, Math.abs(output[i]));
                     }
 
                     leds[outputConfig.led] = Math.max(clamp(peak / 10, 0, 1), leds[outputConfig.led] * ledDecay);
@@ -181,10 +182,10 @@ export default {
             { id: 'in4', label: 'In4', port: 'in4', signal: 'any' }
         ],
         outputs: [
-            { id: 'outA', label: 'A', port: 'outA', signal: 'any' },
-            { id: 'outB', label: 'B', port: 'outB', signal: 'any' },
-            { id: 'outC', label: 'C', port: 'outC', signal: 'any' },
-            { id: 'outD', label: 'D', port: 'outD', signal: 'any' }
+            { id: 'outA', label: 'A', port: 'outA', signal: 'any', voltage: { min: -10, max: 10 } },
+            { id: 'outB', label: 'B', port: 'outB', signal: 'any', voltage: { min: -10, max: 10 } },
+            { id: 'outC', label: 'C', port: 'outC', signal: 'any', voltage: { min: -10, max: 10 } },
+            { id: 'outD', label: 'D', port: 'outD', signal: 'any', voltage: { min: -10, max: 10 } }
         ]
     }
 };

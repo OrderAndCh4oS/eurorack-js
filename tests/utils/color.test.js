@@ -61,6 +61,11 @@ describe('adjustColor', () => {
         expect(adjustColor('#ffffff', 0)).toBe('#ffffff');
         expect(adjustColor('#ffffff', -50)).toBe('#cdcdcd');
     });
+
+    it('rejects invalid colors and adjustments', () => {
+        expect(() => adjustColor('#fff', 10)).toThrow(/six-digit/);
+        expect(() => adjustColor('#ffffff', Number.NaN)).toThrow(/finite/);
+    });
 });
 
 describe('module color tokens', () => {

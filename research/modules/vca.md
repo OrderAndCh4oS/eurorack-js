@@ -94,3 +94,11 @@ smoothedCV = cvSlew.process(rawCV);
 - [2hp VCA Product Page](http://www.twohp.com/modules/p/vca)
 - [ModularGrid - 2hp VCA](https://www.modulargrid.net/e/2hp-vca-black)
 - [SSM2164 Overview](https://www.allelcoelec.com/blog/Exploring-the-SSM2164-VCA-Feature,Schematic,and-Alternatives.html)
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Matrix sweep**: No voltage-contract violation was observed across the full matrix control sweep.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/vca.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).

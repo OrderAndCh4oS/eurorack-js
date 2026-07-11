@@ -285,8 +285,8 @@ export default {
             { id: 'cycleCV', label: 'Cyc', port: 'cycleCV', signal: 'gate' }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', signal: 'cv' },
-            { id: 'inv', label: 'Inv', port: 'inv', signal: 'cv' },
+            { id: 'out', label: 'Out', port: 'out', signal: 'cv', voltage: { min: 0, max: 10 } },
+            { id: 'inv', label: 'Inv', port: 'inv', signal: 'cv', voltage: { min: 0, max: 10 } },
             { id: 'eor', label: 'EOR', port: 'eor', signal: 'gate' },
             { id: 'eoc', label: 'EOC', port: 'eoc', signal: 'gate' }
         ]

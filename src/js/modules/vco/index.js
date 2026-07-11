@@ -10,7 +10,9 @@
  */
 
 import { clamp, expMap } from '../../utils/math.js';
+import { polyBlep, wrapPhase } from '../../utils/oscillator.js';
 import { createSlew } from '../../utils/slew.js';
+import { softLimitVoltage } from '../../utils/voltage.js';
 
 export default {
     id: 'vco',
@@ -29,17 +31,6 @@ export default {
 
         const pitchSlew = createSlew({ sampleRate, timeMs: 5 });
         const pwmSlew = createSlew({ sampleRate, timeMs: 2 });
-
-        function polyBlep(t, dt) {
-            if (t < dt) {
-                const x = t / dt;
-                return x + x - x * x - 1;
-            } else if (t > 1 - dt) {
-                const x = (t - 1) / dt;
-                return x * x + x + x + 1;
-            }
-            return 0;
-        }
 
         return {
             params: { coarse: 0.4, fine: 0, glide: 5 },
@@ -66,12 +57,13 @@ export default {
                     const smoothedVOct = pitchSlew.process(vOctVal);
                     const smoothedDuty = pwmSlew.process(targetDuty);
 
-                    const freq = Math.max(0, base * 2 ** smoothedVOct * 2 ** (this.params.fine / 12) + fmVal * fmVoltsPerHz);
+                    const requestedFreq = base * 2 ** smoothedVOct * 2 ** (this.params.fine / 12) + fmVal * fmVoltsPerHz;
+                    const freq = clamp(requestedFreq, 0, sampleRate * 0.45);
                     const inc = freq / sampleRate;
 
                     if (lastSync <= 0 && syncVal > 0) phase = 0;
                     lastSync = syncVal;
-                    phase = (phase + inc) % 1;
+                    phase = wrapPhase(phase + inc);
                     const t = phase;
 
                     let sawVal = 2 * t - 1;
@@ -79,11 +71,11 @@ export default {
 
                     sawVal -= polyBlep(t, inc);
                     sqrVal += polyBlep(t, inc);
-                    sqrVal -= polyBlep((t + 1 - smoothedDuty) % 1, inc);
+                    sqrVal -= polyBlep(wrapPhase(t - smoothedDuty), inc);
 
-                    tri[i] = (4 * Math.abs(t - 0.5) - 1) * 5;
-                    saw[i] = sawVal * 5;
-                    sqr[i] = sqrVal * 5;
+                    tri[i] = softLimitVoltage((4 * Math.abs(t - 0.5) - 1) * 5, 5);
+                    saw[i] = softLimitVoltage(sawVal * 5, 5);
+                    sqr[i] = softLimitVoltage(sqrVal * 5, 5);
                 }
             },
 

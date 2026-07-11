@@ -153,9 +153,14 @@ src/js/
 │   ├── renderer.js       # Module UI generation
 │   └── toolkit/          # UI components
 └── utils/                # Utility functions
+    ├── fft.js            # Preallocated, calibrated real FFT
+    ├── interpolation.js  # Linear and circular-buffer interpolation
     ├── math.js
+    ├── nested-access.js
+    ├── oscillator.js     # Phase wrapping and PolyBLEP
     ├── slew.js
-    └── color.js
+    ├── color.js
+    └── voltage.js        # Shared voltage rail limiting
 ```
 
 Runtime invariants:
@@ -175,6 +180,8 @@ This basic sine LFO is a complete, useful source module:
 
 ```javascript
 // src/js/modules/basic-lfo/index.js
+import { wrapPhase } from '../../utils/oscillator.js';
+
 export default {
     id: 'basic-lfo',
     name: 'Basic LFO',
@@ -196,8 +203,7 @@ export default {
                 const rate = Math.max(0.05, Math.min(20, this.params.rate));
                 for (let i = 0; i < bufferSize; i++) {
                     sine[i] = Math.sin(phase * Math.PI * 2) * 5;
-                    phase += rate / sampleRate;
-                    phase -= Math.floor(phase);
+                    phase = wrapPhase(phase + rate / sampleRate);
                 }
                 this.leds.phase = sine[bufferSize - 1] / 10 + 0.5;
             },
@@ -258,10 +264,14 @@ Every module type must belong to a declared plugin. Missing plugins, unknown por
 ```bash
 npm test         # Run tests
 npm run test:e2e # Run Chromium AudioWorklet smoke tests
+npm run audit:dsp # Run deterministic DSP audit scenarios
+npm run audit:dsp -- --matrix --strict-voltage # Enforce every declared voltage contract
 python3 -m http.server 8000 --directory src
 ```
 
 Open `http://localhost:8000`. AudioWorklet requires a supported browser and secure context; localhost qualifies for local development.
+
+Use `npm run audit:dsp -- --matrix --strict-voltage` to cover 44.1, 48, and 96 kHz at 128- and 512-sample block sizes and fail on contract violations. See [the sound engineering audit](research/sound-engineering-review.md) for scope, limitations, and current priorities.
 
 ## License
 

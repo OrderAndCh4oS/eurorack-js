@@ -31,7 +31,8 @@ export default {
     color: 'module-color-eleven',
     category: 'midi',
 
-    createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+    createDSP({ sampleRate = 44100, bufferSize = 512, services = {} } = {}) {
+        const midiManager = services.midiManager || null;
         // Trigger outputs (8 pads)
         const trig1 = new Float32Array(bufferSize);
         const trig2 = new Float32Array(bufferSize);
@@ -76,7 +77,6 @@ export default {
             leds,
 
             process() {
-                const midiManager = this.midiManager || (typeof window !== 'undefined' ? window.midiManager : null);
                 if (!midiManager) {
                     // No MIDI - clear outputs
                     for (let p = 0; p < 8; p++) {
@@ -100,25 +100,24 @@ export default {
 
                 // Get note events from MIDI manager
                 const events = channelParam === 0
-                    ? midiManager.consumeNoteEvents()
-                    : midiManager.consumeNoteEvents(channelParam - 1);
-
-                // Process note events
-                for (const event of events) {
-                    if (event.type === 'noteOn') {
-                        // Find which pad this note triggers
-                        const padIndex = noteAssignments.indexOf(event.note);
-                        if (padIndex !== -1) {
-                            // Trigger this pad
-                            triggerSamples[padIndex] = TRIGGER_LENGTH;
-                            velocities[padIndex] = event.velocity / 127;
-                            leds[`pad${padIndex + 1}`] = 1;
-                        }
-                    }
-                }
+                    ? midiManager.getNoteEvents()
+                    : midiManager.getNoteEvents(channelParam - 1);
+                let eventIndex = 0;
 
                 // Fill output buffers
                 for (let i = 0; i < bufferSize; i++) {
+                    while (eventIndex < events.length && events[eventIndex].sampleOffset <= i) {
+                        const event = events[eventIndex++];
+                        if (event.type === 'noteOn') {
+                            const padIndex = noteAssignments.indexOf(event.note);
+                            if (padIndex !== -1) {
+                                triggerSamples[padIndex] = TRIGGER_LENGTH;
+                                velocities[padIndex] = event.velocity / 127;
+                                leds[`pad${padIndex + 1}`] = 1;
+                            }
+                        }
+                    }
+
                     // Find the highest velocity for combined output
                     let maxVel = 0;
 
@@ -180,7 +179,7 @@ export default {
             { id: 'trig6', label: 'MTom', port: 'trig6', signal: 'trigger' },
             { id: 'trig7', label: 'Clap', port: 'trig7', signal: 'trigger' },
             { id: 'trig8', label: 'Ride', port: 'trig8', signal: 'trigger' },
-            { id: 'velocity', label: 'Vel', port: 'velocity', signal: 'cv' }
+            { id: 'velocity', label: 'Vel', port: 'velocity', signal: 'cv', voltage: { min: 0, max: 10 } }
         ]
     }
 };

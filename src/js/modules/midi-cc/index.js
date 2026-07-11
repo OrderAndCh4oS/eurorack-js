@@ -20,7 +20,8 @@ export default {
     color: 'module-color-eleven',
     category: 'midi',
 
-    createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+    createDSP({ sampleRate = 44100, bufferSize = 512, services = {} } = {}) {
+        const midi = services.midiManager || null;
         const cv1 = new Float32Array(bufferSize);
         const cv2 = new Float32Array(bufferSize);
         const cv3 = new Float32Array(bufferSize);
@@ -54,8 +55,6 @@ export default {
                 active: 0
             },
 
-            midiManager: null,
-
             process() {
                 const channel = Math.floor(this.params.channel);
                 const ccNums = [
@@ -65,7 +64,6 @@ export default {
                     Math.floor(this.params.cc4)
                 ];
 
-                const midi = this.midiManager || window.midiManager;
                 if (!midi) {
                     cv1.fill(0); cv2.fill(0); cv3.fill(0); cv4.fill(0);
                     return;
@@ -113,10 +111,10 @@ export default {
         switches: [],
         inputs: [],
         outputs: [
-            { id: 'cv1', label: 'CV1', port: 'cv1', signal: 'cv' },
-            { id: 'cv2', label: 'CV2', port: 'cv2', signal: 'cv' },
-            { id: 'cv3', label: 'CV3', port: 'cv3', signal: 'cv' },
-            { id: 'cv4', label: 'CV4', port: 'cv4', signal: 'cv' }
+            { id: 'cv1', label: 'CV1', port: 'cv1', signal: 'cv', voltage: { min: 0, max: 10 } },
+            { id: 'cv2', label: 'CV2', port: 'cv2', signal: 'cv', voltage: { min: 0, max: 10 } },
+            { id: 'cv3', label: 'CV3', port: 'cv3', signal: 'cv', voltage: { min: 0, max: 10 } },
+            { id: 'cv4', label: 'CV4', port: 'cv4', signal: 'cv', voltage: { min: 0, max: 10 } }
         ]
     }
 };

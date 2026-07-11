@@ -217,3 +217,11 @@ CPU and memory:
 - [2hp - Pluck (Karplus Strong Plucked String Eurorack Voice)](https://www.youtube.com/watch?v=CivCZYtfayc) - DivKid, YouTube demo metadata verified through YouTube oEmbed, accessed 2026-07-09, supports: independent demo/listening reference for broad module behavior.
 - [Why 2HP Pluck is AWESOME! | Patches & Racks](https://www.youtube.com/watch?v=NSk5jsc8SGY) - Uncle Peter, YouTube demo metadata verified through YouTube oEmbed, accessed 2026-07-09, supports: independent patch-context demo/listening reference.
 - [2HP PLUCK - Sweet strings for your modular synth!](https://www.youtube.com/watch?v=Nu9GDow2zK8) - SundayAfternoonModular, YouTube demo metadata verified through YouTube oEmbed, accessed 2026-07-09, supports: independent string-tone demo/listening reference.
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Matrix sweep**: No voltage-contract violation was observed across the full matrix control sweep.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/pluck.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).

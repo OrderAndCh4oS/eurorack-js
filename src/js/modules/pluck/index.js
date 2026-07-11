@@ -8,6 +8,7 @@
  */
 
 import { clamp } from '../../utils/math.js';
+import { createLinearCircularReader } from '../../utils/interpolation.js';
 
 const VOICE_COUNT = 4;
 const PITCH_MIN_HZ = 55;
@@ -43,9 +44,11 @@ function decayToSeconds(decay) {
 }
 
 function createVoice(delayBufferSize) {
+    const buffer = new Float32Array(delayBufferSize);
     return {
         active: false,
-        buffer: new Float32Array(delayBufferSize),
+        buffer,
+        readBuffer: createLinearCircularReader(buffer),
         writeIndex: 0,
         delaySamples: 0,
         frequency: 0,
@@ -100,14 +103,7 @@ export default {
         }
 
         function readDelay(voice, delaySamples) {
-            let readPos = voice.writeIndex - delaySamples;
-            while (readPos < 0) readPos += delayBufferSize;
-            while (readPos >= delayBufferSize) readPos -= delayBufferSize;
-
-            const index0 = Math.floor(readPos);
-            const index1 = (index0 + 1) & (delayBufferSize - 1);
-            const frac = readPos - index0;
-            return voice.buffer[index0] * (1 - frac) + voice.buffer[index1] * frac;
+            return voice.readBuffer(voice.writeIndex - delaySamples);
         }
 
         function deactivateVoice(voice) {

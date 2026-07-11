@@ -5,12 +5,27 @@
  * @param {string} path - Property path (e.g., "cv[0]" or "vOct")
  * @returns {*} The value at the path
  */
-export function getNestedValue(obj, path) {
-    const match = path.match(/(\w+)\[(\d+)\]/);
-    if (match) {
-        return obj[match[1]][parseInt(match[2])];
+const PATH_PATTERN = /^([A-Za-z_$][\w$-]*)(?:\[(\d+)\])?$/;
+const FORBIDDEN_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
+function parsePath(path) {
+    const match = typeof path === 'string' ? PATH_PATTERN.exec(path) : null;
+    if (!match || FORBIDDEN_KEYS.has(match[1])) {
+        throw new TypeError(`Unsupported nested path "${path}"`);
     }
-    return obj[path];
+    return { key: match[1], index: match[2] === undefined ? null : Number(match[2]) };
+}
+
+function copyBuffer(target, source) {
+    if (target.length !== source.length) {
+        throw new RangeError(`Float32Array length mismatch: ${source.length} cannot fill ${target.length}`);
+    }
+    target.set(source);
+}
+
+export function getNestedValue(obj, path) {
+    const { key, index } = parsePath(path);
+    return index === null ? obj[key] : obj[key][index];
 }
 
 /**
@@ -21,13 +36,13 @@ export function getNestedValue(obj, path) {
  * @param {*} value - Value to set
  */
 export function setNestedValue(obj, path, value) {
-    const match = path.match(/(\w+)\[(\d+)\]/);
-    if (match) {
-        const arr = obj[match[1]];
-        const idx = parseInt(match[2]);
+    const { key, index } = parsePath(path);
+    if (index !== null) {
+        const arr = obj[key];
+        const idx = index;
         if (value instanceof Float32Array) {
             if (arr[idx] instanceof Float32Array) {
-                arr[idx].set(value);
+                copyBuffer(arr[idx], value);
             } else {
                 arr[idx] = value[0];
             }
@@ -35,14 +50,14 @@ export function setNestedValue(obj, path, value) {
             arr[idx] = value;
         }
     } else {
-        if (obj[path] instanceof Float32Array && value instanceof Float32Array) {
-            obj[path].set(value);
-        } else if (obj[path] instanceof Float32Array) {
-            obj[path].fill(value);
+        if (obj[key] instanceof Float32Array && value instanceof Float32Array) {
+            copyBuffer(obj[key], value);
+        } else if (obj[key] instanceof Float32Array) {
+            obj[key].fill(value);
         } else if (value instanceof Float32Array) {
-            obj[path] = value[0];
+            obj[key] = value[0];
         } else {
-            obj[path] = value;
+            obj[key] = value;
         }
     }
 }

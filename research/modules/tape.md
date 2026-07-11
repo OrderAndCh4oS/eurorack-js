@@ -320,3 +320,11 @@ Focused tests should be written before implementation in `tests/dsp/tape.test.js
 - [S10] [Mike Battle Oral History](https://www.namm.org/library/oral-history/mike-battle) - NAMM Oral History Program, interview date 2002-07-19, accessed 2026-07-09. Supports: Echoplex inventor context and early tape-echo musical use.
 - [S11] [Fractional Delay Filtering by Linear Interpolation](https://ccrma.stanford.edu/~jos/pasp/Fractional_Delay_Filtering_Linear.html) - Julius O. Smith III, CCRMA/Stanford, Physical Audio Signal Processing, accessed 2026-07-09. Supports: fractional delay interpolation, linear interpolation trade-offs, feedback-loop amplitude-error warning, allpass alternative.
 - [S12] [Neural modeling of magnetic tape recorders](https://arxiv.org/abs/2305.16862) - Otto Mikkonen, Alec Wright, Eloi Moliner, Vesa Valimaki, DAFx 2023/arXiv, submitted 2023-05-26, accessed 2026-07-09. Supports: tape-recorder signal chain components: hysteretic nonlinearity/filtering, fluctuating transport delay, and additive noise.
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Matrix sweep**: No voltage-contract violation was observed across the full matrix control sweep.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/tape.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).

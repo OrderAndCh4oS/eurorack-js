@@ -11,6 +11,7 @@
  */
 
 import { clamp, expMap } from '../../utils/math.js';
+import { wrapPhase } from '../../utils/oscillator.js';
 
 export default {
     id: 'lfo',
@@ -90,7 +91,7 @@ export default {
                 lastResetGate = resetVal;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    phase = (phase + inc) % 1;
+                    phase = wrapPhase(phase + inc);
                     const t = phase;
                     const prim = (1 - frac) * a1(t) + frac * a2(t);
                     const sec = (1 - frac) * b1(t) + frac * b2(t);

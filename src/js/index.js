@@ -64,5 +64,9 @@ export {
 } from './ui/toolkit/index.js';
 
 export { clamp, expMap } from './utils/math.js';
+export { createLinearCircularReader, linearInterpolate } from './utils/interpolation.js';
+export { polyBlep, wrapPhase } from './utils/oscillator.js';
 export { createSlew } from './utils/slew.js';
+export { createRealFft } from './utils/fft.js';
+export { softLimitVoltage } from './utils/voltage.js';
 export { SAMPLE_RATE, BUFFER, CABLE_COLORS } from './config/constants.js';

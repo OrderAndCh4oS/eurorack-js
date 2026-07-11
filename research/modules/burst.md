@@ -236,3 +236,11 @@ This is not bit-identical to the firmware, but it preserves the audible behavior
 - [Mutable Instruments eurorack source: Branches](https://github.com/pichenettes/eurorack/tree/master/branches) - Mutable Instruments / Emilie Gillet, accessed 2026-07-09, supports: open-source probability gate implementation reference.
 - [The Euclidean Algorithm Generates Traditional Musical Rhythms](https://cgm.cs.mcgill.ca/~godfried/publications/banff.pdf) - Godfried Toussaint, Bridges 2005, accessed 2026-07-09, supports: rhythm-programming context for distributing pulses/events evenly in time and Bjorklund-style pulse distribution concepts.
 - [The Distance Geometry of Music](https://arxiv.org/abs/0705.4085) - Demaine, Gomez-Martin, Meijer, Rappaport, Taslakian, Toussaint, Winograd, Wood, 2007, accessed 2026-07-09, supports: broader mathematical context for evenness and distributed onset patterns in rhythm.
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Matrix sweep**: No voltage-contract violation was observed across the full matrix control sweep.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/burst.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).

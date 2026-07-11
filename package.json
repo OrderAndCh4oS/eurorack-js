@@ -8,7 +8,8 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "audit:dsp": "node scripts/dsp-audit.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

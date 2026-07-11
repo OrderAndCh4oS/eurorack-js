@@ -12,6 +12,9 @@
  * - Audio input/output
  */
 
+import { createLinearCircularReader } from '../../utils/interpolation.js';
+import { softLimitVoltage } from '../../utils/voltage.js';
+
 // Maximum delay time in seconds
 const MAX_DELAY_TIME = 1.0;
 
@@ -28,6 +31,7 @@ export default {
         // Delay buffer - sized for max delay time
         const delayBufferSize = Math.ceil(sampleRate * MAX_DELAY_TIME) + bufferSize;
         const delayBuffer = new Float32Array(delayBufferSize);
+        const readDelay = createLinearCircularReader(delayBuffer);
         let writeIndex = 0;
 
         // One-pole lowpass in feedback path (darkens repeats like analog/tape delay)
@@ -80,31 +84,25 @@ export default {
                     const delaySamples = Math.max(1, modulatedTime * sampleRate * MAX_DELAY_TIME);
 
                     // Read from delay buffer with linear interpolation for smooth modulation
-                    const readIndexFloat = writeIndex - delaySamples;
-                    const readIndexFloor = Math.floor(readIndexFloat);
-                    const frac = readIndexFloat - readIndexFloor;
-
-                    let idx0 = readIndexFloor;
-                    let idx1 = readIndexFloor + 1;
-                    if (idx0 < 0) idx0 += delayBufferSize;
-                    if (idx1 < 0) idx1 += delayBufferSize;
-                    idx0 = idx0 % delayBufferSize;
-                    idx1 = idx1 % delayBufferSize;
-
-                    // Linear interpolation between samples
-                    const delayedSample = delayBuffer[idx0] * (1 - frac) + delayBuffer[idx1] * frac;
+                    const delayedSample = readDelay(writeIndex - delaySamples);
 
                     // Input sample
                     const inputSample = audioIn[i];
 
                     // Output: mix dry input with wet delayed signal (unfiltered)
-                    out[i] = inputSample * (1 - modulatedMix) + delayedSample * modulatedMix;
+                    out[i] = softLimitVoltage(
+                        inputSample * (1 - modulatedMix) + delayedSample * modulatedMix,
+                        5
+                    );
 
                     // Apply lowpass to feedback path only (darkens repeats, not first echo)
-                    dampState = dampState + dampCoeff * (delayedSample - dampState);
+                    dampState = softLimitVoltage(dampState + dampCoeff * (delayedSample - dampState), 5);
 
                     // Write to delay buffer: input + damped feedback
-                    delayBuffer[writeIndex] = inputSample + (dampState * modulatedFeedback);
+                    delayBuffer[writeIndex] = softLimitVoltage(
+                        inputSample + dampState * modulatedFeedback,
+                        5
+                    );
 
                     // Advance write position
                     writeIndex = (writeIndex + 1) % delayBufferSize;

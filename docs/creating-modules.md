@@ -90,6 +90,7 @@ Before merge:
 
 ~~~bash
 npm test
+npm run audit:dsp -- --module {moduleId} --matrix
 ~~~
 
 ## Tutorial 1: Basic LFO
@@ -99,6 +100,8 @@ This sine LFO demonstrates metadata, sample-rate-aware state, a finite parameter
 Create **src/js/modules/basic-lfo/index.js**:
 
 ~~~javascript
+import { wrapPhase } from '../../utils/oscillator.js';
+
 export default {
     id: 'basic-lfo',
     name: 'Basic LFO',
@@ -120,8 +123,7 @@ export default {
                 const rate = Math.max(0.05, Math.min(20, this.params.rate));
                 for (let i = 0; i < bufferSize; i++) {
                     sine[i] = Math.sin(phase * Math.PI * 2) * 5;
-                    phase += rate / sampleRate;
-                    phase -= Math.floor(phase);
+                    phase = wrapPhase(phase + rate / sampleRate);
                 }
                 this.leds.phase = sine[bufferSize - 1] / 10 + 0.5;
             },
@@ -154,7 +156,7 @@ Why it is structured this way:
 
 - Phase belongs to the DSP instance, not global module state.
 - rate / sampleRate makes frequency independent of sample rate.
-- Subtracting Math.floor(phase) keeps phase bounded over long sessions.
+- `wrapPhase()` keeps normalized phase bounded over long sessions and handles negative modulation.
 - The stable output buffer is filled in place on every block.
 - DSP and UI both default rate to 1.
 - Output voltage and LED values stay inside declared ranges.
@@ -324,7 +326,7 @@ createDSP() receives sampleRate, bufferSize, blockSize, services, and audioCtx. 
 | dispose() | Optional cleanup for DSP-owned resources. |
 | drainEvents() | Optional source of infrequent structured-cloneable events. |
 
-Production DSP runs inside AudioWorkletProcessor. Services such as MIDI arrive through services. Allocate during creation, not inside the audio loop.
+Production DSP runs inside AudioWorkletProcessor. Services such as MIDI arrive through `services`; note and clock events include a `sampleOffset` and are non-destructive for the current block. Allocate during creation, not inside the audio loop, and never fall back to `window` or other browser globals.
 
 ## UI Schema
 
@@ -465,6 +467,8 @@ handleWorkletEvent(event, { moduleId, instance }) {
 
 Do not use module events as continuous telemetry.
 
+Large bounded results should use coarse chunks rather than allocating one typed array per render quantum. Include an exact valid sample count when the final transferable chunk can contain padding.
+
 ## Registration
 
 ### Built-In Modules
@@ -557,6 +561,21 @@ Update README.md, AGENTS.md, research, and queue status for a built-in module. U
 
 ## DSP Patterns
 
+### Shared Utility Library
+
+Use these optional primitives instead of copying their mathematics into a module. Utilities never own module parameters, oscillator voices, delay policy, or reset behavior; modules own that state and decide whether a helper fits their DSP model.
+
+| File | Public API | Use |
+|---|---|---|
+| `utils/math.js` | `clamp`, `expMap` | Ordered bounds and normalized exponential control mapping. `expMap` requires positive bounds. |
+| `utils/oscillator.js` | `wrapPhase`, `polyBlep` | Normalized `[0, 1)` phase wrapping and correction around saw/pulse discontinuities. |
+| `utils/interpolation.js` | `linearInterpolate`, `createLinearCircularReader` | Linear sample interpolation and allocation-free fractional reads from a fixed circular typed array. Create readers once in `createDSP()`. |
+| `utils/slew.js` | `createSlew` | Stateful one-pole RC smoothing. Reset the helper with the module and use a positive sample rate. |
+| `utils/voltage.js` | `softLimitVoltage` | Linear response below a configurable knee and smooth bounded overload. Use only where the module's documented voltage policy calls for saturation. |
+| `utils/fft.js` | `createRealFft` | Preallocated Hann-window real FFT calibrated against a voltage reference. Create once, reuse its output buffer, and keep analyzer work bounded. |
+
+All APIs above are exported by `src/js/index.js` for external trusted plugins. The infrastructure-only `utils/color.js` and `utils/nested-access.js` support renderer/theme and validated parameter/port paths; module DSP should not depend on them.
+
 ### Edge Detection
 
 ~~~javascript
@@ -593,13 +612,12 @@ Reset helper state alongside module state.
 ### Phase, Pitch, and Aliasing
 
 ~~~javascript
-phase += frequency / sampleRate;
-phase -= Math.floor(phase);
+phase = wrapPhase(phase + frequency / sampleRate);
 
 const frequency = baseFrequency * Math.pow(2, vOct + semitones / 12);
 ~~~
 
-Generate continuous sine waves directly. Naive saw, square, and pulse discontinuities are acceptable for low-frequency control signals, but audio-rate oscillators require PolyBLEP or another documented anti-aliasing method.
+Generate continuous sine waves directly. Naive saw, square, and pulse discontinuities are acceptable for low-frequency control signals, but audio-rate oscillators require `polyBlep()` or another documented anti-aliasing method.
 
 ### Finite Guards
 

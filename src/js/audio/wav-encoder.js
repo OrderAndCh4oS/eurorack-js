@@ -14,17 +14,20 @@ const EURORACK_AUDIO_VOLTAGE = 5;
  * @param {Float32Array[]} buffersL - Array of left channel buffers (eurorack ±5V)
  * @param {Float32Array[]} buffersR - Array of right channel buffers (eurorack ±5V)
  * @param {number} sampleRate - Sample rate (default 44100)
+ * @param {number} totalSamples - Valid samples across the buffers; the final buffer may be padded
  * @returns {Blob} WAV file as Blob
  */
-export function encodeWav(buffersL, buffersR, sampleRate = 44100) {
-    // Calculate total samples
-    const totalSamples = buffersL.reduce((sum, buf) => sum + buf.length, 0);
+export function encodeWav(buffersL, buffersR, sampleRate = 44100, totalSamples = null) {
+    const availableSamples = buffersL.reduce((sum, buffer) => sum + buffer.length, 0);
+    const samplesToEncode = totalSamples === null
+        ? availableSamples
+        : Math.max(0, Math.min(availableSamples, Math.floor(totalSamples)));
     const numChannels = 2;
     const bitsPerSample = 16;
     const bytesPerSample = bitsPerSample / 8;
     const blockAlign = numChannels * bytesPerSample;
     const byteRate = sampleRate * blockAlign;
-    const dataSize = totalSamples * blockAlign;
+    const dataSize = samplesToEncode * blockAlign;
     const headerSize = 44;
     const fileSize = headerSize + dataSize;
 
@@ -54,10 +57,12 @@ export function encodeWav(buffersL, buffersR, sampleRate = 44100) {
     // Write interleaved audio data
     // Normalize from eurorack ±5V to WAV ±1.0
     let offset = headerSize;
-    for (let i = 0; i < buffersL.length; i++) {
+    let writtenSamples = 0;
+    for (let i = 0; i < buffersL.length && writtenSamples < samplesToEncode; i++) {
         const bufL = buffersL[i];
         const bufR = buffersR[i];
-        for (let j = 0; j < bufL.length; j++) {
+        const chunkSamples = Math.min(bufL.length, samplesToEncode - writtenSamples);
+        for (let j = 0; j < chunkSamples; j++) {
             // Normalize eurorack voltage to -1..1 range, then convert to 16-bit int
             const normalizedL = bufL[j] / EURORACK_AUDIO_VOLTAGE;
             const normalizedR = bufR[j] / EURORACK_AUDIO_VOLTAGE;
@@ -67,6 +72,7 @@ export function encodeWav(buffersL, buffersR, sampleRate = 44100) {
             offset += 2;
             view.setInt16(offset, sampleR * 0x7FFF, true);
             offset += 2;
+            writtenSamples++;
         }
     }
 

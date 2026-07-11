@@ -1,3 +1,5 @@
+import { createLinearCircularReader } from '../../utils/interpolation.js';
+
 /**
  * GRANULITA - Granular Chord Generator
  *
@@ -54,6 +56,8 @@ export default {
         const audioBufferSize = Math.floor(sampleRate * BUFFER_DURATION);
         const audioBufferL = new Float32Array(audioBufferSize);
         const audioBufferR = new Float32Array(audioBufferSize);
+        const readAudioL = createLinearCircularReader(audioBufferL);
+        const readAudioR = createLinearCircularReader(audioBufferR);
         let writeHead = 0;
         let frozen = false;
 
@@ -104,6 +108,8 @@ export default {
         const shimmerBufferSize = Math.floor(sampleRate * 0.1);
         const shimmerBufferL = new Float32Array(shimmerBufferSize);
         const shimmerBufferR = new Float32Array(shimmerBufferSize);
+        const readShimmerL = createLinearCircularReader(shimmerBufferL);
+        const readShimmerR = createLinearCircularReader(shimmerBufferR);
         let shimmerWriteIdx = 0;
         let shimmerReadIdx = 0;
 
@@ -125,17 +131,6 @@ export default {
         // Hanning window for grain envelope
         function hanningEnvelope(phase) {
             return 0.5 * (1 - Math.cos(2 * Math.PI * phase));
-        }
-
-        // Read from circular buffer with interpolation
-        function readBuffer(buffer, position, bufSize) {
-            const idx0 = Math.floor(position) % bufSize;
-            const idx1 = (idx0 + 1) % bufSize;
-            const frac = position - Math.floor(position);
-            // Handle negative positions
-            const safeIdx0 = idx0 < 0 ? idx0 + bufSize : idx0;
-            const safeIdx1 = idx1 < 0 ? idx1 + bufSize : idx1;
-            return buffer[safeIdx0] * (1 - frac) + buffer[safeIdx1] * frac;
         }
 
         // Spawn a new grain
@@ -361,8 +356,8 @@ export default {
                         const envelope = hanningEnvelope(phase);
 
                         // Read from buffer
-                        const sampleL = readBuffer(audioBufferL, grain.position, audioBufferSize);
-                        const sampleR = readBuffer(audioBufferR, grain.position, audioBufferSize);
+                        const sampleL = readAudioL(grain.position);
+                        const sampleR = readAudioR(grain.position);
 
                         // Apply envelope and panning
                         const gainL = envelope * (1 - grain.pan) * 2;
@@ -446,8 +441,8 @@ export default {
 
                         // Read at octave up (2x speed)
                         const shimmerReadFloat = shimmerReadIdx;
-                        const shimmerSampleL = readBuffer(shimmerBufferL, shimmerReadFloat, shimmerBufferSize);
-                        const shimmerSampleR = readBuffer(shimmerBufferR, shimmerReadFloat, shimmerBufferSize);
+                        const shimmerSampleL = readShimmerL(shimmerReadFloat);
+                        const shimmerSampleR = readShimmerR(shimmerReadFloat);
 
                         reverbL = reverbL * (1 - shimmerAmount * 0.5) + shimmerSampleL * shimmerAmount * 0.5;
                         reverbR = reverbR * (1 - shimmerAmount * 0.5) + shimmerSampleR * shimmerAmount * 0.5;

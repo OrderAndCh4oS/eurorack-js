@@ -135,8 +135,8 @@ export default {
             { id: 'audio', label: 'In', port: 'audio', signal: 'audio' }
         ],
         outputs: [
-            { id: 'env', label: 'Env', port: 'env', signal: 'cv' },
-            { id: 'inv', label: 'Inv', port: 'inv', signal: 'cv' }
+            { id: 'env', label: 'Env', port: 'env', signal: 'cv', voltage: { min: 0, max: 10 } },
+            { id: 'inv', label: 'Inv', port: 'inv', signal: 'cv', voltage: { min: 0, max: 10 } }
         ]
     }
 };

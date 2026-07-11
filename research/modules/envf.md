@@ -106,3 +106,12 @@ For our implementation:
 - **Slope switch**: 2-position (Fast/Slow)
 - **Outputs**: env (0-10V), inv (inverted)
 - **LED**: Shows when threshold is crossed
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Before remediation**: `inv` (cv) measured 0.35..10.00 V against -5..5 V; `env` (cv) measured 0.00..9.65 V against -5..5 V
+- **After remediation**: Envelope and inverted outputs now declare 0..10 V; strict matrix passes.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/envf.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.

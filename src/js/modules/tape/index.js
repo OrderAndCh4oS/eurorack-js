@@ -6,6 +6,7 @@
  */
 
 import { clamp, expMap } from '../../utils/math.js';
+import { createLinearCircularReader } from '../../utils/interpolation.js';
 
 const MIN_DELAY_MS = 50;
 const MAX_DELAY_MS = 2500;
@@ -126,6 +127,7 @@ export default {
         const clockPulseSamples = Math.max(1, Math.floor(sampleRate * 0.005));
 
         const delayBuffer = new Float32Array(delayBufferSize);
+        const readDelayBuffer = createLinearCircularReader(delayBuffer);
 
         let writeIndex = 0;
         let hpInputState = 0;
@@ -152,20 +154,8 @@ export default {
             return randomState / 0x100000000;
         }
 
-        function wrapIndex(index) {
-            let wrapped = index % delayBufferSize;
-            if (wrapped < 0) wrapped += delayBufferSize;
-            return wrapped;
-        }
-
         function readInterpolated(delaySamples) {
-            const readIndex = writeIndex - delaySamples;
-            const idx0Raw = Math.floor(readIndex);
-            const frac = readIndex - idx0Raw;
-            const idx0 = wrapIndex(idx0Raw);
-            const idx1 = wrapIndex(idx0Raw + 1);
-
-            return delayBuffer[idx0] * (1 - frac) + delayBuffer[idx1] * frac;
+            return readDelayBuffer(writeIndex - delaySamples);
         }
 
         function clearInputBuffers() {

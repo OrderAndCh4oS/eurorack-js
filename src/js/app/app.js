@@ -586,6 +586,7 @@ export class EurorackApp {
 
         this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         try {
+            await this.audioCtx.resume();
             this.engine = await this.host.startAudio(this.audioCtx);
         } catch (error) {
             await this.audioCtx.close();
@@ -1194,8 +1195,9 @@ export class EurorackApp {
     async initMidi() {
         this.midiManager = createMidiManager();
         this.host.setService('midiManager', this.midiManager);
-        this.midiManager.setOnRawMidiMessage(data => this.host.engine?.sendMidi?.(data));
-        window.midiManager = this.midiManager;
+        this.midiManager.setOnRawMidiMessage((data, receivedTime) => (
+            this.host.engine?.sendMidi?.(data, receivedTime)
+        ));
         const success = await this.midiManager.init();
         const btn = this.document.getElementById('midiLearnBtn');
         if (!success) {

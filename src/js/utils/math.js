@@ -5,7 +5,10 @@
  * @param {number} hi - Upper bound (default: 1)
  * @returns {number} Clamped value
  */
-export const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
+export function clamp(v, lo = 0, hi = 1) {
+    if (lo > hi) throw new RangeError('Clamp minimum must not exceed maximum');
+    return Math.min(hi, Math.max(lo, v));
+}
 
 /**
  * Exponential mapping for frequency/logarithmic controls.
@@ -15,4 +18,8 @@ export const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
  * @param {number} max - Maximum output value
  * @returns {number} Exponentially mapped value
  */
-export const expMap = (norm, min, max) => min * Math.pow(max / min, clamp(norm));
+export function expMap(norm, min, max) {
+    if (!(min > 0) || !(max > 0)) throw new RangeError('Exponential map bounds must be positive');
+    if (min > max) throw new RangeError('Exponential map minimum must not exceed maximum');
+    return min * Math.pow(max / min, clamp(norm));
+}

@@ -20,6 +20,7 @@ export class AudioWorkletEngine {
         this.running = false;
         this.nextRequestId = 1;
         this.pendingRuntimeRequests = new Map();
+        this.pendingProfilingRequests = new Map();
         this.pendingTopologies = new Map();
         this.loadedPlugins = new Set(['core']);
     }
@@ -77,6 +78,11 @@ export class AudioWorkletEngine {
             this.pendingRuntimeRequests.delete(message.requestId);
             clearTimeout(pending?.timer);
             pending?.resolve(message.states);
+        } else if (message.type === 'profiling-report') {
+            const pending = this.pendingProfilingRequests.get(message.requestId);
+            this.pendingProfilingRequests.delete(message.requestId);
+            clearTimeout(pending?.timer);
+            pending?.resolve(message.report);
         }
     }
 
@@ -113,8 +119,11 @@ export class AudioWorkletEngine {
         this.node?.port.postMessage({ type: 'param', moduleId, param, value });
     }
 
-    sendMidi(data) {
-        this.node?.port.postMessage({ type: 'midi', data: [...data] });
+    sendMidi(data, receivedTime = globalThis.performance?.now?.() ?? 0) {
+        const now = globalThis.performance?.now?.() ?? receivedTime;
+        const contextTime = Number.isFinite(this.audioCtx?.currentTime) ? this.audioCtx.currentTime : 0;
+        const audioTime = contextTime + (receivedTime - now) / 1000;
+        this.node?.port.postMessage({ type: 'midi', data: [...data], audioTime });
     }
 
     captureRuntimeStates() {
@@ -127,6 +136,23 @@ export class AudioWorkletEngine {
             }, this.requestTimeoutMs);
             this.pendingRuntimeRequests.set(requestId, { resolve, reject, timer });
             this.node.port.postMessage({ type: 'capture-runtime', requestId });
+        });
+    }
+
+    setProfiling(enabled, { reset = false } = {}) {
+        this.node?.port.postMessage({ type: 'profiling', enabled, reset });
+    }
+
+    requestProfilingReport() {
+        if (!this.node) return Promise.resolve({ deadlineMs: 0, blocks: {}, modules: {} });
+        const requestId = this.nextRequestId++;
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                this.pendingProfilingRequests.delete(requestId);
+                reject(new Error(`Timed out waiting for AudioWorklet profiling request ${requestId}`));
+            }, this.requestTimeoutMs);
+            this.pendingProfilingRequests.set(requestId, { resolve, reject, timer });
+            this.node.port.postMessage({ type: 'profiling-report', requestId });
         });
     }
 
@@ -160,6 +186,11 @@ export class AudioWorkletEngine {
     rejectPendingRequests(error) {
         this.rejectPendingTopologies(error);
         this.rejectPendingRuntimeRequests(error);
+        this.pendingProfilingRequests.forEach(({ reject, timer }) => {
+            clearTimeout(timer);
+            reject(error);
+        });
+        this.pendingProfilingRequests.clear();
     }
 }
 

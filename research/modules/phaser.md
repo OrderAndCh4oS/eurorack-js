@@ -54,3 +54,12 @@ for (let i = 0; i < stages; i++) {
 output = dry + wet * mix;
 feedbackSample = wet * feedback;
 ```
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Before remediation**: `outL` (audio) measured -4.15..5.34 V against -5..5 V; `outR` (audio) measured -4.15..5.34 V against -5..5 V
+- **After remediation**: Output and feedback state use ±5 V soft rails; strict matrix peak is 4.99 V and the 500-block extreme-feedback test passes.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/phaser.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.

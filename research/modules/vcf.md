@@ -178,3 +178,12 @@ for (let p = 0; p < 4; p++) {
 - [MoogLadders Repository](https://github.com/ddiakopoulos/MoogLadders)
 - [DAFx Paper Archive](https://dafx.de/paper-archive/)
 - [MusicDSP.org](https://www.musicdsp.org/)
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Before remediation**: `hpf` (audio) measured -13.77..13.68 V against -5..5 V; `lpf` (audio) measured -11.58..11.68 V against -5..5 V; `bpf` (audio) measured -8.29..8.26 V against -5..5 V
+- **After remediation**: LP/BP/HP outputs use ±5 V soft rails; strict matrix peak is 5 V and long resonant modulation tests remain finite.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/vcf.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.

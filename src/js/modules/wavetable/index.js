@@ -6,6 +6,7 @@
  */
 
 import { clamp, expMap } from '../../utils/math.js';
+import { wrapPhase } from '../../utils/oscillator.js';
 import { createSlew } from '../../utils/slew.js';
 
 const TWO_PI = Math.PI * 2;
@@ -406,8 +407,7 @@ export default {
                     out[i] = voltage;
                     peak = Math.max(peak, Math.abs(voltage));
 
-                    phase += frequency / sampleRate;
-                    phase -= Math.floor(phase);
+                    phase = wrapPhase(phase + frequency / sampleRate);
                 }
 
                 leds.level = Math.max(peak / 5, leds.level * ledDecay);

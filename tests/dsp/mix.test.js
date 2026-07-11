@@ -12,10 +12,10 @@ describe('2hp Mix - 4 Channel Mixer', () => {
 
     describe('initialization', () => {
         it('should create a mixer with default params', () => {
-            expect(mix.params.lvl1).toBe(1);
-            expect(mix.params.lvl2).toBe(1);
-            expect(mix.params.lvl3).toBe(1);
-            expect(mix.params.lvl4).toBe(1);
+            expect(mix.params.lvl1).toBe(0.8);
+            expect(mix.params.lvl2).toBe(0.8);
+            expect(mix.params.lvl3).toBe(0.8);
+            expect(mix.params.lvl4).toBe(0.8);
         });
 
         it('should create 4 input buffers', () => {
@@ -133,7 +133,16 @@ describe('2hp Mix - 4 Channel Mixer', () => {
             expect(mix.outputs.out[0]).toBeCloseTo(3.5, 5);
         });
 
-        it('should allow signal levels above unity (no hard clip)', () => {
+        it('should preserve linear sums below the rail and softly limit overload', () => {
+            mix.inputs.in1.fill(4);
+            mix.inputs.in2.fill(4);
+            mix.params.lvl1 = 1;
+            mix.params.lvl2 = 1;
+            mix.params.lvl3 = 0;
+            mix.params.lvl4 = 0;
+            mix.process();
+            expect(mix.outputs.out[0]).toBeCloseTo(8, 5);
+
             mix.inputs.in1.fill(5);
             mix.inputs.in2.fill(5);
             mix.inputs.in3.fill(5);
@@ -144,8 +153,8 @@ describe('2hp Mix - 4 Channel Mixer', () => {
             mix.params.lvl4 = 1;
             mix.process();
 
-            // DC coupled mixer should pass 20V without clipping
-            expect(mix.outputs.out[0]).toBeCloseTo(20, 5);
+            expect(mix.outputs.out[0]).toBeGreaterThan(9.6);
+            expect(mix.outputs.out[0]).toBeLessThanOrEqual(10);
         });
     });
 

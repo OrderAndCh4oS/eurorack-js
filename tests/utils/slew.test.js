@@ -15,6 +15,17 @@ describe('createSlew', () => {
             const slew = createSlew({ sampleRate: 48000, timeMs: 10 });
             expect(slew).toBeDefined();
         });
+
+        it('should reject invalid sample rates', () => {
+            expect(() => createSlew({ sampleRate: 0 })).toThrow(/sampleRate/);
+            expect(() => createSlew({ sampleRate: Number.NaN })).toThrow(/sampleRate/);
+        });
+
+        it('should clamp constructor time to the supported minimum', () => {
+            const zero = createSlew({ timeMs: 0 });
+            const minimum = createSlew({ timeMs: 0.1 });
+            expect(zero.process(5)).toBe(minimum.process(5));
+        });
     });
 
     describe('process()', () => {
@@ -118,6 +129,11 @@ describe('createSlew', () => {
             }
 
             expect(fastVal).toBeGreaterThan(slowVal);
+        });
+
+        it('should reject a non-finite time', () => {
+            const slew = createSlew();
+            expect(() => { slew.timeMs = Number.NaN; }).toThrow(/timeMs/);
         });
     });
 });

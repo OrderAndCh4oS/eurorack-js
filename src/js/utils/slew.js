@@ -10,16 +10,22 @@
  * @returns {Object} Slew processor with process(), processBuffer(), and reset() methods
  */
 export function createSlew({ sampleRate = 44100, timeMs = 5 } = {}) {
+    if (!Number.isFinite(sampleRate) || sampleRate <= 0) {
+        throw new RangeError('Slew sampleRate must be a positive finite number');
+    }
+    const coefficientFor = ms => {
+        if (!Number.isFinite(ms)) throw new TypeError('Slew timeMs must be finite');
+        return 1 - Math.exp(-1000 / (sampleRate * Math.max(0.1, ms)));
+    };
     let state = 0;
-    /* RC coefficient: how much of the difference to apply per sample */
-    let coeff = 1 - Math.exp(-1000 / (sampleRate * timeMs));
+    let coeff = coefficientFor(timeMs);
 
     return {
         /**
          * Update slew rate at runtime
          */
         set timeMs(ms) {
-            coeff = 1 - Math.exp(-1000 / (sampleRate * Math.max(0.1, ms)));
+            coeff = coefficientFor(ms);
         },
 
         /**

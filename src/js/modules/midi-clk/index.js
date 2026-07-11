@@ -37,7 +37,8 @@ export default {
     color: 'module-color-eleven',
     category: 'midi',
 
-    createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+    createDSP({ sampleRate = 44100, bufferSize = 512, services = {} } = {}) {
+        const midi = services.midiManager || null;
         const clockOut = new Float32Array(bufferSize);
         const resetOut = new Float32Array(bufferSize);
         const runOut = new Float32Array(bufferSize);
@@ -71,13 +72,10 @@ export default {
                 run: 0
             },
 
-            midiManager: null,
-
             process() {
                 const divIndex = Math.floor(this.params.division);
                 const ticksPerPulse = DIVISIONS[divIndex]?.ticks || 24;
 
-                const midi = this.midiManager || window.midiManager;
                 if (!midi) {
                     clockOut.fill(0);
                     resetOut.fill(0);
@@ -86,43 +84,33 @@ export default {
                 }
 
                 // Process MIDI clock events
-                const events = midi.consumeClockEvents();
+                const events = midi.getClockEvents();
+                let eventIndex = 0;
 
-                for (const event of events) {
-                    switch (event.type) {
-                        case 'clock':
-                            if (isRunning) {
-                                tickCount++;
-                                if (tickCount >= ticksPerPulse) {
-                                    tickCount = 0;
-                                    clockPulse = true;
-                                    clockPulseSamples = pulseLength;
-                                }
+                // Fill output buffers
+                for (let i = 0; i < bufferSize; i++) {
+                    while (eventIndex < events.length && events[eventIndex].sampleOffset <= i) {
+                        const event = events[eventIndex++];
+                        if (event.type === 'clock' && isRunning) {
+                            tickCount++;
+                            if (tickCount >= ticksPerPulse) {
+                                tickCount = 0;
+                                clockPulse = true;
+                                clockPulseSamples = pulseLength;
                             }
-                            break;
-
-                        case 'start':
+                        } else if (event.type === 'start') {
                             isRunning = true;
                             tickCount = 0;
                             resetPulse = true;
                             resetPulseSamples = pulseLength;
-                            // Also trigger clock on start
                             clockPulse = true;
                             clockPulseSamples = pulseLength;
-                            break;
-
-                        case 'continue':
+                        } else if (event.type === 'continue') {
                             isRunning = true;
-                            break;
-
-                        case 'stop':
+                        } else if (event.type === 'stop') {
                             isRunning = false;
-                            break;
+                        }
                     }
-                }
-
-                // Fill output buffers
-                for (let i = 0; i < bufferSize; i++) {
                     // Clock pulse
                     if (clockPulseSamples > 0) {
                         clockOut[i] = 10;

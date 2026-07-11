@@ -171,3 +171,12 @@ const sqrVal = phase < duty ? 1 : -1;
 - [2hp VCO Product Page](https://www.twohp.com/modules/p/vco)
 - [ModularGrid - 2hp VCO](https://www.modulargrid.net/e/2hp-vco)
 - [Electric Druid CEM3340](https://electricdruid.net/cem3340-vco-voltage-controlled-oscillator-designs/)
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Before remediation**: `ramp` (audio) measured -4.60..8.64 V against -5..5 V
+- **After remediation**: Frequency is capped at 45% of sample rate before PolyBLEP and outputs use ±5 V soft rails; strict matrix peak is 4.93 V.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/vco.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.

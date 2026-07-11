@@ -148,7 +148,14 @@ describe('Matrix - 4x4 Matrix Mixer', () => {
     });
 
     describe('range and buffer integrity', () => {
-        it('does not hard-clip large linear sums', () => {
+        it('preserves linear sums below the rail and softly limits overload', () => {
+            matrix.inputs.in1.fill(4);
+            matrix.inputs.in2.fill(4);
+            matrix.params.a1 = 1;
+            matrix.params.a2 = 1;
+            matrix.process();
+            expectBufferValue(matrix.outputs.outA, 8);
+
             matrix.inputs.in1.fill(5);
             matrix.inputs.in2.fill(5);
             matrix.inputs.in3.fill(5);
@@ -159,7 +166,10 @@ describe('Matrix - 4x4 Matrix Mixer', () => {
             matrix.params.a4 = 1;
             matrix.process();
 
-            expectBufferValue(matrix.outputs.outA, 20);
+            for (const value of matrix.outputs.outA) {
+                expect(value).toBeGreaterThan(9.6);
+                expect(value).toBeLessThanOrEqual(10);
+            }
         });
 
         it('fills all output buffers without NaN values', () => {

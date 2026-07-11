@@ -192,3 +192,12 @@ Use a clean digital feed-forward compressor with stereo-linked gain reduction:
 - [Web Audio API 1.1 - DynamicsCompressorNode](https://www.w3.org/TR/webaudio/#DynamicsCompressorNode) - W3C Web Audio Working Group, First Public Working Draft 2024-11-05, accessed 2026-07-09, supports: web-native compressor parameters, `reduction` metering, soft-knee compression curve requirements, internal pre-delay/gain/envelope follower processing model.
 - [JUCE dsp::Compressor documentation](https://docs.juce.com/master/classjuce_1_1dsp_1_1Compressor.html) - Raw Material Software/JUCE, accessed 2026-07-09, supports: standard digital compressor API with threshold, ratio, attack, release, reset, and sample/block processing.
 - [Evaluating Dynamic Range Compressor Models Using Control-Voltage Measurements](https://arxiv.org/abs/2606.18573) - Benjamin R. Thompson and Michael C. Heilemann, arXiv/accepted to DAFx 2026, submitted 2026-06-17, accessed 2026-07-09, supports: importance of gain-reduction/control-voltage trajectories for compressor model evaluation and test target thinking.
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Before remediation**: `env` (cv) measured 0.00..10.00 V against -5..5 V; `gr` (cv) measured 0.00..10.00 V against -5..5 V
+- **After remediation**: Envelope and gain-reduction outputs now declare 0..10 V; strict matrix passes.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/comp.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.

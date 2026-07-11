@@ -7,6 +7,7 @@
  */
 
 import { clamp, expMap } from '../../utils/math.js';
+import { wrapPhase } from '../../utils/oscillator.js';
 
 export const QUAD_LFO_RANGES = [
     { min: 0.1, max: 10 },
@@ -23,10 +24,6 @@ const OUTPUT_SCALE = 5;
 
 function getRange(params) {
     return QUAD_LFO_RANGES[Math.round(clamp(params.range, 0, QUAD_LFO_RANGES.length - 1))];
-}
-
-function wrapPhase(phase) {
-    return phase - Math.floor(phase);
 }
 
 export default {

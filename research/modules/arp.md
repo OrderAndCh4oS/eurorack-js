@@ -156,3 +156,12 @@ output = (rootNote + sequenceNote) / 12;
 ## Sources
 - [2hp Arp Product Page](http://www.twohp.com/modules/p/arp)
 - [ModularGrid - 2hp Arp](https://www.modulargrid.net/e/2hp-arp)
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Before remediation**: `cv` (cv) measured -5.00..6.25 V against -5..5 V
+- **After remediation**: Output contract now covers -5..47/6 V; strict matrix passes.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/arp.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.

@@ -4,37 +4,65 @@ import { assertModuleParam, getModulePort, getModulePorts } from '../../rack/mod
 import { getNestedValue, setNestedValue } from '../../utils/nested-access.js';
 import { getWorkletModule, getWorkletPlugin } from './plugin-registry.js';
 
-function createMidiService() {
-    const notes = [];
-    const clocks = [];
+export function createMidiService() {
+    const pendingNotes = [];
+    const pendingClocks = [];
+    let blockNotes = [];
+    let blockClocks = [];
+    let arrivalOrder = 0;
     const cc = new Map();
     const bends = new Map();
     const modWheel = new Map();
     return {
-        push(data) {
+        push(data, audioTime = 0) {
             const [status, data1 = 0, data2 = 0] = data;
             const type = status & 0xf0;
             const channel = status & 0x0f;
-            if (type === 0x80 || (type === 0x90 && data2 === 0)) notes.push({ type: 'noteOff', channel, note: data1, velocity: 0 });
-            else if (type === 0x90) notes.push({ type: 'noteOn', channel, note: data1, velocity: data2 });
+            const eventTime = Number.isFinite(audioTime) ? audioTime : 0;
+            const timed = event => ({ ...event, audioTime: eventTime, arrivalOrder: arrivalOrder++ });
+            if (type === 0x80 || (type === 0x90 && data2 === 0)) {
+                pendingNotes.push(timed({ type: 'noteOff', channel, note: data1, velocity: 0 }));
+            } else if (type === 0x90) {
+                pendingNotes.push(timed({ type: 'noteOn', channel, note: data1, velocity: data2 }));
+            }
             else if (type === 0xb0) {
                 cc.set(`${channel}:${data1}`, data2);
                 if (data1 === 1) modWheel.set(channel, data2);
             } else if (type === 0xe0) bends.set(channel, ((data2 << 7) | data1) - 8192);
-            else if (status === 0xf8) clocks.push({ type: 'clock' });
-            else if (status === 0xfa) clocks.push({ type: 'start' });
-            else if (status === 0xfb) clocks.push({ type: 'continue' });
-            else if (status === 0xfc) clocks.push({ type: 'stop' });
+            else if (status === 0xf8) pendingClocks.push(timed({ type: 'clock' }));
+            else if (status === 0xfa) pendingClocks.push(timed({ type: 'start' }));
+            else if (status === 0xfb) pendingClocks.push(timed({ type: 'continue' }));
+            else if (status === 0xfc) pendingClocks.push(timed({ type: 'stop' }));
         },
-        consumeNoteEvents(channel = null) {
-            const selected = channel === null ? [...notes] : notes.filter(event => event.channel === channel);
-            for (let index = notes.length - 1; index >= 0; index -= 1) {
-                if (channel === null || notes[index].channel === channel) notes.splice(index, 1);
-            }
-            return selected;
+        beginBlock(blockStart, sampleRate, blockSize) {
+            const blockEnd = blockStart + blockSize / sampleRate;
+            const collect = pending => {
+                const due = [];
+                for (let index = pending.length - 1; index >= 0; index -= 1) {
+                    if (pending[index].audioTime < blockEnd) due.push(...pending.splice(index, 1));
+                }
+                return due
+                    .sort((a, b) => a.audioTime - b.audioTime || a.arrivalOrder - b.arrivalOrder)
+                    .map(({ arrivalOrder: _order, ...event }) => ({
+                        ...event,
+                        sampleOffset: Math.max(0, Math.min(
+                            blockSize - 1,
+                            Math.round((event.audioTime - blockStart) * sampleRate)
+                        ))
+                    }));
+            };
+            blockNotes = collect(pendingNotes);
+            blockClocks = collect(pendingClocks);
         },
-        consumeClockEvents() {
-            return clocks.splice(0);
+        getNoteEvents(channel = null) {
+            return channel === null ? blockNotes : blockNotes.filter(event => event.channel === channel);
+        },
+        getClockEvents() {
+            return blockClocks;
+        },
+        endBlock() {
+            blockNotes = [];
+            blockClocks = [];
         },
         getCCValue(channel, number) {
             return cc.get(`${channel}:${number}`) || 0;
@@ -78,6 +106,31 @@ function collectTransferables(value, transferables = new Set()) {
     return [...transferables];
 }
 
+const MAX_PROFILE_SAMPLES = 4096;
+
+function profileNow() {
+    return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function recordTiming(samples, value) {
+    if (samples.length >= MAX_PROFILE_SAMPLES) samples.shift();
+    samples.push(value);
+}
+
+function timingSummary(samples, deadlineMs) {
+    if (!samples.length) return { samples: 0, p50: 0, p95: 0, p99: 0, p99Utilization: 0 };
+    const sorted = [...samples].sort((a, b) => a - b);
+    const percentile = fraction => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))];
+    const p99 = percentile(0.99);
+    return {
+        samples: sorted.length,
+        p50: percentile(0.5),
+        p95: percentile(0.95),
+        p99,
+        p99Utilization: deadlineMs > 0 ? p99 / deadlineMs : 0
+    };
+}
+
 class EurorackProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
@@ -89,6 +142,7 @@ class EurorackProcessor extends AudioWorkletProcessor {
         this.midi = createMidiService();
         this.telemetryFrames = 0;
         this.lastHistorySnapshots = new Map();
+        this.profiling = { enabled: false, blocks: [], modules: new Map() };
         this.port.onmessage = event => this.handleMessage(event.data);
     }
 
@@ -106,7 +160,6 @@ class EurorackProcessor extends AudioWorkletProcessor {
             services: { midiManager: this.midi },
             audioCtx: null
         });
-        instance.midiManager = this.midi;
         Object.entries(specification.params || {}).forEach(([param, value]) => {
             assertModuleParam(definition, param, value);
             setNestedValue(instance.params, param, value);
@@ -188,8 +241,29 @@ class EurorackProcessor extends AudioWorkletProcessor {
                 if (!module) throw new Error(`Module instance "${message.moduleId}" not found`);
                 assertModuleParam(module.def, message.param, message.value);
                 setNestedValue(module.instance.params, message.param, message.value);
-            } else if (message.type === 'midi') this.midi.push(message.data);
+            } else if (message.type === 'midi') this.midi.push(message.data, message.audioTime);
             else if (message.type === 'retry') this.disabled.delete(message.moduleId);
+            else if (message.type === 'profiling') {
+                this.profiling.enabled = Boolean(message.enabled);
+                if (message.reset) {
+                    this.profiling.blocks = [];
+                    this.profiling.modules.clear();
+                }
+            } else if (message.type === 'profiling-report') {
+                const deadlineMs = this.blockSize / sampleRate * 1000;
+                const modules = Object.fromEntries([...this.profiling.modules].map(([id, samples]) => [
+                    id, timingSummary(samples, deadlineMs)
+                ]));
+                this.port.postMessage({
+                    type: 'profiling-report',
+                    requestId: message.requestId,
+                    report: {
+                        deadlineMs,
+                        blocks: timingSummary(this.profiling.blocks, deadlineMs),
+                        modules
+                    }
+                });
+            }
             else if (message.type === 'capture-runtime') {
                 const states = {};
                 Object.entries(this.modules).forEach(([id, module]) => {
@@ -205,6 +279,7 @@ class EurorackProcessor extends AudioWorkletProcessor {
     }
 
     process(_inputs, outputs) {
+        const blockStarted = this.profiling.enabled ? profileNow() : 0;
         const output = outputs[0];
         const left = output?.[0];
         const right = output?.[1] || left;
@@ -215,6 +290,7 @@ class EurorackProcessor extends AudioWorkletProcessor {
         }
         left.fill(0);
         right.fill(0);
+        this.midi.beginBlock(currentTime, sampleRate, this.blockSize);
 
         for (const id of this.graph.processOrder) {
             const module = this.modules[id];
@@ -225,7 +301,12 @@ class EurorackProcessor extends AudioWorkletProcessor {
                 continue;
             }
             try {
+                const moduleStarted = this.profiling.enabled ? profileNow() : 0;
                 module.instance.process({ time: currentTime, sampleRate, blockSize: this.blockSize });
+                if (this.profiling.enabled) {
+                    if (!this.profiling.modules.has(id)) this.profiling.modules.set(id, []);
+                    recordTiming(this.profiling.modules.get(id), profileNow() - moduleStarted);
+                }
                 const events = module.instance.drainEvents?.() || [];
                 events.forEach(event => this.port.postMessage({
                     type: 'module-event',
@@ -239,6 +320,7 @@ class EurorackProcessor extends AudioWorkletProcessor {
             }
         }
         this.graph.commitFeedback();
+        this.midi.endBlock();
 
         Object.values(this.modules).forEach(module => {
             if (module.def.role !== 'audio-output') return;
@@ -286,6 +368,7 @@ class EurorackProcessor extends AudioWorkletProcessor {
                 modules
             });
         }
+        if (this.profiling.enabled) recordTiming(this.profiling.blocks, profileNow() - blockStarted);
         return true;
     }
 }

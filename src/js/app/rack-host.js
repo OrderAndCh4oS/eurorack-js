@@ -65,7 +65,6 @@ export class RackHost {
             audioCtx: null,
             services: this.services
         });
-        if (this.services.midiManager) dsp.midiManager = this.services.midiManager;
         Object.entries(moduleState.params).forEach(([param, value]) => setNestedValue(dsp.params, param, value));
         if (moduleState.runtimeState && definition.restoreRuntimeState) {
             definition.restoreRuntimeState(dsp, moduleState.runtimeState);

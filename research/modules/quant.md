@@ -128,3 +128,12 @@ if (Math.abs(quantized - lastQuantized) > 0.001) {
 ## Sources
 - [Ladik Modules](http://ladik.eu/)
 - [ModularGrid Quantizer Browser](https://www.modulargrid.net/e/modules/browser?SearchName=quantizer)
+
+## DSP Audit (2026-07-11)
+
+- **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.
+- **Before remediation**: `cv` (cv) measured -7.00..7.00 V against -5..5 V
+- **After remediation**: Output contract now covers -7..95/12 V; strict matrix passes.
+- **Coverage**: Focused DSP coverage exists in `tests/dsp/simple-quantizer.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
+- **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
+- **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.

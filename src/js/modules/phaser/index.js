@@ -13,6 +13,8 @@
  * - LFO LED indicator
  */
 
+import { softLimitVoltage } from '../../utils/voltage.js';
+
 // Number of allpass stages (more stages = more notches)
 const NUM_STAGES = 6;
 
@@ -104,12 +106,12 @@ export default {
                     }
 
                     // Store feedback
-                    feedbackL = wetL;
-                    feedbackR = wetR;
+                    feedbackL = softLimitVoltage(wetL, 5);
+                    feedbackR = softLimitVoltage(wetR, 5);
 
                     // Mix dry and wet
-                    outL[i] = inL[i] * (1 - mix) + wetL * mix;
-                    outR[i] = inR[i] * (1 - mix) + wetR * mix;
+                    outL[i] = softLimitVoltage(inL[i] * (1 - mix) + wetL * mix, 5);
+                    outR[i] = softLimitVoltage(inR[i] * (1 - mix) + wetR * mix, 5);
 
                     // Advance LFO phase
                     lfoPhase += phaseIncrement;

@@ -11,6 +11,9 @@ import {
     measureSignal
 } from '../../scripts/lib/dsp-audit.js';
 
+// This exhaustive matrix competes with other Vitest workers in the full CI suite.
+const CONTROL_SCENARIO_AUDIT_TIMEOUT_MS = 15_000;
+
 describe('DSP audit measurements', () => {
     it('uses reproducible seeded noise', () => {
         const first = createSeededRandom(42);
@@ -123,5 +126,5 @@ describe('DSP audit measurements', () => {
                 }
             }
         }
-    });
+    }, CONTROL_SCENARIO_AUDIT_TIMEOUT_MS);
 });

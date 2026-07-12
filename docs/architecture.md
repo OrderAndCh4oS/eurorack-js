@@ -187,6 +187,7 @@ Routing rules:
 - Manifest order, rack order, then instance ID provide deterministic tie breaks.
 - Every edge inside a feedback strongly connected component uses an explicit one-block delay, including self-feedback.
 - Removing a cable immediately restores the destination's declared normal voltage.
+- Cable endpoint moves are transactional: clicks, Escape, focus loss, and incompatible-jack drops restore the original connection; a valid drop commits the move, while an actual drag to empty space explicitly removes it.
 
 If a module throws during `process()`, that instance is disabled and its outputs are zeroed while the rest of the graph continues. Topology compilation errors reject the revision and leave the prior graph active.
 

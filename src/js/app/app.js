@@ -25,6 +25,7 @@ export const PATCH_EXPORT_SCHEMA = 'eurorack-js/patch-export';
 export const PATCH_EXPORT_VERSION = 1;
 export const THEME_STORAGE_KEY = 'eurorack-theme';
 export const THEME_MODE_STORAGE_KEY = 'eurorack-theme-mode';
+const CABLE_DRAG_THRESHOLD_PX = 4;
 
 function isPlainObject(value) {
     return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -186,6 +187,7 @@ export class EurorackApp {
         this.visualCables = [];
         this.colorIndex = 0;
         this.dragState = null;
+        this.previewPath = null;
         this.draggedModule = null;
         this.draggedModuleEl = null;
         this.dropIndicator = null;
@@ -338,12 +340,26 @@ export class EurorackApp {
             if (event.target.closest('.jack')) event.preventDefault();
         });
         this.document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && this.dragState) {
+                event.preventDefault();
+                this.cancelCableDrag();
+                return;
+            }
+            if (event.key === 'Escape' && this.draggedModule) {
+                event.preventDefault();
+                this.cancelModuleDrag();
+                return;
+            }
             if (event.key === 'Escape' && this.midiManager?.isLearnMode) {
                 this.toggleMidiLearnMode();
             }
         });
 
         window.addEventListener('resize', () => this.renderAllCables());
+        window.addEventListener('blur', () => {
+            this.cancelCableDrag();
+            this.cancelModuleDrag();
+        });
         this.rackContainer?.addEventListener('scroll', () => this.renderAllCables(), { passive: true });
 
         this.startButton.addEventListener('click', () => { void this.toggleAudio(); });
@@ -613,7 +629,7 @@ export class EurorackApp {
             if (event.button === 2) {
                 const cable = this.visualCables.find(c => c.fromEl === jack || c.toEl === jack);
                 if (cable) this.removeCable(cable);
-            } else {
+            } else if (event.button === 0) {
                 this.startCableDrag(jack, event);
             }
         }
@@ -637,7 +653,7 @@ export class EurorackApp {
 
     handleMouseUp(event) {
         if (this.dragState) {
-            this.endCableDrag(event.target.closest('.jack'), event);
+            this.endCableDrag(event.target?.closest?.('.jack') || null);
         }
         if (this.draggedModule) {
             this.handleModuleDragEnd();
@@ -704,6 +720,15 @@ export class EurorackApp {
             }
         }
 
+        this.finishModuleDrag();
+    }
+
+    cancelModuleDrag() {
+        if (!this.draggedModule) return;
+        this.finishModuleDrag();
+    }
+
+    finishModuleDrag() {
         this.draggedModuleEl?.classList.remove('dragging');
         this.dropIndicator?.remove();
         this.dropIndicator = null;
@@ -715,8 +740,16 @@ export class EurorackApp {
 
     startCableDrag(jackEl, event) {
         const existing = this.visualCables.filter(c => c.fromEl === jackEl || c.toEl === jackEl);
+        const pointerStart = { x: event.clientX, y: event.clientY };
         if (event.shiftKey || existing.length === 0) {
-            this.dragState = { startJack: jackEl, startDir: jackEl.dataset.dir };
+            this.dragState = {
+                startJack: jackEl,
+                startDir: jackEl.dataset.dir,
+                detachedCable: null,
+                detachedJack: null,
+                pointerStart,
+                moved: false
+            };
             this.createCablePreview(CABLE_COLORS[this.colorIndex++ % CABLE_COLORS.length]);
         } else {
             let cable = existing[0];
@@ -731,8 +764,15 @@ export class EurorackApp {
             }
             const anchor = cable.fromEl === jackEl ? cable.toEl : cable.fromEl;
             const color = cable.pathEl.style.stroke;
-            this.removeCable(cable);
-            this.dragState = { startJack: anchor, startDir: anchor.dataset.dir };
+            cable.pathEl.classList.add('cable-detached');
+            this.dragState = {
+                startJack: anchor,
+                startDir: anchor.dataset.dir,
+                detachedCable: cable,
+                detachedJack: jackEl,
+                pointerStart,
+                moved: false
+            };
             this.createCablePreview(color);
         }
         this.updateCablePreview(event);
@@ -747,21 +787,56 @@ export class EurorackApp {
 
     updateCablePreview(event) {
         if (!this.previewPath || !this.dragState) return;
+        const deltaX = event.clientX - this.dragState.pointerStart.x;
+        const deltaY = event.clientY - this.dragState.pointerStart.y;
+        if (Math.hypot(deltaX, deltaY) >= CABLE_DRAG_THRESHOLD_PX) this.dragState.moved = true;
         const start = getJackCenter(this.dragState.startJack);
         this.previewPath.setAttribute('d', createCablePath(start.x, start.y, event.clientX, event.clientY));
     }
 
-    endCableDrag(targetJack, event) {
+    endCableDrag(targetJack) {
+        const dragState = this.dragState;
+        if (!dragState) return;
         const color = this.previewPath?.style.stroke;
         this.previewPath?.remove();
         this.previewPath = null;
 
-        if (targetJack && targetJack !== this.dragState.startJack && targetJack.dataset.dir !== this.dragState.startDir) {
-            const fromJack = this.dragState.startDir === 'output' ? this.dragState.startJack : targetJack;
-            const toJack = this.dragState.startDir === 'input' ? this.dragState.startJack : targetJack;
-            this.addCable(fromJack, toJack, { color, replaceInput: true });
+        const validTarget = targetJack &&
+            targetJack !== dragState.startJack &&
+            targetJack.dataset.dir !== dragState.startDir;
+        const restoreDetached = () => dragState.detachedCable?.pathEl?.classList.remove('cable-detached');
+
+        if (!dragState.detachedCable) {
+            if (validTarget) {
+                const fromJack = dragState.startDir === 'output' ? dragState.startJack : targetJack;
+                const toJack = dragState.startDir === 'input' ? dragState.startJack : targetJack;
+                this.addCable(fromJack, toJack, { color, replaceInput: true });
+            }
+        } else if (!dragState.moved || targetJack === dragState.detachedJack || (targetJack && !validTarget)) {
+            restoreDetached();
+        } else if (!targetJack) {
+            this.removeCable(dragState.detachedCable);
+        } else {
+            const fromJack = dragState.startDir === 'output' ? dragState.startJack : targetJack;
+            const toJack = dragState.startDir === 'input' ? dragState.startJack : targetJack;
+            const original = dragState.detachedCable;
+            this.removeCable(original);
+            try {
+                const movedCable = this.addCable(fromJack, toJack, { color, replaceInput: true });
+                if (!movedCable) throw new Error('Cable move was rejected');
+            } catch (error) {
+                this.addCable(original.fromEl, original.toEl, { color, replaceInput: true });
+                console.warn(error.message);
+            }
         }
 
+        this.dragState = null;
+    }
+
+    cancelCableDrag() {
+        this.previewPath?.remove();
+        this.previewPath = null;
+        this.dragState?.detachedCable?.pathEl?.classList.remove('cable-detached');
         this.dragState = null;
     }
 

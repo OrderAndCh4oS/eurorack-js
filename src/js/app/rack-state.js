@@ -38,6 +38,16 @@ function createRows(rowCount) {
     return rows;
 }
 
+function cablesMatch(cable, match) {
+    if (!match) return false;
+    return cable === match || (
+        cable.fromModule === match.fromModule &&
+        cable.fromPort === match.fromPort &&
+        cable.toModule === match.toModule &&
+        cable.toPort === match.toPort
+    );
+}
+
 export class RackState {
     constructor({ maxHPPerRow = MAX_HP_PER_ROW, rowCount = 2, minRows = 1 } = {}) {
         this.maxHPPerRow = maxHPPerRow;
@@ -255,9 +265,11 @@ export class RackState {
         return mod ? getNestedValue(mod.params, paramPath) : undefined;
     }
 
-    hasInputConnection(toModule, toPort) {
+    hasInputConnection(toModule, toPort, { except = null } = {}) {
         return this.cables.some(cable => (
-            cable.toModule === toModule && cable.toPort === toPort
+            cable.toModule === toModule &&
+            cable.toPort === toPort &&
+            !cablesMatch(cable, except)
         ));
     }
 
@@ -286,12 +298,7 @@ export class RackState {
 
     removeCable(match) {
         const before = this.cables.length;
-        this.cables = this.cables.filter(cable => cable !== match && !(
-            cable.fromModule === match.fromModule &&
-            cable.fromPort === match.fromPort &&
-            cable.toModule === match.toModule &&
-            cable.toPort === match.toPort
-        ));
+        this.cables = this.cables.filter(cable => !cablesMatch(cable, match));
         return before !== this.cables.length;
     }
 

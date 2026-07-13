@@ -45,7 +45,40 @@ test('connected cable ends can be preserved, moved, and extended with Shift', as
 
     await page.locator('#patchSelect').selectOption('Test: Chorus');
     await page.locator('#loadPatch').click();
-    await page.waitForFunction(() => window.eurorackApp.state.getModule('chorus'));
+    await expect.poll(() => page.evaluate(() => window.eurorackApp.state.cables.some(cable => (
+        cable.fromModule === 'vco' && cable.toModule === 'chorus' && cable.toPort === 'inL'
+    )))).toBe(true);
+
+    const connectedOutput = page.locator('.jack.output[data-module="vco"][data-port="triangle"]');
+    const replacementOutput = page.locator('.jack.output[data-module="chorus"][data-port="outL"]');
+    const connectedOutputBox = await connectedOutput.boundingBox();
+    const replacementOutputBox = await replacementOutput.boundingBox();
+
+    await page.mouse.move(
+        connectedOutputBox.x + connectedOutputBox.width / 2,
+        connectedOutputBox.y + connectedOutputBox.height / 2
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+        replacementOutputBox.x + replacementOutputBox.width / 2,
+        replacementOutputBox.y + replacementOutputBox.height / 2,
+        { steps: 8 }
+    );
+    await page.mouse.up();
+
+    await expect.poll(() => page.evaluate(() => window.eurorackApp.state.cables.some(cable => (
+        cable.fromModule === 'chorus' && cable.fromPort === 'outL' &&
+        cable.toModule === 'chorus' && cable.toPort === 'inL'
+    )))).toBe(true);
+    expect(await page.evaluate(() => window.eurorackApp.state.cables.some(cable => (
+        cable.fromModule === 'vco' && cable.toModule === 'chorus' && cable.toPort === 'inL'
+    )))).toBe(false);
+
+    await page.locator('#patchSelect').selectOption('Test: Chorus');
+    await page.locator('#loadPatch').click();
+    await expect.poll(() => page.evaluate(() => window.eurorackApp.state.cables.some(cable => (
+        cable.fromModule === 'vco' && cable.toModule === 'chorus' && cable.toPort === 'inL'
+    )))).toBe(true);
 
     const fanoutSource = page.locator('.jack.output[data-module="vco"][data-port="triangle"]');
     const fanoutDestination = page.locator('.jack.input[data-module="out"][data-port="L"]');

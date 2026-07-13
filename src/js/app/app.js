@@ -822,7 +822,7 @@ export class EurorackApp {
             const fromJack = dragState.startDir === 'output' ? dragState.startJack : targetJack;
             const toJack = dragState.startDir === 'input' ? dragState.startJack : targetJack;
             const original = dragState.detachedCable;
-            if (this.state.hasInputConnection(toJack.dataset.module, toJack.dataset.port)) {
+            if (this.state.hasInputConnection(toJack.dataset.module, toJack.dataset.port, { except: original })) {
                 restoreDetached();
                 this.dragState = null;
                 return;

@@ -56,6 +56,17 @@ describe('RackState', () => {
         expect(rack.getRow(2)).toEqual(['vca_1']);
     });
 
+    it('can exclude the cable being edited from an input occupancy check', () => {
+        const rack = new RackState();
+        rack.addModule('vco', registry, { id: 'vco_1' });
+        rack.addModule('vca', registry, { id: 'vca_1' });
+        const cable = rack.connect({ fromModule: 'vco_1', fromPort: 'out', toModule: 'vca_1', toPort: 'in' });
+
+        expect(rack.hasInputConnection('vca_1', 'in')).toBe(true);
+        expect(rack.hasInputConnection('vca_1', 'in', { except: cable })).toBe(false);
+        expect(rack.hasInputConnection('vca_1', 'in', { except: { ...cable } })).toBe(false);
+    });
+
     it('adds rack rows and uses them when earlier rows are full', () => {
         const rack = new RackState();
         rack.addModule('wide', registry, { id: 'wide_1', row: 1 });

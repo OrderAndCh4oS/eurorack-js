@@ -255,7 +255,13 @@ export class RackState {
         return mod ? getNestedValue(mod.params, paramPath) : undefined;
     }
 
-    connect({ fromModule, fromPort, toModule, toPort }, { replaceInput = true, registry = null } = {}) {
+    hasInputConnection(toModule, toPort) {
+        return this.cables.some(cable => (
+            cable.toModule === toModule && cable.toPort === toPort
+        ));
+    }
+
+    connect({ fromModule, fromPort, toModule, toPort }, { registry = null } = {}) {
         if (!this.modules.has(fromModule) || !this.modules.has(toModule)) {
             return null;
         }
@@ -271,9 +277,7 @@ export class RackState {
             }
         }
 
-        if (replaceInput) {
-            this.cables = this.cables.filter(cable => !(cable.toModule === toModule && cable.toPort === toPort));
-        }
+        if (this.hasInputConnection(toModule, toPort)) return null;
 
         const cable = { fromModule, fromPort, toModule, toPort };
         this.cables.push(cable);

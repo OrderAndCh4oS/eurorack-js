@@ -741,8 +741,7 @@ export class EurorackApp {
     startCableDrag(jackEl, event) {
         const existing = this.visualCables.filter(c => c.fromEl === jackEl || c.toEl === jackEl);
         const pointerStart = { x: event.clientX, y: event.clientY };
-        const startsOutputFanout = jackEl.dataset.dir === 'output' && !event.ctrlKey && !event.metaKey;
-        if (event.shiftKey || existing.length === 0 || startsOutputFanout) {
+        if (event.shiftKey || existing.length === 0) {
             this.dragState = {
                 startJack: jackEl,
                 startDir: jackEl.dataset.dir,
@@ -811,7 +810,7 @@ export class EurorackApp {
             if (validTarget) {
                 const fromJack = dragState.startDir === 'output' ? dragState.startJack : targetJack;
                 const toJack = dragState.startDir === 'input' ? dragState.startJack : targetJack;
-                this.addCable(fromJack, toJack, { color, replaceInput: true });
+                this.addCable(fromJack, toJack, { color });
             }
         } else if (!dragState.moved || targetJack === dragState.detachedJack || targetJack === dragState.startJack) {
             restoreDetached();
@@ -823,12 +822,17 @@ export class EurorackApp {
             const fromJack = dragState.startDir === 'output' ? dragState.startJack : targetJack;
             const toJack = dragState.startDir === 'input' ? dragState.startJack : targetJack;
             const original = dragState.detachedCable;
+            if (this.state.hasInputConnection(toJack.dataset.module, toJack.dataset.port)) {
+                restoreDetached();
+                this.dragState = null;
+                return;
+            }
             this.removeCable(original);
             try {
-                const movedCable = this.addCable(fromJack, toJack, { color, replaceInput: true });
+                const movedCable = this.addCable(fromJack, toJack, { color });
                 if (!movedCable) throw new Error('Cable move was rejected');
             } catch (error) {
-                this.addCable(original.fromEl, original.toEl, { color, replaceInput: true });
+                this.addCable(original.fromEl, original.toEl, { color });
                 console.warn(error.message);
             }
         }
@@ -843,13 +847,7 @@ export class EurorackApp {
         this.dragState = null;
     }
 
-    addCable(fromJack, toJack, { color = null, replaceInput = true, updateState = true, cableState = null } = {}) {
-        const replacedCables = replaceInput
-            ? this.visualCables.filter(cable => (
-                cable.toModule === toJack.dataset.module && cable.toPort === toJack.dataset.port
-            ))
-            : [];
-
+    addCable(fromJack, toJack, { color = null, updateState = true, cableState = null } = {}) {
         const pureCable = cableState || (updateState ? this.host.connect({
             fromModule: fromJack.dataset.module,
             fromPort: fromJack.dataset.port,
@@ -862,9 +860,6 @@ export class EurorackApp {
             toPort: toJack.dataset.port
         });
         if (!pureCable) return null;
-
-        // RackState.connect has already replaced the destination cable atomically.
-        replacedCables.forEach(cable => this.removeVisualCable(cable));
 
         const path = this.document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.classList.add('cable');
@@ -908,7 +903,6 @@ export class EurorackApp {
             const toJack = this.document.querySelector(`.jack.input[data-module="${cable.toModule}"][data-port="${cable.toPort}"]`);
             if (fromJack && toJack) {
                 this.addCable(fromJack, toJack, {
-                    replaceInput: false,
                     updateState: false,
                     cableState: cable
                 });

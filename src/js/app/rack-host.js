@@ -102,7 +102,7 @@ export class RackHost {
     }
 
     connect(connection) {
-        const cable = this.state.connect(connection, { replaceInput: true, registry: this.registry });
+        const cable = this.state.connect(connection, { registry: this.registry });
         if (!cable) return null;
         this.syncTopology();
         this.emit({ type: 'cables-changed' });

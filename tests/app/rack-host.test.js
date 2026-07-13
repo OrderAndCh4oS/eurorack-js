@@ -46,7 +46,7 @@ async function createHost() {
 }
 
 describe('RackHost', () => {
-    it('replaces an occupied input while preserving output fan-out', async () => {
+    it('rejects a second cable to an occupied input while preserving output fan-out', async () => {
         const { host } = await createHost();
         host.addModule('source', { id: 'source_1' });
         host.addModule('source', { id: 'source_2' });
@@ -55,11 +55,12 @@ describe('RackHost', () => {
 
         host.connect({ fromModule: 'source_1', fromPort: 'out', toModule: 'sink_1', toPort: 'in' });
         host.connect({ fromModule: 'source_1', fromPort: 'out', toModule: 'sink_2', toPort: 'in' });
-        host.connect({ fromModule: 'source_2', fromPort: 'out', toModule: 'sink_1', toPort: 'in' });
+        const blocked = host.connect({ fromModule: 'source_2', fromPort: 'out', toModule: 'sink_1', toPort: 'in' });
 
+        expect(blocked).toBeNull();
         expect(host.state.cables).toEqual([
+            { fromModule: 'source_1', fromPort: 'out', toModule: 'sink_1', toPort: 'in' },
             { fromModule: 'source_1', fromPort: 'out', toModule: 'sink_2', toPort: 'in' },
-            { fromModule: 'source_2', fromPort: 'out', toModule: 'sink_1', toPort: 'in' }
         ]);
         await host.destroy();
     });

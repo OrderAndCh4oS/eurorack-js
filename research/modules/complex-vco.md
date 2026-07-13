@@ -73,6 +73,7 @@ Generate the triangle core analytically. Generate harmonic outputs with additive
 
 ## Test Targets
 
+- An exhaustive panel guard covers every declared knob, switch, input, output, and LED so UI additions require matching behavioral tests.
 - Initialization, stable arrays, params, ports, LEDs, reset, and finite +/-5 V outputs.
 - 1 V/oct doubling and Audio/LF ranges.
 - Negative TZFM reverses phase while remaining finite; AC mode rejects DC; bias changes the signed rate.

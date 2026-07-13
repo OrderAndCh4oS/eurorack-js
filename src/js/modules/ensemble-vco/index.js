@@ -152,7 +152,11 @@ function renderPanel(container, { instance, toolkit, onParamChange }) {
         id: 'learnMode', label: 'Learn', param: 'learnMode', mode: 'toggle', value: dsp?.params.learnMode || 0
     }));
     actions.appendChild(toolkit.createActionButton({
-        id: 'freeze', label: 'Freeze', param: 'freeze', mode: 'toggle', value: dsp?.params.freeze || 0
+        id: 'freeze', label: 'Freeze', param: 'freeze', mode: 'toggle', value: dsp?.params.freeze || 0,
+        onChange(value) {
+            if (Boolean(value) !== Boolean(dsp?.getFrozen())) dsp?.toggleFreeze();
+            onParamChange('freeze', value);
+        }
     }));
     actions.appendChild(toolkit.createActionButton({
         id: 'addNote', label: 'Add', param: 'addNote', mode: 'trigger', value: 0,
@@ -394,7 +398,7 @@ export default {
                 this.params.scaleMemory = next;
             },
 
-            toggleFreeze(count) {
+            toggleFreeze(count = Math.round(clamp(finite(this.params.oscillatorCount, 8), 1, MAX_VOICES))) {
                 frozen = !frozen;
                 frozenVoices.fill(0);
                 if (frozen) {

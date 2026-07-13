@@ -92,6 +92,7 @@ All arrays and delay lines are allocated in `createDSP()`. Per-sample coefficien
 
 ## Test Targets
 
+- An exhaustive panel guard covers every declared knob, mode button, input, output, and LED so UI additions require matching behavioral tests.
 - Contract, stable buffers, voltage bounds, finite output, reset, and LEDs.
 - Modal impulse rings at the requested pitch; structure/brightness/damping/position each measurably change spectrum or decay.
 - Sympathetic and string modes are non-silent and spectrally distinct.

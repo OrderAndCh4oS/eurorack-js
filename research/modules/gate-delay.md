@@ -76,6 +76,7 @@ Maintain `lastHigh`, `pendingSamples`, and `remainingSamples` for each channel. 
 
 ## Test Targets
 
+- An exhaustive panel guard covers every declared knob, input, output, and LED so UI additions require matching behavioral tests.
 - Complete metadata, params, buffers, UI ports, and LEDs.
 - Threshold and held-high edge behavior.
 - Exact immediate, delayed, and cross-block timing at low deterministic sample rates.

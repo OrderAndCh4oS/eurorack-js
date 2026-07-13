@@ -157,6 +157,26 @@ describe('factory-patches', () => {
             ]));
         });
 
+        it('builds the round-robin demo from held pitch and complementary voice gates', () => {
+            const patch = FACTORY_PATCHES['Demo - Round Robin - Alternating Voices'];
+            expect(patch).toBeDefined();
+            expect(patch.state.params.seq.length).toBe(7);
+            expect(patch.state.params.pitchRoute.steps).toBe(2);
+            expect(patch.state.params.gateA).toMatchObject({ length: 2, hits: 1, rotate: 1 });
+            expect(patch.state.params.gateB).toMatchObject({ length: 2, hits: 1, rotate: 0 });
+            expect(patch.state.cables).toEqual(expect.arrayContaining([
+                expect.objectContaining({ fromModule: 'seq', fromPort: 'cv', toModule: 'pitchRoute', toPort: 'commonIn' }),
+                expect.objectContaining({ fromModule: 'pitchRoute', fromPort: 'out1', toModule: 'pitchHold', toPort: 'in1' }),
+                expect.objectContaining({ fromModule: 'pitchRoute', fromPort: 'out2', toModule: 'pitchHold', toPort: 'in2' }),
+                expect.objectContaining({ fromModule: 'gateA', toModule: 'pitchHold', toPort: 'trig1' }),
+                expect.objectContaining({ fromModule: 'gateB', toModule: 'pitchHold', toPort: 'trig2' }),
+                expect.objectContaining({ fromModule: 'gateA', toModule: 'envA', toPort: 'gate' }),
+                expect.objectContaining({ fromModule: 'gateB', toModule: 'envB', toPort: 'gate' }),
+                expect.objectContaining({ fromModule: 'voices', toModule: 'out', toPort: 'L' }),
+                expect.objectContaining({ fromModule: 'voices', toModule: 'out', toPort: 'R' })
+            ]));
+        });
+
         it('Test - Quantizer Scales should use simple quantizer', () => {
             const patch = FACTORY_PATCHES['Test - Quantizer Scales'];
             expect(patch).toBeDefined();

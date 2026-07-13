@@ -86,6 +86,7 @@ Factory scale data is project-authored from standard interval sets and harmonic 
 
 ## Test Targets
 
+- An exhaustive panel guard covers every declared knob, mode button, action, input, output, and LED; custom actions are also exercised through the rendered UI.
 - Contract, stable 16-voice state, finite +/-5 V outputs, LEDs, reset, and no process-time allocation.
 - Oscillator-count normalization and 1 V/oct Pitch transposition.
 - Representative ratios from every scale group and smooth Root/Spread movement.

@@ -93,6 +93,7 @@ import demoAmbientPad from './demo-ambient-pad.js';
 import demoTripHop from './demo-trip-hop.js';
 import demoTechno from './demo-techno.js';
 import demoNeonGrid from './demo-neon-grid.js';
+import demoRoundRobinVoices from './demo-round-robin-voices.js';
 import demoSynthVoice01 from './demo-synth-voice-01-subtractive.js';
 import demoSynthVoice02 from './demo-synth-voice-02-waveform-blend.js';
 import demoSynthVoice03 from './demo-synth-voice-03-tracked-fm.js';
@@ -210,6 +211,7 @@ export const FACTORY_PATCHES = {
     [demoTripHop.name]: demoTripHop,
     [demoTechno.name]: demoTechno,
     [demoNeonGrid.name]: demoNeonGrid,
+    [demoRoundRobinVoices.name]: demoRoundRobinVoices,
     [demoSynthVoice01.name]: demoSynthVoice01,
     [demoSynthVoice02.name]: demoSynthVoice02,
     [demoSynthVoice03.name]: demoSynthVoice03,

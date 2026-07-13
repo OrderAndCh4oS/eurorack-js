@@ -92,6 +92,40 @@ test('loads compact and generative synth voice demos while audio is active', asy
     expect(pageErrors).toEqual([]);
 });
 
+test('runs the round-robin demo with audible alternating voice output', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.host);
+    await page.locator('#patchSelect').selectOption('Demo - Round Robin - Alternating Voices');
+    await page.locator('#loadPatch').click();
+    await page.waitForFunction(() => (
+        window.eurorackApp.state.getModule('pitchRoute') &&
+        window.eurorackApp.state.getModule('pitchHold') &&
+        window.eurorackApp.state.getModule('lpgA') &&
+        window.eurorackApp.state.getModule('lpgB')
+    ));
+
+    await page.locator('#startButton').click();
+    await expect(page.locator('#startButton')).toHaveClass(/active/);
+    await page.evaluate(() => {
+        const { audioCtx, engine } = window.eurorackApp.host;
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        engine.node.connect(analyser);
+        window.roundRobinAnalyser = analyser;
+    });
+    await expect.poll(async () => page.evaluate(() => {
+        const samples = new Float32Array(window.roundRobinAnalyser.fftSize);
+        window.roundRobinAnalyser.getFloatTimeDomainData(samples);
+        return Math.max(...samples.map(Math.abs));
+    }), { timeout: 8000 }).toBeGreaterThan(0.001);
+
+    await page.locator('#startButton').click();
+    expect(pageErrors).toEqual([]);
+});
+
 test('fits the ensemble oscillator inside one module and runs its worklet DSP', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));

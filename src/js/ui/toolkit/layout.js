@@ -68,6 +68,7 @@ export function createModuleLabel(name) {
  * @param {string} options.id - Module ID
  * @param {number} options.hp - Width in HP units supported by the registry
  * @param {string} options.color - Module color token
+ * @param {string} options.type - Module definition ID
  * @param {string} options.className - Additional CSS class
  * @returns {HTMLElement} Module panel element
  */
@@ -75,11 +76,14 @@ export function createPanel({
     id,
     hp,
     color,
+    type,
     className = ''
 }) {
     const panel = document.createElement('div');
     const colorToken = getModuleColorToken(color);
-    panel.className = ['module', `module-${hp}hp`, colorToken, className].filter(Boolean).join(' ');
+    panel.className = ['module', `module-${hp}hp`, type && `module-type-${type}`, colorToken, className]
+        .filter(Boolean)
+        .join(' ');
     panel.id = `module-${id}`;
 
     return panel;

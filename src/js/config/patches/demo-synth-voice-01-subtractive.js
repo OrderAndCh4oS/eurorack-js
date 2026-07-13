@@ -1,6 +1,6 @@
-import { cable, moduleAt, sequenceParams, stereo, synthVoiceDemo } from './synth-voice-support.js';
+import { cable, moduleAt, sequenceParams, stereo, voiceDemo } from './voice-demo-support.js';
 
-export default synthVoiceDemo('Demo - Synth Voice 01 - Subtractive', [
+export default voiceDemo('Demo - Synth Voice 01 - Subtractive', [
     moduleAt('clk', 'clk', 1, 0), moduleAt('seq', 'seq', 1, 1), moduleAt('env', 'adsr', 1, 2),
     moduleAt('vco', 'vco', 2, 0), moduleAt('vcf', 'vcf', 2, 1), moduleAt('vca', 'vca', 2, 2),
     moduleAt('out', 'out', 2, 3)

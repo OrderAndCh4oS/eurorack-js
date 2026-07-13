@@ -35,7 +35,7 @@ export const sequenceParams = (overrides = {}) => ({
     ...overrides
 });
 
-export function synthVoiceDemo(name, modules, params, cables) {
+export function voiceDemo(name, modules, params, cables) {
     return {
         name,
         factory: true,

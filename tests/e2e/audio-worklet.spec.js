@@ -91,3 +91,69 @@ test('loads compact and generative synth voice demos while audio is active', asy
     await page.locator('#startButton').click();
     expect(pageErrors).toEqual([]);
 });
+
+test('fits the ensemble oscillator inside one module and runs its worklet DSP', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.host);
+    await page.locator('#patchSelect').selectOption('Test: Ensemble VCO');
+    await page.locator('#loadPatch').click();
+    await page.waitForFunction(() => window.eurorackApp.state.getModule('ensemble'));
+
+    const bounds = await page.locator('#module-ensemble').evaluate(panel => {
+        const content = panel.querySelector('.module-content');
+        const panelRect = panel.getBoundingClientRect();
+        const contentRect = content.getBoundingClientRect();
+        return {
+            panelBottom: panelRect.bottom,
+            contentBottom: contentRect.bottom,
+            scrollHeight: content.scrollHeight,
+            clientHeight: content.clientHeight
+        };
+    });
+    expect(bounds.contentBottom).toBeLessThanOrEqual(bounds.panelBottom + 1);
+    expect(bounds.scrollHeight).toBeLessThanOrEqual(bounds.clientHeight + 1);
+
+    await page.locator('#startButton').click();
+    await expect(page.locator('#startButton')).toHaveClass(/active/);
+    await page.waitForFunction(() => window.eurorackApp.host.engine?.revision > 0);
+    await page.locator('#startButton').click();
+    expect(pageErrors).toEqual([]);
+});
+
+test('fits every resonator bank socket inside its module and runs its worklet DSP', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.host);
+    await page.locator('#patchSelect').selectOption('Test: Resonator Bank');
+    await page.locator('#loadPatch').click();
+    await page.waitForFunction(() => window.eurorackApp.state.getModule('resbank'));
+
+    const bounds = await page.locator('#module-resbank').evaluate(panel => {
+        const content = panel.querySelector('.module-content');
+        const audioInput = panel.querySelector('#jack-resbank-audio');
+        const panelRect = panel.getBoundingClientRect();
+        const contentRect = content.getBoundingClientRect();
+        const audioInputRect = audioInput.getBoundingClientRect();
+        return {
+            panelBottom: panelRect.bottom,
+            contentBottom: contentRect.bottom,
+            audioInputBottom: audioInputRect.bottom,
+            scrollHeight: content.scrollHeight,
+            clientHeight: content.clientHeight
+        };
+    });
+    expect(bounds.contentBottom).toBeLessThanOrEqual(bounds.panelBottom + 1);
+    expect(bounds.audioInputBottom).toBeLessThanOrEqual(bounds.panelBottom + 1);
+    expect(bounds.scrollHeight).toBeLessThanOrEqual(bounds.clientHeight + 1);
+
+    await page.locator('#startButton').click();
+    await expect(page.locator('#startButton')).toHaveClass(/active/);
+    await page.waitForFunction(() => window.eurorackApp.host.engine?.revision > 0);
+    await page.locator('#startButton').click();
+    expect(pageErrors).toEqual([]);
+});

@@ -3,7 +3,7 @@
  *
  * Exercises every custom-rendered module in one diagnostic patch:
  * sequencer, looper, recorder, scope, spectrum, plot, spectrogram, VU meter,
- * joystick, and low pass gate.
+ * joystick, low pass gate, and ensemble oscillator.
  */
 export default {
     "name": "Test - Custom Modules",
@@ -113,6 +113,12 @@ export default {
                 "type": "lpg",
                 "row": 3,
                 "index": 1
+            },
+            {
+                "id": "ensemble",
+                "type": "ensemble-vco",
+                "row": 3,
+                "index": 2
             }
         ],
         "params": {
@@ -163,7 +169,7 @@ export default {
             },
             "vca": {
                 "ch1Gain": 0.88,
-                "ch2Gain": 0
+                "ch2Gain": 0.18
             },
             "scope": {
                 "time": 0.42,
@@ -227,6 +233,33 @@ export default {
                 "tone": 0.65,
                 "resonance": 0.1,
                 "mode": 1
+            },
+            "ensemble": {
+                "root": 0.3,
+                "pitch": 0,
+                "fine": 0,
+                "spread": 0.45,
+                "scale": 1,
+                "scaleGroup": 0,
+                "detune": 0.08,
+                "oscillatorCount": 8,
+                "balance": 0.5,
+                "crossfade": 0.75,
+                "crossFm": 0,
+                "crossFmMode": 0,
+                "twist": 0,
+                "twistMode": 0,
+                "warp": 0,
+                "warpMode": 0,
+                "stereoMode": 0,
+                "freezeMode": 0,
+                "freeze": 0,
+                "learnMode": 0,
+                "learnNote": 7,
+                "addNote": 0,
+                "deleteNote": 0,
+                "resetScale": 0,
+                "scaleMemory": {}
             }
         },
         "cables": [
@@ -283,6 +316,12 @@ export default {
                 "fromPort": "gate",
                 "toModule": "lpg",
                 "toPort": "strike"
+            },
+            {
+                "fromModule": "ensemble",
+                "fromPort": "outA",
+                "toModule": "vca",
+                "toPort": "ch2In"
             },
             {
                 "fromModule": "joy",

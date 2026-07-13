@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CATEGORY_ORDER, MODULE_MANIFEST, MODULE_ORDER } from '../../src/js/rack/module-manifest.js';
 import { CORE_MODULE_DEFINITIONS } from '../../src/js/rack/core-definitions.js';
@@ -72,6 +74,31 @@ describe('module contracts', () => {
 
     it('keeps the statically imported worklet bundle aligned with the core manifest', () => {
         expect(CORE_MODULE_DEFINITIONS.map(definition => definition.id)).toEqual(MODULE_ORDER);
+    });
+
+    it('keeps core worklet imports in the sequential mN convention', () => {
+        const source = readFileSync(resolve('src/js/rack/core-definitions.js'), 'utf8');
+        const expectedAliases = CORE_MODULE_DEFINITIONS.map((_, index) => `m${index}`);
+        const importAliases = [...source.matchAll(/^import (m\d+) from /gm)].map(match => match[1]);
+        const definitions = source.match(/CORE_MODULE_DEFINITIONS\s*=\s*\[([\s\S]*?)\];/);
+        const definitionAliases = [...definitions[1].matchAll(/\bm\d+\b/g)].map(match => match[0]);
+
+        expect(importAliases).toEqual(expectedAliases);
+        expect(definitionAliases).toEqual(expectedAliases);
+    });
+
+    it('keeps the static worklet graph cache revision synchronized', () => {
+        const engine = readFileSync(resolve('src/js/audio/worklet-engine.js'), 'utf8');
+        const processor = readFileSync(resolve('src/js/audio/worklet/processor.js'), 'utf8');
+        const corePlugin = readFileSync(resolve('src/js/audio/worklet/core-plugin.js'), 'utf8');
+        const revisions = [
+            engine.match(/CORE_WORKLET_GRAPH_REVISION = '([^']+)'/)?.[1],
+            processor.match(/core-plugin\.js\?core=([^'"]+)/)?.[1],
+            corePlugin.match(/core-definitions\.js\?core=([^'"]+)/)?.[1]
+        ];
+
+        expect(revisions.every(Boolean)).toBe(true);
+        expect(new Set(revisions).size).toBe(1);
     });
 
     it('loads modules whose self-contained metadata is valid', async () => {

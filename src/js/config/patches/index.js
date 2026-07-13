@@ -24,6 +24,7 @@ import testSeqSwitch from './test-seq-switch.js';
 import testEuclid from './test-euclid.js';
 import testSwing from './test-swing.js';
 import testBurst from './test-burst.js';
+import testGateDelay from './test-gate-delay.js';
 import testQuadLfo from './test-quad-lfo.js';
 import testLpg from './test-lpg.js';
 import testLogic from './test-logic.js';
@@ -31,8 +32,11 @@ import testMult from './test-mult.js';
 import testMatrix from './test-matrix.js';
 import testJoystick from './test-joystick.js';
 import testWavetable from './test-wavetable.js';
+import testComplexVco from './test-complex-vco.js';
+import testEnsembleVco from './test-ensemble-vco.js';
 import testPluck from './test-pluck.js';
 import testFormant from './test-formant.js';
+import testResbank from './test-resbank.js';
 import testFold from './test-fold.js';
 import testRing from './test-ring.js';
 import testRnd from './test-rnd.js';
@@ -137,6 +141,7 @@ export const FACTORY_PATCHES = {
     [testEuclid.name]: testEuclid,
     [testSwing.name]: testSwing,
     [testBurst.name]: testBurst,
+    [testGateDelay.name]: testGateDelay,
     [testQuadLfo.name]: testQuadLfo,
     [testLpg.name]: testLpg,
     [testLogic.name]: testLogic,
@@ -144,8 +149,11 @@ export const FACTORY_PATCHES = {
     [testMatrix.name]: testMatrix,
     [testJoystick.name]: testJoystick,
     [testWavetable.name]: testWavetable,
+    [testComplexVco.name]: testComplexVco,
+    [testEnsembleVco.name]: testEnsembleVco,
     [testPluck.name]: testPluck,
     [testFormant.name]: testFormant,
+    [testResbank.name]: testResbank,
     [testFold.name]: testFold,
     [testRing.name]: testRing,
     [testRnd.name]: testRnd,

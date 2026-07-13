@@ -9,7 +9,7 @@ A definition is instantiated twice:
 - The main thread creates a stable UI mirror.
 - The AudioWorklet creates the production DSP instance.
 
-The **ui** declaration is the public schema. Every DSP-facing parameter and port must be declared there. Unknown parameters, missing module IDs, non-object parameter groups, non-finite values, invalid ports, and plugin contract mismatches are rejected.
+The **ui** declaration is the public schema. Every DSP-facing parameter and port must be declared there. Visible parameters use controls; patch-persisted values without a control use `ui.state`. Unknown parameters, missing module IDs, non-object parameter groups, non-finite values, invalid ports, and plugin contract mismatches are rejected.
 
 Core rules:
 
@@ -330,7 +330,7 @@ Production DSP runs inside AudioWorkletProcessor. Services such as MIDI arrive t
 
 ## UI Schema
 
-Only parameters declared by knobs, switches, buttons, and actions are accepted:
+Parameters declared by knobs, switches, buttons, actions, and non-rendered state are accepted:
 
 ~~~javascript
 ui: {
@@ -338,6 +338,7 @@ ui: {
     switches: [],
     buttons: [],
     actions: [],
+    state: [],
     inputs: [],
     outputs: []
 }
@@ -373,6 +374,21 @@ Declarative actions use id, label, param, mode, and default:
 | durationMs | Supported by toolkit.createActionButton() in custom renderers; declarative trigger actions use 80ms. |
 
 All rendered parameter controls expose MIDI-learn metadata. There is no action-level MIDI flag.
+
+### Patch-Persisted State
+
+Use `ui.state` for finite structured values that belong in a patch but are not direct controls, such as a learned tuning table:
+
+~~~javascript
+params: {
+    scaleMemory: {}
+},
+ui: {
+    state: [{ param: 'scaleMemory', default: {} }]
+}
+~~~
+
+State values may contain nested objects and arrays whose numeric leaves are finite. They are validated and synchronized with the worklet like control parameters, but the renderer does not create a control and they are not MIDI-learn targets. A custom renderer must call `onParamChange('scaleMemory', nextValue)` after replacing the value. Prefer immutable replacement so rack state, URL encoding, and the worklet receive the same snapshot. Runtime-only bulk data such as audio buffers still belongs in `captureRuntimeState()` rather than patch params.
 
 ### Ports and Voltages
 
@@ -481,7 +497,9 @@ Add the module to MODULE_MANIFEST in **src/js/rack/module-manifest.js**:
 
 Manifest order is the deterministic processing-order tie break. Sidebar grouping comes from category.
 
-AudioWorklet imports must be static. Also import the definition in **src/js/rack/core-definitions.js** and add it to CORE_MODULE_DEFINITIONS at the same position. The module-contract test rejects list or order drift.
+AudioWorklet imports must be static. Also import the definition in **src/js/rack/core-definitions.js** and add it to CORE_MODULE_DEFINITIONS at the same position. Keep the file's aliases sequential (`m0` through `mN`) with no gaps in either list. The module-contract test rejects ID, order, or alias drift.
+
+Adding or removing a built-in changes the static worklet graph. Bump the matching core graph revision in **audio/worklet-engine.js**, **audio/worklet/processor.js**, and **audio/worklet/core-plugin.js** so an already-cached browser loads the new registry. The contract test requires all three revisions to match.
 
 ### Trusted Plugins
 

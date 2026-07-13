@@ -39,7 +39,7 @@ Each live rack module has two instances:
 - **UI mirror**: created on the main thread as soon as the module enters `RackState`. Its identity remains stable before, during, and after audio playback. Custom renderers capture this instance.
 - **DSP instance**: created inside `EurorackProcessor`. It alone processes routed voltage buffers and produces sound.
 
-Parameter changes are validated against the module's declared UI parameter paths, written to `RackState`, reflected in the UI mirror, and sent to the worklet. The processor repeats validation before mutation. The worklet sends bounded telemetry back at approximately 30 Hz. A UI mirror is not a second production DSP path and must never be processed by the browser app.
+Parameter changes are validated against the module's declared UI control and state paths, written to `RackState`, reflected in the UI mirror, and sent to the worklet. The processor repeats validation before mutation. The worklet sends bounded telemetry back at approximately 30 Hz. A UI mirror is not a second production DSP path and must never be processed by the browser app.
 
 ## Plugin Registration
 
@@ -108,6 +108,7 @@ export default {
 
     ui: {
         knobs: [{ id: 'gain', label: 'Gain', param: 'gain', min: 0, max: 1, default: 0.5 }],
+        state: [],
         inputs: [{
             id: 'input', label: 'In', port: 'input', signal: 'audio',
             voltage: { min: -5, max: 5, normal: 0 }
@@ -116,6 +117,8 @@ export default {
     }
 };
 ```
+
+Visible parameters are declared by `knobs`, `switches`, `buttons`, or `actions`. `ui.state` declares patch-persisted finite values that have no direct control, such as learned scale tables. These state paths are accepted by patch/worklet validation but are not rendered or MIDI-learnable. Runtime-only bulk data remains separate and uses the runtime-state hooks.
 
 ### Port Contract
 
@@ -216,7 +219,7 @@ Canonical patch state is:
 
 `plugins` maps plugin IDs to their patch contract versions, not package versions. Every module type must belong to a declared plugin. Missing plugins reject the whole patch; placeholder modules are not created.
 
-Only schema version 3 is accepted. Every parameter group must name an existing module, every parameter path must be declared by that module's UI contract, and numeric leaves must be finite. Plugin patch contracts must match exactly; the application does not migrate older patch or plugin schemas.
+Only schema version 3 is accepted. Every parameter group must name an existing module, every parameter path must be declared by that module's UI control or state contract, and numeric leaves must be finite. Plugin patch contracts must match exactly; the application does not migrate older patch or plugin schemas.
 
 Runtime state such as looper buffers is separate from persisted patch state. `RackHost` captures supported runtime state when audio stops and includes it only in the next worklet topology.
 
@@ -263,7 +266,7 @@ Modules marked `role: 'audio-output'` are worklet sinks. Their stereo inputs are
 
 ## Where to Make Changes
 
-- **Add a built-in module**: create `modules/{moduleId}/index.js`, then register it in both `module-manifest.js` and `core-definitions.js` in matching order.
+- **Add a built-in module**: create `modules/{moduleId}/index.js`, register it in both `module-manifest.js` and `core-definitions.js` in matching order, preserve the sequential `m0` through `mN` aliases, and bump the synchronized core worklet graph revision.
 - **Add an external plugin**: register its main-thread manifest and provide a matching worklet entry point; do not edit core registration lists.
 - **Change cable or feedback behavior**: edit `audio/graph.js` and its graph/worklet tests.
 - **Change production block processing**: edit `audio/worklet/processor.js`.

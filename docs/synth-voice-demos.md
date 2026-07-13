@@ -1,10 +1,12 @@
-# Synth Voice Demos
+# Voice Demos
 
-The factory patch menu includes twelve numbered `Demo - Synth Voice` patches. They translate the patching principles in Monotrail Tech Talk's 2023 video [How to make a GOOD eurorack synth voice - with Nano modules](https://www.youtube.com/watch?v=jOI35EmHxZ4) into the modules and voltage contracts available in this emulator.
+The factory patch menu includes twelve numbered `Demo - Synth Voice` patches that explain reusable Eurorack signal-flow principles.
 
 These are learning demos, not isolated module test patches. Open them in order to build up the signal-flow model, or treat each as a starting point and move one cable at a time.
 
-## Principles
+## Synth Voice Principles
+
+The first series translates the patching principles in Monotrail Tech Talk's 2023 video [How to make a GOOD eurorack synth voice - with Nano modules](https://www.youtube.com/watch?v=jOI35EmHxZ4) into this emulator's modules and voltage contracts.
 
 1. Start with an explicit voice path: pitch and gate control an oscillator, envelope, filter, VCA, and output.
 2. Prefer useful range and simultaneous waveform outputs over a large number of hidden oscillator modes.
@@ -18,7 +20,7 @@ These are learning demos, not isolated module test patches. Open them in order t
 10. Quantity matters: several simple mixers, envelopes, LFOs, and VCAs often create more motion than one complex source.
 11. Use end-of-cycle signals to chain events and create patches that can run without a conventional sequencer.
 
-## Demo Index
+## Synth Voice Demo Index
 
 | Patch | Main lesson | Try next |
 |---|---|---|

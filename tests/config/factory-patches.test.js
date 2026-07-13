@@ -233,12 +233,17 @@ describe('factory-patches', () => {
 
     describe('knob values', () => {
         it('should have knob values within valid ranges', () => {
+            const expectFiniteValue = value => {
+                if (typeof value === 'number') {
+                    expect(isFinite(value)).toBe(true);
+                    return;
+                }
+                expect(value && typeof value === 'object').toBeTruthy();
+                Object.values(value).forEach(expectFiniteValue);
+            };
             Object.values(FACTORY_PATCHES).forEach(patch => {
                 Object.entries(patch.state.params).forEach(([, params]) => {
-                    Object.values(params).forEach(value => {
-                        expect(typeof value).toBe('number');
-                        expect(isFinite(value)).toBe(true);
-                    });
+                    Object.values(params).forEach(expectFiniteValue);
                 });
             });
         });

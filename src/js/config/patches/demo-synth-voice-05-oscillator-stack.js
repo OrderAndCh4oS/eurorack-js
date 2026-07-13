@@ -1,6 +1,6 @@
-import { cable, moduleAt, sequenceParams, stereo, synthVoiceDemo } from './synth-voice-support.js';
+import { cable, moduleAt, sequenceParams, stereo, voiceDemo } from './voice-demo-support.js';
 
-export default synthVoiceDemo('Demo - Synth Voice 05 - Oscillator Stack', [
+export default voiceDemo('Demo - Synth Voice 05 - Oscillator Stack', [
     moduleAt('clk', 'clk', 1, 0), moduleAt('seq', 'seq', 1, 1), moduleAt('lfo', 'lfo', 1, 2),
     moduleAt('env', 'adsr', 1, 3), moduleAt('vcoA', 'vco', 2, 0), moduleAt('vcoB', 'vco', 2, 1),
     moduleAt('sub', 'vco', 2, 2), moduleAt('voices', 'mix', 2, 3), moduleAt('vcf', 'vcf', 2, 4),

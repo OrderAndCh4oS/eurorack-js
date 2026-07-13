@@ -1,6 +1,6 @@
-import { cable, moduleAt, stereo, synthVoiceDemo } from './synth-voice-support.js';
+import { cable, moduleAt, stereo, voiceDemo } from './voice-demo-support.js';
 
-export default synthVoiceDemo('Demo - Synth Voice 12 - Dynamic Generative', [
+export default voiceDemo('Demo - Synth Voice 12 - Dynamic Generative', [
     moduleAt('cycle', 'func', 1, 0), moduleAt('accent', 'func', 1, 1),
     moduleAt('waveLfo', 'lfo', 1, 2), moduleAt('subLfo', 'lfo', 1, 3), moduleAt('env', 'adsr', 1, 4),
     moduleAt('main', 'vco', 2, 0), moduleAt('subA', 'vco', 2, 1), moduleAt('subB', 'vco', 2, 2),

@@ -8,7 +8,7 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 
 ## Learning Patches
 
-The factory patch menu includes a numbered **Demo - Synth Voice** series that builds from a basic subtractive voice to waveform mixing, FM, sync, CV mixing, independent envelopes, VCA-controlled modulation, and generative motion. See [Synth Voice Demos](docs/synth-voice-demos.md) for the principle behind each patch and the deliberate software adaptations.
+The factory patch menu includes a numbered **Demo - Synth Voice** series for reusable patching principles. See [Voice Demos](docs/synth-voice-demos.md) for expected sounds, listening exercises, source material, and deliberate software adaptations.
 
 ## Modules
 
@@ -30,6 +30,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | `div` | DIV | Dual clock divider/multiplier with CV rate control |
 | `swing` | SWING | Clock swing processor with straight and swung/humanized trigger outputs |
 | `burst` | BURST | Pingable burst generator for ratchets, probability, and trigger clusters |
+| `gate-delay` | GATE DELAY | Dual retriggerable trigger delay and gate-length generator |
 
 ### Sources
 | ID | Module | Description |
@@ -37,6 +38,8 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | `nse` | NSE | White and pink noise generator |
 | `vco` | VCO | Voltage-controlled oscillator with triangle, saw, and pulse outputs |
 | `wavetable` | WAVE | Procedural wavetable oscillator with morphing, bank CV, FM, and sync |
+| `complex-vco` | CPLX VCO | Through-zero FM/phase oscillator with fundamental, even, odd, and full outputs |
+| `ensemble-vco` | ENSEMBLE | Sixteen-voice scale oscillator with cross-FM, shaping, freeze, learning, and stereo modes |
 
 ### Voices
 | ID | Module | Description |
@@ -76,6 +79,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | `vcf` | VCF | State-variable filter with low-pass, band-pass, and high-pass outputs |
 | `lpg` | LPG | Vactrol-style low pass gate with VCA, combo, and low-pass modes |
 | `formant` | FORMANT | Morphable vowel/formant filter with drive, shift, resonance, and CV control |
+| `resbank` | RESBANK | Modal, sympathetic-string, and dispersive-string resonator bank |
 
 ### Effects
 | ID | Module | Description |

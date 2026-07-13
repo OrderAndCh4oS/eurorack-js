@@ -58,7 +58,8 @@ export function getModuleParamPaths(definition) {
         ...(ui.knobs || []),
         ...(ui.switches || []),
         ...(ui.buttons || []),
-        ...(ui.actions || [])
+        ...(ui.actions || []),
+        ...(ui.state || [])
     ].map(control => control.param));
 }
 
@@ -109,7 +110,9 @@ export function validateModuleDefinition(definition, {
         ...(ui.buttons || []),
         ...(ui.actions || [])
     ];
-    assertUnique(controls, control => control.param, 'control parameter', moduleId);
+    const state = ui.state || [];
+    const parameters = [...controls, ...state];
+    assertUnique(parameters, control => control.param, 'control parameter', moduleId);
     assertUnique(ui.inputs || [], port => port.port, 'input port', moduleId);
     assertUnique(ui.outputs || [], port => port.port, 'output port', moduleId);
     assertUnique((ui.leds || []).map(id => ({ id })), led => led.id, 'LED', moduleId);
@@ -147,7 +150,7 @@ export function validateModuleDefinition(definition, {
         assert(Array.isArray(history), `Module "${moduleId}" telemetry history must be an array`);
     }
 
-    controls.forEach(control => {
+    parameters.forEach(control => {
         assert(getNestedValue(dsp.params, control.param) !== undefined, `Module "${moduleId}" is missing params.${control.param}`);
     });
     inputs.forEach(port => {

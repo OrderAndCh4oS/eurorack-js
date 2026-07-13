@@ -1,3 +1,5 @@
+const CORE_WORKLET_GRAPH_REVISION = '20260713-1';
+
 export class AudioWorkletEngine {
     constructor({
         audioCtx,
@@ -29,7 +31,9 @@ export class AudioWorkletEngine {
         if (!this.audioCtx?.audioWorklet?.addModule || typeof AudioWorkletNode !== 'function') {
             throw new Error('AudioWorklet requires a supported browser and secure context');
         }
-        await this.audioCtx.audioWorklet.addModule(new URL('./worklet/processor.js', import.meta.url));
+        const processorUrl = new URL('./worklet/processor.js', import.meta.url);
+        processorUrl.searchParams.set('core', CORE_WORKLET_GRAPH_REVISION);
+        await this.audioCtx.audioWorklet.addModule(processorUrl);
         this.node = new AudioWorkletNode(this.audioCtx, 'eurorack-processor', {
             numberOfInputs: 0,
             numberOfOutputs: 1,

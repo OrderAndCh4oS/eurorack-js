@@ -272,4 +272,5 @@ describe('Eurorack AudioWorkletProcessor', () => {
             expect(diagnostics, `${patch.name} emitted worklet diagnostics`).toEqual([]);
         });
     });
+
 });

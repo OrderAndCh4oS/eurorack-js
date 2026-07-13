@@ -1,6 +1,6 @@
-import { cable, moduleAt, sequenceParams, stereo, synthVoiceDemo } from './synth-voice-support.js';
+import { cable, moduleAt, sequenceParams, stereo, voiceDemo } from './voice-demo-support.js';
 
-export default synthVoiceDemo('Demo - Synth Voice 09 - Envelopes and Accents', [
+export default voiceDemo('Demo - Synth Voice 09 - Envelopes and Accents', [
     moduleAt('clk', 'clk', 1, 0), moduleAt('div', 'div', 1, 1), moduleAt('seq', 'seq', 1, 2),
     moduleAt('filterEnv', 'adsr', 1, 3), moduleAt('ampEnv', 'adsr', 1, 4),
     moduleAt('accentEnv', 'adsr', 1, 5), moduleAt('lfo', 'lfo', 1, 6), moduleAt('modMix', 'mix', 1, 7),

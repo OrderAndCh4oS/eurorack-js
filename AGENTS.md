@@ -27,7 +27,7 @@ index.html
 
 **Self-contained modules**: Each module folder contains DSP + UI definition in one file. Modules export metadata, `createDSP()` factory, and declarative `ui` config.
 
-**Available modules**: `midi-cv` (mono MIDI-CV) · `midi-4` (4-voice poly MIDI) · `midi-cc` (CC to CV) · `midi-clk` (MIDI clock) · `midi-drum` (drum pads to triggers) · `clk` (clock) · `div` (divider) · `swing` (swing clock) · `burst` (burst generator) · `lfo` · `quad-lfo` (quadrature LFO) · `nse` (noise) · `wavetable` (wavetable oscillator) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `seq-switch` (sequential switch) · `euclid` (euclidean rhythm) · `logic` (AND/OR gates) · `mult` (signal splitter) · `matrix` (matrix mixer) · `joystick` (XY controller) · `vco` · `pluck` (plucked string voice) · `vcf` · `lpg` (low pass gate) · `formant` (formant filter) · `fold` (wavefolder) · `ring` (ring mod) · `rnd` (random) · `envf` (envelope follower) · `func` (function generator) · `adsr` · `vca` · `atten` (attenuverter) · `slew` · `mix` · `dly` (delay) · `tape` (tape delay) · `verb` (reverb) · `chorus` · `phaser` · `flanger` · `crush` (bit crusher) · `loop` (minimal looper) · `granulita` (granular chord) · `db` (VU meter) · `pwm` (pulse width mod) · `turing` (random looping seq) · `ochd` (8x LFO) · `cmp2` (window comparator) · `comp` (compressor/limiter) · `kick` · `snare` · `hat` · `scope` · `spectrum` (FFT analyzer) · `plot` (waveform plotter) · `spectrogram` (freq over time) · `rec` (WAV recorder) · `out`
+**Available modules**: `midi-cv` (mono MIDI-CV) · `midi-4` (4-voice poly MIDI) · `midi-cc` (CC to CV) · `midi-clk` (MIDI clock) · `midi-drum` (drum pads to triggers) · `clk` (clock) · `div` (divider) · `swing` (swing clock) · `burst` (burst generator) · `gate-delay` (dual delayed gates) · `lfo` · `quad-lfo` (quadrature LFO) · `nse` (noise) · `vco` · `wavetable` (wavetable oscillator) · `complex-vco` (through-zero/harmonic oscillator) · `ensemble-vco` (16-voice scale oscillator) · `sh` (sample&hold) · `quant` (quantizer) · `arp` (arpeggiator) · `seq` (sequencer) · `seq-switch` (sequential switch) · `euclid` (euclidean rhythm) · `logic` (AND/OR gates) · `mult` (signal splitter) · `matrix` (matrix mixer) · `joystick` (XY controller) · `pluck` (plucked string voice) · `vcf` · `lpg` (low pass gate) · `formant` (formant filter) · `resbank` (resonator bank) · `fold` (wavefolder) · `ring` (ring mod) · `rnd` (random) · `envf` (envelope follower) · `func` (function generator) · `adsr` · `vca` · `atten` (attenuverter) · `slew` · `mix` · `dly` (delay) · `tape` (tape delay) · `verb` (reverb) · `chorus` · `phaser` · `flanger` · `crush` (bit crusher) · `loop` (minimal looper) · `granulita` (granular chord) · `db` (VU meter) · `pwm` (pulse width mod) · `turing` (random looping seq) · `ochd` (8x LFO) · `cmp2` (window comparator) · `comp` (compressor/limiter) · `kick` · `snare` · `hat` · `scope` · `spectrum` (FFT analyzer) · `plot` (waveform plotter) · `spectrogram` (freq over time) · `rec` (WAV recorder) · `out`
 
 ## Project Structure
 
@@ -180,6 +180,8 @@ The main-thread UI mirror is stable across audio start/stop. It is not the produ
 
 **Module colors**: Every module must use one of the shared theme tokens in the `color` field: `module-color-one` through `module-color-twelve`. Themes map those tokens to their own light/dark palettes.
 
+**Patch-persisted non-controls**: Declare finite structured values that belong in `params` but have no visible control in `ui.state`, for example `state: [{ param: 'scaleMemory', default: {} }]`. Custom renderers must replace the value and call `onParamChange`; runtime-only bulk data uses runtime-state hooks instead.
+
 ## Registering a New Module
 
 After creating `src/js/modules/{moduleId}/index.js`, register it in the manifest:
@@ -189,7 +191,9 @@ After creating `src/js/modules/{moduleId}/index.js`, register it in the manifest
 { id: '{moduleId}', load: () => import('../modules/{moduleId}/index.js') },
 ```
 
-Also add a static import to `src/js/rack/core-definitions.js` and append the definition in the same position as `MODULE_MANIFEST`. The manifest controls main-thread lazy imports and default processing-order tie breaks; the static list builds the worklet bundle. Contract tests require their IDs and order to match.
+Also add a static import to `src/js/rack/core-definitions.js` and append the definition in the same position as `MODULE_MANIFEST`. Preserve its uninterrupted `m0` through `mN` aliases in both the imports and `CORE_MODULE_DEFINITIONS`. The manifest controls main-thread lazy imports and default processing-order tie breaks; the static list builds the worklet bundle. Contract tests require their IDs, order, and aliases to match.
+
+When the core module graph changes, bump the same worklet graph revision in `audio/worklet-engine.js`, `audio/worklet/processor.js`, and `audio/worklet/core-plugin.js`. This invalidates the browser's cached static worklet graph; a contract test rejects revision drift.
 
 External trusted modules use `registerPlugin(manifest)` instead of editing core lists. A plugin provides `id`, `name`, package `version`, `apiVersion`, `patchVersion`, `workletUrl`, and `modules`. Its worklet file must call `globalThis.registerEurorackWorkletPlugin()` with matching ownership and patch versions. See `docs/architecture.md` and `docs/creating-modules.md`.
 

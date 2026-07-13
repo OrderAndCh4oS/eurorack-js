@@ -19,11 +19,11 @@ The harness measures runtime invariants, levels, basic signal statistics, broad 
 | Area | Canonical records |
 |---|---|
 | MIDI | [midi-cv](modules/midi-cv.md), [midi-4](modules/midi-4.md), [midi-cc](modules/midi-cc.md), [midi-clk](modules/midi-clk.md), [midi-drum](modules/midi-drum.md) |
-| Clock | [clk](modules/clk.md), [div](modules/div.md), [swing](modules/swing.md), [burst](modules/burst.md) |
-| Sources and voices | [nse](modules/nse.md), [vco](modules/vco.md), [wavetable](modules/wavetable.md), [pluck](modules/pluck.md), [kick](modules/kick.md), [snare](modules/snare.md), [hat](modules/hat.md) |
+| Clock | [clk](modules/clk.md), [div](modules/div.md), [swing](modules/swing.md), [burst](modules/burst.md), [gate-delay](modules/gate-delay.md) |
+| Sources and voices | [nse](modules/nse.md), [vco](modules/vco.md), [wavetable](modules/wavetable.md), [complex-vco](modules/complex-vco.md), [ensemble-vco](modules/ensemble-vco.md), [pluck](modules/pluck.md), [kick](modules/kick.md), [snare](modules/snare.md), [hat](modules/hat.md) |
 | Modulation | [lfo](modules/lfo.md), [quad-lfo](modules/quad-lfo.md), [rnd](modules/rnd.md), [envf](modules/envf.md), [func](modules/func.md), [adsr](modules/adsr.md), [slew](modules/slew.md), [ochd](modules/ochd.md) |
 | Sequencing and pitch | [sh](modules/sh.md), [quant](modules/quant.md), [arp](modules/arp.md), [seq](modules/seq.md), [seq-switch](modules/seq-switch.md), [euclid](modules/euclid.md), [turing](modules/turing.md) |
-| Filters and nonlinear | [vcf](modules/vcf.md), [lpg](modules/lpg.md), [formant](modules/formant.md), [fold](modules/fold.md), [ring](modules/ring.md) |
+| Filters and nonlinear | [vcf](modules/vcf.md), [lpg](modules/lpg.md), [formant](modules/formant.md), [resbank](modules/resbank.md), [fold](modules/fold.md), [ring](modules/ring.md) |
 | Effects | [dly](modules/dly.md), [tape](modules/tape.md), [verb](modules/verb.md), [chorus](modules/chorus.md), [phaser](modules/phaser.md), [flanger](modules/flanger.md), [crush](modules/crush.md), [loop](modules/loop.md), [granulita](modules/granulita.md) |
 | Utilities | [logic](modules/logic.md), [mult](modules/mult.md), [matrix](modules/matrix.md), [joystick](modules/joystick.md), [vca](modules/vca.md), [atten](modules/atten.md), [db](modules/db.md), [pwm](modules/pwm.md), [cmp2](modules/cmp2.md), [comp](modules/comp.md), [mix](modules/mix.md) |
 | Analysis and recording | [scope](modules/scope.md), [spectrum](modules/spectrum.md), [plot](modules/plot.md), [spectrogram](modules/spectrogram.md), [rec](modules/rec.md) |

@@ -1,6 +1,6 @@
-import { cable, moduleAt, sequenceParams, stereo, synthVoiceDemo } from './synth-voice-support.js';
+import { cable, moduleAt, sequenceParams, stereo, voiceDemo } from './voice-demo-support.js';
 
-export default synthVoiceDemo('Demo - Synth Voice 11 - VCA Modulation', [
+export default voiceDemo('Demo - Synth Voice 11 - VCA Modulation', [
     moduleAt('env', 'adsr', 1, 0), moduleAt('clk', 'clk', 1, 1), moduleAt('seq', 'seq', 1, 2),
     moduleAt('fastLfo', 'lfo', 1, 3), moduleAt('slowLfo', 'lfo', 1, 4), moduleAt('modVca', 'vca', 1, 5),
     moduleAt('vco', 'vco', 2, 0), moduleAt('vcf', 'vcf', 2, 1), moduleAt('ampVca', 'vca', 2, 2),

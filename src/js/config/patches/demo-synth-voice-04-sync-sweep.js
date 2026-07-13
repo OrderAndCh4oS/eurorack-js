@@ -1,6 +1,6 @@
-import { cable, moduleAt, sequenceParams, stereo, synthVoiceDemo } from './synth-voice-support.js';
+import { cable, moduleAt, sequenceParams, stereo, voiceDemo } from './voice-demo-support.js';
 
-export default synthVoiceDemo('Demo - Synth Voice 04 - Sync Sweep', [
+export default voiceDemo('Demo - Synth Voice 04 - Sync Sweep', [
     moduleAt('clk', 'clk', 1, 0), moduleAt('seq', 'seq', 1, 1), moduleAt('lfo', 'lfo', 1, 2),
     moduleAt('sweep', 'atten', 1, 3), moduleAt('env', 'adsr', 1, 4),
     moduleAt('syncVco', 'vco', 2, 0), moduleAt('mainVco', 'vco', 2, 1),

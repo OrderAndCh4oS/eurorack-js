@@ -188,6 +188,7 @@ Routing rules:
 - Every edge inside a feedback strongly connected component uses an explicit one-block delay, including self-feedback.
 - Removing a cable immediately restores the destination's declared normal voltage.
 - Cable endpoint moves are transactional: clicks, Escape, focus loss, and incompatible-jack drops restore the original connection; a valid drop commits the move, while an actual drag to empty space explicitly removes it.
+- Dragging a connected output to an input creates a fan-out connection. Ctrl/Command-drag selects an existing output cable and moves its source end. Replacing an occupied input updates state first and only removes the displaced cable visual after the new connection is accepted.
 
 If a module throws during `process()`, that instance is disabled and its outputs are zeroed while the rest of the graph continues. Topology compilation errors reject the revision and leave the prior graph active.
 

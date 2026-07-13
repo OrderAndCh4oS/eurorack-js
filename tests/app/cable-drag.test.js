@@ -60,6 +60,49 @@ describe('cable endpoint dragging', () => {
         expect(add).toHaveBeenCalledWith(cable.fromEl, nextInput, expect.objectContaining({ color: '#ff4a0a' }));
     });
 
+    it('fans out a connected output when it is dragged to another input', () => {
+        const { app, cable, fromEl } = setupCable();
+        const nextInput = createJack({ direction: 'input', module: 'vca', port: 'ch1In', left: 220 });
+        const remove = vi.spyOn(app, 'removeCable');
+        const add = vi.spyOn(app, 'addCable').mockImplementation(() => ({}));
+
+        app.startCableDrag(fromEl, { clientX: 30, clientY: 30, shiftKey: false, ctrlKey: false, metaKey: false });
+        app.updateCablePreview({ clientX: 230, clientY: 30 });
+        app.endCableDrag(nextInput);
+
+        expect(remove).not.toHaveBeenCalled();
+        expect(cable.pathEl.classList.contains('cable-detached')).toBe(false);
+        expect(add).toHaveBeenCalledWith(fromEl, nextInput, expect.objectContaining({ color: expect.any(String) }));
+    });
+
+    it('keeps an occupied input cable when its replacement is rejected', () => {
+        const { app, cable } = setupCable();
+        const nextOutput = createJack({ direction: 'output', module: 'lfo', port: 'primary', left: 220 });
+        app.host.connect = vi.fn(() => null);
+        app.host.disconnect = vi.fn();
+
+        const result = app.addCable(nextOutput, cable.toEl, { replaceInput: true });
+
+        expect(result).toBeNull();
+        expect(app.visualCables).toEqual([cable]);
+        expect(cable.pathEl.isConnected).toBe(true);
+        expect(app.host.disconnect).not.toHaveBeenCalled();
+    });
+
+    it('removes an occupied input visual only after its replacement is accepted', () => {
+        const { app, cable } = setupCable();
+        const nextOutput = createJack({ direction: 'output', module: 'lfo', port: 'primary', left: 220 });
+        app.host.connect = vi.fn(connection => connection);
+        app.host.disconnect = vi.fn();
+
+        const result = app.addCable(nextOutput, cable.toEl, { replaceInput: true });
+
+        expect(result).not.toBeNull();
+        expect(app.visualCables).not.toContain(cable);
+        expect(cable.pathEl.isConnected).toBe(false);
+        expect(app.host.disconnect).not.toHaveBeenCalled();
+    });
+
     it('deletes an existing cable only after dragging its endpoint to empty space', () => {
         const { app, cable, toEl } = setupCable();
         const remove = vi.spyOn(app, 'removeCable').mockImplementation(() => {});
@@ -83,16 +126,17 @@ describe('cable endpoint dragging', () => {
         expect(app.previewPath).toBeNull();
     });
 
-    it('restores a cable dropped on an incompatible jack', () => {
-        const { app, cable, toEl } = setupCable();
-        const incompatible = createJack({ direction: 'output', module: 'lfo', port: 'primary', left: 220 });
-        const remove = vi.spyOn(app, 'removeCable');
+    it('moves a selected source end when a connected output is ctrl-dragged', () => {
+        const { app, cable, fromEl, toEl } = setupCable();
+        const nextOutput = createJack({ direction: 'output', module: 'lfo', port: 'primary', left: 220 });
+        const remove = vi.spyOn(app, 'removeCable').mockImplementation(() => {});
+        const add = vi.spyOn(app, 'addCable').mockImplementation(() => ({}));
 
-        app.startCableDrag(toEl, { clientX: 130, clientY: 30, shiftKey: false, ctrlKey: false, metaKey: false });
+        app.startCableDrag(fromEl, { clientX: 30, clientY: 30, shiftKey: false, ctrlKey: true, metaKey: false });
         app.updateCablePreview({ clientX: 230, clientY: 30 });
-        app.endCableDrag(incompatible);
+        app.endCableDrag(nextOutput);
 
-        expect(remove).not.toHaveBeenCalled();
-        expect(cable.pathEl.classList.contains('cable-detached')).toBe(false);
+        expect(remove).toHaveBeenCalledWith(cable);
+        expect(add).toHaveBeenCalledWith(nextOutput, toEl, expect.objectContaining({ color: '#ff4a0a' }));
     });
 });

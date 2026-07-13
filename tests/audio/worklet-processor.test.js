@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import customModulesPatch from '../../src/js/config/patches/test-custom-modules.js';
+import { FACTORY_PATCHES } from '../../src/js/config/factory-patches.js';
 
 let Processor;
 
@@ -218,5 +219,57 @@ describe('Eurorack AudioWorkletProcessor', () => {
             .map(([message]) => message)
             .filter(message => message.type === 'host-error' || message.type === 'module-error');
         expect(diagnostics).toEqual([]);
+    });
+
+    it('activates every synth voice demo and produces stereo audio', () => {
+        const demos = Object.values(FACTORY_PATCHES)
+            .filter(patch => patch.name.startsWith('Demo - Synth Voice'));
+
+        demos.forEach((patch, revision) => {
+            const processor = new Processor();
+            const state = patch.state;
+            processor.handleMessage({
+                type: 'topology',
+                topology: {
+                    revision: revision + 1,
+                    plugins: state.plugins,
+                    modules: state.modules.map((module, order) => ({
+                        ...module,
+                        pluginId: 'core',
+                        params: state.params[module.id] || {},
+                        order,
+                        rackOrder: order
+                    })),
+                    cables: state.cables
+                }
+            });
+
+            let leftActive = false;
+            let rightActive = false;
+            let firstActiveBlock = -1;
+            let peak = 0;
+            const minimumBlocks = patch.name === 'Demo - Synth Voice 12 - Dynamic Generative' ? 300 : 0;
+            for (let block = 0; block < 1000 && (block < minimumBlocks || !leftActive || !rightActive); block += 1) {
+                const outputs = [[new Float32Array(128), new Float32Array(128)]];
+                processor.process([], outputs);
+                const leftPeak = Math.max(...outputs[0][0].map(Math.abs));
+                const rightPeak = Math.max(...outputs[0][1].map(Math.abs));
+                if (firstActiveBlock < 0 && Math.max(leftPeak, rightPeak) > 1e-6) firstActiveBlock = block;
+                leftActive ||= leftPeak > 1e-6;
+                rightActive ||= rightPeak > 1e-6;
+                peak = Math.max(peak, leftPeak, rightPeak);
+            }
+
+            expect(leftActive, `${patch.name} left output stayed silent`).toBe(true);
+            expect(rightActive, `${patch.name} right output stayed silent`).toBe(true);
+            if (patch.name === 'Demo - Synth Voice 12 - Dynamic Generative') {
+                expect(firstActiveBlock, 'generative voice starts too slowly').toBeLessThan(150);
+                expect(peak, 'generative voice output is too quiet').toBeGreaterThan(0.1);
+            }
+            const diagnostics = processor.port.postMessage.mock.calls
+                .map(([message]) => message)
+                .filter(message => message.type === 'host-error' || message.type === 'module-error');
+            expect(diagnostics, `${patch.name} emitted worklet diagnostics`).toEqual([]);
+        });
     });
 });

@@ -63,3 +63,31 @@ test('collects opt-in AudioWorklet profiling without module failures', async ({ 
     expect(report.blocks.p99Utilization).toBeGreaterThanOrEqual(0);
     expect(report.modules.chorus.samples).toBeGreaterThan(0);
 });
+
+test('loads compact and generative synth voice demos while audio is active', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.host);
+    await expect(page.locator('#patchSelect option', { hasText: 'Demo - Synth Voice' })).toHaveCount(12);
+
+    await page.locator('#patchSelect').selectOption('Demo - Synth Voice 01 - Subtractive');
+    await page.locator('#loadPatch').click();
+    await page.waitForFunction(() => window.eurorackApp.state.getModule('seq'));
+    await page.locator('#startButton').click();
+    await expect(page.locator('#startButton')).toHaveClass(/active/);
+
+    const revision = await page.evaluate(() => window.eurorackApp.host.engine.revision);
+    await page.locator('#patchSelect').selectOption('Demo - Synth Voice 12 - Dynamic Generative');
+    await page.locator('#loadPatch').click();
+    await page.waitForFunction(previousRevision => (
+        window.eurorackApp.state.getModule('cycle') &&
+        window.eurorackApp.state.getModule('waveVca') &&
+        window.eurorackApp.host.engine?.revision > previousRevision
+    ), revision);
+
+    await expect(page.locator('#startButton')).toHaveClass(/active/);
+    await page.locator('#startButton').click();
+    expect(pageErrors).toEqual([]);
+});

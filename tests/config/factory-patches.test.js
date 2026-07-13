@@ -122,6 +122,41 @@ describe('factory-patches', () => {
             expect(arpCables.length).toBeGreaterThan(0);
         });
 
+        it('ships the complete numbered synth voice demo series', () => {
+            const demos = Object.values(FACTORY_PATCHES)
+                .filter(patch => patch.name.startsWith('Demo - Synth Voice'));
+
+            expect(demos.map(patch => patch.name)).toEqual([
+                'Demo - Synth Voice 01 - Subtractive',
+                'Demo - Synth Voice 02 - Waveform Blend',
+                'Demo - Synth Voice 03 - Tracked FM',
+                'Demo - Synth Voice 04 - Sync Sweep',
+                'Demo - Synth Voice 05 - Oscillator Stack',
+                'Demo - Synth Voice 06 - Post-filter Noise',
+                'Demo - Synth Voice 07 - Mixed CV',
+                'Demo - Synth Voice 08 - Filter Modes',
+                'Demo - Synth Voice 09 - Envelopes and Accents',
+                'Demo - Synth Voice 10 - Animated Envelope',
+                'Demo - Synth Voice 11 - VCA Modulation',
+                'Demo - Synth Voice 12 - Dynamic Generative'
+            ]);
+            demos.forEach(patch => {
+                expect(patch.state.cables).toEqual(expect.arrayContaining([
+                    expect.objectContaining({ toModule: 'out', toPort: 'L' }),
+                    expect.objectContaining({ toModule: 'out', toPort: 'R' })
+                ]));
+            });
+        });
+
+        it('routes control voltage through a VCA in the modulation-depth demo', () => {
+            const patch = FACTORY_PATCHES['Demo - Synth Voice 11 - VCA Modulation'];
+            expect(patch.state.cables).toEqual(expect.arrayContaining([
+                expect.objectContaining({ fromModule: 'fastLfo', toModule: 'modVca', toPort: 'ch1In' }),
+                expect.objectContaining({ fromModule: 'slowLfo', toModule: 'modVca', toPort: 'ch1CV' }),
+                expect.objectContaining({ fromModule: 'modVca', toModule: 'vcf', toPort: 'cutoffCV' })
+            ]));
+        });
+
         it('Test - Quantizer Scales should use simple quantizer', () => {
             const patch = FACTORY_PATCHES['Test - Quantizer Scales'];
             expect(patch).toBeDefined();

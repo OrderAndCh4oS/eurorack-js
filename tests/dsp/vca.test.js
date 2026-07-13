@@ -39,6 +39,11 @@ describe('create2hpDualVCA', () => {
             const customVca = create2hpDualVCA({ bufferSize: 256, sampleRate: 48000 });
             expect(customVca.outputs.ch1Out.length).toBe(256);
         });
+
+        it('declares DC-coupled signal ports for audio or CV', () => {
+            expect(vcaModule.ui.inputs.filter(port => port.id.endsWith('In')).map(port => port.signal)).toEqual(['any', 'any']);
+            expect(vcaModule.ui.outputs.map(port => port.signal)).toEqual(['any', 'any']);
+        });
     });
 
     describe('gain control', () => {

@@ -6,6 +6,10 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 
 ![Evolving Drone Patch](screen-grab.png)
 
+## Learning Patches
+
+The factory patch menu includes a numbered **Demo - Synth Voice** series that builds from a basic subtractive voice to waveform mixing, FM, sync, CV mixing, independent envelopes, VCA-controlled modulation, and generative motion. See [Synth Voice Demos](docs/synth-voice-demos.md) for the principle behind each patch and the deliberate software adaptations.
+
 ## Modules
 
 Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.js` and grouped by each module definition's sidebar category.

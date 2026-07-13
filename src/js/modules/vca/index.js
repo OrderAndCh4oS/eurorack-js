@@ -1,7 +1,7 @@
 /**
- * VCA - Dual Linear VCA (SSM2164 architecture)
+ * VCA - Dual DC-Coupled Linear VCA (SSM2164 architecture)
  *
- * Uses linear CV response per 2HP hardware specs.
+ * Passes audio or control voltage and uses linear CV response per 2HP hardware specs.
  * CV input is capacitor-smoothed to prevent clicks/pops.
  * LED meters have smooth decay like real hardware.
  * 0V = silence, 5V = unity gain (linear relationship)
@@ -88,14 +88,14 @@ export default {
             { id: 'ch2Gain', label: 'Ch2', param: 'ch2Gain', min: 0, max: 1, default: 0.8 }
         ],
         inputs: [
-            { id: 'ch1In', label: 'In 1', port: 'ch1In', signal: 'audio' },
+            { id: 'ch1In', label: 'In 1', port: 'ch1In', signal: 'any' },
             { id: 'ch1CV', label: 'CV 1', port: 'ch1CV', signal: 'cv', voltage: { min: 0, max: 5, normal: 5 } },
-            { id: 'ch2In', label: 'In 2', port: 'ch2In', signal: 'audio' },
+            { id: 'ch2In', label: 'In 2', port: 'ch2In', signal: 'any' },
             { id: 'ch2CV', label: 'CV 2', port: 'ch2CV', signal: 'cv', voltage: { min: 0, max: 5, normal: 5 } }
         ],
         outputs: [
-            { id: 'ch1Out', label: 'Out1', port: 'ch1Out', signal: 'audio' },
-            { id: 'ch2Out', label: 'Out2', port: 'ch2Out', signal: 'audio' }
+            { id: 'ch1Out', label: 'Out1', port: 'ch1Out', signal: 'any' },
+            { id: 'ch2Out', label: 'Out2', port: 'ch2Out', signal: 'any' }
         ]
     }
 };

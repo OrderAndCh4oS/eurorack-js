@@ -70,6 +70,7 @@ smoothedCV = cvSlew.process(rawCV);
 - **Linear vs Exponential**: We use linear for simplicity; hardware 2164 is exponential
 - **Slew limiting**: Capacitor-smoothed CV prevents audible stepping
 - **LED decay**: Smooth visual feedback (~100ms decay)
+- **DC-coupled routing**: Signal inputs and outputs declare `any`, matching the documented ability to control modulation depth as well as audio level
 
 ## DSP References
 - [SSI2164 Datasheet](https://www.soundsemiconductor.com/downloads/ssi2164datasheet.pdf) - Official specs

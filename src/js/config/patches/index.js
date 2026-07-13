@@ -89,6 +89,18 @@ import demoAmbientPad from './demo-ambient-pad.js';
 import demoTripHop from './demo-trip-hop.js';
 import demoTechno from './demo-techno.js';
 import demoNeonGrid from './demo-neon-grid.js';
+import demoSynthVoice01 from './demo-synth-voice-01-subtractive.js';
+import demoSynthVoice02 from './demo-synth-voice-02-waveform-blend.js';
+import demoSynthVoice03 from './demo-synth-voice-03-tracked-fm.js';
+import demoSynthVoice04 from './demo-synth-voice-04-sync-sweep.js';
+import demoSynthVoice05 from './demo-synth-voice-05-oscillator-stack.js';
+import demoSynthVoice06 from './demo-synth-voice-06-post-filter-noise.js';
+import demoSynthVoice07 from './demo-synth-voice-07-mixed-cv.js';
+import demoSynthVoice08 from './demo-synth-voice-08-filter-modes.js';
+import demoSynthVoice09 from './demo-synth-voice-09-envelopes-and-accents.js';
+import demoSynthVoice10 from './demo-synth-voice-10-animated-envelope.js';
+import demoSynthVoice11 from './demo-synth-voice-11-vca-modulation.js';
+import demoSynthVoice12 from './demo-synth-voice-12-dynamic-generative.js';
 import scifiShooter from './scifi-shooter.js';
 import sfxLaser from './sfx-laser.js';
 import sfxExplosion from './sfx-explosion.js';
@@ -190,6 +202,18 @@ export const FACTORY_PATCHES = {
     [demoTripHop.name]: demoTripHop,
     [demoTechno.name]: demoTechno,
     [demoNeonGrid.name]: demoNeonGrid,
+    [demoSynthVoice01.name]: demoSynthVoice01,
+    [demoSynthVoice02.name]: demoSynthVoice02,
+    [demoSynthVoice03.name]: demoSynthVoice03,
+    [demoSynthVoice04.name]: demoSynthVoice04,
+    [demoSynthVoice05.name]: demoSynthVoice05,
+    [demoSynthVoice06.name]: demoSynthVoice06,
+    [demoSynthVoice07.name]: demoSynthVoice07,
+    [demoSynthVoice08.name]: demoSynthVoice08,
+    [demoSynthVoice09.name]: demoSynthVoice09,
+    [demoSynthVoice10.name]: demoSynthVoice10,
+    [demoSynthVoice11.name]: demoSynthVoice11,
+    [demoSynthVoice12.name]: demoSynthVoice12,
     [scifiShooter.name]: scifiShooter,
     [sfxLaser.name]: sfxLaser,
     [sfxExplosion.name]: sfxExplosion,

@@ -189,6 +189,7 @@ Routing rules:
 - Removing a cable immediately restores the destination's declared normal voltage.
 - Cable endpoint moves are transactional: clicks, Escape, focus loss, and incompatible-jack drops restore the original connection; a valid drop commits the move, while an actual drag to empty space explicitly removes it.
 - Dragging a connected socket moves that cable end. Shift-drag starts an additional cable from a connected socket, while repeated Ctrl/Command drags cycle through cables sharing that socket. Outputs may fan out, but an occupied input rejects another cable and preserves both existing connections.
+- Valid endpoint moves replace the cable in rack state atomically and publish one topology revision, so the running AudioWorklet never receives a disconnected intermediate patch.
 
 If a module throws during `process()`, that instance is disabled and its outputs are zeroed while the rest of the graph continues. Topology compilation errors reject the revision and leave the prior graph active.
 

@@ -109,6 +109,14 @@ export class RackHost {
         return cable;
     }
 
+    moveCable(cable, connection) {
+        const moved = this.state.moveCable(cable, connection, { registry: this.registry });
+        if (!moved) return null;
+        this.syncTopology();
+        this.emit({ type: 'cables-changed' });
+        return moved;
+    }
+
     disconnect(cable) {
         const removed = this.state.removeCable(cable);
         if (removed) {

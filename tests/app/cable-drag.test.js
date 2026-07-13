@@ -49,30 +49,25 @@ describe('cable endpoint dragging', () => {
     it('commits an endpoint move only after a valid drag', () => {
         const { app, cable, toEl } = setupCable();
         const nextInput = createJack({ direction: 'input', module: 'vca', port: 'ch1In', left: 220 });
-        const remove = vi.spyOn(app, 'removeCable').mockImplementation(() => {});
-        const add = vi.spyOn(app, 'addCable').mockImplementation(() => ({}));
+        const move = vi.spyOn(app, 'moveCable').mockImplementation(() => ({}));
 
         app.startCableDrag(toEl, { clientX: 130, clientY: 30, shiftKey: false, ctrlKey: false, metaKey: false });
         app.updateCablePreview({ clientX: 230, clientY: 30 });
         app.endCableDrag(nextInput);
 
-        expect(remove).toHaveBeenCalledWith(cable);
-        expect(add).toHaveBeenCalledWith(cable.fromEl, nextInput, expect.objectContaining({ color: '#ff4a0a' }));
+        expect(move).toHaveBeenCalledWith(cable, cable.fromEl, nextInput);
     });
 
     it('leaves a moved cable untouched when the target input is occupied', () => {
         const { app, cable, toEl } = setupCable();
         const occupiedInput = createJack({ direction: 'input', module: 'vca', port: 'ch1In', left: 220 });
-        vi.spyOn(app.state, 'hasInputConnection').mockReturnValue(true);
-        const remove = vi.spyOn(app, 'removeCable');
-        const add = vi.spyOn(app, 'addCable');
+        const move = vi.spyOn(app, 'moveCable').mockReturnValue(null);
 
         app.startCableDrag(toEl, { clientX: 130, clientY: 30, shiftKey: false, ctrlKey: false, metaKey: false });
         app.updateCablePreview({ clientX: 230, clientY: 30 });
         app.endCableDrag(occupiedInput);
 
-        expect(remove).not.toHaveBeenCalled();
-        expect(add).not.toHaveBeenCalled();
+        expect(move).toHaveBeenCalledWith(cable, cable.fromEl, occupiedInput);
         expect(cable.pathEl.classList.contains('cable-detached')).toBe(false);
     });
 
@@ -131,15 +126,13 @@ describe('cable endpoint dragging', () => {
     it('moves a source end when its connected output is dragged', () => {
         const { app, cable, fromEl, toEl } = setupCable();
         const nextOutput = createJack({ direction: 'output', module: 'lfo', port: 'primary', left: 220 });
-        const remove = vi.spyOn(app, 'removeCable').mockImplementation(() => {});
-        const add = vi.spyOn(app, 'addCable').mockImplementation(() => ({}));
+        const move = vi.spyOn(app, 'moveCable').mockImplementation(() => ({}));
 
         app.startCableDrag(fromEl, { clientX: 30, clientY: 30, shiftKey: false, ctrlKey: false, metaKey: false });
         app.updateCablePreview({ clientX: 230, clientY: 30 });
         app.endCableDrag(nextOutput);
 
-        expect(remove).toHaveBeenCalledWith(cable);
-        expect(add).toHaveBeenCalledWith(nextOutput, toEl, expect.objectContaining({ color: '#ff4a0a' }));
+        expect(move).toHaveBeenCalledWith(cable, nextOutput, toEl);
     });
 
     it('cycles cables sharing a socket on repeated ctrl-clicks', () => {

@@ -65,6 +65,31 @@ describe('RackHost', () => {
         await host.destroy();
     });
 
+    it('moves a cable with one topology synchronization', async () => {
+        const { host } = await createHost();
+        host.addModule('source', { id: 'source_1' });
+        host.addModule('source', { id: 'source_2' });
+        host.addModule('sink', { id: 'sink_1' });
+        const setPatchState = vi.fn(() => Promise.resolve(1));
+        host.engine = { setPatchState };
+        const cable = host.connect({
+            fromModule: 'source_1', fromPort: 'out', toModule: 'sink_1', toPort: 'in'
+        });
+        setPatchState.mockClear();
+
+        const moved = host.moveCable(cable, {
+            fromModule: 'source_2', fromPort: 'out', toModule: 'sink_1', toPort: 'in'
+        });
+
+        expect(moved).toEqual({
+            fromModule: 'source_2', fromPort: 'out', toModule: 'sink_1', toPort: 'in'
+        });
+        expect(host.state.cables).toEqual([moved]);
+        expect(setPatchState).toHaveBeenCalledOnce();
+        host.engine = null;
+        await host.destroy();
+    });
+
     it('serializes plugin dependencies and runtime state separately', async () => {
         const { host } = await createHost();
         const module = host.addModule('source', { id: 'source_1' });

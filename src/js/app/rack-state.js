@@ -273,9 +273,9 @@ export class RackState {
         ));
     }
 
-    connect({ fromModule, fromPort, toModule, toPort }, { registry = null } = {}) {
+    validateConnection({ fromModule, fromPort, toModule, toPort }, registry = null) {
         if (!this.modules.has(fromModule) || !this.modules.has(toModule)) {
-            return null;
+            return false;
         }
 
         if (registry) {
@@ -289,10 +289,32 @@ export class RackState {
             }
         }
 
+        return true;
+    }
+
+    connect(connection, { registry = null } = {}) {
+        if (!this.validateConnection(connection, registry)) return null;
+        const { fromModule, fromPort, toModule, toPort } = connection;
+
         if (this.hasInputConnection(toModule, toPort)) return null;
 
         const cable = { fromModule, fromPort, toModule, toPort };
         this.cables.push(cable);
+        return cable;
+    }
+
+    moveCable(match, connection, { registry = null } = {}) {
+        const index = this.cables.findIndex(cable => cablesMatch(cable, match));
+        if (index < 0 || !this.validateConnection(connection, registry)) return null;
+        if (this.hasInputConnection(connection.toModule, connection.toPort, { except: match })) return null;
+
+        const cable = {
+            fromModule: connection.fromModule,
+            fromPort: connection.fromPort,
+            toModule: connection.toModule,
+            toPort: connection.toPort
+        };
+        this.cables[index] = cable;
         return cable;
     }
 

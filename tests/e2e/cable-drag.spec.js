@@ -53,6 +53,9 @@ test('connected cable ends can be preserved, moved, and extended with Shift', as
     const replacementOutput = page.locator('.jack.output[data-module="chorus"][data-port="outL"]');
     const connectedOutputBox = await connectedOutput.boundingBox();
     const replacementOutputBox = await replacementOutput.boundingBox();
+    await page.locator('#startButton').click();
+    await expect(page.locator('#startButton')).toHaveClass(/active/);
+    const revisionBeforeOutputMove = await page.evaluate(() => window.eurorackApp.host.engine.revision);
 
     await page.mouse.move(
         connectedOutputBox.x + connectedOutputBox.width / 2,
@@ -70,9 +73,15 @@ test('connected cable ends can be preserved, moved, and extended with Shift', as
         cable.fromModule === 'chorus' && cable.fromPort === 'outL' &&
         cable.toModule === 'chorus' && cable.toPort === 'inL'
     )))).toBe(true);
+    await expect.poll(() => page.evaluate(revision => (
+        window.eurorackApp.host.engine?.revision === revision + 1
+    ), revisionBeforeOutputMove)).toBe(true);
     expect(await page.evaluate(() => window.eurorackApp.state.cables.some(cable => (
         cable.fromModule === 'vco' && cable.toModule === 'chorus' && cable.toPort === 'inL'
     )))).toBe(false);
+
+    await page.locator('#startButton').click();
+    await expect(page.locator('#startButton')).not.toHaveClass(/active/);
 
     await page.locator('#patchSelect').selectOption('Test: Chorus');
     await page.locator('#loadPatch').click();

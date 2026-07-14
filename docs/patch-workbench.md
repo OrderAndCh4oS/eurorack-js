@@ -2,7 +2,7 @@
 
 The Patch Workbench is a client-side editor and diagnostic console for building Eurorack patches with JavaScript. A script describes a rack; it does not process audio itself. **Validate** turns the script into a candidate v3 patch and checks it without changing the rack. **Apply** validates and then atomically replaces the live rack.
 
-Patch scripts are trusted code that you choose to run in your own browser. Evaluation happens in a disposable worker with a two-second timeout so an accidental infinite loop does not freeze the rack page. Imported scripts are never run automatically.
+Patch scripts are trusted code that you choose to run in your own browser. Evaluation happens in a disposable worker with a two-second timeout so an accidental infinite loop does not freeze the rack page. Loaded script files are never run automatically.
 
 For a guided first patch, read the [Patch Workbench Guide](patch-workbench-guide.md).
 
@@ -14,7 +14,7 @@ Select **Code** in the main toolbar, or press Ctrl+` on Windows/Linux and Comman
 - The syntax-highlighted patch editor and completion menu.
 - **Snapshot**, **Validate**, and **Apply** controls.
 - A diagnostic log and command input.
-- Links back to this reference and the tutorial.
+- Guide and Reference links that open the repository Markdown in new tabs.
 
 The drawer can be resized from its top edge. It switches to a stacked layout on narrow screens. Its surrounding controls and diagnostics follow the active Industrial or Classic light/dark theme immediately, while the code canvas, syntax palette, and completion menu remain fixed for consistent readability.
 
@@ -33,16 +33,16 @@ The first time it opens in a browser session, **Current Rack** contains a source
 
 ## Builder API
 
-A script must call `patch()` exactly once. The returned builder is mutable and every method returns the same builder, so calls can be chained or made from ordinary JavaScript control flow.
+A script must call `patch()` exactly once. The returned builder is mutable. `.module()`, `.set()`, `.connect()`, and `.midi()` return the same builder for chaining; `.add()` returns the resolved module name and `.port()` returns an endpoint object. Calls can also be made from ordinary JavaScript control flow.
 
 <!-- executable-patch -->
 ```javascript
 const p = patch()
 
 p.module('vco', 'osc', { coarse: 0.3 })
-  .module('out', 'main', { volume: 0.65 })
-  .connect('osc.triangle', 'main.L')
-  .connect('osc.triangle', 'main.R')
+p.module('out', 'main', { volume: 0.65 })
+p.connect('osc.triangle', 'main.L')
+p.connect('osc.triangle', 'main.R')
 ```
 
 ### `patch()`
@@ -86,7 +86,9 @@ Changes parameters on a module declared earlier in the script. The object form i
 
 <!-- executable-patch -->
 ```javascript
-const p = patch().module('seq', 'steps').module('clk', 'clock')
+const p = patch()
+p.module('seq', 'steps')
+p.module('clk', 'clock')
 
 for (let step = 1; step <= 8; step++) {
   p.set('steps', `step${step}`, (step - 1) / 7)
@@ -94,7 +96,7 @@ for (let step = 1; step <= 8; step++) {
 }
 
 p.set('clock', { rate: 0.24, pause: 0 })
-  .connect('clock.clock', 'steps.clock')
+p.connect('clock.clock', 'steps.clock')
 ```
 
 Unknown parameters and non-finite values are errors. Values outside panel ranges produce warnings because the canonical v3 patch format permits finite values.
@@ -115,18 +117,8 @@ Momentary or trigger values stored as `1` produce a warning because loading the 
 <!-- executable-patch -->
 ```javascript
 patch()
-  .module('comp', 'compressor', {
-    mode: 1,
-    detector: 1,
-    filterMode: 2,
-    bypass: 0
-  })
-  .module('loop', 'looper', {
-    reverse: 1,
-    halfSpeed: 0,
-    mode: 2,
-    clear: 0
-  })
+  .module('comp', 'compressor', { mode: 1, detector: 1, filterMode: 2, bypass: 0 })
+  .module('loop', 'looper', { reverse: 1, halfSpeed: 0, mode: 2, clear: 0 })
 ```
 
 ### `.connect(from, to)`
@@ -145,7 +137,7 @@ p.connect({ module: 'osc.main', port: 'ramp' }, { module: 'filter.main', port: '
 
 Outputs may fan out to multiple inputs. Each input may have only one source. A duplicate destination is a validation error. Feedback is legal, but every cable inside a feedback component receives an explicit one-block delay.
 
-Completion knows which argument is the source and destination. Source completion lists outputs; destination completion lists inputs and marks already occupied inputs unavailable. Each entry includes signal type and voltage information from the module contract.
+Completion knows which argument is the source and destination. Source completion lists outputs; destination completion lists inputs and marks already occupied inputs unavailable. Each entry includes signal type and voltage information from the module contract. Accepting a completion replaces the complete current token, including any text after a caret positioned in the middle of a module type, socket, parameter key, or value.
 
 ### `.midi(key, mapping)`
 
@@ -168,12 +160,12 @@ for (let voice = 1; voice <= 3; voice++) {
 }
 
 p.module('mix', 'mix1', { lvl1: 0.3, lvl2: 0.3, lvl3: 0.3 })
-  .module('out', 'main', { volume: 0.6 })
-  .connect('osc1.triangle', 'mix1.in1')
-  .connect('osc2.triangle', 'mix1.in2')
-  .connect('osc3.triangle', 'mix1.in3')
-  .connect('mix1.out', 'main.L')
-  .connect('mix1.out', 'main.R')
+p.module('out', 'main', { volume: 0.6 })
+p.connect('osc1.triangle', 'mix1.in1')
+p.connect('osc2.triangle', 'mix1.in2')
+p.connect('osc3.triangle', 'mix1.in3')
+p.connect('mix1.out', 'main.L')
+p.connect('mix1.out', 'main.R')
 ```
 
 Literal `.module()` declarations complete immediately. Modules generated by loops or helper functions enter the completion model after a successful Validate or Apply. Validated-only suggestions are labelled in the completion detail.
@@ -198,9 +190,9 @@ const mixer = p.add('mix')
 const main = p.add('out')
 
 p.connect(lead.output, p.port(mixer, 'in1'))
-  .connect(bass.output, p.port(mixer, 'in2'))
-  .connect(p.port(mixer, 'out'), p.port(main, 'L'))
-  .connect(p.port(mixer, 'out'), p.port(main, 'R'))
+p.connect(bass.output, p.port(mixer, 'in2'))
+p.connect(p.port(mixer, 'out'), p.port(main, 'L'))
+p.connect(p.port(mixer, 'out'), p.port(main, 'R'))
 ```
 
 The same pattern works for drum kits, modulation buses, sequencer lanes, effect chains, and complete voices. Returning input endpoints such as `pitch` lets a higher-level system connect shared sequencing into each repeated voice.

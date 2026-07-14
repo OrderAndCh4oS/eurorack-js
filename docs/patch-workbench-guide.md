@@ -19,6 +19,8 @@ patch()
 
 Editing the read-only starter creates a named local copy automatically.
 
+Module type always comes first. The name is optional: `.module('vco')` creates `vco_1`, while `.module('vco', 'osc', { coarse: 0.3 })` gives it the stable name `osc`. Generated snapshots use the named form so connections round-trip exactly.
+
 ## 2. Use Completion to Add a Filter
 
 Add a module call before `main`. Inside the first quoted argument type `vc` and press Ctrl/Command+Space. Choose `vcf`, then optionally add the name `filter`. In the parameter object, completion offers `cutoff` and `resonance` with their ranges and defaults.
@@ -37,6 +39,8 @@ patch()
 ```
 
 When the cursor is after `'osc.`, completion shows only VCO outputs. In the second connection argument it shows only compatible destination-direction sockets; completion is about direction and contracts, not a restriction on creative audio/CV cross-patching.
+
+Tab completion replaces the whole current token. If the caret is in the middle of an existing socket, parameter name, or value, the text on both sides of the caret is replaced rather than leaving a stale suffix.
 
 Press Ctrl/Command+Shift+Enter to Validate without changing the rack. The log should show three modules, three cables, and the processing order `osc → filter → main`. Apply when ready.
 
@@ -68,19 +72,8 @@ Place the cursor after each colon below and invoke completion:
 <!-- executable-patch -->
 ```javascript
 patch()
-  .module('comp', 'compressor', {
-    mode: 0,
-    detector: 1,
-    filterMode: 1,
-    bypass: 0
-  })
-  .module('loop', 'looper', {
-    reverse: 1,
-    halfSpeed: 1,
-    mode: 2,
-    record: 0,
-    clear: 0
-  })
+  .module('comp', 'compressor', { mode: 0, detector: 1, filterMode: 1, bypass: 0 })
+  .module('loop', 'looper', { reverse: 1, halfSpeed: 1, mode: 2, record: 0, clear: 0 })
 ```
 
 `record` is a toggle action. `clear` is a trigger action: `1` means it will fire when applied, so the workbench warns about it. Keep transient controls at `0` for ordinary saved patches.
@@ -128,17 +121,14 @@ Ordinary JavaScript can remove repetition:
 const p = patch()
 
 for (let index = 1; index <= 4; index++) {
-  p.module('lfo', `source${index}`, {
-    rateKnob: 0.08 + index * 0.06,
-    waveKnob: (index - 1) / 3
-  })
+  p.module('lfo', `source${index}`, { rateKnob: 0.08 + index * 0.06, waveKnob: (index - 1) / 3 })
 }
 
 p.module('mix', 'mixer')
-  .connect('source1.primary', 'mixer.in1')
-  .connect('source2.primary', 'mixer.in2')
-  .connect('source3.primary', 'mixer.in3')
-  .connect('source4.primary', 'mixer.in4')
+p.connect('source1.primary', 'mixer.in1')
+p.connect('source2.primary', 'mixer.in2')
+p.connect('source3.primary', 'mixer.in3')
+p.connect('source4.primary', 'mixer.in4')
 ```
 
 The tolerant editor scan cannot know loop results before execution. Validate once; `source1` through `source4` then appear as validated completion entries.
@@ -164,9 +154,9 @@ const mix = p.add('mix')
 const main = p.add('out')
 
 p.connect(high.output, p.port(mix, 'in1'))
-  .connect(low.output, p.port(mix, 'in2'))
-  .connect(p.port(mix, 'out'), p.port(main, 'L'))
-  .connect(p.port(mix, 'out'), p.port(main, 'R'))
+p.connect(low.output, p.port(mix, 'in2'))
+p.connect(p.port(mix, 'out'), p.port(main, 'L'))
+p.connect(p.port(mix, 'out'), p.port(main, 'R'))
 ```
 
 The unnamed system receives `vco_1` and `vcf_1`; the named system receives `bass_osc` and `bass_filter`. Calling `voice()` again continues the counters. Keeping repetition in ordinary JavaScript functions also lets a system own its internal wiring and expose only the socket IDs callers need.
@@ -191,7 +181,7 @@ The block line shows p50, p95, p99, and p99 utilization against the render deadl
 
 After applying a script, turn a knob, add a cable, or move a module in the graphical rack. The workbench reports that the rack differs from the last Apply. These edits remain live and valid.
 
-Select **Snapshot** to replace the editor with deterministic source for the current rack. Snapshot includes exact rows and indexes, all cables, MIDI mappings, structured state, and every non-default knob, switch, button, or action. It asks before replacing non-empty source.
+Select **Snapshot** to replace the editor with deterministic source for the current rack. Snapshot emits one complete module call per physical line, rounds numbers to five decimal places, and includes exact rows and indexes, all cables, MIDI mappings, structured state, and every non-default knob, switch, button, or action. It asks before replacing non-empty source.
 
 ## 11. Save and Share Safely
 
@@ -200,8 +190,9 @@ Select **Snapshot** to replace the editor with deterministic source for the curr
 - Workbench **Load** reads JavaScript source into a new script but does not evaluate it.
 - Workbench **Save** persists source locally and applies it; Ctrl/Command+S does the same.
 - Main-toolbar Save/Export/Share actions operate on the compiled v3 patch, not its source.
+- **Guide** and **Reference** open their repository Markdown files in new tabs; the documents are not copied into `src`.
 
-Always read imported code before Apply. The worker prevents page-freezing loops, but patch scripts are still trusted JavaScript running client-side.
+Always read loaded code before Apply. The worker prevents page-freezing loops, but patch scripts are still trusted JavaScript running client-side.
 
 ## Complete Modulated Voice
 
@@ -211,31 +202,15 @@ This final example combines the tutorial steps and is ready to paste:
 ```javascript
 const p = patch()
 
-p.module('lfo', 'motion', {
-  rateKnob: 0.16,
-  waveKnob: 0.15,
-  range: 0
-})
-  .module('vco', 'osc', {
-    coarse: 0.29,
-    fine: 0,
-    glide: 5
-  })
-  .module('vcf', 'filter', {
-    cutoff: 0.5,
-    resonance: 0.42
-  })
-  .module('out', 'main', { volume: 0.62 })
-  .connect('motion.primary', 'filter.cutoffCV')
-  .connect('osc.ramp', 'filter.audio')
-  .connect('filter.lpf', 'main.L')
-  .connect('filter.lpf', 'main.R')
-  .midi('0:74', {
-    moduleId: 'filter',
-    paramId: 'cutoff',
-    min: 0,
-    max: 1
-  })
+p.module('lfo', 'motion', { rateKnob: 0.16, waveKnob: 0.15, range: 0 })
+p.module('vco', 'osc', { coarse: 0.29, fine: 0, glide: 5 })
+p.module('vcf', 'filter', { cutoff: 0.5, resonance: 0.42 })
+p.module('out', 'main', { volume: 0.62 })
+p.connect('motion.primary', 'filter.cutoffCV')
+p.connect('osc.ramp', 'filter.audio')
+p.connect('filter.lpf', 'main.L')
+p.connect('filter.lpf', 'main.R')
+p.midi('0:74', { moduleId: 'filter', paramId: 'cutoff', min: 0, max: 1 })
 ```
 
 ## Quick Troubleshooting

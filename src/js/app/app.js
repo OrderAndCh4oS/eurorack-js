@@ -12,6 +12,7 @@ import { cleanupRenderedModule, renderModule, syncParamToModuleUI, updateModuleL
 import { updateKnobRotation } from '../ui/toolkit/components.js';
 import { RackState } from './rack-state.js';
 import { createRackHost } from './rack-host.js';
+import { createPatchWorkbench } from '../patch-script/workbench.js';
 import {
     PATCH_VERSION,
     createPatchUrlHash,
@@ -195,6 +196,7 @@ export class EurorackApp {
         this.ctrlClickCycleIndex = 0;
         this.theme = 'industrial';
         this.themeMode = 'light';
+        this.patchWorkbench = null;
     }
 
     async init() {
@@ -206,10 +208,17 @@ export class EurorackApp {
             if (event.type === 'registry') this.populateSidebar();
         });
         this.bindEvents();
-        await this.initMidi();
+        // MIDI permission can remain pending until the browser/user resolves it.
+        // Rack startup and client-side tools must not wait on that external prompt.
+        void this.initMidi().catch(error => console.error('Failed to initialize MIDI:', error));
         this.cleanUserPatches();
         this.initPatchBank();
         await this.loadPatchFromUrlHash();
+        this.patchWorkbench = createPatchWorkbench({
+            app: this,
+            document: this.document,
+            registry: pluginRegistry
+        }).init();
         this.markEmptyRows();
     }
 

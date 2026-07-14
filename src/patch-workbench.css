@@ -1,0 +1,260 @@
+.patch-workbench {
+    --patch-bg: #121416;
+    --patch-surface: #202428;
+    --patch-editor: #15191c;
+    --patch-console: #171b1e;
+    --patch-border: #596168;
+    --patch-border-soft: #343a40;
+    --patch-text: #ddd;
+    --patch-editor-text: #d6e1e8;
+    --patch-muted: #9aa8b1;
+    --patch-completion: #20262b;
+    --patch-completion-selected: #31516a;
+    --patch-accent: #245b35;
+    --patch-accent-text: #fff;
+    --patch-success: #7bdc91;
+    --patch-warning: #f2c66d;
+    --patch-error: #ff7d7d;
+    --syntax-keyword: #c792ea;
+    --syntax-literal: #f78c6c;
+    --syntax-string: #c3e88d;
+    --syntax-number: #f78c6c;
+    --syntax-comment: #74819a;
+    --syntax-method: #82aaff;
+    --syntax-function: #89ddff;
+    --syntax-property: #ffcb6b;
+    position: fixed;
+    z-index: 300;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 38vh;
+    min-height: 180px;
+    max-height: 70vh;
+    color: var(--patch-text);
+    background: var(--patch-bg);
+    border-top: 1px solid var(--patch-border);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.55);
+    font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.patch-workbench[hidden] { display: none; }
+.patch-workbench-resizer { height: 5px; cursor: ns-resize; background: var(--patch-border-soft); }
+.patch-workbench-toolbar { height: 36px; display: flex; align-items: center; gap: 6px; padding: 0 8px; border-bottom: 1px solid var(--patch-border-soft); }
+.patch-workbench-toolbar button,
+.patch-workbench-toolbar input,
+.patch-workbench-toolbar select,
+.patch-workbench-toolbar a { font: inherit; color: var(--patch-text); background: var(--patch-surface); border: 1px solid var(--patch-border); padding: 3px 7px; text-decoration: none; }
+.patch-workbench-toolbar button { cursor: pointer; }
+.patch-workbench-toolbar button.primary { color: var(--patch-accent-text); background: var(--patch-accent); }
+.patch-workbench-toolbar [data-role="script-name"] { width: 150px; }
+.patch-workbench-toolbar [data-role="scripts"] { min-width: 120px; max-width: 230px; }
+.patch-workbench-spacer { flex: 1; }
+.patch-workbench-main { height: calc(100% - 42px); display: grid; grid-template-columns: minmax(0, 3fr) minmax(260px, 2fr); }
+.patch-editor-pane, .patch-console-pane { min-width: 0; min-height: 0; position: relative; display: flex; flex-direction: column; }
+.patch-editor-pane { border-right: 1px solid var(--patch-border-soft); }
+.patch-editor-code {
+    --patch-editor: #15191c;
+    --patch-editor-text: #d6e1e8;
+    --editor-selection: #31516a;
+    --syntax-keyword: #c792ea;
+    --syntax-literal: #f78c6c;
+    --syntax-string: #c3e88d;
+    --syntax-number: #f78c6c;
+    --syntax-comment: #74819a;
+    --syntax-method: #82aaff;
+    --syntax-function: #89ddff;
+    --syntax-property: #ffcb6b;
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    background: var(--patch-editor);
+}
+.patch-editor-code textarea,
+.patch-editor-code [data-role="syntax-highlight"] {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 10px;
+    border: 0;
+    font: 300 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    tab-size: 2;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+.patch-editor-code [data-role="syntax-highlight"] { overflow: hidden; pointer-events: none; color: var(--patch-editor-text); background: transparent; }
+.patch-editor-code [data-role="syntax-highlight"] code { font: inherit; letter-spacing: inherit; tab-size: inherit; }
+.patch-editor-code textarea {
+    display: block;
+    z-index: 1;
+    resize: none;
+    outline: 0;
+    overflow: auto;
+    color: transparent;
+    caret-color: var(--patch-editor-text);
+    background: transparent;
+    -webkit-text-fill-color: transparent;
+}
+.patch-editor-code textarea::selection { background: color-mix(in srgb, var(--editor-selection) 62%, transparent); }
+.syntax-keyword { color: var(--syntax-keyword); }
+.syntax-literal { color: var(--syntax-literal); }
+.syntax-string { color: var(--syntax-string); }
+.syntax-number { color: var(--syntax-number); }
+.syntax-comment { color: var(--syntax-comment); font-style: italic; }
+.syntax-method { color: var(--syntax-method); }
+.syntax-function { color: var(--syntax-function); }
+.syntax-property { color: var(--syntax-property); }
+.patch-editor-pane textarea,
+.patch-console-pane pre,
+.patch-console-pane input,
+.patch-workbench-toolbar input { user-select: text; }
+.patch-console-pane pre { flex: 1; overflow: auto; margin: 0; padding: 8px; white-space: pre-wrap; color: var(--patch-muted); background: var(--patch-bg); }
+.patch-console-pane input { border: 0; border-top: 1px solid var(--patch-border-soft); padding: 7px; color: var(--patch-editor-text); background: var(--patch-console); font: inherit; }
+.patch-workbench-status { min-height: 18px; padding: 2px 8px; color: var(--patch-muted); background: var(--patch-bg); border-top: 1px solid var(--patch-border-soft); }
+.patch-workbench-status[data-kind="success"] { color: var(--patch-success); }
+.patch-workbench-status[data-kind="warning"] { color: var(--patch-warning); }
+.patch-workbench-status[data-kind="error"] { color: var(--patch-error); }
+.patch-completions {
+    --patch-text: #ddd;
+    --patch-editor-text: #e7f3fa;
+    --patch-muted: #96a5ae;
+    --patch-border: #5b6670;
+    --patch-completion: #20262b;
+    --patch-completion-selected: #31516a;
+    --patch-accent-text: #fff;
+    position: fixed;
+    z-index: 500;
+    width: min(520px, 70vw);
+    max-height: 230px;
+    overflow: auto;
+    color: var(--patch-text);
+    border: 1px solid var(--patch-border);
+    background: var(--patch-completion);
+    box-shadow: 0 6px 20px rgba(0,0,0,.55);
+}
+.patch-completion { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(180px, 2fr); gap: 10px; padding: 5px 8px; cursor: pointer; }
+.patch-completion strong { color: var(--patch-editor-text); overflow: hidden; text-overflow: ellipsis; }
+.patch-completion small { color: var(--patch-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.patch-completion.selected { color: var(--patch-accent-text); background: var(--patch-completion-selected); }
+.patch-completion.selected strong,
+.patch-completion.selected small { color: inherit; }
+.patch-completion.unavailable { opacity: .45; cursor: not-allowed; }
+
+body.theme-classic .patch-workbench {
+    --patch-bg: var(--classic-panel);
+    --patch-surface: var(--classic-surface);
+    --patch-editor: var(--classic-bg);
+    --patch-console: var(--classic-panel-2);
+    --patch-border: var(--classic-border);
+    --patch-border-soft: var(--classic-border);
+    --patch-text: var(--classic-text);
+    --patch-editor-text: var(--classic-control-text);
+    --patch-muted: var(--classic-muted);
+    --patch-completion: var(--classic-surface);
+    --patch-completion-selected: #3976a8;
+    --patch-accent: #2f7d47;
+    --patch-accent-text: #fff;
+}
+
+body.theme-classic.theme-light .patch-workbench {
+    --patch-success: #1c7438;
+    --patch-warning: #8a5b00;
+    --patch-error: #b42318;
+    --syntax-keyword: #6f2dbd;
+    --syntax-literal: #a33b00;
+    --syntax-string: #176b35;
+    --syntax-number: #a64b00;
+    --syntax-comment: #777168;
+    --syntax-method: #005cc5;
+    --syntax-function: #087184;
+    --syntax-property: #86520a;
+    box-shadow: 0 -4px 18px rgba(45, 39, 30, 0.22);
+}
+
+body.skin-factory .patch-workbench {
+    --patch-bg: var(--factory-paper);
+    --patch-surface: var(--factory-panel-light);
+    --patch-editor: var(--factory-panel-light);
+    --patch-console: var(--factory-panel);
+    --patch-border: var(--factory-ink);
+    --patch-border-soft: var(--factory-ink);
+    --patch-text: var(--factory-ink);
+    --patch-editor-text: var(--factory-ink);
+    --patch-muted: color-mix(in srgb, var(--factory-ink) 68%, transparent);
+    --patch-completion: var(--factory-paper);
+    --patch-completion-selected: var(--factory-orange);
+    --patch-accent: var(--factory-orange);
+    --patch-accent-text: var(--factory-action-ink, var(--factory-ink));
+    --patch-success: #166534;
+    --patch-warning: #854d0e;
+    --patch-error: #b42318;
+    --syntax-keyword: #762a91;
+    --syntax-literal: #a33b00;
+    --syntax-string: #176b35;
+    --syntax-number: #a64b00;
+    --syntax-comment: color-mix(in srgb, var(--factory-ink) 55%, transparent);
+    --syntax-method: #005f94;
+    --syntax-function: #9c2d20;
+    --syntax-property: #86520a;
+    border-top-width: 3px;
+    box-shadow: none;
+    font-family: inherit;
+}
+
+body.skin-factory .patch-workbench-toolbar button,
+body.skin-factory .patch-workbench-toolbar input,
+body.skin-factory .patch-workbench-toolbar select,
+body.skin-factory .patch-workbench-toolbar a {
+    border-width: 2px;
+    border-radius: 0;
+    font-family: inherit;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+body.skin-factory .patch-console-pane input {
+    font-family: inherit;
+}
+
+body.skin-factory .patch-workbench-toolbar button:hover,
+body.skin-factory .patch-workbench-toolbar a:hover,
+body.skin-factory .patch-workbench-toolbar select:hover,
+body.skin-factory .patch-workbench-toolbar input:focus {
+    color: var(--patch-accent-text);
+    background: var(--patch-accent);
+    outline: none;
+}
+
+body.theme-industrial.theme-dark .patch-workbench {
+    --patch-success: #7bdc91;
+    --patch-warning: #f2c66d;
+    --patch-error: #ff7d7d;
+    --syntax-keyword: #d8a0ef;
+    --syntax-literal: #ff9b72;
+    --syntax-string: #b6dc8c;
+    --syntax-number: #ff9b72;
+    --syntax-comment: #7f8b80;
+    --syntax-method: #8ab4f8;
+    --syntax-function: #8bd5ca;
+    --syntax-property: #e9c46a;
+}
+
+@media (max-width: 760px) {
+    .patch-workbench { height: 60vh; }
+    .patch-workbench-toolbar { overflow-x: auto; }
+    .patch-workbench-main { grid-template-columns: 1fr; grid-template-rows: 2fr 1fr; }
+    .patch-editor-pane { border-right: 0; border-bottom: 1px solid var(--patch-border-soft); }
+}
+
+@media (max-width: 1100px) {
+    .patch-workbench-toolbar { gap: 4px; overflow-x: auto; }
+    .patch-workbench-toolbar button,
+    .patch-workbench-toolbar input,
+    .patch-workbench-toolbar select,
+    .patch-workbench-toolbar a { padding-inline: 5px; font-size: 10px; }
+    .patch-workbench-toolbar [data-role="script-name"] { width: 110px; }
+}

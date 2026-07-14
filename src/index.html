@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>2HP Mini‑Rack – Interactive Patcher</title>
+    <link rel="stylesheet" href="./patch-workbench.css">
     <style>
         :root {
             --hp-unit: 18px;
@@ -468,16 +469,28 @@
             border-bottom: 1px solid #444;
             display: flex;
             align-items: center;
-            padding: 0 16px;
-            gap: 16px;
+            padding: 0 8px;
+            gap: 8px;
             z-index: 200;
             box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            overflow-x: auto;
+            overflow-y: hidden;
+            flex-wrap: nowrap;
+            scrollbar-width: thin;
         }
 
         .toolbar-section {
             display: flex;
-            gap: 8px;
+            gap: 5px;
             align-items: center;
+            min-width: 0;
+            flex: 0 0 auto;
+        }
+
+        .toolbar-section.toolbar-patches {
+            flex: 1 1 360px;
+            min-width: 220px;
+            max-width: 430px;
         }
 
         .toolbar-divider {
@@ -491,14 +504,20 @@
         }
 
         #toolbar select {
-            padding: 6px 10px;
-            font-size: 12px;
+            padding: 5px 8px;
+            font-size: 11px;
             border: none;
             border-radius: 4px;
             background: #333;
             color: #fff;
             cursor: pointer;
-            min-width: 140px;
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        #patchSelect {
+            width: 100%;
+            flex: 1 1 160px;
         }
 
         #toolbar select:hover {
@@ -506,13 +525,13 @@
         }
 
         #toolbar input[type="text"] {
-            padding: 6px 10px;
-            font-size: 12px;
+            padding: 5px 8px;
+            font-size: 11px;
             border: none;
             border-radius: 4px;
             background: #333;
             color: #fff;
-            width: 110px;
+            width: 100px;
         }
 
         #toolbar input[type="text"]::placeholder {
@@ -520,8 +539,8 @@
         }
 
         #toolbar button {
-            padding: 6px 12px;
-            font-size: 11px;
+            padding: 5px 9px;
+            font-size: 10px;
             font-weight: bold;
             border: none;
             border-radius: 4px;
@@ -1368,11 +1387,11 @@
             border-bottom: 3px solid var(--factory-ink);
             box-shadow: none;
             color: var(--factory-ink);
-            gap: 10px;
+            gap: 6px;
         }
 
         body.skin-factory .toolbar-section {
-            gap: 6px;
+            gap: 4px;
         }
 
         body.skin-factory .toolbar-divider {
@@ -1384,7 +1403,7 @@
         body.skin-factory .toolbar-label {
             color: var(--factory-ink);
             font-family: inherit;
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 900;
         }
 
@@ -1765,6 +1784,46 @@
             border: 3px dashed var(--factory-orange);
             border-radius: 0;
         }
+
+        @media (max-width: 1500px) {
+            #toolbar {
+                padding-inline: 4px;
+                gap: 4px;
+            }
+
+            #toolbar .toolbar-divider {
+                display: none;
+            }
+
+            #toolbar .toolbar-spacer {
+                display: none;
+            }
+
+            #toolbar button {
+                padding-inline: 6px;
+                font-size: 9px;
+            }
+
+            #toolbar select,
+            #toolbar input[type="text"] {
+                padding-inline: 6px;
+                font-size: 10px;
+            }
+
+            #toolbar input[type="text"] {
+                width: 84px;
+            }
+
+            .toolbar-section.toolbar-patches {
+                flex-basis: 260px;
+                min-width: 180px;
+                max-width: 300px;
+            }
+
+            body.skin-factory .toolbar-label {
+                font-size: 9px;
+            }
+        }
     </style>
 </head>
 <body class="theme-industrial theme-light skin-factory">
@@ -1773,7 +1832,7 @@
         <button id="startButton">▶ Start</button>
     </div>
     <div class="toolbar-divider"></div>
-    <div class="toolbar-section">
+    <div class="toolbar-section toolbar-patches">
         <span class="toolbar-label">Patches</span>
         <select id="patchSelect">
             <option value="">-- Select --</option>
@@ -1805,6 +1864,10 @@
         <button id="addRackRow">+ Row</button>
         <button id="removeRackRow">- Row</button>
         <button id="clearCables">Clear Cables</button>
+    </div>
+    <div class="toolbar-divider"></div>
+    <div class="toolbar-section">
+        <button id="patchWorkbenchToggle" title="Open the patch code workbench (Ctrl/Cmd+`)">Code</button>
     </div>
 </div>
 

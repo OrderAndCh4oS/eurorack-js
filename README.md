@@ -10,23 +10,6 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 
 The factory patch menu includes a numbered **Demo - Synth Voice** series for reusable patching principles. See [Voice Demos](docs/synth-voice-demos.md) for expected sounds, listening exercises, source material, and deliberate software adaptations.
 
-## Patch Workbench
-
-Open **Code** in the app toolbar to build and debug racks with client-side JavaScript. The workbench provides syntax highlighting; themed surrounding controls; module, parameter, control-state, MIDI, and direction-aware socket completion; non-mutating validation; atomic Apply; AudioWorklet profiling; named local scripts; and graphical-rack snapshots.
-
-Use `.module('type')` for canonical auto-incremented names such as `vco_1` and `vco_2`, or `.module('type', 'name', params)` when a stable name is useful. `add('type')` uses the same naming rules and returns the resolved name for reusable systems. Ordinary JavaScript functions can package voices, drum kits, modulation buses, and effect chains.
-
-<!-- executable-patch -->
-```javascript
-patch()
-  .module('vco', 'osc', { coarse: 0.3 })
-  .module('out', 'main', { volume: 0.65 })
-  .connect('osc.triangle', 'main.L')
-  .connect('osc.triangle', 'main.R')
-```
-
-Start with the **[Patch Workbench Guide](docs/patch-workbench-guide.md)**, then use the **[Patch Workbench Reference](docs/patch-workbench.md)** for the complete builder API, shortcuts, completion behavior, commands, safety model, and troubleshooting.
-
 ## Modules
 
 Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.js` and grouped by each module definition's sidebar category.
@@ -140,6 +123,23 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | ID | Module | Description |
 |----|--------|-------------|
 | `out` | OUT | Stereo output to speakers |
+
+## Patch Workbench
+
+Open **Code** in the app toolbar to build and debug racks with client-side JavaScript. The workbench provides syntax highlighting; themed surrounding controls; module, parameter, control-state, MIDI, and direction-aware socket completion; non-mutating validation; atomic Apply; AudioWorklet profiling; named local scripts; and graphical-rack snapshots.
+
+Use `.module('type')` for canonical auto-incremented names such as `vco_1` and `vco_2`, or `.module('type', 'name', params)` when a stable name is useful. `add('type')` uses the same naming rules and returns the resolved name for reusable systems. Ordinary JavaScript functions can package voices, drum kits, modulation buses, and effect chains.
+
+<!-- executable-patch -->
+```javascript
+patch()
+  .module('vco', 'osc', { coarse: 0.3 })
+  .module('out', 'main', { volume: 0.65 })
+  .connect('osc.triangle', 'main.L')
+  .connect('osc.triangle', 'main.R')
+```
+
+Start with the **[Patch Workbench Guide](docs/patch-workbench-guide.md)**, then use the **[Patch Workbench Reference](docs/patch-workbench.md)** for the complete builder API, shortcuts, completion behavior, commands, safety model, and troubleshooting.
 
 ## Architecture
 

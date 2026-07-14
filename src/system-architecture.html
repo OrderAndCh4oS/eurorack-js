@@ -1,0 +1,1225 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Visual architecture guide for the eurorack-js browser modular synthesizer.">
+    <title>eurorack-js — System Architecture</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --page: #090b0f;
+            --panel: #11151c;
+            --panel-2: #151b24;
+            --line: #2a3443;
+            --line-hot: #4e647f;
+            --text: #eef2f7;
+            --muted: #9aa8b8;
+            --dim: #657387;
+            --amber: #f6b94a;
+            --cyan: #57d5e8;
+            --green: #79d991;
+            --violet: #b59af3;
+            --red: #ff7b83;
+            --blue: #77a8ff;
+            --sidebar: 278px;
+            --radius: 16px;
+            --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+            --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+        body {
+            margin: 0;
+            min-width: 320px;
+            background:
+                radial-gradient(circle at 78% -10%, rgba(87, 213, 232, 0.09), transparent 31rem),
+                radial-gradient(circle at 30% 0%, rgba(246, 185, 74, 0.07), transparent 28rem),
+                var(--page);
+            color: var(--text);
+            font: 15px/1.65 var(--sans);
+        }
+
+        a { color: inherit; }
+        code { font-family: var(--mono); }
+        button { font: inherit; }
+
+        .shell { min-height: 100vh; }
+        .sidebar {
+            position: fixed;
+            inset: 0 auto 0 0;
+            z-index: 20;
+            width: var(--sidebar);
+            overflow-y: auto;
+            border-right: 1px solid var(--line);
+            background: rgba(10, 13, 18, 0.94);
+            backdrop-filter: blur(18px);
+            padding: 28px 22px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 26px;
+        }
+
+        .brand-mark {
+            display: grid;
+            place-items: center;
+            width: 38px;
+            height: 38px;
+            border: 1px solid #79602e;
+            border-radius: 10px;
+            background: linear-gradient(145deg, #27200f, #131820);
+            color: var(--amber);
+            font: 700 18px/1 var(--mono);
+            box-shadow: inset 0 0 18px rgba(246, 185, 74, 0.08);
+        }
+
+        .brand strong { display: block; font-size: 14px; letter-spacing: 0.02em; }
+        .brand span { display: block; color: var(--muted); font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; }
+        .eyebrow {
+            color: var(--amber);
+            font: 700 11px/1.3 var(--mono);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+        }
+
+        .nav-label {
+            margin: 24px 10px 8px;
+            color: var(--dim);
+            font: 700 10px/1.2 var(--mono);
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .nav { display: grid; gap: 3px; }
+        .nav a {
+            display: grid;
+            grid-template-columns: 24px 1fr;
+            align-items: center;
+            min-height: 35px;
+            padding: 6px 9px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 12px;
+            transition: 120ms ease;
+        }
+
+        .nav a:hover { color: var(--text); background: var(--panel); }
+        .nav a.active {
+            border-color: #39475a;
+            background: #151c25;
+            color: var(--text);
+        }
+
+        .nav-number { color: var(--dim); font: 700 10px/1 var(--mono); }
+        .nav a.active .nav-number { color: var(--amber); }
+
+        .sidebar-foot {
+            margin-top: 26px;
+            padding: 14px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .sidebar-foot strong { color: var(--green); }
+
+        main {
+            width: min(1320px, calc(100% - var(--sidebar)));
+            margin-left: var(--sidebar);
+            padding: 58px clamp(24px, 5vw, 76px) 90px;
+        }
+
+        .hero {
+            position: relative;
+            overflow: hidden;
+            padding: clamp(28px, 5vw, 62px);
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            background: linear-gradient(135deg, rgba(22, 28, 38, 0.97), rgba(12, 16, 22, 0.98));
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.26);
+        }
+
+        .hero::after {
+            content: "";
+            position: absolute;
+            inset: auto -12% -70% 42%;
+            height: 420px;
+            border: 1px solid rgba(87, 213, 232, 0.18);
+            border-radius: 50%;
+            box-shadow: 0 0 120px rgba(87, 213, 232, 0.08);
+            pointer-events: none;
+        }
+
+        h1 {
+            max-width: 900px;
+            margin: 18px 0 16px;
+            font-size: clamp(38px, 6vw, 76px);
+            font-weight: 730;
+            letter-spacing: -0.055em;
+            line-height: 0.98;
+        }
+
+        .hero-copy {
+            max-width: 770px;
+            margin: 0;
+            color: #bdc8d4;
+            font-size: clamp(16px, 2vw, 20px);
+            line-height: 1.55;
+        }
+
+        .facts {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 36px;
+        }
+
+        .fact {
+            min-height: 96px;
+            padding: 16px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: rgba(8, 11, 15, 0.48);
+        }
+
+        .fact b { display: block; color: var(--amber); font: 700 27px/1.1 var(--mono); }
+        .fact span { color: var(--muted); font-size: 12px; }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 18px;
+            margin: 22px 0 0;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .legend span { display: inline-flex; align-items: center; gap: 7px; }
+        .swatch { width: 10px; height: 10px; border-radius: 3px; background: var(--swatch); box-shadow: 0 0 0 1px rgba(255,255,255,.12); }
+
+        section { margin-top: 72px; }
+        .section-head {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(260px, 520px);
+            gap: 34px;
+            align-items: end;
+            margin-bottom: 22px;
+        }
+
+        h2 { margin: 8px 0 0; font-size: clamp(28px, 4vw, 45px); letter-spacing: -0.035em; line-height: 1.06; }
+        .section-head p { margin: 0; color: var(--muted); }
+
+        .card {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: linear-gradient(180deg, rgba(20, 26, 35, 0.95), rgba(14, 18, 24, 0.98));
+            box-shadow: 0 16px 45px rgba(0, 0, 0, 0.18);
+        }
+
+        .card-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            align-items: flex-start;
+            padding: 19px 22px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .card-head h3 { margin: 0; font-size: 16px; }
+        .card-head p { max-width: 690px; margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+        .tag {
+            flex: none;
+            padding: 5px 8px;
+            border: 1px solid #3a485b;
+            border-radius: 999px;
+            color: #b9c7d8;
+            font: 700 9px/1 var(--mono);
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        .diagram {
+            padding: clamp(18px, 3vw, 34px);
+            overflow-x: auto;
+            background-image: radial-gradient(rgba(255,255,255,.035) 0.8px, transparent 0.8px);
+            background-size: 16px 16px;
+        }
+
+        .mermaid { min-width: 700px; text-align: center; }
+        .mermaid svg { max-width: 100%; height: auto; }
+        .diagram.compact .mermaid { min-width: 570px; }
+
+        .insight {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 12px;
+            padding: 16px 22px;
+            border-top: 1px solid var(--line);
+            background: rgba(8, 11, 15, 0.4);
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .insight strong { color: var(--amber); font: 700 10px/1.6 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+        .stack { display: grid; gap: 18px; }
+
+        .notes {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 18px;
+        }
+
+        .note {
+            padding: 17px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: rgba(17, 22, 30, 0.74);
+        }
+
+        .note b { display: block; margin-bottom: 5px; color: var(--text); font-size: 12px; }
+        .note p { margin: 0; color: var(--muted); font-size: 12px; }
+        .note code { color: var(--cyan); }
+
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; }
+        th { color: var(--dim); font: 700 10px/1.2 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+        td { color: var(--muted); }
+        td:first-child { color: var(--text); font-family: var(--mono); }
+
+        .file-map {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            padding: 18px;
+        }
+
+        .file-map a {
+            display: grid;
+            grid-template-columns: minmax(190px, 0.8fr) 1.2fr;
+            gap: 14px;
+            padding: 12px 13px;
+            border: 1px solid transparent;
+            border-radius: 9px;
+            color: var(--muted);
+            text-decoration: none;
+            transition: 120ms ease;
+        }
+
+        .file-map a:hover { border-color: var(--line); background: var(--panel-2); color: var(--text); }
+        .file-map code { color: var(--cyan); font-size: 11px; }
+        .file-map span { font-size: 11px; }
+
+        footer {
+            margin-top: 80px;
+            padding-top: 24px;
+            border-top: 1px solid var(--line);
+            color: var(--dim);
+            font-size: 11px;
+        }
+
+        .mobile-bar { display: none; }
+        .render-error {
+            padding: 16px;
+            border: 1px solid rgba(255, 123, 131, .45);
+            border-radius: 10px;
+            background: rgba(255, 123, 131, .08);
+            color: #ffc4c8;
+            white-space: pre-wrap;
+            text-align: left;
+        }
+
+        @media (max-width: 1020px) {
+            .sidebar { transform: translateX(-100%); transition: transform 180ms ease; }
+            body.menu-open .sidebar { transform: translateX(0); }
+            main { width: 100%; margin-left: 0; padding-top: 86px; }
+            .mobile-bar {
+                position: fixed;
+                inset: 0 0 auto 0;
+                z-index: 30;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                height: 58px;
+                padding: 0 18px;
+                border-bottom: 1px solid var(--line);
+                background: rgba(10, 13, 18, .94);
+                backdrop-filter: blur(18px);
+            }
+            .mobile-bar button { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); padding: 6px 10px; }
+            .section-head { grid-template-columns: 1fr; gap: 12px; }
+        }
+
+        @media (max-width: 760px) {
+            main { padding-inline: 14px; }
+            .hero { padding: 28px 20px; }
+            .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .grid-2, .notes, .file-map { grid-template-columns: 1fr; }
+            .file-map a { grid-template-columns: 1fr; gap: 3px; }
+            .card-head { display: block; }
+            .tag { display: inline-block; margin-top: 10px; }
+        }
+
+        @media print {
+            :root { color-scheme: light; }
+            body { background: white; color: #111; }
+            .sidebar, .mobile-bar { display: none; }
+            main { width: 100%; margin: 0; padding: 0; }
+            .hero, .card, .note { break-inside: avoid; box-shadow: none; }
+            section { break-before: page; }
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-bar">
+        <strong>eurorack-js / architecture</strong>
+        <button type="button" id="menuButton" aria-expanded="false" aria-controls="sidebar">Contents</button>
+    </div>
+
+    <div class="shell">
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <div class="brand-mark">±5</div>
+                <div><strong>eurorack-js</strong><span>System map</span></div>
+            </div>
+
+            <div class="nav-label">Signal path</div>
+            <nav class="nav" aria-label="Architecture sections">
+                <a href="#overview"><span class="nav-number">01</span><span>System overview</span></a>
+                <a href="#startup"><span class="nav-number">02</span><span>Startup &amp; ownership</span></a>
+                <a href="#patch-sound"><span class="nav-number">03</span><span>Patch to sound</span></a>
+                <a href="#graph"><span class="nav-number">04</span><span>Graph compiler</span></a>
+                <a href="#audio"><span class="nav-number">05</span><span>Audio render loop</span></a>
+                <a href="#module"><span class="nav-number">06</span><span>Module contract</span></a>
+                <a href="#ui"><span class="nav-number">07</span><span>UI &amp; cables</span></a>
+                <a href="#sync"><span class="nav-number">08</span><span>MIDI &amp; telemetry</span></a>
+                <a href="#patches"><span class="nav-number">09</span><span>Patches &amp; state</span></a>
+                <a href="#plugins"><span class="nav-number">10</span><span>Plugin system</span></a>
+                <a href="#catalog"><span class="nav-number">11</span><span>Module catalog</span></a>
+                <a href="#quality"><span class="nav-number">12</span><span>Quality &amp; delivery</span></a>
+                <a href="#files"><span class="nav-number">13</span><span>Change map</span></a>
+            </nav>
+
+            <div class="sidebar-foot">
+                <strong id="renderStatus">Rendering diagrams…</strong><br>
+                Based on the repository architecture contract and runtime source.
+            </div>
+        </aside>
+
+        <main>
+            <header class="hero">
+                <div class="eyebrow">Visual architecture reference · July 2026</div>
+                <h1>Voltages in.<br>Sound out.</h1>
+                <p class="hero-copy">A complete visual tour of the browser-based Eurorack emulator: who owns state, how patches become an atomic audio graph, where DSP runs, and how UI, MIDI, plugins, telemetry, and tests fit around the real-time core.</p>
+                <div class="facts" aria-label="Project facts">
+                    <div class="fact"><b>66</b><span>built-in modules</span></div>
+                    <div class="fact"><b>12</b><span>module categories</span></div>
+                    <div class="fact"><b>v3</b><span>strict patch schema</span></div>
+                    <div class="fact"><b>1</b><span>production DSP thread</span></div>
+                </div>
+                <div class="legend" aria-label="Diagram color legend">
+                    <span><i class="swatch" style="--swatch:#f6b94a"></i>User / browser UI</span>
+                    <span><i class="swatch" style="--swatch:#57d5e8"></i>Authoritative host / state</span>
+                    <span><i class="swatch" style="--swatch:#b59af3"></i>AudioWorklet / DSP</span>
+                    <span><i class="swatch" style="--swatch:#79d991"></i>Validated / persisted data</span>
+                    <span><i class="swatch" style="--swatch:#ff7b83"></i>Failure boundary</span>
+                </div>
+            </header>
+
+            <section id="overview">
+                <div class="section-head">
+                    <div><div class="eyebrow">01 · System overview</div><h2>One rack, two threads</h2></div>
+                    <p>The browser owns interaction and persistent state. The AudioWorklet owns all production signal processing. <code>RackHost</code> is the authority between them.</p>
+                </div>
+                <article class="card">
+                    <div class="card-head"><div><h3>Operational mental model</h3><p>The shortest accurate picture of the running application.</p></div><span class="tag">Component map</span></div>
+                    <div class="diagram"><pre class="mermaid">
+flowchart LR
+    U["Musician"] --> APP["EurorackApp<br/>DOM &amp; interaction"]
+
+    subgraph MAIN["Browser main thread"]
+        APP --> HOST["RackHost<br/>authoritative runtime API"]
+        HOST <--> STATE["RackState<br/>modules · rows · params · cables"]
+        HOST <--> REG["PluginRegistry<br/>definitions &amp; ownership"]
+        APP <--> UI["Renderer + toolkit<br/>stable UI mirrors"]
+        HOST <--> ENG["AudioWorkletEngine<br/>message controller"]
+        APP <--> MIDI["MIDI manager"]
+        MIDI --> ENG
+    end
+
+    subgraph WORKLET["AudioWorklet thread"]
+        PROC["EurorackProcessor"]
+        WREG["Worklet plugin registry"]
+        DSP["DSP instances"]
+        GRAPH["Compiled signal graph"]
+        WREG --> PROC
+        PROC --> DSP
+        GRAPH --> DSP
+    end
+
+    ENG <--> PROC
+    PROC --> OUT["Stereo Web Audio output"]
+
+    classDef ui fill:#352910,stroke:#f6b94a,color:#fff;
+    classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
+    classDef dsp fill:#271f3b,stroke:#b59af3,color:#fff;
+    classDef data fill:#17301f,stroke:#79d991,color:#fff;
+    class U,APP,UI,MIDI ui;
+    class HOST,ENG host;
+    class PROC,WREG,DSP,GRAPH dsp;
+    class STATE,REG data;
+                    </pre></div>
+                    <div class="insight"><strong>Core invariant</strong><span>There is no ScriptProcessor, timer, or main-thread fallback DSP path. If AudioWorklet is unavailable, audio does not start.</span></div>
+                </article>
+
+                <div class="notes">
+                    <div class="note"><b>Control plane</b><p>DOM events, patch management, module layout, cables, saved settings, and the authoritative API live on the main thread.</p></div>
+                    <div class="note"><b>Data plane</b><p>Voltage buffers, module processing order, feedback delays, output summing, and fault isolation live in the worklet.</p></div>
+                    <div class="note"><b>Boundary</b><p>Versioned messages carry topologies, params, MIDI, telemetry, module events, profiling, and runtime state.</p></div>
+                </div>
+            </section>
+
+            <section id="startup">
+                <div class="section-head">
+                    <div><div class="eyebrow">02 · Startup &amp; ownership</div><h2>Boot the control plane first</h2></div>
+                    <p>Core definitions are registered before the sidebar and rack render. Audio remains opt-in and is created only after a user gesture.</p>
+                </div>
+                <div class="grid-2">
+                    <article class="card">
+                        <div class="card-head"><div><h3>Application startup</h3><p>Browser bootstrap through the first stable rack render.</p></div><span class="tag">Sequence</span></div>
+                        <div class="diagram compact"><pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant A as EurorackApp
+    participant H as RackHost
+    participant R as PluginRegistry
+    participant S as RackState
+    B->>A: init()
+    A->>H: init()
+    H->>R: loadCorePlugin()
+    R->>R: load + validate 66 definitions
+    R-->>H: atomic registration
+    H->>S: create stable UI mirrors
+    H-->>A: host ready
+    A->>A: bind DOM, theme, MIDI, patches
+    A->>A: render sidebar and current rack
+                        </pre></div>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-head"><div><h3>Audio startup</h3><p>The secure-context worklet path is created on demand.</p></div><span class="tag">Sequence</span></div>
+                        <div class="diagram compact"><pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant A as EurorackApp
+    participant H as RackHost
+    participant E as WorkletEngine
+    participant P as Processor
+    U->>A: Start audio
+    A->>A: create / resume AudioContext
+    A->>H: startAudio(context)
+    H->>E: create engine
+    E->>E: add processor module
+    E->>P: create AudioWorkletNode
+    E->>P: topology revision 1
+    P->>P: validate + compile graph
+    P-->>E: topology-active(1)
+    E-->>H: activation resolved
+    H-->>A: audio running
+                        </pre></div>
+                    </article>
+                </div>
+
+                <article class="card" style="margin-top:18px">
+                    <div class="card-head"><div><h3>Ownership rules</h3><p>Each layer has one job; crossing these boundaries is a design smell.</p></div><span class="tag">Responsibility</span></div>
+                    <div class="diagram"><pre class="mermaid">
+flowchart TB
+    APP["EurorackApp"] -->|"renders &amp; delegates"| HOST["RackHost"]
+    HOST -->|"mutates"| STATE["RackState"]
+    HOST -->|"creates / disposes"| MIRROR["Stable UI mirror"]
+    HOST -->|"publishes"| ENGINE["WorkletEngine"]
+    ENGINE -->|"messages"| PROC["EurorackProcessor"]
+    PROC -->|"owns"| DSP["Production DSP instances"]
+    PROC -->|"activates"| GRAPH["Compiled graph"]
+
+    APP -.->|"never mutates production DSP"| DSP
+    MIRROR -.->|"never produces sound"| GRAPH
+
+    classDef ui fill:#352910,stroke:#f6b94a,color:#fff;
+    classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
+    classDef dsp fill:#271f3b,stroke:#b59af3,color:#fff;
+    classDef data fill:#17301f,stroke:#79d991,color:#fff;
+    class APP ui;
+    class HOST,ENGINE host;
+    class STATE,MIRROR data;
+    class PROC,DSP,GRAPH dsp;
+                    </pre></div>
+                    <div class="insight"><strong>Authority</strong><span><code>RackHost</code> is the only production owner of module lifecycle, parameters, cables, patch loading, runtime state, and audio activation.</span></div>
+                </article>
+            </section>
+
+            <section id="patch-sound">
+                <div class="section-head">
+                    <div><div class="eyebrow">03 · Patch to sound</div><h2>A topology is a transaction</h2></div>
+                    <p>Every structural change becomes a revision. The worklet builds the candidate graph completely before swapping it into the live audio path.</p>
+                </div>
+                <article class="card">
+                    <div class="card-head"><div><h3>End-to-end activation</h3><p>From a user action to the next audible render quantum.</p></div><span class="tag">Sequence</span></div>
+                    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor U as Musician
+    participant A as EurorackApp
+    participant H as RackHost
+    participant S as RackState
+    participant E as WorkletEngine
+    participant P as Processor
+    participant G as compileGraph()
+
+    U->>A: add module / move cable / load patch
+    A->>H: authoritative command
+    H->>S: validate and mutate state
+    H->>E: setPatchState(runtime patch)
+    E->>E: load required plugin worklets
+    E->>P: topology(revision N)
+    P->>P: validate plugins and module ownership
+    P->>P: create or reuse DSP instances
+    P->>G: compile candidate routes and order
+    alt candidate is valid
+        G-->>P: immutable execution plan
+        P->>P: swap active modules + graph
+        P-->>E: topology-active(N)
+        E-->>H: resolve activation
+        H-->>A: commit visible patch result
+    else validation or compilation fails
+        G-->>P: error
+        P-->>E: host-error(N)
+        E-->>H: reject activation
+        Note over P: Previous audio graph stays active
+    end
+                    </pre></div>
+                    <div class="insight"><strong>Atomicity</strong><span>A compilation failure never leaves a half-connected rack. The previous graph keeps running until the full replacement is acknowledged.</span></div>
+                </article>
+            </section>
+
+            <section id="graph">
+                <div class="section-head">
+                    <div><div class="eyebrow">04 · Graph compiler</div><h2>Dependencies before samples</h2></div>
+                    <p>The compiler validates endpoints, discovers strongly connected components, inserts explicit feedback delays, and creates a deterministic processing order.</p>
+                </div>
+                <div class="grid-2">
+                    <article class="card">
+                        <div class="card-head"><div><h3>Compilation pipeline</h3><p>What <code>compileGraph()</code> produces.</p></div><span class="tag">Flow</span></div>
+                        <div class="diagram compact"><pre class="mermaid">
+flowchart TB
+    IN["Modules + cables + block size"] --> V["Validate module IDs, ports,<br/>directions, buffers, duplicate inputs"]
+    V --> ADJ["Build dependency adjacency"]
+    ADJ --> SCC["Find strongly connected<br/>components"]
+    SCC --> COND["Build component DAG"]
+    COND --> SORT["Topological sort"]
+    SORT --> TIE["Tie break: manifest order →<br/>rack order → instance ID"]
+    TIE --> ROUTE["Create direct and delayed routes"]
+    ROUTE --> PLAN["Execution plan:<br/>ordered modules + routes + normals"]
+    V -. invalid .-> ERR["Reject candidate topology"]
+
+    classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
+    classDef dsp fill:#271f3b,stroke:#b59af3,color:#fff;
+    classDef bad fill:#3a181d,stroke:#ff7b83,color:#fff;
+    class IN,V,ADJ,SCC,COND,SORT,TIE host;
+    class ROUTE,PLAN dsp;
+    class ERR bad;
+                        </pre></div>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-head"><div><h3>Feedback is explicit</h3><p>Every route inside a feedback component uses a one-block delay.</p></div><span class="tag">SCC rule</span></div>
+                        <div class="diagram compact"><pre class="mermaid">
+flowchart LR
+    subgraph BLOCK_N["Render block N"]
+        A["Module A"] -->|"direct route"| B["Module B"]
+        B -->|"write block N"| D[("delay buffer")]
+        OLD[("block N−1")] -->|"feedback input"| A
+    end
+    D -.->|"becomes"| OLD
+
+    SELF["Self-feedback module"] --> SD[("one-block delay")]
+    SD --> SELF
+
+    classDef dsp fill:#271f3b,stroke:#b59af3,color:#fff;
+    classDef data fill:#17301f,stroke:#79d991,color:#fff;
+    class A,B,SELF dsp;
+    class D,OLD,SD data;
+                        </pre></div>
+                        <div class="insight"><strong>Why</strong><span>The delay makes cycles deterministic and prevents execution order from secretly changing feedback behavior.</span></div>
+                    </article>
+                </div>
+
+                <div class="notes">
+                    <div class="note"><b>Input cardinality</b><p>One source per input. UI patching replaces an occupied input; imported duplicate destinations are rejected.</p></div>
+                    <div class="note"><b>Output cardinality</b><p>Outputs can fan out to any number of inputs. Fan-in requires an explicit mixer or logic module.</p></div>
+                    <div class="note"><b>Disconnection</b><p>Removing a cable restores the destination buffer to the port’s declared normal voltage.</p></div>
+                </div>
+            </section>
+
+            <section id="audio">
+                <div class="section-head">
+                    <div><div class="eyebrow">05 · Audio render loop</div><h2>One block at a time</h2></div>
+                    <p>At each quantum the processor timestamps MIDI, routes stable buffers, processes modules in dependency order, isolates failures, and sums output sinks to stereo.</p>
+                </div>
+                <article class="card">
+                    <div class="card-head"><div><h3>Worklet render quantum</h3><p>The hot path that must remain allocation-conscious and browser-independent.</p></div><span class="tag">Real-time loop</span></div>
+                    <div class="diagram"><pre class="mermaid">
+flowchart LR
+    START["process() quantum"] --> MIDI["Begin MIDI block<br/>compute sample offsets"]
+    MIDI --> NORMALS["Restore unconnected<br/>input normals"]
+    NORMALS --> NEXT{"Next module in<br/>compiled order"}
+    NEXT --> ROUTE["Copy source samples into<br/>stable destination buffers"]
+    ROUTE --> RUN["instance.process()"]
+    RUN --> OK{"Threw?"}
+    OK -->|"no"| EVENTS["Drain bounded events<br/>and capture profiling"]
+    OK -->|"yes"| DISABLE["Disable instance<br/>zero its outputs"]
+    EVENTS --> MORE{"More modules?"}
+    DISABLE --> MORE
+    MORE -->|"yes"| NEXT
+    MORE -->|"no"| SUM["Sum audio-output sinks<br/>scale ±5V to ±1"]
+    SUM --> TELEMETRY{"~30 Hz telemetry tick?"}
+    TELEMETRY -->|"yes"| POST["Post params, LEDs,<br/>declared fields/history"]
+    TELEMETRY -->|"no"| END["End MIDI block"]
+    POST --> END
+    END --> RETURN["Return true"]
+
+    classDef dsp fill:#271f3b,stroke:#b59af3,color:#fff;
+    classDef data fill:#17301f,stroke:#79d991,color:#fff;
+    classDef bad fill:#3a181d,stroke:#ff7b83,color:#fff;
+    class START,NEXT,ROUTE,RUN,EVENTS,MORE,SUM,TELEMETRY,END,RETURN dsp;
+    class MIDI,NORMALS,POST data;
+    class OK,DISABLE bad;
+                    </pre></div>
+                    <div class="insight"><strong>Fault isolation</strong><span>A module exception disables only that instance and zeros its outputs; the rest of the rack continues rendering.</span></div>
+                </article>
+
+                <div class="table-wrap card" style="margin-top:18px">
+                    <table>
+                        <thead><tr><th>Signal</th><th>Default minimum</th><th>Default maximum</th><th>Input normal</th><th>Use</th></tr></thead>
+                        <tbody>
+                            <tr><td>audio</td><td>−5V</td><td>+5V</td><td>0V</td><td>DC-coupled audio-rate signal</td></tr>
+                            <tr><td>cv</td><td>−5V</td><td>+5V</td><td>0V</td><td>Continuous control voltage; pitch uses 1V/octave</td></tr>
+                            <tr><td>gate</td><td>0V</td><td>10V</td><td>0V</td><td>Held logical state; common threshold ≥1V</td></tr>
+                            <tr><td>trigger</td><td>0V</td><td>10V</td><td>0V</td><td>Short 5–10ms pulse</td></tr>
+                            <tr><td>any</td><td>−10V</td><td>+10V</td><td>0V</td><td>Explicitly signal-agnostic port</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="module">
+                <div class="section-head">
+                    <div><div class="eyebrow">06 · Module contract</div><h2>Self-contained definition, dual instantiation</h2></div>
+                    <p>Every module colocates metadata, DSP, and UI schema. The same definition creates a stable main-thread mirror and a separate production worklet instance.</p>
+                </div>
+                <div class="grid-2">
+                    <article class="card">
+                        <div class="card-head"><div><h3>Definition anatomy</h3><p>The contract exported by <code>modules/{id}/index.js</code>.</p></div><span class="tag">Schema</span></div>
+                        <div class="diagram compact"><pre class="mermaid">
+flowchart TB
+    DEF["Module definition"]
+    DEF --> META["Metadata<br/>id · name · hp · color · category · role"]
+    DEF --> FACTORY["createDSP(options)"]
+    FACTORY --> INSTANCE["DSP instance"]
+    INSTANCE --> PARAMS["params"]
+    INSTANCE --> INPUTS["stable input buffers"]
+    INSTANCE --> OUTPUTS["stable output buffers"]
+    INSTANCE --> LEDS["LED state"]
+    INSTANCE --> METHODS["process() · reset() · optional hooks"]
+    DEF --> UI["UI contract"]
+    UI --> CONTROLS["knobs · switches · buttons · actions"]
+    UI --> PORTS["inputs · outputs · voltage contracts"]
+    UI --> STATE["patch-persisted ui.state"]
+    DEF --> OPTIONAL["Optional browser bridge"]
+    OPTIONAL --> RENDER["render() + css"]
+    OPTIONAL --> TEL["bounded telemetry"]
+    OPTIONAL --> EVENTS["handleWorkletEvent()"]
+
+    classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
+    classDef dsp fill:#271f3b,stroke:#b59af3,color:#fff;
+    classDef data fill:#17301f,stroke:#79d991,color:#fff;
+    class DEF,META,UI,OPTIONAL,CONTROLS,PORTS,STATE,RENDER,TEL,EVENTS host;
+    class FACTORY,INSTANCE,PARAMS,INPUTS,OUTPUTS,LEDS,METHODS dsp;
+                        </pre></div>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-head"><div><h3>Two instances, one identity</h3><p>The mirror survives audio start and stop; the worklet instance is the only one processed.</p></div><span class="tag">Thread split</span></div>
+                        <div class="diagram compact"><pre class="mermaid">
+flowchart TB
+    DEF["Same validated module definition"]
+    DEF --> MAIN["Main thread createDSP()"]
+    DEF --> WORKLET["Worklet createDSP()"]
+    MAIN --> MIRROR["Stable UI mirror<br/>display + custom renderer state"]
+    WORKLET --> PROD["Production DSP instance<br/>voltage buffers + process()"]
+    CONTROL["Control change"] --> HOST["RackHost.setParam()"]
+    HOST --> MIRROR
+    HOST -->|"param message"| PROD
+    PROD -->|"bounded telemetry"| MIRROR
+    PROD --> SOUND["Sound"]
+    MIRROR -.->|"never process"| SOUND
+
+    classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
+    classDef dsp fill:#271f3b,stroke:#b59af3,color:#fff;
+    classDef data fill:#17301f,stroke:#79d991,color:#fff;
+    class DEF,CONTROL,HOST host;
+    class WORKLET,PROD,SOUND dsp;
+    class MAIN,MIRROR data;
+                        </pre></div>
+                        <div class="insight"><strong>Control rule</strong><span>Custom controls must call <code>onParamChange</code>. Directly mutating the mirror cannot affect audio.</span></div>
+                    </article>
+                </div>
+            </section>
+
+            <section id="ui">
+                <div class="section-head">
+                    <div><div class="eyebrow">07 · UI &amp; cables</div><h2>Declarative panels, transactional patching</h2></div>
+                    <p>The renderer turns module schemas into DOM controls, while cable gestures remain previews until a valid endpoint move commits one rack-state change.</p>
+                </div>
+                <div class="grid-2">
+                    <article class="card">
+                        <div class="card-head"><div><h3>Panel rendering</h3><p>Shared controls for standard modules; bounded escape hatch for bespoke interfaces.</p></div><span class="tag">UI flow</span></div>
+                        <div class="diagram compact"><pre class="mermaid">
+flowchart TB
+    DEF["Module definition"] --> MODE{"Custom render()?"}
+    MODE -->|"no"| DECL["renderDeclarativeUI()"]
+    DECL --> TOOLKIT["Toolkit components<br/>knob · jack · switch · LED"]
+    MODE -->|"yes"| CUSTOM["definition.render()"]
+    CUSTOM --> BOUND["Bound toolkit + cleanup hooks"]
+    TOOLKIT --> PANEL["Module panel DOM"]
+    BOUND --> PANEL
+    PANEL --> EVENT["Control interaction"]
+    EVENT --> CHANGE["onParamChange(module, param, value)"]
+    CHANGE --> HOST["RackHost.setParam()"]
+    HOST --> SYNC["syncParamToModuleUI()"]
+
+    classDef ui fill:#352910,stroke:#f6b94a,color:#fff;
+    classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
+    class DEF,MODE,DECL,TOOLKIT,CUSTOM,BOUND,PANEL,EVENT ui;
+    class CHANGE,HOST,SYNC host;
+                        </pre></div>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-head"><div><h3>Cable gesture transaction</h3><p>No disconnected intermediate topology reaches the worklet.</p></div><span class="tag">Interaction</span></div>
+                        <div class="diagram compact"><pre class="mermaid">
+flowchart TB
+    DOWN["Pointer down on jack"] --> CONNECTED{"Already connected?"}
+    CONNECTED -->|"no"| NEW["Preview new cable"]
+    CONNECTED -->|"yes"| MOD{"Modifier?"}
+    MOD -->|"Shift"| NEW
+    MOD -->|"Ctrl / Cmd"| CYCLE["Cycle cables sharing jack"]
+    MOD -->|"none"| MOVE["Preview moving endpoint"]
+    CYCLE --> MOVE
+    NEW --> DROP{"Drop target"}
+    MOVE --> DROP
+    DROP -->|"compatible jack"| COMMIT["Atomic connect / moveCable"]
+    DROP -->|"Escape, click, blur,<br/>incompatible jack"| RESTORE["Restore original connection"]
+    DROP -->|"true drag to empty space"| REMOVE["Explicitly disconnect"]
+    COMMIT --> REV["Publish one topology revision"]
+    REMOVE --> REV
+
+    classDef ui fill:#352910,stroke:#f6b94a,color:#fff;
+    classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
+    classDef data fill:#17301f,stroke:#79d991,color:#fff;
+    class DOWN,CONNECTED,MOD,NEW,CYCLE,MOVE,DROP ui;
+    class COMMIT,REMOVE,REV host;
+    class RESTORE data;
+                        </pre></div>
+                    </article>
+                </div>
+            </section>
+
+            <section id="sync">
+                <div class="section-head">
+                    <div><div class="eyebrow">08 · MIDI &amp; telemetry</div><h2>Two tempos of communication</h2></div>
+                    <p>Sample-positioned MIDI moves toward DSP. Bounded display state moves back at UI rate. Large or infrequent results use a separate event boundary.</p>
+                </div>
+                <article class="card">
+                    <div class="card-head"><div><h3>Cross-thread message lanes</h3><p>Fast control messages, periodic snapshots, and command-boundary events have different contracts.</p></div><span class="tag">Message map</span></div>
+                    <div class="diagram"><pre class="mermaid">
+flowchart LR
+    subgraph MAIN["Main thread"]
+        MIDIDEV["Web MIDI device"] --> MM["MIDI manager"]
+        CTRL["Panel control"] --> HOST["RackHost"]
+        MIRROR["Stable UI mirrors"] --> RENDER["Renderer / displays"]
+        BROWSER["Browser-only handlers<br/>WAV export · DOM work"]
+    end
+
+    subgraph PORT["AudioWorklet MessagePort"]
+        PMIDI["midi + audioTime"]
+        PPARAM["validated param"]
+        PTEL["telemetry ~30 Hz"]
+        PEVENT["module-event + transferables"]
+        PSTATE["runtime state / profiling"]
+    end
+
+    subgraph DSP["Worklet"]
+        MS["Shared MIDI service<br/>sampleOffset events"]
+        MODS["All DSP modules"]
+        COLLECT["Telemetry collector"]
+        DRAIN["drainEvents()"]
+    end
+
+    MM --> PMIDI --> MS --> MODS
+    HOST --> PPARAM --> MODS
+    MODS --> COLLECT --> PTEL --> MIRROR
+    MODS --> DRAIN --> PEVENT --> BROWSER
+    HOST <--> PSTATE <--> MODS
+
+    classDef ui fill:#352910,stroke:#f6b94a,color:#fff;
+    classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
+    classDef dsp fill:#271f3b,stroke:#b59af3,color:#fff;
+    classDef data fill:#17301f,stroke:#79d991,color:#fff;
+    class MIDIDEV,MM,CTRL,RENDER,BROWSER ui;
+    class HOST,PMIDI,PPARAM,PTEL,PEVENT,PSTATE host;
+    class MS,MODS,COLLECT,DRAIN dsp;
+    class MIRROR data;
+                    </pre></div>
+                </article>
+
+                <div class="notes">
+                    <div class="note"><b>MIDI timing</b><p>Note and transport events get a per-block <code>sampleOffset</code>. Every MIDI module sees the same non-destructive event arrays.</p></div>
+                    <div class="note"><b>Telemetry</b><p>Params and LEDs always sync. Custom fields, methods, and history must be declared and bounded.</p></div>
+                    <div class="note"><b>Module events</b><p>Infrequent transferable payloads cross via <code>drainEvents()</code> / <code>handleWorkletEvent()</code>, not continuous telemetry.</p></div>
+                </div>
+            </section>
+
+            <section id="patches">
+                <div class="section-head">
+                    <div><div class="eyebrow">09 · Patches &amp; state</div><h2>Persist the score, not the instrument’s RAM</h2></div>
+                    <p>Patch schema v3 stores a strict, portable rack description. Runtime-only buffers are captured separately when audio stops and restored only to the next topology.</p>
+                </div>
+                <div class="grid-2">
+                    <article class="card">
+                        <div class="card-head"><div><h3>Canonical patch v3</h3><p>Every reference is exact and every dependency is explicit.</p></div><span class="tag">Data model</span></div>
+                        <div class="diagram compact"><pre class="mermaid">
+flowchart TB
+    PATCH["Patch state · version 3"]
+    PATCH --> PLUGINS["plugins<br/>plugin ID → patch contract version"]
+    PATCH --> MODULES["modules[]<br/>instance ID · type · row · index"]
+    PATCH --> PARAMS["params{}<br/>instance ID → declared finite values"]
+    PATCH --> CABLES["cables[]<br/>exact source and destination ports"]
+    PATCH --> MAPS["midiMappings{}"]
+
+    PLUGINS --> VALID["normalizePatch() + strict validation"]
+    MODULES --> VALID
+    PARAMS --> VALID
+    CABLES --> VALID
+    MAPS --> VALID
+    VALID -->|"all valid"| LOAD["RackHost.loadPatch()"]
+    VALID -->|"anything invalid"| REJECT["Reject whole patch"]
+
+    classDef data fill:#17301f,stroke:#79d991,color:#fff;
+    classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
+    classDef bad fill:#3a181d,stroke:#ff7b83,color:#fff;
+    class PATCH,PLUGINS,MODULES,PARAMS,CABLES,MAPS data;
+    class VALID,LOAD host;
+    class REJECT bad;
+                        </pre></div>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-head"><div><h3>Persistent vs runtime state</h3><p>Small finite configuration and bulk live data take separate paths.</p></div><span class="tag">Lifecycle</span></div>
+                        <div class="diagram compact"><pre class="mermaid">
+flowchart TB
+    CONFIG["Patch-persisted state"] --> P1["Visible controls"]
+    CONFIG --> P2["ui.state values"]
+    P1 --> JSON["JSON / local storage /<br/>gzip URL hash"]
+    P2 --> JSON
+
+    LIVE["Runtime-only state"] --> L1["Looper buffers"]
+    LIVE --> L2["Gesture recordings"]
+    L1 --> CAP["captureRuntimeState()"]
+    L2 --> CAP
+    CAP --> STOP["Audio stop"]
+    STOP --> NEXT["Next runtime topology only"]
+    NEXT --> RESTORE["restoreRuntimeState()"]
+
+    classDef data fill:#17301f,stroke:#79d991,color:#fff;
+    classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
+    class CONFIG,P1,P2,JSON data;
+    class LIVE,L1,L2,CAP,STOP,NEXT,RESTORE host;
+                        </pre></div>
+                        <div class="insight"><strong>Timeout</strong><span>Topology acknowledgements and runtime-state requests have a five-second timeout; runtime capture failure cannot prevent audio shutdown.</span></div>
+                    </article>
+                </div>
+            </section>
+
+            <section id="plugins">
+                <div class="section-head">
+                    <div><div class="eyebrow">10 · Plugin system</div><h2>Trusted code, matched contracts</h2></div>
+                    <p>Plugins are not sandboxed. Registration is atomic on the main thread, and any active patch requires matching ownership and patch contracts in the worklet.</p>
+                </div>
+                <article class="card">
+                    <div class="card-head"><div><h3>Plugin registration and activation</h3><p>The two registries must agree before any plugin module can process audio.</p></div><span class="tag">Trust boundary</span></div>
+                    <div class="diagram"><pre class="mermaid">
+flowchart LR
+    subgraph PACKAGE["Trusted plugin package"]
+        MAN["Main manifest<br/>id · version · apiVersion · patchVersion"]
+        DEFS["Module definitions"]
+        WURL["Worklet URL"]
+        WENTRY["registerEurorackWorkletPlugin()"]
+    end
+
+    subgraph MAIN["Main-thread registry"]
+        CHECK["Load every definition"]
+        VALID["Validate contracts and collisions"]
+        ATOMIC{"All valid?"}
+        VISIBLE["Publish modules atomically"]
+    end
+
+    subgraph WORKLET["Audio activation"]
+        LOAD["Load worklet URL on demand"]
+        WREG["Worklet plugin registry"]
+        MATCH{"Plugin + patch version +<br/>module owner match?"}
+        ACTIVE["Create DSP instance"]
+    end
+
+    MAN --> CHECK
+    DEFS --> CHECK --> VALID --> ATOMIC
+    ATOMIC -->|"yes"| VISIBLE
+    ATOMIC -->|"no"| FAIL["Expose nothing"]
+    WURL --> LOAD --> WENTRY --> WREG --> MATCH
+    VISIBLE --> MATCH
+    MATCH -->|"yes"| ACTIVE
+    MATCH -->|"no"| REJECT["Reject topology"]
+
+    classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
+    classDef dsp fill:#271f3b,stroke:#b59af3,color:#fff;
+    classDef data fill:#17301f,stroke:#79d991,color:#fff;
+    classDef bad fill:#3a181d,stroke:#ff7b83,color:#fff;
+    class MAN,DEFS,WURL,WENTRY data;
+    class CHECK,VALID,ATOMIC,VISIBLE host;
+    class LOAD,WREG,MATCH,ACTIVE dsp;
+    class FAIL,REJECT bad;
+                    </pre></div>
+                    <div class="insight"><strong>Core special case</strong><span>Built-ins have a lazy main-thread manifest and a matching static worklet definition list. Their IDs, order, aliases, and graph revision must remain synchronized.</span></div>
+                </article>
+            </section>
+
+            <section id="catalog">
+                <div class="section-head">
+                    <div><div class="eyebrow">11 · Module catalog</div><h2>The rack’s functional surface</h2></div>
+                    <p>The manifest provides deterministic default order; each definition owns its sidebar category. All signals remain DC-coupled regardless of semantic port labels.</p>
+                </div>
+                <article class="card">
+                    <div class="card-head"><div><h3>66 built-in modules by role</h3><p>Categories are UI taxonomy, while graph order is dependency-driven at runtime.</p></div><span class="tag">Catalog</span></div>
+                    <div class="diagram"><pre class="mermaid">
+flowchart TB
+    RACK["eurorack-js module library · 66"]
+    RACK --> MIDI["MIDI · 5<br/>midi-cv · midi-4 · midi-cc<br/>midi-clk · midi-drum"]
+    RACK --> CLOCK["Clock · 5<br/>clk · div · swing<br/>burst · gate-delay"]
+    RACK --> SOURCE["Sources · 5<br/>nse · vco · wavetable<br/>complex-vco · ensemble-vco"]
+    RACK --> VOICE["Voices · 4<br/>pluck · kick · snare · hat"]
+    RACK --> MOD["Modulation · 6<br/>lfo · quad-lfo · rnd<br/>func · adsr · ochd"]
+    RACK --> SEQ["Sequencers · 5<br/>arp · seq · seq-switch<br/>euclid · turing"]
+    RACK --> QUANT["Quantizer · 1<br/>quant"]
+    RACK --> FILTER["Filters · 4<br/>vcf · lpg · formant · resbank"]
+    RACK --> FX["Effects · 11<br/>fold · ring · dly · tape · verb · chorus<br/>phaser · flanger · crush · loop · granulita"]
+    RACK --> UTIL["Utility · 19<br/>sh · logic · mult · matrix · joystick · envf<br/>vca · atten · slew · db · pwm · cmp2 · comp<br/>mix · scope · spectrum · plot · spectrogram · rec"]
+    RACK --> OUTPUT["Output · 1<br/>out"]
+    RACK --> OTHER["Other · 0<br/>reserved category"]
+
+    classDef root fill:#102b32,stroke:#57d5e8,color:#fff;
+    classDef ui fill:#352910,stroke:#f6b94a,color:#fff;
+    classDef dsp fill:#271f3b,stroke:#b59af3,color:#fff;
+    classDef data fill:#17301f,stroke:#79d991,color:#fff;
+    class RACK root;
+    class MIDI,CLOCK,SEQ,QUANT ui;
+    class SOURCE,VOICE,MOD,FILTER,FX dsp;
+    class UTIL,OUTPUT,OTHER data;
+                    </pre></div>
+                </article>
+            </section>
+
+            <section id="quality">
+                <div class="section-head">
+                    <div><div class="eyebrow">12 · Quality &amp; delivery</div><h2>Research, specify, test, listen</h2></div>
+                    <p>Module work starts with cited behavior and voltage contracts, moves through tests-before-DSP, then passes focused, matrix, integration, and browser validation.</p>
+                </div>
+                <div class="grid-2">
+                    <article class="card">
+                        <div class="card-head"><div><h3>Module delivery gate</h3><p>The queue workflow prevents implementation before the contract is ready.</p></div><span class="tag">Workflow</span></div>
+                        <div class="diagram compact"><pre class="mermaid">
+flowchart TB
+    C["candidate"] --> R["researching"]
+    R --> SOURCES["Primary sources + demos +<br/>electrical cross-checks"]
+    SOURCES --> SPEC["Panel + voltage + DSP plan +<br/>assumptions + test targets"]
+    SPEC --> READY["spec-ready"]
+    READY --> PLAN["Implementation Plan in research doc"]
+    PLAN --> TESTS["Write focused tests first"]
+    TESTS --> IMPL["implementing"]
+    IMPL --> VALID["focused tests + DSP matrix audit"]
+    VALID --> FULL["full npm test + listening / profiling"]
+    FULL --> DONE["done"]
+    SOURCES -. unresolved contradiction .-> BLOCK["blocked"]
+    VALID -. failed contract .-> IMPL
+
+    classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
+    classDef data fill:#17301f,stroke:#79d991,color:#fff;
+    classDef bad fill:#3a181d,stroke:#ff7b83,color:#fff;
+    class C,R,SOURCES,SPEC,PLAN,TESTS,IMPL,VALID,FULL host;
+    class READY,DONE data;
+    class BLOCK bad;
+                        </pre></div>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-head"><div><h3>Validation layers</h3><p>Different failures belong to different test suites.</p></div><span class="tag">Test pyramid</span></div>
+                        <div class="diagram compact"><pre class="mermaid">
+flowchart TB
+    E2E["Playwright E2E<br/>real browser interactions"]
+    INT["Worklet + app integration<br/>topology, lifecycle, patches"]
+    CONTRACT["Contract tests<br/>manifest, modules, plugins, research"]
+    DSP["68 focused DSP suites<br/>ranges, controls, reset, buffers"]
+    UTILS["Utility unit tests<br/>FFT, interpolation, slew, voltage"]
+    AUDIT["DSP audit matrix<br/>sample rates × block sizes × strict voltage"]
+
+    UTILS --> DSP --> CONTRACT --> INT --> E2E
+    DSP --> AUDIT
+    AUDIT --> INT
+
+    classDef ui fill:#352910,stroke:#f6b94a,color:#fff;
+    classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
+    classDef dsp fill:#271f3b,stroke:#b59af3,color:#fff;
+    classDef data fill:#17301f,stroke:#79d991,color:#fff;
+    class UTILS data;
+    class DSP,AUDIT dsp;
+    class CONTRACT,INT host;
+    class E2E ui;
+                        </pre></div>
+                    </article>
+                </div>
+            </section>
+
+            <section id="files">
+                <div class="section-head">
+                    <div><div class="eyebrow">13 · Change map</div><h2>Where each concern lives</h2></div>
+                    <p>Use this as the final hop from architecture to code. Runtime-source links open the deployed files; repository-only material opens on GitHub.</p>
+                </div>
+                <article class="card">
+                    <div class="card-head"><div><h3>Repository responsibility map</h3><p>The smallest useful set of entry points for navigating the system.</p></div><span class="tag">Source index</span></div>
+                    <div class="file-map">
+                        <a href="./js/app/app.js"><code>app/app.js</code><span>Browser bootstrap, DOM, patch controls, cable gestures, MIDI, audio buttons.</span></a>
+                        <a href="./js/app/rack-host.js"><code>app/rack-host.js</code><span>Authoritative lifecycle and synchronization API.</span></a>
+                        <a href="./js/app/rack-state.js"><code>app/rack-state.js</code><span>Serializable modules, rows, params, cables, and mappings.</span></a>
+                        <a href="./js/app/patch-format.js"><code>app/patch-format.js</code><span>Strict patch v3 validation and compact shared URLs.</span></a>
+                        <a href="./js/audio/worklet-engine.js"><code>audio/worklet-engine.js</code><span>Main-thread worklet node and request/response controller.</span></a>
+                        <a href="./js/audio/worklet/processor.js"><code>audio/worklet/processor.js</code><span>Production block loop, MIDI, output, telemetry, events, profiling.</span></a>
+                        <a href="./js/audio/graph.js"><code>audio/graph.js</code><span>Validation, SCC ordering, routing, normals, feedback delays.</span></a>
+                        <a href="./js/rack/registry.js"><code>rack/registry.js</code><span>Atomic trusted-plugin and module ownership registry.</span></a>
+                        <a href="./js/rack/module-contract.js"><code>rack/module-contract.js</code><span>Module, port, buffer, voltage, and telemetry contracts.</span></a>
+                        <a href="./js/rack/module-manifest.js"><code>rack/module-manifest.js</code><span>Lazy built-in imports, category taxonomy, deterministic order.</span></a>
+                        <a href="./js/rack/core-definitions.js"><code>rack/core-definitions.js</code><span>Static worklet imports matching manifest order.</span></a>
+                        <a href="./js/ui/renderer.js"><code>ui/renderer.js</code><span>Declarative/custom panel rendering and mirror synchronization.</span></a>
+                        <a href="./js/ui/toolkit/index.js"><code>ui/toolkit/</code><span>Reusable controls, layout, and pointer interactions.</span></a>
+                        <a href="https://github.com/OrderAndCh4oS/eurorack-js/tree/main/src/js/modules" target="_blank" rel="noopener noreferrer"><code>modules/{moduleId}/</code><span>Self-contained DSP, UI, render, telemetry, and browser hooks.</span></a>
+                        <a href="https://github.com/OrderAndCh4oS/eurorack-js/tree/main/src/js/config/patches" target="_blank" rel="noopener noreferrer"><code>config/patches/</code><span>105 factory, demo, test, drum, and sound-design patches.</span></a>
+                        <a href="https://github.com/OrderAndCh4oS/eurorack-js/blob/main/scripts/dsp-audit.mjs" target="_blank" rel="noopener noreferrer"><code>scripts/dsp-audit.mjs</code><span>Matrix-based DSP regression and voltage audit runner.</span></a>
+                        <a href="https://github.com/OrderAndCh4oS/eurorack-js/blob/main/docs/architecture.md" target="_blank" rel="noopener noreferrer"><code>docs/architecture.md</code><span>Canonical written runtime and schema reference.</span></a>
+                        <a href="https://github.com/OrderAndCh4oS/eurorack-js/blob/main/docs/creating-modules.md" target="_blank" rel="noopener noreferrer"><code>docs/creating-modules.md</code><span>Built-in and trusted-plugin module authoring guide.</span></a>
+                    </div>
+                </article>
+            </section>
+
+            <footer>
+                Generated from the repository’s July 2026 architecture contract and implementation. Mermaid diagrams render client-side from a pinned CDN build; the surrounding guide remains readable if the renderer is unavailable.
+            </footer>
+        </main>
+    </div>
+
+    <script type="module">
+        const menuButton = document.querySelector('#menuButton');
+        const navLinks = [...document.querySelectorAll('.nav a')];
+        const sections = navLinks.map(link => document.querySelector(link.hash)).filter(Boolean);
+
+        menuButton?.addEventListener('click', () => {
+            const open = document.body.classList.toggle('menu-open');
+            menuButton.setAttribute('aria-expanded', String(open));
+        });
+
+        navLinks.forEach(link => link.addEventListener('click', () => {
+            document.body.classList.remove('menu-open');
+            menuButton?.setAttribute('aria-expanded', 'false');
+        }));
+
+        const observer = new IntersectionObserver(entries => {
+            const visible = entries
+                .filter(entry => entry.isIntersecting)
+                .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+            if (!visible) return;
+            navLinks.forEach(link => link.classList.toggle('active', link.hash === `#${visible.target.id}`));
+        }, { rootMargin: '-18% 0px -68% 0px', threshold: [0, 0.1, 0.4] });
+        sections.forEach(section => observer.observe(section));
+
+        const status = document.querySelector('#renderStatus');
+        try {
+            const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs');
+            mermaid.initialize({
+                startOnLoad: false,
+                securityLevel: 'strict',
+                theme: 'base',
+                flowchart: { curve: 'basis', htmlLabels: true, useMaxWidth: true },
+                sequence: { useMaxWidth: true, wrap: true, diagramMarginX: 28, diagramMarginY: 18 },
+                themeVariables: {
+                    darkMode: true,
+                    background: '#11151c',
+                    primaryColor: '#102b32',
+                    primaryTextColor: '#eef2f7',
+                    primaryBorderColor: '#57d5e8',
+                    lineColor: '#7f91a7',
+                    secondaryColor: '#271f3b',
+                    tertiaryColor: '#17301f',
+                    clusterBkg: '#0e1218',
+                    clusterBorder: '#39475a',
+                    noteBkgColor: '#352910',
+                    noteTextColor: '#eef2f7',
+                    noteBorderColor: '#f6b94a',
+                    actorBkg: '#151b24',
+                    actorBorder: '#57d5e8',
+                    actorTextColor: '#eef2f7',
+                    signalColor: '#9aa8b8',
+                    signalTextColor: '#eef2f7',
+                    labelBoxBkgColor: '#151b24',
+                    labelBoxBorderColor: '#4e647f',
+                    labelTextColor: '#eef2f7',
+                    loopTextColor: '#eef2f7',
+                    activationBkgColor: '#271f3b',
+                    activationBorderColor: '#b59af3',
+                    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+                    fontSize: '13px'
+                }
+            });
+            await mermaid.run({ querySelector: '.mermaid', suppressErrors: false });
+            status.textContent = `${document.querySelectorAll('.mermaid svg').length} diagrams rendered`;
+        } catch (error) {
+            status.textContent = 'Diagram renderer unavailable';
+            status.style.color = 'var(--red)';
+            document.querySelectorAll('.mermaid').forEach(node => {
+                node.classList.add('render-error');
+            });
+            console.error('Mermaid rendering failed:', error);
+        }
+    </script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 Browser-based Eurorack modular synthesizer emulator. Patch virtual modules together with cables to create sounds.
 
-**[Try it live](https://orderandch4os.github.io/eurorack-js/)**
+**[Try it live](https://eurorackjs.orderandchaos.xyz)**
 
 ![Evolving Drone Patch](screen-grab.png)
 

@@ -45,6 +45,21 @@ async function createHost() {
     return { host, registry };
 }
 
+function createTestPatch({
+    id = 'source_1',
+    type = 'source',
+    level = 0.5
+} = {}) {
+    return {
+        version: 3,
+        plugins: { 'test-plugin': 2 },
+        modules: [{ id, type, row: 1, index: 0 }],
+        params: { [id]: { level } },
+        cables: [],
+        midiMappings: {}
+    };
+}
+
 describe('RackHost', () => {
     it('rejects a second cable to an occupied input while preserving output fan-out', async () => {
         const { host } = await createHost();
@@ -86,6 +101,96 @@ describe('RackHost', () => {
         });
         expect(host.state.cables).toEqual([moved]);
         expect(setPatchState).toHaveBeenCalledOnce();
+        host.engine = null;
+        await host.destroy();
+    });
+
+    it('keeps ordinary topology and param updates non-destructive', async () => {
+        const { host, registry } = await createHost();
+        host.addModule('source', { id: 'source_1' });
+        host.addModule('sink', { id: 'sink_1' });
+        const setPatchState = vi.fn(() => Promise.resolve(1));
+        const setParam = vi.fn();
+        host.engine = { setPatchState, setParam };
+
+        await host.syncTopology();
+        expect(setPatchState).toHaveBeenLastCalledWith(
+            expect.any(Object),
+            { registry, replace: false }
+        );
+
+        setPatchState.mockClear();
+        host.connect({
+            fromModule: 'source_1',
+            fromPort: 'out',
+            toModule: 'sink_1',
+            toPort: 'in'
+        });
+        expect(setPatchState).toHaveBeenCalledOnce();
+        expect(setPatchState).toHaveBeenLastCalledWith(
+            expect.any(Object),
+            { registry, replace: false }
+        );
+
+        setPatchState.mockClear();
+        host.setParam('source_1', 'level', 0.75);
+        expect(setParam).toHaveBeenCalledWith('source_1', 'level', 0.75);
+        expect(setPatchState).not.toHaveBeenCalled();
+
+        host.engine = null;
+        await host.destroy();
+    });
+
+    it('recreates worklet DSP instances for every explicit patch load', async () => {
+        const { host, registry } = await createHost();
+        host.addModule('source', { id: 'source_1' });
+        const setPatchState = vi.fn(() => Promise.resolve(1));
+        host.engine = { setPatchState };
+
+        await host.loadPatch(createTestPatch({ level: 0.8 }));
+
+        expect(setPatchState).toHaveBeenCalledOnce();
+        expect(setPatchState).toHaveBeenCalledWith(
+            expect.objectContaining({
+                modules: [expect.objectContaining({ id: 'source_1', type: 'source' })],
+                params: { source_1: { level: 0.8 } }
+            }),
+            { registry, replace: true }
+        );
+        expect(host.serializePatch().params.source_1.level).toBe(0.8);
+
+        host.engine = null;
+        await host.destroy();
+    });
+
+    it('rolls back a failed replacing load without replacing intact previous worklet instances', async () => {
+        const { host, registry } = await createHost();
+        host.addModule('source', { id: 'source_1' });
+        host.setParam('source_1', 'level', 0.35);
+        const previous = host.serializePatch();
+        const setPatchState = vi.fn()
+            .mockRejectedValueOnce(new Error('activation failed'))
+            .mockResolvedValueOnce(2);
+        host.engine = { setPatchState };
+
+        await expect(host.loadPatch(createTestPatch({
+            id: 'sink_1',
+            type: 'sink',
+            level: 0.9
+        }))).rejects.toThrow('activation failed');
+
+        expect(setPatchState).toHaveBeenCalledTimes(2);
+        expect(setPatchState.mock.calls[0][0]).toMatchObject({
+            modules: [expect.objectContaining({ id: 'sink_1', type: 'sink' })]
+        });
+        expect(setPatchState.mock.calls[0][1]).toEqual({ registry, replace: true });
+        expect(setPatchState.mock.calls[1][0]).toMatchObject({
+            modules: [expect.objectContaining({ id: 'source_1', type: 'source' })],
+            params: { source_1: { level: 0.35 } }
+        });
+        expect(setPatchState.mock.calls[1][1]).toEqual({ registry, replace: false });
+        expect(host.serializePatch()).toEqual(previous);
+
         host.engine = null;
         await host.destroy();
     });

@@ -1,5 +1,5 @@
 // Keep this revision aligned with worklet-engine.js and processor.js.
-import { CORE_MODULE_DEFINITIONS } from '../../rack/core-definitions.js?core=20260730-2';
+import { CORE_MODULE_DEFINITIONS } from '../../rack/core-definitions.js?core=20260730-3';
 import { registerWorkletPlugin } from './plugin-registry.js';
 
 registerWorkletPlugin({

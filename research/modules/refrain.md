@@ -598,6 +598,10 @@ semantic voltage vocabulary. The narrower `KEY` lane follows the repository's
 - The 0.25 V macro grid, mutation delta sizes, default chance, and eight-cell
   allocation are product-design assumptions selected for audible,
   testable boundedness.
+- The declarative software panel uses 10 HP and `module-color-ten`; these are
+  local presentation choices, not claims about comparison hardware. The
+  restrained non-clock `substep` LED level is one quarter of normalized
+  progress, so accepted clocks remain visually distinct at full brightness.
 - Runtime patterns are not patch state. Adding persisted structured pattern
   state would change scope toward a scene/pattern manager and is explicitly
   deferred.
@@ -656,8 +660,8 @@ semantic voltage vocabulary. The narrower `KEY` lane follows the repository's
 - **Module/category:** `refrain`, `sequencer`.
 - **Research branch/worktree:** `research/refrain` at
   `/Users/orderandchaos/code/eurorack-js/.worktrees/refrain-research`.
-- **Implementation branch/worktree:** `module/refrain` in a separate
-  implementation worktree selected by the coordinator.
+- **Implementation branch/worktree:** `module/refrain` at
+  `/Users/orderandchaos/code/eurorack-js/.worktrees/refrain`.
 - **DSP model:** deterministic inspired-by phrase-form sequencer using fixed
   arrays, PCG32, 16-clock cells, boundary transactions, one volatile Anchor,
   and a shared exact-K mutation mask.
@@ -671,10 +675,15 @@ semantic voltage vocabulary. The narrower `KEY` lane follows the repository's
 - **Factory patch:** `test-refrain`; demonstrate clock/reset, `KEY` to a tonal
   destination, `HARM` to Changes or Arp with its destination knob at zero,
   `ENERGY` to Cascade fill, and at least one audible/visible route.
-- **Shared framework changes:** none expected. Do not add patch persistence or
-  scene infrastructure.
+- **Shared framework changes:** explicit RackHost patch loads must request
+  replace-mode worklet activation so volatile live pattern, Anchor, pending
+  actions, and PRNG state are discarded even when module IDs and types match.
+  Ordinary topology edits and failed-load rollback remain non-replacing; do
+  not add persisted pattern or scene infrastructure.
 - **Focused tests:**
   `npm test -- tests/dsp/refrain.test.js tests/rack/module-contracts.test.js tests/research/module-queue.test.js`
+- **RackHost/worklet validation:**
+  `npm test -- tests/app/rack-host.test.js tests/audio/worklet-engine.test.js tests/audio/worklet-processor.test.js`
 - **Factory-patch validation:**
   `npm test -- tests/config/factory-patches.test.js tests/app/patch-format.test.js`
 - **DSP audit:**
@@ -691,3 +700,28 @@ behavioral, timing, panel, voltage, deterministic-generation, boundary
 priority, persistence, DSP, assumption/contradiction, test, and
 implementation-plan contracts are closed. No implementation work was
 performed in this research worktree.
+
+## DSP Audit (2026-07-31)
+
+The implemented module passes
+`npm run audit:dsp -- --module refrain --matrix --strict-voltage` across
+44.1, 48, and 96 kHz at block sizes 128 and 512. All 13 generated scenarios
+per configuration completed without errors, produced finite outputs, retained
+stable input/output buffers, and reported zero voltage-contract flags. The
+largest observed output magnitude was 4.75 V. The diagnostic Node timing
+maximum was 128.0 microseconds per block; it is not a real-time AudioWorklet
+threshold. Focused tests additionally lock the exact PCG32 vectors, seed-0
+base and mutation continuation, boundary transaction ordering, exact-K shared
+mutation masks, Run/Hold Anchor behavior, Recall/manual/automatic priority,
+clock/reset semantics, quantization, reset reconstruction, and deterministic
+replay. Production-style hydration tests also verify that params assigned after
+`createDSP()` install `SEED` and `LENGTH` before the first output/Anchor capture,
+while restored high Mutate/Recall action values establish edge history without
+replaying commands.
+
+RackHost regressions additionally verify that ordinary topology synchronization
+uses non-replacing activation, explicit patch loads use replacing activation,
+and a failed replacing activation restores the prior main-thread patch before a
+non-replacing rollback synchronization. This rollback policy relies on the
+processor's atomic activation contract: failed candidate construction or graph
+compilation leaves the prior worklet module instances intact.

@@ -1,5 +1,5 @@
 // Keep this revision aligned with worklet-engine.js and core-plugin.js.
-import './core-plugin.js?core=20260730-2';
+import './core-plugin.js?core=20260730-3';
 import { compileGraph } from '../graph.js';
 import { assertModuleParam, getModulePort, getModulePorts } from '../../rack/module-contract.js';
 import { getNestedValue, setNestedValue } from '../../utils/nested-access.js';

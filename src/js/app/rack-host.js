@@ -144,9 +144,12 @@ export class RackHost {
         return true;
     }
 
-    syncTopology({ throwOnError = false } = {}) {
+    syncTopology({ throwOnError = false, replace = false } = {}) {
         if (!this.engine) return Promise.resolve();
-        const activation = this.engine.setPatchState(this.createRuntimePatchState(), { registry: this.registry });
+        const activation = this.engine.setPatchState(this.createRuntimePatchState(), {
+            registry: this.registry,
+            replace
+        });
         if (throwOnError) return activation;
         return activation.catch(error => this.emit({ type: 'audio-error', error }));
     }
@@ -244,7 +247,7 @@ export class RackHost {
             this.state.modules.forEach(moduleState => this.disposeDSP(moduleState));
             this.state.loadPatch(normalized, this.registry);
             this.state.modules.forEach(moduleState => this.createDSP(moduleState));
-            await this.syncTopology({ throwOnError: true });
+            await this.syncTopology({ throwOnError: true, replace: true });
             this.emit({ type: 'patch-loaded' });
             return normalized;
         } catch (error) {
@@ -254,6 +257,9 @@ export class RackHost {
                 moduleState.runtimeState = previousRuntime.get(id);
                 this.createDSP(moduleState);
             });
+            // A failed atomic activation leaves the prior worklet instances
+            // intact, so rollback must resynchronize state without replacing
+            // those still-valid instances.
             await this.syncTopology({ throwOnError: true });
             throw error;
         }

@@ -65,10 +65,18 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 |----|--------|-------------|
 | `arp` | ARP | Triggered chord arpeggiator with root and chord CV |
 | `changes` | CHANGES | Scale-aware 16-note harmonic sequencer with cyclic voice-leading plans |
+| `refrain` | REFRAIN | Deterministic phrase-form sequencer with exact mutation, Run/Hold Anchor, and four macro CV lanes |
 | `seq` | SEQ | 8-step CV/gate sequencer with direction and range controls |
 | `seq-switch` | SEQ-SW | Clocked sequential switch for 4-to-1 and 1-to-4 signal routing |
 | `euclid` | EUCLID | Euclidean rhythm generator with length, hits, and rotation controls |
 | `turing` | TURING | Random looping sequencer based on Music Thing Turing Machine |
+
+Refrain holds each four-lane tuple for 16 accepted clocks. When patching
+`HARM` as an absolute selector into Changes or Arp, set the destination's
+corresponding selector knob to `0`. Live mutations and the captured Anchor are
+volatile: reloading a patch or recreating audio reconstructs the base pattern
+from `SEED` rather than restoring the previous performance state; a restored
+Hold switch captures that reconstructed base.
 
 ### Quantizers
 | ID | Module | Description |

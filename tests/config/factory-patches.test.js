@@ -197,6 +197,31 @@ describe('factory-patches', () => {
             expect(arpCables.length).toBeGreaterThan(0);
         });
 
+        it('Test - Refrain routes every macro lane through shared-clock audible form', () => {
+            const patch = FACTORY_PATCHES['Test - Refrain'];
+            expect(patch).toBeDefined();
+            expect(patch.state.modules.map(module => module.type)).toEqual(expect.arrayContaining([
+                'refrain', 'changes', 'cascade', 'arp', 'pluck', 'mix', 'scope', 'out'
+            ]));
+            expect(patch.state.cables).toEqual(expect.arrayContaining([
+                { fromModule: 'clock', fromPort: 'clock', toModule: 'refrain', toPort: 'clock' },
+                { fromModule: 'clock', fromPort: 'clock', toModule: 'changes', toPort: 'clock' },
+                { fromModule: 'clock', fromPort: 'clock', toModule: 'cascade', toPort: 'clock' },
+                { fromModule: 'resetB', fromPort: 'out1', toModule: 'refrain', toPort: 'reset' },
+                { fromModule: 'resetB', fromPort: 'out1', toModule: 'changes', toPort: 'reset' },
+                { fromModule: 'resetB', fromPort: 'out1', toModule: 'cascade', toPort: 'reset' },
+                { fromModule: 'refrain', fromPort: 'key', toModule: 'changes', toPort: 'keyCV' },
+                { fromModule: 'refrain', fromPort: 'harm', toModule: 'arp', toPort: 'chordCV' },
+                { fromModule: 'refrain', fromPort: 'energy', toModule: 'cascade', toPort: 'fillCV' },
+                { fromModule: 'refrain', fromPort: 'mod', toModule: 'lead', toPort: 'dampCV' },
+                { fromModule: 'scope', fromPort: 'out1', toModule: 'out', toPort: 'L' },
+                { fromModule: 'scope', fromPort: 'out1', toModule: 'out', toPort: 'R' }
+            ]));
+            expect(patch.state.params.arp.chord).toBe(0);
+            expect(patch.state.params.changes.key).toBe(0);
+            expect(patch.state.params.refrain.chance).toBe(100);
+        });
+
         it('Demo - Neon Grid uses exactly three rows with drums, bass, and melody texture', () => {
             const patch = FACTORY_PATCHES['Demo - Neon Grid'];
             expect(patch).toBeDefined();

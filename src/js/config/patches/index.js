@@ -22,6 +22,7 @@ import testScopeSinewave from './test-scope-sinewave.js';
 import testSequencer from './test-sequencer.js';
 import testSeqSwitch from './test-seq-switch.js';
 import testEuclid from './test-euclid.js';
+import testChangesCascade from './test-changes-cascade.js';
 import testSwing from './test-swing.js';
 import testBurst from './test-burst.js';
 import testGateDelay from './test-gate-delay.js';
@@ -140,6 +141,7 @@ export const FACTORY_PATCHES = {
     [testSequencer.name]: testSequencer,
     [testSeqSwitch.name]: testSeqSwitch,
     [testEuclid.name]: testEuclid,
+    [testChangesCascade.name]: testChangesCascade,
     [testSwing.name]: testSwing,
     [testBurst.name]: testBurst,
     [testGateDelay.name]: testGateDelay,

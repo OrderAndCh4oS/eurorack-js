@@ -31,6 +31,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | `swing` | SWING | Clock swing processor with straight and swung/humanized trigger outputs |
 | `burst` | BURST | Pingable burst generator for ratchets, probability, and trigger clusters |
 | `gate-delay` | GATE DELAY | Dual retriggerable trigger delay and gate-length generator |
+| `cascade` | CASCADE | Four rank-nested trigger lanes with live Fill and phrase-latched rotation |
 
 ### Sources
 | ID | Module | Description |
@@ -63,6 +64,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | ID | Module | Description |
 |----|--------|-------------|
 | `arp` | ARP | Triggered chord arpeggiator with root and chord CV |
+| `changes` | CHANGES | Scale-aware 16-note harmonic sequencer with cyclic voice-leading plans |
 | `seq` | SEQ | 8-step CV/gate sequencer with direction and range controls |
 | `seq-switch` | SEQ-SW | Clocked sequential switch for 4-to-1 and 1-to-4 signal routing |
 | `euclid` | EUCLID | Euclidean rhythm generator with length, hits, and rotation controls |

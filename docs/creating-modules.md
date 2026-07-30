@@ -594,6 +594,20 @@ Use these optional primitives instead of copying their mathematics into a module
 
 All APIs above are exported by `src/js/index.js` for external trusted plugins. The infrastructure-only `utils/color.js` and `utils/nested-access.js` support renderer/theme and validated parameter/port paths; module DSP should not depend on them.
 
+### Generated Lookup Plans
+
+When a deterministic musical search is too expensive for the audio thread,
+keep a pure generator beside the module and check in its fixed-size result as a
+typed-array data module. Runtime code should expose only indexed reads from a
+private table; it must not search, sort, or allocate inside `process()`.
+
+Keep the generator as the normative oracle. Focused tests should regenerate the
+entire table and compare every entry, or compare an exact checksum plus
+exhaustive golden vectors. A defensive snapshot is useful for validation
+without making the runtime table mutable to consumers. Document the indexing
+order, bounds, tie-breaks, generator version or checksum, and the reason
+runtime generation was rejected.
+
 ### Edge Detection
 
 ~~~javascript

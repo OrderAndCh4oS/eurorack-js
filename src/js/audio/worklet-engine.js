@@ -1,4 +1,4 @@
-const CORE_WORKLET_GRAPH_REVISION = '20260730-1';
+const CORE_WORKLET_GRAPH_REVISION = '20260730-2';
 
 export class AudioWorkletEngine {
     constructor({

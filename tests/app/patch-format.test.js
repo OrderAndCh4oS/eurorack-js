@@ -11,6 +11,8 @@ import { FACTORY_PATCHES } from '../../src/js/config/factory-patches.js';
 import { loadCorePlugin, DEFAULT_MODULE_ORDER } from '../../src/js/index.js';
 import { pluginRegistry, registerPlugin } from '../../src/js/rack/registry.js';
 
+const DEPLOYED_V2_SHARED_PATCH = '#patch=gz1.H4sIAAAAAAAAE2VSO27FMAy7SvFmNtDXnxsUnbsJHnuC9v4oJOczFAEUUaJikU4I4vX5Qfz29f3zK6-FeGdECPnCGZl65rNlHHTnalxxPHnTO44cdYIgJ1gYguJ4h0AWYgoEeiV293wtROwtGuhQWVlRRJhP0CE5bY1AR2OtpiV7cDZHr0pDhNo-XbqDDm-9NrWcsyKNf6RuN6dvzkxOs1qkbfGZ2z6G6W6b9afdznbKsE7gDQURnmsqnYSUxbIdYdEyhG9-6lIfuXHf3qbqfqpmR8TUVL1xv-neVpWCIGxQMKcyhrAXqvsFMyUyL4OHwyBDyz5Vgp9jWW3oUM8rzLdjnsyNmE44ajCLsuWxEAhC84H8wJbPlY6dCpSQ1E1yzFGb1B91LWl3qz5agw2zg_u59EwqM4xpe3pBTmPSG7Ft9PoDznfL-gcDAAA';
+
 function toBase64Url(value) {
     return Buffer.from(value, 'utf8')
         .toString('base64')
@@ -205,6 +207,17 @@ describe('patch-format', () => {
         expect(hash).toMatch(new RegExp(`^patch=${PATCH_URL_FORMAT}\\.`));
         expect(parsed.name).toBe('Shared Lead');
         expect(parsed.state).toEqual(state);
+    });
+
+    it('keeps deployed v2 shared links decodable after module contracts change', async () => {
+        const parsed = await parsePatchUrlHash(DEPLOYED_V2_SHARED_PATCH, urlOptions());
+
+        expect(parsed.name).toBe('JH01 Test2');
+        expect(parsed.state.plugins).toEqual({ core: 1 });
+        expect(parsed.state.modules.map(module => module.type)).toEqual([
+            'vco', 'vco', 'nse', 'mix', 'vcf', 'mix', 'adsr', 'vca', 'adsr',
+            'dly', 'dly', 'out', 'clk', 'arp', 'atten', 'lfo', 'lfo', 'atten'
+        ]);
     });
 
     it('preserves rows, indices, cables, and midi mappings in compact share hashes', async () => {

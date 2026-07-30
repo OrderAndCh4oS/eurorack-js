@@ -1,5 +1,6 @@
 import { createDefaultParams } from './rack-state.js';
 import { assertModuleParam, getModulePort } from '../rack/module-contract.js';
+import { PATCH_URL_V2_CORE_TOKENS } from './patch-url-tokens.js';
 
 export const PATCH_VERSION = 3;
 export const COMPACT_PATCH_URL_VERSION = 2;
@@ -134,6 +135,7 @@ function createTokenTable(moduleDefinitions = []) {
         return indexes.get(text);
     }
 
+    PATCH_URL_V2_CORE_TOKENS.forEach(add);
     moduleDefinitions.forEach(definition => {
         add(definition.id);
         const ui = definition.ui || {};
@@ -155,7 +157,11 @@ function getModuleDefinitions({ moduleDefinitions = null, registry = null } = {}
 }
 
 function createReferenceTables(options = {}) {
-    const staticTable = createTokenTable(getModuleDefinitions(options));
+    const definitions = getModuleDefinitions(options);
+    const extensionDefinitions = typeof options.registry?.getPluginForModule === 'function'
+        ? definitions.filter(definition => options.registry.getPluginForModule(definition.id) !== 'core')
+        : [];
+    const staticTable = createTokenTable(extensionDefinitions);
     const localTable = createStringTable();
 
     return {

@@ -13,8 +13,10 @@ describe('create2hpDualVCA', () => {
 
     describe('initialization', () => {
         it('should create a VCA with default params', () => {
-            expect(vca.params.ch1Gain).toBe(1);
-            expect(vca.params.ch2Gain).toBe(1);
+            expect(vca.params.ch1Gain).toBe(0.8);
+            expect(vca.params.ch2Gain).toBe(0.8);
+            expect(vca.params.ch1Gain).toBe(vcaModule.ui.knobs[0].default);
+            expect(vca.params.ch2Gain).toBe(vcaModule.ui.knobs[1].default);
         });
 
         it('should create input buffers', () => {
@@ -43,6 +45,13 @@ describe('create2hpDualVCA', () => {
         it('declares DC-coupled signal ports for audio or CV', () => {
             expect(vcaModule.ui.inputs.filter(port => port.id.endsWith('In')).map(port => port.signal)).toEqual(['any', 'any']);
             expect(vcaModule.ui.outputs.map(port => port.signal)).toEqual(['any', 'any']);
+            expect(vcaModule.ui.inputs.filter(port => port.id.endsWith('In')).map(port => port.voltage))
+                .toEqual([
+                    { min: -10, max: 10, normal: 0 },
+                    { min: -10, max: 10, normal: 0 }
+                ]);
+            expect(vcaModule.ui.outputs.map(port => port.voltage))
+                .toEqual([{ min: -10, max: 10 }, { min: -10, max: 10 }]);
         });
     });
 
@@ -137,6 +146,15 @@ describe('create2hpDualVCA', () => {
     });
 
     describe('CV smoothing', () => {
+        it('starts an unpatched 5V-normalled channel at its selected gain', () => {
+            vca.params.ch1Gain = 1;
+            vca.inputs.ch1In.fill(5);
+
+            vca.process();
+
+            expect(vca.outputs.ch1Out[0]).toBeCloseTo(5, 6);
+        });
+
         it('should smooth sudden CV changes', () => {
             for (let i = 0; i < 512; i++) {
                 vca.inputs.ch2In[i] = 5;
@@ -213,6 +231,51 @@ describe('create2hpDualVCA', () => {
 
             expect(vca.outputs.ch1Out.every(v => !isNaN(v))).toBe(true);
             expect(vca.outputs.ch2Out.every(v => !isNaN(v))).toBe(true);
+        });
+
+        it('recovers safely from non-finite controls and samples', () => {
+            vca.params.ch1Gain = Number.NaN;
+            vca.params.ch2Gain = Number.POSITIVE_INFINITY;
+            vca.inputs.ch1In.fill(Number.NaN);
+            vca.inputs.ch2In.fill(Number.POSITIVE_INFINITY);
+            vca.inputs.ch1CV.fill(Number.NaN);
+            vca.inputs.ch2CV.fill(Number.NEGATIVE_INFINITY);
+
+            vca.process();
+
+            expect(vca.outputs.ch1Out.every(Number.isFinite)).toBe(true);
+            expect(vca.outputs.ch2Out.every(Number.isFinite)).toBe(true);
+            expect(Number.isFinite(vca.leds.ch1)).toBe(true);
+            expect(Number.isFinite(vca.leds.ch2)).toBe(true);
+        });
+    });
+
+    describe('reset', () => {
+        it('clears stable buffers and restores the 5V CV normals', () => {
+            const inputs = { ...vca.inputs };
+            const outputs = { ...vca.outputs };
+            Object.values(vca.inputs).forEach(buffer => buffer.fill(2));
+            vca.process();
+
+            vca.reset();
+
+            for (const key of ['ch1In', 'ch2In', 'ch1CV', 'ch2CV']) {
+                expect(vca.inputs[key]).toBe(inputs[key]);
+            }
+            for (const key of ['ch1Out', 'ch2Out']) {
+                expect(vca.outputs[key]).toBe(outputs[key]);
+                expect(vca.outputs[key].every(value => value === 0)).toBe(true);
+            }
+            expect(vca.inputs.ch1In.every(value => value === 0)).toBe(true);
+            expect(vca.inputs.ch2In.every(value => value === 0)).toBe(true);
+            expect(vca.inputs.ch1CV.every(value => value === 5)).toBe(true);
+            expect(vca.inputs.ch2CV.every(value => value === 5)).toBe(true);
+            expect(vca.leds).toEqual({ ch1: 0, ch2: 0 });
+
+            vca.params.ch1Gain = 1;
+            vca.inputs.ch1In.fill(4);
+            vca.process();
+            expect(vca.outputs.ch1Out[0]).toBeCloseTo(4, 6);
         });
     });
 });

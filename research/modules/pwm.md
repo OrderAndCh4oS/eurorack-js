@@ -81,7 +81,7 @@ const baseThreshold = (pw - 0.5) * 10; // -5V to +5V range
 
 for (let i = 0; i < bufferSize; i++) {
     // Modulated threshold
-    const threshold = baseThreshold + pwmCV[i] * pwmAmt * 5;
+    const threshold = baseThreshold - pwmCV[i] * pwmAmt;
 
     // Comparator
     if (input[i] > threshold) {
@@ -114,3 +114,25 @@ for (let i = 0; i < bufferSize; i++) {
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/pwm.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- PWM CV now explicitly declares bipolar -5..+5 V with a 0 V normal. At full
+  attenuation, +5 V moves the centered threshold from 0 V to -5 V; the former
+  implementation multiplied CV by two and incorrectly moved it to -10 V.
+- Comparator crossings use the analytically estimated sub-sample crossing
+  fraction. Only an edge sample can be intermediate; settled pulse levels and
+  the inverted output remain exactly complementary at +/-5 V.
+- On a coherent 3.072 kHz / 16.384 kHz sine-to-pulse fixture, combined
+  reflected power at 1.024, 4.096, and 7.168 kHz falls to 32.1% of ideal
+  point-sampled comparator power (-4.93 dB). This is a first-order,
+  allocation-free edge treatment rather than oversampling.
+- LED smoothing now uses a physical 100 ms time constant instead of a fixed
+  per-block coefficient. Reset clears both stable inputs, both output buffers,
+  edge history, LED smoothers, and LEDs in place.
+- Focused tests cover both controls, CV scale and audio-rate modulation,
+  comparator equality/direction, triangle/saw/sine/DC inputs, complementary
+  output, edge antialiasing, LEDs, ranges, reset, and finite buffers.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes all five scenarios
+  with finite output, zero voltage flags, stable buffers, exact 5.000 V rails,
+  and a largest Node diagnostic observation of 81.9 microseconds per block.

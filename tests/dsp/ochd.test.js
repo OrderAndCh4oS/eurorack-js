@@ -34,6 +34,7 @@ describe('OCHD Module', () => {
             expect(dsp.params.rate).toBeDefined();
             expect(dsp.params.rate).toBeGreaterThanOrEqual(0);
             expect(dsp.params.rate).toBeLessThanOrEqual(1);
+            expect(dsp.params.rateCvAmt).toBe(1);
         });
 
         it('should have LED indicators for all 8 outputs', () => {
@@ -65,6 +66,20 @@ describe('OCHD Module', () => {
             }
             // This may rarely fail by chance but is unlikely
             expect(foundDifference).toBe(true);
+        });
+
+        it('should declare the bipolar CV normal, attenuverter, and output voltages', () => {
+            expect(ochdModule.ui.knobs.map(knob => knob.param)).toEqual([
+                'rate',
+                'rateCvAmt'
+            ]);
+            expect(ochdModule.ui.inputs[0]).toMatchObject({
+                port: 'rateCV',
+                voltage: { min: -5, max: 5, normal: 0 }
+            });
+            for (const output of ochdModule.ui.outputs) {
+                expect(output.voltage).toEqual({ min: -5, max: 5 });
+            }
         });
     });
 
@@ -188,6 +203,31 @@ describe('OCHD Module', () => {
             const hz = crossings / 2;
             expect(hz).toBeGreaterThan(50);
             expect(hz).toBeLessThan(250);
+        });
+
+        it('should produce 160Hz on output 1 at maximum Rate', () => {
+            const exact = ochdModule.createDSP({ sampleRate: 8000, bufferSize: 8000 });
+            exact.params.rate = 1;
+            exact.process();
+
+            let crossings = 0;
+            for (let i = 1; i < exact.outputs.out1.length; i++) {
+                if ((exact.outputs.out1[i - 1] < 0 && exact.outputs.out1[i] >= 0) ||
+                    (exact.outputs.out1[i - 1] >= 0 && exact.outputs.out1[i] < 0)) {
+                    crossings++;
+                }
+            }
+            expect(crossings / 2).toBeCloseTo(160, 0);
+        });
+
+        it('should keep output 8 moving at a 25-minute cycle with Rate minimum and no CV', () => {
+            const slow = ochdModule.createDSP({ sampleRate: 1000, bufferSize: 2 });
+            slow.params.rate = 0;
+            slow.process();
+
+            const delta = Math.abs(slow.outputs.out8[1] - slow.outputs.out8[0]);
+            expect(delta).toBeGreaterThan(0);
+            expect(delta).toBeCloseTo(20 / (1500 * 1000), 6);
         });
     });
 
@@ -336,6 +376,44 @@ describe('OCHD Module', () => {
             expect(withCVCrossings).toBeLessThan(noCVCrossings);
         });
 
+        it('should attenuate and invert Rate CV with the CV Amount control', () => {
+            const renderCrossings = amount => {
+                const current = ochdModule.createDSP({ sampleRate: 1000, bufferSize: 1000 });
+                current.params.rate = 0.5;
+                current.params.rateCvAmt = amount;
+                current.inputs.rateCV.fill(2);
+                current.process();
+                let crossings = 0;
+                for (let i = 1; i < current.outputs.out1.length; i++) {
+                    if ((current.outputs.out1[i - 1] < 0 && current.outputs.out1[i] >= 0) ||
+                        (current.outputs.out1[i - 1] >= 0 && current.outputs.out1[i] < 0)) {
+                        crossings++;
+                    }
+                }
+                return crossings;
+            };
+
+            expect(renderCrossings(1)).toBeGreaterThan(renderCrossings(0));
+            expect(renderCrossings(-1)).toBeLessThan(renderCrossings(0));
+        });
+
+        it('should apply CV at the exact sample where it changes', () => {
+            const baseline = ochdModule.createDSP({ sampleRate: 1000, bufferSize: 128 });
+            baseline.params.rate = 0.6;
+            baseline.process();
+
+            const modulated = ochdModule.createDSP({ sampleRate: 1000, bufferSize: 128 });
+            modulated.params.rate = 0.6;
+            modulated.inputs.rateCV.fill(5, 64);
+            modulated.process();
+
+            // Instances have intentional phase offsets, so compare successive
+            // slopes rather than absolute values.
+            const baselineSlope = baseline.outputs.out1[65] - baseline.outputs.out1[64];
+            const modulatedSlope = modulated.outputs.out1[65] - modulated.outputs.out1[64];
+            expect(Math.abs(modulatedSlope)).toBeGreaterThan(Math.abs(baselineSlope));
+        });
+
         it('should stall oscillators with very negative CV (track and hold)', () => {
             dsp.params.rate = 0.5;
 
@@ -345,7 +423,7 @@ describe('OCHD Module', () => {
             }
 
             // Apply strong negative CV to stall
-            dsp.inputs.rateCV.fill(-10);
+            dsp.inputs.rateCV.fill(-5);
 
             // Record output
             dsp.process();
@@ -358,7 +436,7 @@ describe('OCHD Module', () => {
 
             // Output should be nearly unchanged (stalled)
             const laterValue = dsp.outputs.out1[0];
-            expect(Math.abs(laterValue - stalledValue)).toBeLessThan(0.5);
+            expect(laterValue).toBe(stalledValue);
         });
     });
 
@@ -458,16 +536,35 @@ describe('OCHD Module', () => {
             // Should be continuous (no large jumps)
             expect(Math.abs(firstSample - lastSample)).toBeLessThan(1);
         });
+
+        it('should recover from non-finite Rate, CV Amount, and input samples', () => {
+            dsp.params.rate = Number.NaN;
+            dsp.params.rateCvAmt = Number.POSITIVE_INFINITY;
+            dsp.inputs.rateCV.fill(Number.NaN);
+            dsp.process();
+
+            for (const output of Object.values(dsp.outputs)) {
+                expect(output.every(Number.isFinite)).toBe(true);
+                expect(Math.min(...output)).toBeGreaterThanOrEqual(-5);
+                expect(Math.max(...output)).toBeLessThanOrEqual(5);
+            }
+        });
     });
 
     describe('Reset', () => {
         it('should clear outputs on reset', () => {
+            const inputRefs = { ...dsp.inputs };
+            const outputRefs = { ...dsp.outputs };
+            dsp.inputs.rateCV.fill(5);
             for (let b = 0; b < 5; b++) {
                 dsp.process();
             }
 
             dsp.reset();
 
+            expect(dsp.inputs).toEqual(inputRefs);
+            expect(dsp.outputs).toEqual(outputRefs);
+            expect(dsp.inputs.rateCV.every(value => value === 0)).toBe(true);
             for (let i = 1; i <= 8; i++) {
                 expect(dsp.outputs[`out${i}`].every(v => v === 0)).toBe(true);
             }

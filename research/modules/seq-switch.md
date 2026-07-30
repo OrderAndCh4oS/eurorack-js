@@ -39,7 +39,7 @@
 
 ### Algorithm Overview
 - Maintain `stage` as a zero-based active stage.
-- Quantize `steps` to 2, 3, or 4 every sample and wrap the active stage if the limit is lowered.
+- Quantize `steps` to 2, 3, or 4 once per block and wrap the active stage if the limit is lowered.
 - Detect rising edges on `clock` and `reset` using the rack trigger threshold.
 - On clock rising edge, increment `stage = (stage + 1) % steps`.
 - On reset rising edge, set `stage = 0`; reset wins over clock if both happen at once.
@@ -123,3 +123,21 @@
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/seq-switch.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- The 1ms switch crossfade now has an objective fixture: switching +5V to -5V
+  at 10 kHz control resolution limits the largest adjacent-sample change to
+  1V rather than the raw 10V discontinuity, and reaches the new source exactly.
+- Clock/Reset explicitly declare 0-10V with 0V normals. All five DC-coupled
+  signal inputs and outputs declare the chosen app adaptation's -5V to +5V
+  range.
+- Non-finite `steps` now safely selects four stages instead of producing NaN
+  stage arithmetic. The input-stage array is preallocated rather than created
+  in every audio block.
+- Existing coverage confirms strict >2.5V edges, Reset priority, both routing
+  directions, stage limits, LEDs, rails, and finite output. Reset now also
+  clears every stable signal/trigger input and output in place.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes three scenarios with
+  finite output, zero voltage flags, stable buffers, exact 5.000V rails, and a
+  maximum diagnostic time below 0.171ms per block.

@@ -108,3 +108,32 @@ Factory scale data is project-authored from standard interval sets and harmonic 
 - **Focused coverage**: voice normalization, scale groups, pitch, shaping/FM/stereo/freeze modes, learned-scale persistence, reset, buffer identity, and voltage bounds are covered by `tests/dsp/ensemble-vco.test.js`.
 - **Measured status**: the 44.1/48/96 kHz by 128/512-sample matrix completed 44 scenarios per configuration with zero errors or voltage flags, finite/stable buffers, and a measured maximum of 669.1 us/block.
 - **Next action**: profile 16-voice deep-shaping modes before adding further oscillators or oversampling.
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- All eight continuous CV inputs now declare bipolar -5..+5 V with 0 V
+  normals; Learn and Freeze retain their documented 0-10 V, >2.5 V trigger
+  contracts. Reset clears every stable input and all oscillator/freeze/cache
+  state in place.
+- Root, Pitch, Scale, Spread, and Balance CV are now evaluated for every sample.
+  They previously read only sample zero, ignoring the rest of each render
+  quantum and adding up to one block of modulation latency. A half-block Pitch
+  step now leaves the final voice frequency exactly one octave above the
+  first-half value.
+- The patch/UI `freeze` parameter is synchronized into worklet DSP. Previously
+  the custom UI toggled only its main-thread mirror, while production audio
+  responded solely to the Freeze jack.
+- Cross-FM now snapshots all 16 previous-sample sines before processing any
+  voice, removing voice-order dependence from the root/chain/highest
+  modulation algorithms. Frequencies and weights for inactive voices are
+  cleared when oscillator count falls.
+- Learned scale sanitization is cached by immutable `scaleMemory` identity and
+  slot, avoiding repeated array allocation during ordinary audio processing.
+  Learn-edge edits remain bounded, infrequent state events.
+- Deep Pulsar/Crush and segmented/folded shaping intentionally generate
+  discontinuous, broadband digital spectra as part of the documented modes;
+  this audit preserves that character rather than silently smoothing the mode.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes all 44 scenarios with
+  finite output, zero voltage flags, stable buffers, and a maximum 5.000 V
+  observed peak. After per-sample CV correction, the largest Node diagnostic
+  observation is 871.7 microseconds per block.

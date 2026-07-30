@@ -67,6 +67,10 @@ describe('seq', () => {
             expect(seq.inputs).toHaveProperty('reset');
             expect(seq.inputs.clock.length).toBe(128);
             expect(seq.inputs.reset.length).toBe(128);
+            expect(seqModule.ui.inputs.map(port => port.voltage)).toEqual([
+                { min: 0, max: 10, normal: 0 },
+                { min: 0, max: 10, normal: 0 }
+            ]);
         });
 
         it('should have cv and gate outputs', () => {
@@ -74,6 +78,10 @@ describe('seq', () => {
             expect(seq.outputs).toHaveProperty('gate');
             expect(seq.outputs.cv.length).toBe(128);
             expect(seq.outputs.gate.length).toBe(128);
+            expect(seqModule.ui.outputs.map(port => port.voltage)).toEqual([
+                { min: 0, max: 4 },
+                { min: 0, max: 10 }
+            ]);
         });
 
         it('should have 8 step LEDs', () => {
@@ -210,6 +218,20 @@ describe('seq', () => {
             seq.process();
 
             expect(seq.getCurrentStep()).toBe(stepBefore);
+        });
+
+        it('gives reset priority when reset and clock rise together', () => {
+            seq.inputs.clock.fill(5);
+            seq.process();
+            seq.inputs.clock.fill(0);
+            seq.process();
+            expect(seq.getCurrentStep()).toBe(1);
+
+            seq.inputs.clock.fill(5);
+            seq.inputs.reset.fill(5);
+            seq.process();
+
+            expect(seq.getCurrentStep()).toBe(0);
         });
     });
 
@@ -443,13 +465,27 @@ describe('seq', () => {
                 if (i % 2 === 1) steps.push(seq.getCurrentStep());
             }
 
-            // Should go 0 -> 1 -> 2 -> 3 -> 2 -> 1 -> 0 -> 1 ...
-            expect(steps[0]).toBe(1);
-            expect(steps[1]).toBe(2);
-            expect(steps[2]).toBe(3);
-            expect(steps[3]).toBe(2);
-            expect(steps[4]).toBe(1);
-            expect(steps[5]).toBe(0);
+            // Type 1 repeats both endpoints.
+            expect(steps).toEqual([0, 1, 2, 3, 3, 2, 1]);
+        });
+
+        it.each([
+            [2, [0, 1, 1, 2, 2, 3, 3, 0]],
+            [3, [0, 3, 3, 2, 2, 1, 1, 0]],
+            [4, [0, 1, 2, 3, 3, 2, 1, 0, 0]],
+            [5, [0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 3, 2]],
+            [6, [1, 2, 3, 2, 1, 0, 1, 2]]
+        ])('implements documented repeat pattern for direction=%i', (direction, expected) => {
+            seq.params.direction = direction;
+            const steps = [];
+            for (let edge = 0; edge < expected.length; edge++) {
+                seq.inputs.clock.fill(0);
+                seq.process();
+                seq.inputs.clock.fill(5);
+                seq.process();
+                steps.push(seq.getCurrentStep());
+            }
+            expect(steps).toEqual(expected);
         });
 
         it('should play random in random mode (direction=7)', () => {
@@ -539,7 +575,12 @@ describe('seq', () => {
             // After reset, step should be 0
             expect(seq.getCurrentStep()).toBe(0);
 
-            // First clock after reset should advance from 0 to 1 (forward direction)
+            // Type 1 plays the start step twice, then advances forward.
+            seq.inputs.clock.fill(0);
+            seq.process();
+            seq.inputs.clock.fill(5);
+            seq.process();
+            expect(seq.getCurrentStep()).toBe(0);
             seq.inputs.clock.fill(0);
             seq.process();
             seq.inputs.clock.fill(5);
@@ -547,15 +588,25 @@ describe('seq', () => {
             expect(seq.getCurrentStep()).toBe(1);
         });
 
-        it('should clear outputs', () => {
+        it('should clear stable inputs and outputs', () => {
+            const inputs = { ...seq.inputs };
+            const outputs = { ...seq.outputs };
             seq.params.step1 = 1.0;
             seq.params.gate1 = 1;
+            seq.inputs.clock.fill(5);
+            seq.inputs.reset.fill(5);
             seq.process();
 
             seq.reset();
 
-            expect(seq.outputs.cv[0]).toBe(0);
-            expect(seq.outputs.gate[0]).toBe(0);
+            Object.entries(inputs).forEach(([key, buffer]) => {
+                expect(seq.inputs[key]).toBe(buffer);
+                expect(buffer.every(value => value === 0)).toBe(true);
+            });
+            Object.entries(outputs).forEach(([key, buffer]) => {
+                expect(seq.outputs[key]).toBe(buffer);
+                expect(buffer.every(value => value === 0)).toBe(true);
+            });
         });
     });
 
@@ -591,6 +642,23 @@ describe('seq', () => {
                 expect(seq.outputs.cv.every(v => !isNaN(v))).toBe(true);
                 expect(seq.outputs.gate.every(v => !isNaN(v))).toBe(true);
             }
+        });
+
+        it('should recover safely from non-finite controls and inputs', () => {
+            seq.params.range = Number.NaN;
+            seq.params.length = Number.POSITIVE_INFINITY;
+            seq.params.direction = Number.NEGATIVE_INFINITY;
+            seq.params.step1 = Number.NaN;
+            seq.params.gate1 = Number.POSITIVE_INFINITY;
+            seq.inputs.clock.fill(Number.NaN);
+            seq.inputs.reset.fill(Number.POSITIVE_INFINITY);
+
+            seq.process();
+
+            expect(seq.outputs.cv.every(Number.isFinite)).toBe(true);
+            expect(seq.outputs.gate.every(Number.isFinite)).toBe(true);
+            expect(seq.getCurrentStep()).toBeGreaterThanOrEqual(0);
+            expect(seq.getCurrentStep()).toBeLessThan(8);
         });
     });
 

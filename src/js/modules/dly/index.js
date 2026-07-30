@@ -34,9 +34,15 @@ export default {
         const readDelay = createLinearCircularReader(delayBuffer);
         let writeIndex = 0;
 
+        const ownAudio = new Float32Array(bufferSize);
+        const ownTimeCV = new Float32Array(bufferSize);
+        const ownFeedbackCV = new Float32Array(bufferSize);
+        const ownMixCV = new Float32Array(bufferSize);
+
         // One-pole lowpass in feedback path (darkens repeats like analog/tape delay)
         let dampState = 0;
-        const dampCoeff = 0.7; // Higher = brighter repeats, lower = darker
+        const dampCutoff = Math.min(8000, sampleRate * 0.45);
+        const dampCoeff = 1 - Math.exp(-2 * Math.PI * dampCutoff / sampleRate);
 
         return {
             params: {
@@ -46,10 +52,10 @@ export default {
             },
 
             inputs: {
-                audio: new Float32Array(bufferSize),
-                timeCV: new Float32Array(bufferSize),
-                feedbackCV: new Float32Array(bufferSize),
-                mixCV: new Float32Array(bufferSize)
+                audio: ownAudio,
+                timeCV: ownTimeCV,
+                feedbackCV: ownFeedbackCV,
+                mixCV: ownMixCV
             },
 
             outputs: {
@@ -71,14 +77,12 @@ export default {
 
                 for (let i = 0; i < bufferSize; i++) {
                     // Calculate modulated parameters
-                    // Time: 0-1 param + CV (±5V maps to ±0.5)
-                    const modulatedTime = Math.max(0, Math.min(1, time + (timeCV[i] / 10)));
+                    // The hardware's 0-5V CV range spans the full knob range.
+                    const modulatedTime = Math.max(0, Math.min(1, time + (timeCV[i] / 5)));
 
-                    // Feedback: 0-1 param + CV (±5V maps to ±0.5)
-                    const modulatedFeedback = Math.max(0, Math.min(0.99, feedback + (feedbackCV[i] / 10)));
+                    const modulatedFeedback = Math.max(0, Math.min(0.99, feedback + (feedbackCV[i] / 5)));
 
-                    // Mix: 0-1 param + CV (±5V maps to ±0.5)
-                    const modulatedMix = Math.max(0, Math.min(1, mix + (mixCV[i] / 10)));
+                    const modulatedMix = Math.max(0, Math.min(1, mix + (mixCV[i] / 5)));
 
                     // Convert time to samples (minimum 1 sample delay)
                     const delaySamples = Math.max(1, modulatedTime * sampleRate * MAX_DELAY_TIME);
@@ -119,6 +123,10 @@ export default {
                 delayBuffer.fill(0);
                 writeIndex = 0;
                 dampState = 0;
+                ownAudio.fill(0);
+                ownTimeCV.fill(0);
+                ownFeedbackCV.fill(0);
+                ownMixCV.fill(0);
                 out.fill(0);
                 this.leds.active = 0;
             }
@@ -135,9 +143,9 @@ export default {
         switches: [],
         inputs: [
             { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
-            { id: 'timeCV', label: 'Time', port: 'timeCV', signal: 'cv' },
-            { id: 'feedbackCV', label: 'Fdbk', port: 'feedbackCV', signal: 'cv' },
-            { id: 'mixCV', label: 'Mix', port: 'mixCV', signal: 'cv' }
+            { id: 'timeCV', label: 'Time', port: 'timeCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } },
+            { id: 'feedbackCV', label: 'Fdbk', port: 'feedbackCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } },
+            { id: 'mixCV', label: 'Mix', port: 'mixCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } }
         ],
         outputs: [
             { id: 'out', label: 'Out', port: 'out', signal: 'audio' }

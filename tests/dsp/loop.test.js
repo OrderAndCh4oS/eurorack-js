@@ -171,6 +171,25 @@ describe('LOOP - Minimal Looper', () => {
             expectArrayClose([...loop.outputs.out], [0.8, 3.2, 2.4, 1.6]);
             expect([...loop.outputs.out].every(Number.isFinite)).toBe(true);
         });
+
+        it('fades mismatched loop endpoints to prevent a wrap click', () => {
+            const smoothLoop = createLoop({ sampleRate: 1000, bufferSize: 64 });
+            smoothLoop.params.level = 1;
+            smoothLoop.params.record = 1;
+            for (let i = 0; i < 64; i++) {
+                smoothLoop.inputs.in[i] = -4 + 8 * i / 63;
+            }
+            smoothLoop.process();
+
+            smoothLoop.params.record = 0;
+            smoothLoop.inputs.in.fill(0);
+            smoothLoop.process();
+            const beforeWrap = smoothLoop.outputs.out[63];
+            smoothLoop.process();
+            const afterWrap = smoothLoop.outputs.out[0];
+
+            expect(Math.abs(afterWrap - beforeWrap)).toBeLessThan(0.5);
+        });
     });
 
     describe('record modes', () => {
@@ -240,7 +259,38 @@ describe('LOOP - Minimal Looper', () => {
             expect(loop.getLoopInfo().hasLoop).toBe(false);
             expect(loop.getLoopInfo().loopLength).toBe(0);
             expect(loop.params.clear).toBe(0);
-            expect([...loop.outputs.out]).toEqual([0, 0, 0, 0]);
+            expect(loop.outputs.out.every(Number.isFinite)).toBe(true);
+            expect(loop.outputs.out[loop.outputs.out.length - 1]).toBe(0);
+        });
+
+        it('ramps Clear to silence instead of hard-muting the previous sample', () => {
+            const smoothLoop = createLoop({ sampleRate: 1000, bufferSize: 64 });
+            smoothLoop.params.level = 1;
+            smoothLoop.params.record = 1;
+            smoothLoop.inputs.in.fill(3);
+            smoothLoop.process();
+            smoothLoop.params.record = 0;
+            smoothLoop.inputs.in.fill(0);
+            smoothLoop.process();
+            const beforeClear = smoothLoop.outputs.out[63];
+
+            smoothLoop.params.clear = 1;
+            smoothLoop.process();
+
+            expect(Math.abs(smoothLoop.outputs.out[0] - beforeClear)).toBeLessThan(0.1);
+            expect(smoothLoop.outputs.out[10]).toBe(0);
+        });
+
+        it('uses a strict >2.5V trigger threshold', () => {
+            loop.inputs.recTrig[0] = 2.5;
+            loop.process();
+            expect(loop.params.record).toBe(0);
+
+            loop.inputs.recTrig.fill(0);
+            loop.process();
+            loop.inputs.recTrig[0] = 2.51;
+            loop.process();
+            expect(loop.params.record).toBe(1);
         });
 
         it('reset preserves captured loop and resets transport only', () => {
@@ -258,6 +308,20 @@ describe('LOOP - Minimal Looper', () => {
             expect(loop.leds.recording).toBe(0);
             expect(loop.leds.playing).toBe(1);
             expect(loop.leds.hasLoop).toBe(1);
+        });
+
+        it('reset clears stable input buffers without erasing the captured loop', () => {
+            recordSamples(loop, [1, 2, 3, 4]);
+            const inputs = { ...loop.inputs };
+            Object.values(loop.inputs).forEach(input => input.fill(5));
+
+            loop.reset();
+
+            for (const [port, input] of Object.entries(inputs)) {
+                expect(loop.inputs[port]).toBe(input);
+                expect(input.every(value => value === 0)).toBe(true);
+            }
+            expect(loop.getLoopInfo().hasLoop).toBe(true);
         });
 
         it('captures and restores runtime loop state', () => {

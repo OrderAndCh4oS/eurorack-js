@@ -54,15 +54,20 @@ export default {
         const directions = new Array(8).fill(1);
 
         // Frequency range (faithful to original øchd spec)
-        const minBaseFreq = 0.0007;  // At knob=0, output 8 = ~25 min cycle
+        const minBaseFreq = 1 / (1500 * frequencyMultipliers[7]);
         const maxBaseFreq = 160;     // At knob=1, output 1 = ~160Hz
 
         // Own input buffer
         const ownRateCV = new Float32Array(bufferSize);
+        const outputBuffers = Array.from(
+            { length: 8 },
+            () => new Float32Array(bufferSize)
+        );
 
         return {
             params: {
-                rate: 0.5  // Global rate 0-1
+                rate: 0.5,      // Global rate 0-1
+                rateCvAmt: 1    // Bipolar attenuverter for Rate CV
             },
 
             inputs: {
@@ -70,14 +75,14 @@ export default {
             },
 
             outputs: {
-                out1: new Float32Array(bufferSize),
-                out2: new Float32Array(bufferSize),
-                out3: new Float32Array(bufferSize),
-                out4: new Float32Array(bufferSize),
-                out5: new Float32Array(bufferSize),
-                out6: new Float32Array(bufferSize),
-                out7: new Float32Array(bufferSize),
-                out8: new Float32Array(bufferSize)
+                out1: outputBuffers[0],
+                out2: outputBuffers[1],
+                out3: outputBuffers[2],
+                out4: outputBuffers[3],
+                out5: outputBuffers[4],
+                out6: outputBuffers[5],
+                out7: outputBuffers[6],
+                out8: outputBuffers[7]
             },
 
             leds: {
@@ -86,32 +91,35 @@ export default {
             },
 
             process() {
-                const { rate } = this.params;
-                const { rateCV } = this.inputs;
-                const outputs = [
-                    this.outputs.out1, this.outputs.out2,
-                    this.outputs.out3, this.outputs.out4,
-                    this.outputs.out5, this.outputs.out6,
-                    this.outputs.out7, this.outputs.out8
-                ];
+                const rate = Number.isFinite(this.params.rate)
+                    ? Math.max(0, Math.min(1, this.params.rate))
+                    : 0.5;
+                const rateCvAmt = Number.isFinite(this.params.rateCvAmt)
+                    ? Math.max(-1, Math.min(1, this.params.rateCvAmt))
+                    : 1;
 
                 for (let i = 0; i < bufferSize; i++) {
                     // Calculate effective rate (knob + CV)
-                    // CV is ±5V, normalize to ±0.5 contribution
-                    const cvMod = (rateCV[i] || 0) / 10;
-                    const effectiveRate = Math.max(0, Math.min(1, rate + cvMod));
+                    const cvSample = Number.isFinite(ownRateCV[i])
+                        ? Math.max(-5, Math.min(5, ownRateCV[i]))
+                        : 0;
+                    const rawRate = rate + cvSample / 5 * rateCvAmt;
+                    const effectiveRate = Math.max(0, Math.min(1, rawRate));
 
                     // Calculate base frequency using exponential scaling
                     const baseFreq = minBaseFreq * Math.pow(maxBaseFreq / minBaseFreq, effectiveRate);
 
-                    // Check for stall condition (very low effective rate)
-                    const stalled = effectiveRate < 0.01;
+                    // Negative control below the knob's minimum stalls the
+                    // cores; knob minimum itself retains the 25-minute output.
+                    const stalled = rawRate < 0;
 
                     // Process each LFO
                     for (let lfo = 0; lfo < 8; lfo++) {
                         if (!stalled) {
                             const freq = baseFreq * frequencyMultipliers[lfo];
-                            const phaseInc = freq / sampleRate;
+                            // A rising-and-falling triangle traverses two phase
+                            // units per cycle.
+                            const phaseInc = 2 * freq / sampleRate;
 
                             // Update phase based on direction
                             phases[lfo] += directions[lfo] * phaseInc;
@@ -127,14 +135,14 @@ export default {
                         }
 
                         // Output: phase 0-1 mapped to -5V to +5V
-                        outputs[lfo][i] = (phases[lfo] * 2 - 1) * 5;
+                        outputBuffers[lfo][i] = (phases[lfo] * 2 - 1) * 5;
                     }
                 }
 
                 // Update LEDs with final sample values (normalized for display)
                 for (let lfo = 0; lfo < 8; lfo++) {
                     // LED shows absolute value normalized to 0-1
-                    this.leds[`led${lfo + 1}`] = outputs[lfo][bufferSize - 1] / 5;
+                    this.leds[`led${lfo + 1}`] = outputBuffers[lfo][bufferSize - 1] / 5;
                 }
 
                 // Reset own input if replaced by routing
@@ -142,6 +150,7 @@ export default {
 
             reset() {
                 phaseOffset = nextPhaseOffset();
+                ownRateCV.fill(0);
                 for (let lfo = 0; lfo < 8; lfo++) {
                     phases[lfo] = Math.max(0.01, Math.min(0.99, phaseTemplate[lfo] + phaseOffset));
                     directions[lfo] = 1;
@@ -155,21 +164,22 @@ export default {
     ui: {
         leds: ['led1', 'led2', 'led3', 'led4', 'led5', 'led6', 'led7', 'led8'],
         knobs: [
-            { id: 'rate', label: 'Rate', param: 'rate', min: 0, max: 1, default: 0.5 }
+            { id: 'rate', label: 'Rate', param: 'rate', min: 0, max: 1, default: 0.5 },
+            { id: 'rateCvAmt', label: 'CV Amt', param: 'rateCvAmt', min: -1, max: 1, default: 1 }
         ],
         switches: [],
         inputs: [
-            { id: 'rateCV', label: 'CV', port: 'rateCV', signal: 'cv' }
+            { id: 'rateCV', label: 'CV', port: 'rateCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } }
         ],
         outputs: [
-            { id: 'out1', label: '1', port: 'out1', signal: 'cv' },
-            { id: 'out2', label: '2', port: 'out2', signal: 'cv' },
-            { id: 'out3', label: '3', port: 'out3', signal: 'cv' },
-            { id: 'out4', label: '4', port: 'out4', signal: 'cv' },
-            { id: 'out5', label: '5', port: 'out5', signal: 'cv' },
-            { id: 'out6', label: '6', port: 'out6', signal: 'cv' },
-            { id: 'out7', label: '7', port: 'out7', signal: 'cv' },
-            { id: 'out8', label: '8', port: 'out8', signal: 'cv' }
+            { id: 'out1', label: '1', port: 'out1', signal: 'cv', voltage: { min: -5, max: 5 } },
+            { id: 'out2', label: '2', port: 'out2', signal: 'cv', voltage: { min: -5, max: 5 } },
+            { id: 'out3', label: '3', port: 'out3', signal: 'cv', voltage: { min: -5, max: 5 } },
+            { id: 'out4', label: '4', port: 'out4', signal: 'cv', voltage: { min: -5, max: 5 } },
+            { id: 'out5', label: '5', port: 'out5', signal: 'cv', voltage: { min: -5, max: 5 } },
+            { id: 'out6', label: '6', port: 'out6', signal: 'cv', voltage: { min: -5, max: 5 } },
+            { id: 'out7', label: '7', port: 'out7', signal: 'cv', voltage: { min: -5, max: 5 } },
+            { id: 'out8', label: '8', port: 'out8', signal: 'cv', voltage: { min: -5, max: 5 } }
         ]
     }
 };

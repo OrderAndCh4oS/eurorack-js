@@ -15,6 +15,11 @@ export default {
     category: 'modulation',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const gateInput = new Float32Array(bufferSize);
+        const retrigInput = new Float32Array(bufferSize);
+        const attackCV = new Float32Array(bufferSize);
+        const decayCV = new Float32Array(bufferSize);
+        const releaseCV = new Float32Array(bufferSize);
         const env = new Float32Array(bufferSize);
         const inv = new Float32Array(bufferSize);
         const eoc = new Float32Array(bufferSize);
@@ -24,9 +29,12 @@ export default {
         let level = 0;
         let lastGate = 0;
         let lastRetrig = 0;
+        let eocPulseSamples = 0;
+        const EOC_PULSE_SAMPLES = Math.max(1, Math.round(sampleRate * 0.005));
 
-        function knobToTime(knob) {
-            return 0.002 * Math.pow(5000, clamp(knob));
+        function knobToTime(knob, fallback) {
+            const normalized = Number.isFinite(knob) ? clamp(knob) : fallback;
+            return 0.002 * Math.pow(5000, normalized);
         }
 
         function calcCoeff(timeSeconds, targetRatio = 0.001) {
@@ -35,31 +43,43 @@ export default {
             return 1 - Math.exp(-Math.log((1 + targetRatio) / targetRatio) / samples);
         }
 
+        function calcAttackCoeff(timeSeconds) {
+            const samples = timeSeconds * sampleRate;
+            if (samples < 1) return 1;
+            // The attack approaches 5.5V and changes stage at 5V. ln(11)
+            // places that crossing at the selected stage time.
+            return 1 - Math.exp(-Math.log(11) / samples);
+        }
+
         return {
             params: { attack: 0.2, decay: 0.3, sustain: 0.7, release: 0.4 },
             inputs: {
-                gate: new Float32Array(bufferSize),
-                retrig: new Float32Array(bufferSize),
-                attackCV: new Float32Array(bufferSize),
-                decayCV: new Float32Array(bufferSize),
-                releaseCV: new Float32Array(bufferSize)
+                gate: gateInput,
+                retrig: retrigInput,
+                attackCV,
+                decayCV,
+                releaseCV
             },
             outputs: { env, inv, eoc },
             leds: { env: 0 },
 
             process() {
-                const baseAttack = this.params.attack;
-                const baseDecay = this.params.decay;
-                const sustainLevel = clamp(this.params.sustain) * 5;
-                const baseRelease = this.params.release;
-
-                const attackCV = this.inputs.attackCV;
-                const decayCV = this.inputs.decayCV;
-                const releaseCV = this.inputs.releaseCV;
+                const baseAttack = Number.isFinite(this.params.attack)
+                    ? clamp(this.params.attack)
+                    : 0.2;
+                const baseDecay = Number.isFinite(this.params.decay)
+                    ? clamp(this.params.decay)
+                    : 0.3;
+                const sustainLevel = (Number.isFinite(this.params.sustain)
+                    ? clamp(this.params.sustain)
+                    : 0.7) * 5;
+                const baseRelease = Number.isFinite(this.params.release)
+                    ? clamp(this.params.release)
+                    : 0.4;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    const gateVal = this.inputs.gate[i];
-                    const retrigVal = this.inputs.retrig[i];
+                    const gateVal = Number.isFinite(gateInput[i]) ? gateInput[i] : 0;
+                    const retrigVal = Number.isFinite(retrigInput[i]) ? retrigInput[i] : 0;
                     const gateHigh = gateVal >= 1;
                     const gateEdge = gateHigh && lastGate < 1;
                     const retrigEdge = retrigVal >= 1 && lastRetrig < 1;
@@ -76,15 +96,25 @@ export default {
                     lastRetrig = retrigVal;
 
                     // Per-sample CV modulation of times (±5V = ±0.5 range)
-                    const attackMod = clamp(baseAttack + (attackCV[i] || 0) / 10, 0, 1);
-                    const decayMod = clamp(baseDecay + (decayCV[i] || 0) / 10, 0, 1);
-                    const releaseMod = clamp(baseRelease + (releaseCV[i] || 0) / 10, 0, 1);
+                    const attackCvValue = Number.isFinite(attackCV[i])
+                        ? clamp(attackCV[i], -5, 5)
+                        : 0;
+                    const decayCvValue = Number.isFinite(decayCV[i])
+                        ? clamp(decayCV[i], -5, 5)
+                        : 0;
+                    const releaseCvValue = Number.isFinite(releaseCV[i])
+                        ? clamp(releaseCV[i], -5, 5)
+                        : 0;
+                    const attackMod = clamp(baseAttack + attackCvValue / 10, 0, 1);
+                    const decayMod = clamp(baseDecay + decayCvValue / 10, 0, 1);
+                    const releaseMod = clamp(baseRelease + releaseCvValue / 10, 0, 1);
 
-                    const attackCoeff = calcCoeff(knobToTime(attackMod));
-                    const decayCoeff = calcCoeff(knobToTime(decayMod));
-                    const releaseCoeff = calcCoeff(knobToTime(releaseMod));
+                    const attackCoeff = calcAttackCoeff(knobToTime(attackMod, baseAttack));
+                    const decayCoeff = calcCoeff(knobToTime(decayMod, baseDecay));
+                    const releaseCoeff = calcCoeff(knobToTime(releaseMod, baseRelease));
 
-                    let eocTrig = 0;
+                    let eocTrig = eocPulseSamples > 0 ? 10 : 0;
+                    if (eocPulseSamples > 0) eocPulseSamples--;
                     switch (stage) {
                         case ATTACK:
                             level += attackCoeff * (5.5 - level);
@@ -108,7 +138,8 @@ export default {
                             if (level < 0.001) {
                                 level = 0;
                                 stage = IDLE;
-                                eocTrig = 5;
+                                eocTrig = 10;
+                                eocPulseSamples = EOC_PULSE_SAMPLES - 1;
                             }
                             break;
                         case IDLE:
@@ -130,6 +161,12 @@ export default {
                 level = 0;
                 lastGate = 0;
                 lastRetrig = 0;
+                eocPulseSamples = 0;
+                gateInput.fill(0);
+                retrigInput.fill(0);
+                attackCV.fill(0);
+                decayCV.fill(0);
+                releaseCV.fill(0);
                 env.fill(0);
                 inv.fill(0);
                 eoc.fill(0);
@@ -147,16 +184,16 @@ export default {
             { id: 'release', label: 'Rel', param: 'release', min: 0, max: 1, default: 0.4 }
         ],
         inputs: [
-            { id: 'gate', label: 'Gate', port: 'gate', signal: 'trigger' },
-            { id: 'retrig', label: 'Retr', port: 'retrig', signal: 'trigger' },
-            { id: 'attackCV', label: 'Atk', port: 'attackCV', signal: 'cv' },
-            { id: 'decayCV', label: 'Dec', port: 'decayCV', signal: 'cv' },
-            { id: 'releaseCV', label: 'Rel', port: 'releaseCV', signal: 'cv' }
+            { id: 'gate', label: 'Gate', port: 'gate', signal: 'gate', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'retrig', label: 'Retr', port: 'retrig', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'attackCV', label: 'Atk', port: 'attackCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'decayCV', label: 'Dec', port: 'decayCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'releaseCV', label: 'Rel', port: 'releaseCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } }
         ],
         outputs: [
-            { id: 'env', label: 'Env', port: 'env', signal: 'cv' },
-            { id: 'inv', label: 'Inv', port: 'inv', signal: 'cv' },
-            { id: 'eoc', label: 'EOC', port: 'eoc', signal: 'trigger' }
+            { id: 'env', label: 'Env', port: 'env', signal: 'cv', voltage: { min: 0, max: 5 } },
+            { id: 'inv', label: 'Inv', port: 'inv', signal: 'cv', voltage: { min: -5, max: 0 } },
+            { id: 'eoc', label: 'EOC', port: 'eoc', signal: 'trigger', voltage: { min: 0, max: 10 } }
         ]
     }
 };

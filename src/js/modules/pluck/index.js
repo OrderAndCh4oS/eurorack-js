@@ -15,9 +15,10 @@ const PITCH_MIN_HZ = 55;
 const PITCH_OCTAVES = 5;
 const MIN_FREQ_HZ = 20;
 const QUIET_THRESHOLD = 1e-5;
-const QUIET_SAMPLES = 4096;
+const QUIET_SECONDS = 4096 / 44100;
 const MAX_VOCT = 8;
 const MIN_VOCT = -8;
+const REFERENCE_SAMPLE_RATE = 44100;
 
 function nextPowerOfTwo(value) {
     let size = 1;
@@ -41,6 +42,10 @@ function pitchToFrequency(pitch, vOct, sampleRate) {
 
 function decayToSeconds(decay) {
     return 0.04 * Math.pow(300, clamp(decay, 0, 1));
+}
+
+function coefficientAtSampleRate(referenceCoefficient, sampleRate) {
+    return 1 - Math.pow(1 - referenceCoefficient, REFERENCE_SAMPLE_RATE / sampleRate);
 }
 
 function createVoice(delayBufferSize) {
@@ -77,6 +82,11 @@ export default {
         const leds = { active: 0 };
         const delayBufferSize = nextPowerOfTwo(Math.ceil(sampleRate / MIN_FREQ_HZ) + 8);
         const voices = Array.from({ length: VOICE_COUNT }, () => createVoice(delayBufferSize));
+        const ownTrigger = new Float32Array(bufferSize);
+        const ownVOct = new Float32Array(bufferSize);
+        const ownDecayCV = new Float32Array(bufferSize);
+        const ownDampCV = new Float32Array(bufferSize);
+        const ownPositionCV = new Float32Array(bufferSize);
 
         let lastTrigger = 0;
         let nextVoiceIndex = 0;
@@ -86,6 +96,9 @@ export default {
         let dcY1 = 0;
 
         const ledDecay = Math.exp(-bufferSize / (sampleRate * 0.18));
+        const dcBlockPole = Math.pow(0.995, REFERENCE_SAMPLE_RATE / sampleRate);
+        const energyRelease = Math.pow(0.9995, REFERENCE_SAMPLE_RATE / sampleRate);
+        const quietSamplesRequired = Math.round(sampleRate * QUIET_SECONDS);
 
         function randomBipolar() {
             noiseSeed = (noiseSeed * 1664525 + 1013904223) >>> 0;
@@ -127,7 +140,8 @@ export default {
             voice.decaySeconds = decayToSeconds(voice.decay);
             voice.damp = paramWithBipolarCv(params.damp, dampCV);
             voice.position = clamp(paramWithBipolarCv(params.position, positionCV), 0.02, 0.98);
-            voice.dampingCoeff = 0.035 + Math.pow(voice.damp, 1.45) * 0.89;
+            const referenceDampingCoeff = 0.035 + Math.pow(voice.damp, 1.45) * 0.89;
+            voice.dampingCoeff = coefficientAtSampleRate(referenceDampingCoeff, sampleRate);
             voice.dampingState = 0;
             voice.energy = 1;
             voice.quietSamples = 0;
@@ -137,7 +151,8 @@ export default {
 
             const excitationLength = Math.min(delayBufferSize - 4, Math.ceil(voice.delaySamples) + 2);
             const pickOffset = Math.max(1, Math.floor(excitationLength * voice.position));
-            const excitationCoeff = 0.045 + Math.pow(voice.damp, 1.35) * 0.82;
+            const referenceExcitationCoeff = 0.045 + Math.pow(voice.damp, 1.35) * 0.82;
+            const excitationCoeff = coefficientAtSampleRate(referenceExcitationCoeff, sampleRate);
             const amplitude = 0.42 + voice.damp * 0.16;
             let excitationState = 0;
 
@@ -174,11 +189,11 @@ export default {
             const bodyColor = positionColor * 0.82 + bridgeTap * 0.18;
             const sample = safeFinite(bodyColor);
 
-            voice.energy = Math.max(Math.abs(sample), voice.energy * 0.9995);
+            voice.energy = Math.max(Math.abs(sample), voice.energy * energyRelease);
             voice.quietSamples = voice.energy < QUIET_THRESHOLD ? voice.quietSamples + 1 : 0;
             voice.ageSamples++;
 
-            if (voice.quietSamples > QUIET_SAMPLES || voice.ageSamples > sampleRate * 30) {
+            if (voice.quietSamples > quietSamplesRequired || voice.ageSamples > sampleRate * 30) {
                 deactivateVoice(voice);
             }
 
@@ -194,11 +209,11 @@ export default {
             },
 
             inputs: {
-                trigger: new Float32Array(bufferSize),
-                vOct: new Float32Array(bufferSize),
-                decayCV: new Float32Array(bufferSize),
-                dampCV: new Float32Array(bufferSize),
-                positionCV: new Float32Array(bufferSize)
+                trigger: ownTrigger,
+                vOct: ownVOct,
+                decayCV: ownDecayCV,
+                dampCV: ownDampCV,
+                positionCV: ownPositionCV
             },
 
             outputs: { out },
@@ -225,7 +240,7 @@ export default {
                         mix += processVoice(voices[voiceIndex], voiceIndex, params, vOct[i]);
                     }
 
-                    const dcBlocked = mix - dcX1 + 0.995 * dcY1;
+                    const dcBlocked = mix - dcX1 + dcBlockPole * dcY1;
                     dcX1 = mix;
                     dcY1 = dcBlocked;
 
@@ -246,6 +261,11 @@ export default {
                 noiseSeed = 0x1234abcd;
                 dcX1 = 0;
                 dcY1 = 0;
+                ownTrigger.fill(0);
+                ownVOct.fill(0);
+                ownDecayCV.fill(0);
+                ownDampCV.fill(0);
+                ownPositionCV.fill(0);
                 leds.active = 0;
             },
 
@@ -278,11 +298,11 @@ export default {
             { id: 'position', label: 'Pos', param: 'position', min: 0, max: 1, default: 0.35 }
         ],
         inputs: [
-            { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger' },
-            { id: 'vOct', label: 'V/O', port: 'vOct', signal: 'cv' },
-            { id: 'decayCV', label: 'Dcy', port: 'decayCV', signal: 'cv' },
-            { id: 'dampCV', label: 'Dmp', port: 'dampCV', signal: 'cv' },
-            { id: 'positionCV', label: 'Pos', port: 'positionCV', signal: 'cv' }
+            { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'vOct', label: 'V/O', port: 'vOct', signal: 'cv', voltage: { min: -8, max: 8, normal: 0 } },
+            { id: 'decayCV', label: 'Dcy', port: 'decayCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'dampCV', label: 'Dmp', port: 'dampCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'positionCV', label: 'Pos', port: 'positionCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } }
         ],
         outputs: [
             { id: 'out', label: 'Out', port: 'out', signal: 'audio' }

@@ -187,3 +187,24 @@ for (let p = 0; p < 4; p++) {
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/vcf.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.
+
+## Individual Contract Audit (2026-07-30)
+
+- **Self-oscillation defect found**: although the researched contract promises
+  ladder self-oscillation, a perfectly zeroed digital state remained exactly
+  silent forever. At resonance >=0.98 the filter now injects one deterministic
+  1e-9 normalized seed sample; nonlinear feedback grows the resonance naturally
+  without a continuous noise source. Resonance below 0.9 rearms the seed and
+  remains exactly silent without input.
+- **CV/reset contract**: Cutoff CV explicitly declares 0-5 V (up to two
+  octaves) and Resonance CV 0-10 V (up to +1 resonance). Reset clears all
+  identity-stable inputs, filter/delay states, the 2 ms cutoff slew, seed state,
+  outputs, and LED.
+- **Coverage**: focused tests exercise cutoff extremes, LP/BP/HP separation,
+  resonance and both CV paths, deterministic self-oscillation versus low-res
+  silence, continuous rails, long-run stability, reset equivalence to a fresh
+  instance, LED, and finite full buffers.
+- **Runtime/voltage result**: the strict 44.1/48/96 kHz by 128/512 matrix
+  completed all five scenarios with no errors or voltage flags, stable buffers,
+  and a 5 V peak.
+- **Status**: complete for the documented ladder-inspired model.

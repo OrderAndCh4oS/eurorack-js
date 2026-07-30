@@ -99,6 +99,8 @@
   - Polar: interpret `cv1` as rotation over a full turn and `cv2` as radius/depth; add a circular offset to X/Y.
   - Scan: when a recording exists, use `cv1` to choose a read position inside the gesture buffer and `cv2` to curve or reverse scan travel. If no recording exists, scan mode should fall back to live X/Y plus cartesian CV so outputs do not become undefined.
 - Smooth final X/Y with a short slew or one-pole filter to avoid zipper noise from pointer updates and automation jumps. Keep smoothing short enough that manual performance feels responsive.
+- Crossfade the bipolar/unipolar range offset over 5ms so switching range does
+  not inject a 5V step into pitch or modulation destinations.
 - Convert final X/Y to voltage range and quadrant weights every sample.
 - Gate logic:
   - Manual gate is high while `gateButton` is high.
@@ -133,6 +135,8 @@
 - Keep the DSP pure and deterministic aside from UI-driven params; no random generation is needed.
 - Expose recorded-buffer state through DSP internals only as needed for the renderer. Persisting recordings in patch files is a future feature; first implementation can treat recordings as runtime state.
 - Do not use audio input clearing patterns because this first module has no audio inputs.
+- Reuse gesture and automation result objects inside `process()`; gesture
+  playback must not allocate an object for every audio sample.
 
 ## Test Targets
 - Initialization creates all params, input buffers, output buffers, LEDs, and empty recorder state.
@@ -195,3 +199,27 @@
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/joystick.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- CV inputs now explicitly accept -5V to +5V with 0V normals; trigger/reset
+  inputs and gate/trigger outputs declare 0-10V. X/Y declare their combined
+  -5V to +10V range and quadrant outputs declare 0-10V.
+- Reset now has priority when Reset and Trigger rise on the same sample.
+  Previously the transport stopped and then immediately restarted in that
+  sample.
+- Bipolar/unipolar range changes now slew their 5V offset over 5ms. At 44.1
+  kHz the first sample of the transition is about 0.023V rather than a 5V
+  discontinuity; initial patch settings still render directly.
+- Non-finite CV samples are neutralized before polar trigonometry, preventing
+  Infinity from creating NaN output. Gesture lookup and CV automation reuse
+  preallocated result objects, eliminating two per-sample object-allocation
+  paths during playback.
+- Reset clears all four stable input buffers, every output, transport and
+  smoothing state, and LEDs without erasing the runtime gesture.
+- Focused tests cover all controls and modes, CV automation, voltage corners,
+  gates/triggers, movement sense, record/play/loop/scan, strict thresholds,
+  reset coincidence, finite recovery, UI rendering, and runtime preservation.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes 20 scenarios with
+  finite output, zero voltage flags, stable buffers, exact 10.000V peaks, and a
+  maximum diagnostic time below 0.284ms per block.

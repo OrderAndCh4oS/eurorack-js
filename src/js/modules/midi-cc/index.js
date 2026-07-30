@@ -56,13 +56,15 @@ export default {
             },
 
             process() {
-                const channel = Math.floor(this.params.channel);
-                const ccNums = [
-                    Math.floor(this.params.cc1),
-                    Math.floor(this.params.cc2),
-                    Math.floor(this.params.cc3),
-                    Math.floor(this.params.cc4)
-                ];
+                const channel = Number.isFinite(this.params.channel)
+                    ? Math.max(0, Math.min(15, Math.floor(this.params.channel)))
+                    : 0;
+                const defaults = [1, 7, 74, 71];
+                const ccNums = ['cc1', 'cc2', 'cc3', 'cc4'].map((param, index) => (
+                    Number.isFinite(this.params[param])
+                        ? Math.max(0, Math.min(127, Math.floor(this.params[param])))
+                        : defaults[index]
+                ));
 
                 if (!midi) {
                     cv1.fill(0); cv2.fill(0); cv3.fill(0); cv4.fill(0);
@@ -70,7 +72,11 @@ export default {
                 }
 
                 // Get target values from CC
-                const targets = ccNums.map(cc => (midi.getCCValue(channel, cc) / 127) * 10);
+                const targets = ccNums.map(cc => {
+                    const raw = midi.getCCValue(channel, cc);
+                    const value = Number.isFinite(raw) ? Math.max(0, Math.min(127, raw)) : 0;
+                    return value / 127 * 10;
+                });
                 const currents = [current1, current2, current3, current4];
                 const outputs = [cv1, cv2, cv3, cv4];
 
@@ -95,6 +101,7 @@ export default {
             reset() {
                 current1 = current2 = current3 = current4 = 0;
                 cv1.fill(0); cv2.fill(0); cv3.fill(0); cv4.fill(0);
+                this.leds.active = 0;
             }
         };
     },

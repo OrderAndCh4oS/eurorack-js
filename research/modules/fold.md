@@ -8,6 +8,10 @@ Wavefolder that adds harmonic complexity by folding waveforms back on themselves
 - [CCRMA - Complex Nonlinearities: Wavefolder](https://ccrma.stanford.edu/~jatin/ComplexNonlinearities/Wavefolder.html)
 - [KVR Forum - Wavefolding DSP](https://www.kvraudio.com/forum/viewtopic.php?t=501471)
 - [Joranalogue Fold 6](https://www.signalsounds.com/joranalogue-fold-6-eurorack-wavefolder-module)
+- [Antiderivative Antialiasing for Memoryless Nonlinearities](https://www.pure.ed.ac.uk/ws/portalfiles/portal/34115216/bilbao_pdf.pdf)
+  — Stefan Bilbao, Kurt James Werner, Julius O. Smith III, and Jonathan S.
+  Abel, IEEE Signal Processing Letters, 2017. Establishes the first-order
+  divided-difference method used to antialias the sine transfer curve.
 
 ## Specifications (our design)
 - Width: 4hp
@@ -71,15 +75,26 @@ out = fold(biasedInput);
 - Simple, musical, low CPU
 - Drive/fold amount scales the input before sin()
 - Symmetry adds DC offset for asymmetric folding
+- This is an inspired-by utility adaptation, not a circuit-level emulation of a
+  named hardware wavefolder.
 
 ### Aliasing Considerations
 - Wavefolding creates high harmonics that can alias
-- For basic implementation: accept some aliasing
-- Future improvement: 2x-4x oversampling
+- The sine transfer is evaluated with first-order antiderivative antialiasing
+  (ADAA). For `f(x) = sin(pi*x)`, its analytic antiderivative lets the processor
+  average the curve traversed between adjacent samples without an oversampling
+  buffer.
+- The near-zero divided-difference case uses the transfer curve at the midpoint
+  to avoid numerical cancellation.
+- First-order ADAA substantially reduces rather than eliminates aliasing. It
+  introduces the expected one-sample state and mild high-frequency attenuation,
+  trading a small tonal change for much lower reflected harmonic energy.
 
 ### Parameter Ranges
 - Fold: 1-10x gain (1 = gentle harmonics, 10 = extreme folding)
-- Symmetry: -5V to +5V DC offset
+- Symmetry knob: -1..+1, producing a pre-fold offset of -2..+2 V
+- Fold CV: bipolar -5..+5 V, adding -0.5..+0.5 before the Fold clamp
+- Symmetry CV: bipolar -5..+5 V, adding -2..+2 V to the pre-fold offset
 
 ## Use Cases
 1. **Sine to complex** - Transform pure sine into harmonically rich timbre
@@ -94,3 +109,19 @@ out = fold(biasedInput);
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/fold.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Fold and Symmetry CV now explicitly declare bipolar -5..+5 V with a 0 V
+  normal, matching their per-sample modulation paths.
+- Reset clears the stable Audio/Fold/Symmetry input buffers and output without
+  replacing buffer identities.
+- Focused control, CV, symmetry/DC, range, reset, and finite-buffer tests pass.
+  The strict 44.1/48/96 kHz by 128/512 matrix completes all five scenarios with
+  no voltage flags, stable buffers, and a natural sine-bounded 5 V peak.
+- A coherent 3.072 kHz / 16.384 kHz render at 7x drive measures the combined
+  reflected products at 1.024, 5.120, and 7.168 kHz. First-order ADAA reduces
+  their power to 14.9% of the raw sine folder (-8.26 dB), with a regression
+  requiring at least a 4.56 dB reduction.
+- The implementation remains allocation-free in `process()` and the strict
+  matrix's observed Node diagnostic maximum was 117.6 microseconds per block.

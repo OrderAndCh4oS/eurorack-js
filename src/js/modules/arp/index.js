@@ -36,6 +36,13 @@ export default {
         let sequence = [0];
 
         const random = () => Math.random();
+        const sequenceCache = [1, 2].map(octaveCount =>
+            ARP_MODE_NAMES.map(modeName =>
+                CHORD_NAMES.map(chordName =>
+                    buildArpSequence(CHORDS[chordName], octaveCount, modeName)
+                )
+            )
+        );
 
         return {
             params: {
@@ -66,27 +73,37 @@ export default {
                 const trigIn = this.inputs.trigger;
                 const resetIn = this.inputs.reset;
                 const rootCV = this.inputs.rootCV;
-
-                const chordIndex = Math.floor(chord) % CHORD_NAMES.length;
-                const chordIntervals = CHORDS[CHORD_NAMES[chordIndex]];
-                const modeIndex = Math.floor(mode) % ARP_MODE_NAMES.length;
+                const chordCV = this.inputs.chordCV;
+                const modeIndex = Math.max(0, Math.min(
+                    ARP_MODE_NAMES.length - 1,
+                    Math.floor(mode)
+                ));
                 const modeName = ARP_MODE_NAMES[modeIndex];
 
                 octaves = Math.max(1, Math.min(2, Math.floor(octaves)));
-                sequence = buildArpSequence(chordIntervals, octaves, modeName);
+                const sequencesForChord = sequenceCache[octaves - 1][modeIndex];
 
                 let stepped = false;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    const resetActive = resetIn[i] > 0.4;
-                    if (resetActive && !lastResetState) {
+                    const chordOffset = Math.max(0, Math.min(5, chordCV[i])) *
+                        (CHORD_NAMES.length - 1) / 5;
+                    const chordIndex = Math.max(0, Math.min(
+                        CHORD_NAMES.length - 1,
+                        Math.round(chord + chordOffset)
+                    ));
+                    sequence = sequencesForChord[chordIndex];
+
+                    const resetActive = resetIn[i] >= 0.4;
+                    const resetRising = resetActive && !lastResetState;
+                    if (resetRising) {
                         currentStep = 0;
                     }
                     lastResetState = resetActive;
 
-                    const triggerActive = trigIn[i] > 0.4;
+                    const triggerActive = trigIn[i] >= 0.4;
 
-                    if (triggerActive && !lastTriggerState) {
+                    if (triggerActive && !lastTriggerState && !resetRising) {
                         if (modeName === 'random') {
                             currentStep = Math.floor(random() * sequence.length);
                         } else {
@@ -141,7 +158,7 @@ export default {
             { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger' },
             { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger' },
             { id: 'rootCV', label: 'Root', port: 'rootCV', signal: 'cv' },
-            { id: 'chordCV', label: 'Chrd', port: 'chordCV', signal: 'cv' }
+            { id: 'chordCV', label: 'Chrd', port: 'chordCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } }
         ],
         outputs: [
             { id: 'cv', label: 'V/Oct', port: 'cv', signal: 'cv', voltage: { min: -5, max: 47 / 6 } },

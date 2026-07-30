@@ -224,6 +224,7 @@ describe('CMP2 Module', () => {
             dsp.inputs.in1.fill(2);
             // Input 2 at -2V (inside comp2 window)
             dsp.inputs.in2.fill(-2);
+            dsp.onInputConnected('in2');
 
             dsp.process();
 
@@ -247,6 +248,56 @@ describe('CMP2 Module', () => {
             expect(dsp.outputs.out1[bufferSize - 1]).toBe(10);
             expect(dsp.outputs.out2[bufferSize - 1]).toBe(10);
         });
+
+        it('should preserve a patched zero-volt in2 instead of normalizing by signal content', () => {
+            dsp.params.shift1 = 2;
+            dsp.params.shift2 = 2;
+            dsp.params.size1 = 1;
+            dsp.params.size2 = 1;
+            dsp.inputs.in1.fill(2);
+            dsp.inputs.in2.fill(0);
+            dsp.onInputConnected('in2');
+
+            dsp.process();
+
+            expect(dsp.outputs.out1.every(v => v === 10)).toBe(true);
+            expect(dsp.outputs.out2.every(v => v === 0)).toBe(true);
+        });
+
+        it('should preserve patched zero-volt right CVs at their zero crossings', () => {
+            dsp.params.shift2 = 0;
+            dsp.params.size2 = 0.5;
+            dsp.inputs.in2.fill(0);
+            dsp.inputs.shiftCV1.fill(5);
+            dsp.inputs.sizeCV1.fill(-1);
+            dsp.inputs.shiftCV2.fill(0);
+            dsp.inputs.sizeCV2.fill(0);
+            dsp.onInputConnected('in2');
+            dsp.onInputConnected('shiftCV2');
+            dsp.onInputConnected('sizeCV2');
+
+            dsp.process();
+
+            expect(dsp.outputs.out2.every(v => v === 10)).toBe(true);
+        });
+
+        it('should restore all left-to-right normals when cables are removed', () => {
+            dsp.onInputConnected('in2');
+            dsp.onInputConnected('shiftCV2');
+            dsp.onInputConnected('sizeCV2');
+            dsp.onInputDisconnected('in2');
+            dsp.onInputDisconnected('shiftCV2');
+            dsp.onInputDisconnected('sizeCV2');
+            dsp.params.shift2 = 0;
+            dsp.params.size2 = 0;
+            dsp.inputs.in1.fill(3);
+            dsp.inputs.shiftCV1.fill(3);
+            dsp.inputs.sizeCV1.fill(2);
+
+            dsp.process();
+
+            expect(dsp.outputs.out2.every(v => v === 10)).toBe(true);
+        });
     });
 
     describe('Logic Section - AND', () => {
@@ -255,6 +306,7 @@ describe('CMP2 Module', () => {
             dsp.params.size1 = 4;
             dsp.params.shift2 = 0;
             dsp.params.size2 = 4;
+            dsp.onInputConnected('in2');
 
             // Both inside
             dsp.inputs.in1.fill(0);
@@ -282,6 +334,7 @@ describe('CMP2 Module', () => {
             dsp.params.size1 = 4;
             dsp.params.shift2 = 0;
             dsp.params.size2 = 4;
+            dsp.onInputConnected('in2');
 
             // Both inside
             dsp.inputs.in1.fill(0);
@@ -309,6 +362,7 @@ describe('CMP2 Module', () => {
             dsp.params.size1 = 4;
             dsp.params.shift2 = 0;
             dsp.params.size2 = 4;
+            dsp.onInputConnected('in2');
 
             // Both inside - XOR is LOW
             dsp.inputs.in1.fill(0);
@@ -338,6 +392,7 @@ describe('CMP2 Module', () => {
             dsp.params.size1 = 4; // Window -2V to +2V
             dsp.params.shift2 = 0;
             dsp.params.size2 = 4; // Window -2V to +2V
+            dsp.onInputConnected('in2');
 
             // Both inside window - XOR is LOW
             dsp.inputs.in1.fill(0);
@@ -410,6 +465,7 @@ describe('CMP2 Module', () => {
             dsp.params.size1 = 4;
             dsp.params.shift2 = 0;
             dsp.params.size2 = 4;
+            dsp.onInputConnected('in2');
 
             dsp.inputs.in1.fill(0);
             dsp.inputs.in2.fill(0);

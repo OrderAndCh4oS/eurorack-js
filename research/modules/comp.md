@@ -201,3 +201,25 @@ Use a clean digital feed-forward compressor with stereo-linked gain reduction:
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/comp.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.
+
+## Individual Contract Audit (2026-07-30)
+
+- **Defect found**: mono-to-stereo and program-to-sidechain normalization were
+  inferred by scanning buffers for nonzero samples. A connected silent right
+  channel was duplicated from the left, and a connected silent sidechain fell
+  back to the program detector. Bipolar signals could therefore change routing
+  semantics at silence or zero crossings.
+- **Remediation**: `inR` and `sidechain` now use AudioWorklet connection
+  lifecycle state. A connected port remains authoritative at every sample
+  value; disconnecting it restores the documented normalization.
+- **Focused coverage and characterization**: `tests/dsp/comp.test.js` covers
+  threshold, ratio, attack/release steps, makeup, dry/wet, RMS/peak detectors,
+  HP/LP sidechain filters, limiter and bypass modes, stereo-linked gain,
+  external sidechain ducking, silent connected ports, disconnect restoration,
+  CV and LED outputs, reset, finite buffers, rails, and deterministic transient
+  gain-reduction trajectories.
+- **Runtime/voltage result**: the strict 44.1/48/96 kHz by 128/512-sample matrix
+  completed all 23 scenarios with finite samples, stable buffer identities,
+  0 voltage flags, and a 10 V peak (from the documented unipolar CV outputs).
+- **Status**: complete for the clean utility-adaptation contract. Analog color
+  and lookahead remain explicitly out of scope rather than unresolved defects.

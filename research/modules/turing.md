@@ -163,7 +163,7 @@ The length setting creates different "flavors" of pattern evolution, not strict 
     params: {
         lock: 0.5,    // 0=double-lock, 0.5=random, 1=lock
         scale: 0.8,   // Output voltage scaling
-        length: 3     // Switch: 0-7 for lengths [2,3,4,5,6,8,12,16]
+        length: 5     // Switch: 0-7 for lengths [2,3,4,5,6,8,12,16]
     },
 
     inputs: {
@@ -194,3 +194,24 @@ The length setting creates different "flavors" of pattern evolution, not strict 
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/turing.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Worklet and panel defaults now agree on length index 5 (eight steps);
+  previously direct DSP instances used index 3 (five steps) while rack-created
+  instances used eight.
+- Scale now applies continuously to the held unscaled DAC voltage. Previously
+  moving Scale had no effect until the next clock edge, unlike the hardware's
+  output-level control.
+- Clock uses a finite >=1V rising-edge state, Lock CV is bounded to -5V to +5V,
+  and Lock/Scale/Length recover from invalid values. Pulse remains qualified by
+  the clock-high sample and independent of Scale.
+- Register storage is a reusable `Uint8Array`; clock processing no longer
+  allocates a `{ scaled, unscaled }` result object. The obsolete
+  cable-disconnection hook was removed.
+- Clock/Pulse declare 0-10V, Lock CV -5V to +5V, and main CV 0-5V. Reset clears
+  all stable inputs/outputs and edge/pulse/LED state while randomizing the
+  existing register in place.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes seven scenarios with
+  finite output, zero voltage flags, stable buffers, exact 10.000V pulse peaks,
+  and a maximum diagnostic time below 0.077ms per block.

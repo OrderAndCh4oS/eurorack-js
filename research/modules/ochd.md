@@ -9,6 +9,8 @@ Eight independent, free-running analogue triangle LFOs in 4HP. The outputs are a
 ## Sources
 
 - [Instruo Official Product Page](https://www.instruomodular.com/product/ochd/)
+- [Instruō øchd Manual](https://www.instruomodular.com/wp-content/uploads/2020/05/Ochd-Manual-A5.pdf) - manufacturer manual, accessed 2026-07-30; supports bipolar Rate CV, dedicated attenuverter, negative-CV stall, eight 10Vpp triangle outputs, and global rate behavior.
+- [Instruō øchd Quickstart](https://www.instruomodular.com/wp-content/uploads/2020/01/ochd-quickstart.pdf) - manufacturer quickstart, accessed 2026-07-30; supports 160Hz and 25-minute no-CV endpoints plus panel layout.
 - [ModularGrid](https://modulargrid.net/e/divkid-ochd)
 - [Elevator Sound](https://www.elevatorsound.com/product/instruo-divkid-ochd-eurorack-multi-lfo-module/)
 - [DivKid Announcement](https://divkidvideo.com/ochd-the-second-divkid-eurorack-module/)
@@ -34,6 +36,7 @@ Eight independent, free-running analogue triangle LFOs in 4HP. The outputs are a
 | Knob | Function | Range |
 |------|----------|-------|
 | Rate | Global frequency control for all 8 LFOs | Scales all frequencies together |
+| CV Amount | Bipolar attenuverter for Rate CV | -1 (inverted) to +1 |
 
 ### Inputs
 
@@ -150,12 +153,14 @@ function calculateBaseFreq(knob, cv) {
     // Knob at 1: base freq = 160Hz (for output 1)
     // Output 8's multiplier (~0.014) gives 25-min cycle when base is very slow
 
-    const minBaseFreq = 0.0007; // ~0.0007 Hz * 0.014 = 25 min cycle for out 8
-    const maxBaseFreq = 160;    // 160 Hz for output 1 at max
+const minBaseFreq = 1 / (1500 * 0.014); // out 8 = one 25-minute cycle
+const maxBaseFreq = 160;    // 160 Hz for output 1 at max
 
-    // Exponential scaling
-    const effectiveKnob = Math.max(0, Math.min(1, knob + cv / 5));
-    return minBaseFreq * Math.pow(maxBaseFreq / minBaseFreq, effectiveKnob);
+// Exponential scaling
+const rawRate = knob + (cv / 5) * cvAmount;
+const stalled = rawRate < 0;
+const effectiveKnob = Math.max(0, Math.min(1, rawRate));
+return minBaseFreq * Math.pow(maxBaseFreq / minBaseFreq, effectiveKnob);
 }
 ```
 
@@ -173,7 +178,8 @@ Important: Each LFO should start at a random phase to maintain the "organic" cha
     category: 'modulator',
 
     params: {
-        rate: 0.5  // Global rate 0-1
+        rate: 0.5,      // Global rate 0-1
+        rateCvAmt: 1    // Bipolar Rate CV attenuverter
     },
 
     inputs: {
@@ -210,3 +216,31 @@ Important: Each LFO should start at a random phase to maintain the "organic" cha
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/ochd.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Manufacturer documentation was rechecked because the prior implementation
+  contradicted its own endpoint comments. The minimum base frequency was
+  `0.0007Hz`; multiplied by 0.014 this produced roughly a 28-hour output-8
+  cycle, not the documented 25 minutes. It is now derived exactly as
+  `1 / (1500 * 0.014)`.
+- Knob minimum with 0V CV now continues moving at that 25-minute bottom-output
+  period. Previously `effectiveRate < 0.01` stalled every oscillator at the
+  knob's minimum even with no negative CV.
+- Triangle phase now advances by `2 * frequency / sampleRate`, accounting for
+  the up-and-down two-unit path. Output 1 measures 160Hz at maximum rather than
+  the former 80Hz.
+- The missing manufacturer Rate CV attenuverter is implemented as `rateCvAmt`
+  (-1..1, default +1). Bipolar +/-5V CV is processed per sample, can be
+  attenuated/inverted, and stalls cores only when the raw summed control falls
+  below the knob minimum.
+- The process path reuses a preallocated eight-buffer view instead of creating
+  an output array every block. Params/CV have finite fallbacks; all ports
+  declare +/-5V, and reset clears Rate CV plus stable outputs/LEDs in place.
+- Focused and module-contract validation passes 47 assertions across all eight
+  frequency relationships, 160Hz/25-minute endpoints, attenuverter polarity,
+  sample-exact CV, stall, triangle/phase behavior, LEDs, finite recovery, rails,
+  continuity, and reset.
+- The strict 44.1/48/96kHz by 128/512 matrix completes five scenarios with
+  finite output, zero voltage flags, stable buffers, peaks within 0.006V of the
+  +/-5V rails, and a maximum Node diagnostic time below 0.227ms per block.

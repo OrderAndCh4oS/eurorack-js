@@ -121,6 +121,16 @@ describe('FORMANT module', () => {
                 ['out', 'audio']
             ]);
         });
+
+        it('declares bipolar CV ranges with 0V normals', () => {
+            for (const port of ['vowelCV', 'shiftCV', 'resCV']) {
+                expect(formantModule.ui.inputs.find(input => input.port === port).voltage).toEqual({
+                    min: -5,
+                    max: 5,
+                    normal: 0
+                });
+            }
+        });
     });
 
     describe('initialization', () => {
@@ -220,6 +230,35 @@ describe('FORMANT module', () => {
             half.forEach((sample, index) => {
                 expect(sample).toBeCloseTo((dry[index] + wet[index]) * 0.5, 4);
             });
+        });
+
+        it('slews a dry-to-wet change without a boundary click', () => {
+            const transitionDSP = createFormant({ bufferSize: 128 });
+            const frequency = 440;
+            let cursor = 0;
+            const fillContinuousSine = () => {
+                for (let i = 0; i < transitionDSP.inputs.audio.length; i++) {
+                    transitionDSP.inputs.audio[i] = Math.sin(
+                        2 * Math.PI * frequency * (cursor + i) / sampleRate
+                    ) * 3;
+                }
+                cursor += transitionDSP.inputs.audio.length;
+            };
+
+            transitionDSP.params.mix = 0;
+            transitionDSP.params.vowel = 0;
+            transitionDSP.params.resonance = 0.8;
+            for (let block = 0; block < 100; block++) {
+                fillContinuousSine();
+                transitionDSP.process();
+            }
+
+            const before = transitionDSP.outputs.out.at(-1);
+            transitionDSP.params.mix = 1;
+            fillContinuousSine();
+            transitionDSP.process();
+
+            expect(Math.abs(transitionDSP.outputs.out[0] - before)).toBeLessThan(0.5);
         });
 
         it('changes the waveform at high drive without escaping the voltage range', () => {
@@ -376,15 +415,19 @@ describe('FORMANT module', () => {
             expect(Math.max(...Array.from(dsp.outputs.out).map(Math.abs))).toBeLessThan(1e-6);
         });
 
-        it('keeps its input buffer stable and clears it on reset', () => {
-            const input = dsp.inputs.audio;
-            dsp.inputs.audio.fill(2);
+        it('keeps every input buffer stable and clears it on reset', () => {
+            const inputs = { ...dsp.inputs };
+            Object.values(dsp.inputs).forEach(input => input.fill(2));
             dsp.process();
-            expect(dsp.inputs.audio).toBe(input);
+            Object.entries(inputs).forEach(([port, input]) => {
+                expect(dsp.inputs[port]).toBe(input);
+            });
 
             dsp.reset();
-            expect(dsp.inputs.audio).toBe(input);
-            expect(Array.from(dsp.inputs.audio).every(sample => sample === 0)).toBe(true);
+            Object.entries(inputs).forEach(([port, input]) => {
+                expect(dsp.inputs[port]).toBe(input);
+                expect(input.every(sample => sample === 0)).toBe(true);
+            });
         });
     });
 });

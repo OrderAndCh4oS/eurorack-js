@@ -27,6 +27,8 @@ export default {
      * @returns {Object} DSP instance
      */
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const rateCV = new Float32Array(bufferSize);
+        const pauseInput = new Float32Array(bufferSize);
         const clockOut = new Float32Array(bufferSize);
 
         // Clock state
@@ -34,7 +36,9 @@ export default {
 
         // Pulse width (max 10ms for low frequency clocks)
         const maxPulseWidth = Math.floor(0.01 * sampleRate);
+        const ledHoldSamples = Math.max(1, Math.round(0.05 * sampleRate));
         let pulseSamples = 0;
+        let ledSamples = 0;
 
         /**
          * Map rate knob (0-1) to frequency (0.1Hz - 10kHz) exponentially
@@ -51,8 +55,8 @@ export default {
             },
 
             inputs: {
-                rateCV: new Float32Array(bufferSize),
-                pause: new Float32Array(bufferSize)
+                rateCV,
+                pause: pauseInput
             },
 
             outputs: {
@@ -64,18 +68,22 @@ export default {
             },
 
             process() {
-                const baseRate = this.params.rate;
-                const pauseButton = this.params.pause;
-                const rateCVIn = this.inputs.rateCV;
-                const pauseIn = this.inputs.pause;
+                const baseRate = Number.isFinite(this.params.rate)
+                    ? clamp(this.params.rate, 0, 1)
+                    : 0.3;
+                const pauseButton = Number.isFinite(this.params.pause) &&
+                    this.params.pause >= 0.5;
 
                 for (let i = 0; i < bufferSize; i++) {
                     // Check pause state (button OR gate >2V)
-                    const isPaused = pauseButton === 1 || pauseIn[i] > 2;
+                    const isPaused = pauseButton ||
+                        (Number.isFinite(pauseInput[i]) && pauseInput[i] > 2);
 
                     if (!isPaused) {
                         // Apply CV modulation (0-10V maps to 0-1 additional rate)
-                        const cvMod = clamp(rateCVIn[i], 0, 10) / 10;
+                        const cvMod = Number.isFinite(rateCV[i])
+                            ? clamp(rateCV[i], 0, 10) / 10
+                            : 0;
                         const effectiveRate = clamp(baseRate + cvMod, 0, 1);
 
                         // Calculate frequency and phase increment
@@ -92,21 +100,29 @@ export default {
                             const period = sampleRate / freq;
                             const dynamicPulse = Math.max(1, Math.floor(period * 0.25));
                             pulseSamples = Math.min(maxPulseWidth, dynamicPulse);
+                            ledSamples = ledHoldSamples;
                         }
+                    } else {
+                        pulseSamples = 0;
                     }
 
                     // Output pulse
                     clockOut[i] = pulseSamples > 0 ? 10 : 0;
                     if (pulseSamples > 0) pulseSamples--;
+                    if (ledSamples > 0) ledSamples--;
                 }
 
-                // LED follows clock output
-                this.leds.clock = pulseSamples > 0 ? 1 : 0;
+                this.leds.clock = ledSamples > 0 ? 1 : 0;
             },
 
             reset() {
                 phase = 0;
                 pulseSamples = 0;
+                ledSamples = 0;
+                rateCV.fill(0);
+                pauseInput.fill(0);
+                clockOut.fill(0);
+                this.leds.clock = 0;
             }
         };
     },
@@ -121,11 +137,11 @@ export default {
             { id: 'pause', label: 'Pause', param: 'pause', default: 0 }
         ],
         outputs: [
-            { id: 'clock', label: 'Out', port: 'clock', signal: 'trigger' }
+            { id: 'clock', label: 'Out', port: 'clock', signal: 'trigger', voltage: { min: 0, max: 10 } }
         ],
         inputs: [
-            { id: 'rateCV', label: 'Rate', port: 'rateCV', signal: 'cv' },
-            { id: 'pauseIn', label: 'Pause', port: 'pause', signal: 'trigger' }
+            { id: 'rateCV', label: 'Rate', port: 'rateCV', signal: 'cv', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'pauseIn', label: 'Pause', port: 'pause', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } }
         ]
     }
 };

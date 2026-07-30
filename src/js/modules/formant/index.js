@@ -53,16 +53,24 @@ export default {
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         const out = new Float32Array(bufferSize);
         const ownAudio = new Float32Array(bufferSize);
+        const ownVowelCV = new Float32Array(bufferSize);
+        const ownShiftCV = new Float32Array(bufferSize);
+        const ownResCV = new Float32Array(bufferSize);
         const z1 = new Float32Array(4);
         const z2 = new Float32Array(4);
         const vowelSlew = createSlew({ sampleRate, timeMs: CONTROL_SLEW_MS });
         const shiftSlew = createSlew({ sampleRate, timeMs: CONTROL_SLEW_MS });
         const resonanceSlew = createSlew({ sampleRate, timeMs: CONTROL_SLEW_MS });
+        const driveSlew = createSlew({ sampleRate, timeMs: CONTROL_SLEW_MS });
+        const mixSlew = createSlew({ sampleRate, timeMs: CONTROL_SLEW_MS });
         const ledDecay = Math.exp(-bufferSize / (sampleRate * 0.1));
+        let driveAndMixInitialized = false;
 
         vowelSlew.reset(DEFAULT_PARAMS.vowel);
         shiftSlew.reset(0);
         resonanceSlew.reset(DEFAULT_PARAMS.resonance);
+        driveSlew.reset(DEFAULT_PARAMS.drive);
+        mixSlew.reset(DEFAULT_PARAMS.mix);
 
         function processBand(input, band, frequency, q) {
             const omega = 2 * Math.PI * frequency / sampleRate;
@@ -92,9 +100,9 @@ export default {
             params: { ...DEFAULT_PARAMS },
             inputs: {
                 audio: ownAudio,
-                vowelCV: new Float32Array(bufferSize),
-                shiftCV: new Float32Array(bufferSize),
-                resCV: new Float32Array(bufferSize)
+                vowelCV: ownVowelCV,
+                shiftCV: ownShiftCV,
+                resCV: ownResCV
             },
             outputs: { out },
             leds: { level: 0 },
@@ -108,14 +116,24 @@ export default {
                 const resonanceKnob = clamp(finite(this.params.resonance, DEFAULT_PARAMS.resonance));
                 const shiftKnob = clamp(finite(this.params.shift, DEFAULT_PARAMS.shift));
                 const driveKnob = clamp(finite(this.params.drive, DEFAULT_PARAMS.drive));
-                const mix = clamp(finite(this.params.mix, DEFAULT_PARAMS.mix));
-                const driveGain = 0.75 + driveKnob * 2.25;
+                const mixKnob = clamp(finite(this.params.mix, DEFAULT_PARAMS.mix));
                 const maxFormantHz = Math.max(MIN_FORMANT_HZ, Math.min(MAX_FORMANT_HZ, sampleRate * 0.45));
                 let peak = 0;
+
+                // Respect params restored before the first render without an
+                // artificial startup ramp, then slew subsequent live changes.
+                if (!driveAndMixInitialized) {
+                    driveSlew.reset(driveKnob);
+                    mixSlew.reset(mixKnob);
+                    driveAndMixInitialized = true;
+                }
 
                 for (let i = 0; i < bufferSize; i++) {
                     const dryVolts = finite(audio[i]);
                     const dry = dryVolts / 5;
+                    const smoothedDrive = clamp(driveSlew.process(driveKnob));
+                    const mix = clamp(mixSlew.process(mixKnob));
+                    const driveGain = 0.75 + smoothedDrive * 2.25;
                     const driven = Math.tanh(dry * driveGain);
                     const targetVowel = clamp(vowelKnob + finite(vowelCV[i]) / 5);
                     const targetShift = clamp((shiftKnob * 24 - 12) + finite(shiftCV[i]) / 5 * 12, -24, 24);
@@ -153,10 +171,16 @@ export default {
                 z2.fill(0);
                 out.fill(0);
                 ownAudio.fill(0);
+                ownVowelCV.fill(0);
+                ownShiftCV.fill(0);
+                ownResCV.fill(0);
                 this.leds.level = 0;
                 vowelSlew.reset(clamp(finite(this.params.vowel, DEFAULT_PARAMS.vowel)));
                 shiftSlew.reset(clamp(finite(this.params.shift, DEFAULT_PARAMS.shift)) * 24 - 12);
                 resonanceSlew.reset(clamp(finite(this.params.resonance, DEFAULT_PARAMS.resonance)));
+                driveSlew.reset(clamp(finite(this.params.drive, DEFAULT_PARAMS.drive)));
+                mixSlew.reset(clamp(finite(this.params.mix, DEFAULT_PARAMS.mix)));
+                driveAndMixInitialized = true;
             }
         };
     },
@@ -172,9 +196,9 @@ export default {
         ],
         inputs: [
             { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
-            { id: 'vowelCV', label: 'Vowel', port: 'vowelCV', signal: 'cv' },
-            { id: 'shiftCV', label: 'Shift', port: 'shiftCV', signal: 'cv' },
-            { id: 'resCV', label: 'Res', port: 'resCV', signal: 'cv' }
+            { id: 'vowelCV', label: 'Vowel', port: 'vowelCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'shiftCV', label: 'Shift', port: 'shiftCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'resCV', label: 'Res', port: 'resCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } }
         ],
         outputs: [
             { id: 'out', label: 'Out', port: 'out', signal: 'audio' }

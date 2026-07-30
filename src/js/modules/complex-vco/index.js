@@ -17,8 +17,24 @@ function frequencyToCoarse(frequency) {
     return clamp(Math.log(frequency / AUDIO_MIN_HZ) / Math.log(AUDIO_MAX_HZ / AUDIO_MIN_HZ));
 }
 
-function triangle(phase) {
-    return 4 * Math.abs(phase - 0.5) - 1;
+function partialGain(frequency, sampleRate) {
+    const fadeStart = sampleRate * 0.4;
+    const fadeEnd = sampleRate * 0.45;
+    if (frequency <= fadeStart) return 1;
+    if (frequency >= fadeEnd) return 0;
+    const position = (frequency - fadeStart) / (fadeEnd - fadeStart);
+    const smooth = position * position * (3 - 2 * position);
+    return 1 - smooth;
+}
+
+function bandlimitedTriangle(phase, frequency, sampleRate) {
+    let sum = 0;
+    for (let harmonic = 1; harmonic <= MAX_HARMONIC; harmonic += 2) {
+        const gain = partialGain(frequency * harmonic, sampleRate);
+        if (gain <= 0) break;
+        sum += Math.cos(2 * Math.PI * phase * harmonic) * gain / (harmonic * harmonic);
+    }
+    return sum * 8 / (Math.PI * Math.PI);
 }
 
 export default {
@@ -128,9 +144,10 @@ export default {
                     let oddSum = 0;
                     let oddWeight = 0;
                     const absFrequency = Math.max(0.001, Math.abs(frequency));
-                    const maxHarmonic = Math.min(MAX_HARMONIC, Math.floor(sampleRate * 0.45 / absFrequency));
-                    for (let harmonic = 2; harmonic <= maxHarmonic; harmonic++) {
-                        const weight = 1 / harmonic;
+                    for (let harmonic = 2; harmonic <= MAX_HARMONIC; harmonic++) {
+                        const antialiasGain = partialGain(absFrequency * harmonic, sampleRate);
+                        if (antialiasGain <= 0) break;
+                        const weight = antialiasGain / harmonic;
                         const sample = Math.sin(2 * Math.PI * modPhase * harmonic) * weight;
                         if (harmonic % 2 === 0) {
                             evenSum += sample;
@@ -150,7 +167,10 @@ export default {
                     const evenValue = evenSum * evenGain * 5;
                     const oddValue = oddSum * oddGain * 5;
 
-                    core[i] = softLimitVoltage(triangle(corePhase) * 5, 5);
+                    core[i] = softLimitVoltage(
+                        bandlimitedTriangle(corePhase, absFrequency * 0.5, sampleRate) * 5,
+                        5
+                    );
                     fund[i] = softLimitVoltage(fundValue, 5);
                     even[i] = softLimitVoltage(evenValue, 5);
                     odd[i] = softLimitVoltage(oddValue, 5);
@@ -164,10 +184,6 @@ export default {
                 this.leds.positive = Math.max(0, last);
                 this.leds.negative = Math.max(0, -last);
 
-                if (tzInput !== tzFm) { tzFm.fill(5); this.inputs.tzFm = tzFm; }
-                if (fundInput !== fundAm) { fundAm.fill(5); this.inputs.fundAm = fundAm; }
-                if (evenInput !== evenAm) { evenAm.fill(5); this.inputs.evenAm = evenAm; }
-                if (oddInput !== oddAm) { oddAm.fill(5); this.inputs.oddAm = oddAm; }
             },
 
             getPhase() {
@@ -182,6 +198,15 @@ export default {
                 lastFlip = 0;
                 hpInput = 0;
                 hpOutput = 0;
+                vOct.fill(0);
+                expFm.fill(0);
+                tzFm.fill(5);
+                phaseInput.fill(0);
+                reset.fill(0);
+                flip.fill(0);
+                fundAm.fill(5);
+                evenAm.fill(5);
+                oddAm.fill(5);
                 Object.values(this.outputs).forEach(output => output.fill(0));
                 this.leds.positive = 0;
                 this.leds.negative = 0;
@@ -207,12 +232,12 @@ export default {
             { id: 'tzFmBias', label: 'Bias', param: 'tzFmBias', default: 0 }
         ],
         inputs: [
-            { id: 'vOct', label: 'V/Oct', port: 'vOct', signal: 'cv' },
-            { id: 'expFm', label: 'Exp', port: 'expFm', signal: 'cv' },
+            { id: 'vOct', label: 'V/Oct', port: 'vOct', signal: 'cv', voltage: { min: -10, max: 10, normal: 0 } },
+            { id: 'expFm', label: 'Exp', port: 'expFm', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
             { id: 'tzFm', label: 'TZ FM', port: 'tzFm', signal: 'cv', voltage: { min: -5, max: 5, normal: 5 } },
-            { id: 'phase', label: 'Phase', port: 'phase', signal: 'cv' },
-            { id: 'reset', label: 'Reset', port: 'reset', signal: 'trigger' },
-            { id: 'flip', label: 'Flip', port: 'flip', signal: 'trigger' },
+            { id: 'phase', label: 'Phase', port: 'phase', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'reset', label: 'Reset', port: 'reset', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'flip', label: 'Flip', port: 'flip', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
             { id: 'fundAm', label: 'Fund AM', port: 'fundAm', signal: 'cv', voltage: { min: -5, max: 5, normal: 5 } },
             { id: 'evenAm', label: 'Even AM', port: 'evenAm', signal: 'cv', voltage: { min: -5, max: 5, normal: 5 } },
             { id: 'oddAm', label: 'Odd AM', port: 'oddAm', signal: 'cv', voltage: { min: -5, max: 5, normal: 5 } }

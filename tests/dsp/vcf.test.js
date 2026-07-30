@@ -198,6 +198,38 @@ describe('createVCF', () => {
             // Should have some resonance effect
             expect(vcf.outputs.lpf.some(v => v !== 0)).toBe(true);
         });
+
+        it('declares the researched unipolar CV ranges', () => {
+            expect(vcfModule.ui.inputs.find(input => input.port === 'cutoffCV').voltage).toEqual({
+                min: 0,
+                max: 5,
+                normal: 0
+            });
+            expect(vcfModule.ui.inputs.find(input => input.port === 'resCV').voltage).toEqual({
+                min: 0,
+                max: 10,
+                normal: 0
+            });
+        });
+    });
+
+    describe('self oscillation', () => {
+        it('seeds deterministic self-oscillation at maximum resonance without audio input', () => {
+            const oscillator = createVCF({ sampleRate: 8000, bufferSize: 128 });
+            oscillator.params.cutoff = 0.5;
+            oscillator.params.resonance = 1;
+
+            for (let block = 0; block < 200; block++) oscillator.process();
+
+            expect(Math.max(...oscillator.outputs.lpf.map(Math.abs))).toBeGreaterThan(0.05);
+            expect(oscillator.outputs.lpf.every(Number.isFinite)).toBe(true);
+        });
+
+        it('remains silent at low resonance without an input', () => {
+            vcf.params.resonance = 0.5;
+            for (let block = 0; block < 20; block++) vcf.process();
+            expect(vcf.outputs.lpf.every(value => value === 0)).toBe(true);
+        });
     });
 
     describe('LED', () => {
@@ -232,6 +264,35 @@ describe('createVCF', () => {
             }
 
             expect(vcf.outputs.lpf.every(v => isFinite(v))).toBe(true);
+        });
+
+        it('reset clears stable inputs and cutoff smoothing state', () => {
+            const resetFilter = createVCF({ sampleRate: 8000, bufferSize: 64 });
+            resetFilter.params.cutoff = 1;
+            resetFilter.inputs.audio.fill(3);
+            resetFilter.inputs.cutoffCV.fill(5);
+            resetFilter.inputs.resCV.fill(10);
+            for (let block = 0; block < 10; block++) resetFilter.process();
+            const inputs = { ...resetFilter.inputs };
+
+            resetFilter.reset();
+
+            Object.entries(inputs).forEach(([port, input]) => {
+                expect(resetFilter.inputs[port]).toBe(input);
+                expect(input.every(value => value === 0)).toBe(true);
+            });
+
+            resetFilter.params.cutoff = 0;
+            resetFilter.params.resonance = 0;
+            resetFilter.inputs.audio.fill(2);
+            const fresh = createVCF({ sampleRate: 8000, bufferSize: 64 });
+            fresh.params.cutoff = 0;
+            fresh.params.resonance = 0;
+            fresh.inputs.audio.fill(2);
+            resetFilter.process();
+            fresh.process();
+
+            expect([...resetFilter.outputs.lpf]).toEqual([...fresh.outputs.lpf]);
         });
     });
 });

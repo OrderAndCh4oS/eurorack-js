@@ -29,4 +29,35 @@ describe('MIDI-4', () => {
         expect(dsp.outputs.pitch1[0]).toBe(1);
         expect(moduleDefinition.ui.knobs.find(control => control.param === 'bendRange')).toBeDefined();
     });
+
+    it('reassign mode steals the oldest voice', () => {
+        const notes = [60, 62, 64, 65, 72];
+        const midi = {
+            getNoteEvents: () => notes.map((note, sampleOffset) => ({
+                type: 'noteOn', channel: 0, note, velocity: 100, sampleOffset
+            })),
+            getPitchBend: () => 0
+        };
+        const dsp = moduleDefinition.createDSP({ sampleRate: 1000, bufferSize: 16, services: { midiManager: midi } });
+        dsp.params.mode = 2;
+        dsp.process();
+
+        expect(dsp.outputs.pitch1[4]).toBe(1);
+        expect(dsp.outputs.pitch2[4]).toBeCloseTo(2 / 12);
+        expect(dsp.outputs.pitch4[4]).toBeCloseTo(5 / 12);
+    });
+
+    it('contains malformed controls and resets voice LEDs', () => {
+        const midi = {
+            getNoteEvents: () => [{ type: 'noteOn', channel: 0, note: 60, velocity: 100, sampleOffset: 0 }],
+            getPitchBend: () => Infinity
+        };
+        const dsp = moduleDefinition.createDSP({ sampleRate: 1000, bufferSize: 16, services: { midiManager: midi } });
+        dsp.params.transpose = NaN;
+        dsp.params.bendRange = Infinity;
+        dsp.process();
+        Object.values(dsp.outputs).forEach(output => expect(output.every(Number.isFinite)).toBe(true));
+        dsp.reset();
+        expect(Object.values(dsp.leds)).toEqual([0, 0, 0, 0]);
+    });
 });

@@ -73,6 +73,7 @@ describe('Mult Module', () => {
 
     describe('Channel 2 Signal Copying', () => {
         it('should copy IN 2 to all three channel 2 outputs', () => {
+            dsp.onInputConnectionChange('in2', true);
             for (let i = 0; i < bufferSize; i++) {
                 dsp.inputs.in2[i] = Math.cos(i * 0.1) * 5;
             }
@@ -88,6 +89,7 @@ describe('Mult Module', () => {
 
     describe('Independent Channels', () => {
         it('should keep channels independent when both patched', () => {
+            dsp.onInputConnectionChange('in2', true);
             dsp.inputs.in1.fill(5);
             dsp.inputs.in2.fill(-3);
             dsp.process();
@@ -101,6 +103,21 @@ describe('Mult Module', () => {
             expect(dsp.outputs.out2a[0]).toBe(-3);
             expect(dsp.outputs.out2b[0]).toBe(-3);
             expect(dsp.outputs.out2c[0]).toBe(-3);
+        });
+
+        it('normals IN 1 to channel 2 until IN 2 is patched', () => {
+            dsp.inputs.in1.fill(4);
+            dsp.process();
+            expect(dsp.outputs.out2a.every(value => value === 4)).toBe(true);
+
+            dsp.onInputConnectionChange('in2', true);
+            dsp.inputs.in2.fill(0);
+            dsp.process();
+            expect(dsp.outputs.out2a.every(value => value === 0)).toBe(true);
+
+            dsp.onInputConnectionChange('in2', false);
+            dsp.process();
+            expect(dsp.outputs.out2a.every(value => value === 4)).toBe(true);
         });
     });
 
@@ -183,6 +200,17 @@ describe('Mult Module', () => {
             expect(dsp.outputs.out2a.every(v => v === 0)).toBe(true);
             expect(dsp.outputs.out2b.every(v => v === 0)).toBe(true);
             expect(dsp.outputs.out2c.every(v => v === 0)).toBe(true);
+        });
+
+        it('clears stable input buffers without replacing them', () => {
+            const inputs = { ...dsp.inputs };
+            Object.values(dsp.inputs).forEach(input => input.fill(3));
+            dsp.reset();
+
+            Object.entries(inputs).forEach(([port, input]) => {
+                expect(dsp.inputs[port]).toBe(input);
+                expect(input.every(value => value === 0)).toBe(true);
+            });
         });
     });
 

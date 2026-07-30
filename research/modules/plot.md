@@ -21,3 +21,13 @@ Long-window time-domain capture and statistics utility with audio passthrough. I
 
 - [Web Audio API, time-domain analysis](https://www.w3.org/TR/webaudio-1.0/#dom-analysernode-getfloattimedomaindata) - W3C Recommendation, accessed 2026-07-11; browser analysis precedent.
 
+## Individual Contract Audit (2026-07-30, complete)
+
+- Valid audio remains sample-identical through the module; invalid audio and
+  trigger samples recover to 0 before capture, statistics, display, and output.
+- Time is bounded to the documented 1-10 second window and the capture
+  downsample divisor cannot become zero. Peak/RMS/DC state stays finite.
+- Focused tests cover exact statistics, trigger arming, freeze, history,
+  passthrough, time endpoints, LED bounds, finite recovery, and full reset.
+- The strict matrix completes five scenarios with zero voltage flags, stable
+  buffers, and maximum Node diagnostic time below 0.180ms/block.

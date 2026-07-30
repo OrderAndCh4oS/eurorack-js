@@ -225,3 +225,26 @@ CPU and memory:
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/pluck.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Trigger declares 0-10 V at the researched 1 V edge threshold, pitch declares
+  the implemented -8..+8 V 1 V/oct safety range, and Decay/Damp/Position CV
+  declare bipolar -5..+5 V; all normals are 0 V.
+- Excitation and loop-damping coefficients are now converted from their 44.1
+  kHz reference values to invariant physical time constants. The DC blocker,
+  energy follower, and quiet-voice timeout received the same treatment.
+- The normalized derivative-rate brightness comparison between 96 kHz and
+  44.1 kHz falls from 2.043x to 1.206x for the deterministic bright-string
+  render. The remaining difference comes from fractional-delay/excitation
+  discretization rather than a doubled damping cutoff.
+- Reset clears every stable input buffer in place along with all four delay
+  lines, allocation indices, trigger history, DC blocker, output, noise seed,
+  and LED.
+- Focused tests cover trigger threshold/edge behavior, four-voice stealing,
+  audible pitch periodicity through its delay contract, newest-note tracking,
+  sampled controls and all CVs, brightness, decay, range, reset, and finite
+  output.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes all nine scenarios
+  with finite output, zero voltage flags, stable buffers, and a maximum
+  observed 1.673 V peak.

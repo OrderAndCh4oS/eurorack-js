@@ -13,6 +13,8 @@
 
 import { clamp } from '../../utils/math.js';
 
+const finiteOr = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
+
 export default {
     id: 'kick',
     name: 'KICK',
@@ -60,10 +62,10 @@ export default {
             leds,
 
             process() {
-                const basePitch = clamp(this.params.pitch, 0, 1);
-                const decayParam = clamp(this.params.decay, 0, 1);
-                const toneParam = clamp(this.params.tone, 0, 1);
-                const clickParam = clamp(this.params.click, 0, 1);
+                const basePitch = clamp(finiteOr(this.params.pitch, 0.3), 0, 1);
+                const decayParam = clamp(finiteOr(this.params.decay, 0.5), 0, 1);
+                const toneParam = clamp(finiteOr(this.params.tone, 0.3), 0, 1);
+                const clickParam = clamp(finiteOr(this.params.click, 0.5), 0, 1);
 
                 // Click knob controls pitch sweep (0-4 octaves)
                 // Higher values = more "zappy" attack, lower = mellow thump
@@ -72,7 +74,7 @@ export default {
                 let peak = 0;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    const trig = this.inputs.trigger[i];
+                    const trig = finiteOr(this.inputs.trigger[i]);
 
                     // Rising edge detection (threshold ~1V)
                     if (trig >= 1 && lastTrig < 1) {
@@ -82,7 +84,7 @@ export default {
                         pitchEnv = 1;
 
                         // Calculate decay rates based on decay param + CV
-                        const decayCV = this.inputs.decayCV[i] / 5; // 0-5V -> 0-1
+                        const decayCV = finiteOr(this.inputs.decayCV[i]) / 5; // 0-5V -> 0-1
                         const totalDecay = clamp(decayParam + decayCV * 0.5, 0.05, 1);
 
                         // Amplitude decay: 20ms to 500ms
@@ -98,7 +100,7 @@ export default {
                     lastTrig = trig;
 
                     // Calculate frequency with pitch envelope
-                    const pitchCV = this.inputs.pitchCV[i];
+                    const pitchCV = clamp(finiteOr(this.inputs.pitchCV[i]), -5, 5);
                     const baseFreq = BASE_FREQ_MIN + basePitch * (BASE_FREQ_MAX - BASE_FREQ_MIN);
 
                     // Apply 1V/Oct from CV
@@ -106,17 +108,16 @@ export default {
 
                     // Apply pitch envelope (sweeps from higher to base)
                     const pitchSweepMult = 1 + pitchEnv * pitchSweepOctaves;
-                    const freq = freqWithCV * pitchSweepMult;
+                    const freq = Math.min(freqWithCV * pitchSweepMult, sampleRate * 0.45);
 
                     // Sine oscillator
                     const phaseInc = (freq / sampleRate) * Math.PI * 2;
-                    phase += phaseInc;
-                    if (phase > Math.PI * 2) phase -= Math.PI * 2;
+                    phase = (phase + phaseInc) % (Math.PI * 2);
 
                     let sample = Math.sin(phase);
 
                     // Apply tone (soft clipping / distortion)
-                    const toneCV = this.inputs.toneCV[i] / 5; // 0-5V -> 0-1
+                    const toneCV = finiteOr(this.inputs.toneCV[i]) / 5; // 0-5V -> 0-1
                     const totalTone = clamp(toneParam + toneCV * 0.5, 0, 1);
 
                     if (totalTone > 0) {

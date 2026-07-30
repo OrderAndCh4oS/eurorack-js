@@ -39,6 +39,33 @@ describe('createDiv', () => {
             const customDiv = createDiv({ sampleRate: 48000, bufferSize: 256 });
             expect(customDiv.outputs.out1.length).toBe(256);
         });
+
+        it('should declare the documented clock, CV, and output voltage contracts', () => {
+            expect(divModule.ui.inputs).toEqual(expect.arrayContaining([
+                expect.objectContaining({
+                    port: 'clock',
+                    voltage: { min: 0, max: 10, normal: 0 }
+                }),
+                expect.objectContaining({
+                    port: 'rate1CV',
+                    voltage: { min: 0, max: 5, normal: 0 }
+                }),
+                expect.objectContaining({
+                    port: 'rate2CV',
+                    voltage: { min: 0, max: 5, normal: 0 }
+                })
+            ]));
+            expect(divModule.ui.outputs).toEqual(expect.arrayContaining([
+                expect.objectContaining({
+                    port: 'out1',
+                    voltage: { min: 0, max: 10 }
+                }),
+                expect.objectContaining({
+                    port: 'out2',
+                    voltage: { min: 0, max: 10 }
+                })
+            ]));
+        });
     });
 
     describe('ratio names', () => {
@@ -180,12 +207,34 @@ describe('createDiv', () => {
             mult2.inputs.clock[100] = 5;
             mult2.process();
 
-            mult2.onInputDisconnected('clock');
+            // The graph restores the stable input buffer to its 0V normal. DIV
+            // must naturally stop extrapolating after one measured period.
+            mult2.inputs.clock.fill(0);
+            for (let block = 0; block < 5; block++) mult2.process();
 
             expect(mult2.outputs.out1.every(v => v === 0)).toBe(true);
             expect(mult2.outputs.out2.every(v => v === 0)).toBe(true);
             expect(mult2.leds.ch1).toBe(0);
             expect(mult2.leds.ch2).toBe(0);
+            expect(mult2.onInputDisconnected).toBeUndefined();
+        });
+
+        it('should place x4 pulses at even subdivisions of the measured period', () => {
+            const mult4 = createDiv({ sampleRate: 1000, bufferSize: 64 });
+            mult4.params.rate1 = 11 / 16; // x4
+            mult4.inputs.clock[0] = 5;
+            mult4.inputs.clock[40] = 5;
+
+            mult4.process();
+
+            const pulseStarts = [];
+            let wasHigh = false;
+            for (let i = 0; i < mult4.outputs.out1.length; i++) {
+                const high = mult4.outputs.out1[i] > 0;
+                if (high && !wasHigh) pulseStarts.push(i);
+                wasHigh = high;
+            }
+            expect(pulseStarts).toEqual([0, 40, 50, 60]);
         });
     });
 
@@ -310,6 +359,27 @@ describe('createDiv', () => {
             expect(div.leds.ch1).toBe(0);
             expect(div.leds.ch2).toBe(0);
         });
+
+        it('should clear state without replacing any input or output buffer', () => {
+            const inputRefs = { ...div.inputs };
+            const outputRefs = { ...div.outputs };
+            div.inputs.clock.fill(5);
+            div.inputs.rate1CV.fill(3);
+            div.inputs.rate2CV.fill(4);
+            div.process();
+
+            div.reset();
+
+            expect(div.inputs).toEqual(inputRefs);
+            expect(div.outputs).toEqual(outputRefs);
+            for (const buffer of Object.values(div.inputs)) {
+                expect(buffer.every(value => value === 0)).toBe(true);
+            }
+            for (const buffer of Object.values(div.outputs)) {
+                expect(buffer.every(value => value === 0)).toBe(true);
+            }
+            expect(div.leds).toEqual({ ch1: 0, ch2: 0 });
+        });
     });
 
     describe('getRatios', () => {
@@ -327,6 +397,23 @@ describe('createDiv', () => {
             div.process();
             expect(div.outputs.out1.every(v => !isNaN(v))).toBe(true);
             expect(div.outputs.out2.every(v => !isNaN(v))).toBe(true);
+        });
+
+        it('should recover from non-finite controls and samples within 0-10V rails', () => {
+            div.params.rate1 = Number.NaN;
+            div.params.rate2 = Number.POSITIVE_INFINITY;
+            div.inputs.clock.fill(Number.NaN);
+            div.inputs.clock[0] = 12;
+            div.inputs.rate1CV.fill(Number.NEGATIVE_INFINITY);
+            div.inputs.rate2CV.fill(Number.NaN);
+
+            div.process();
+
+            for (const output of Object.values(div.outputs)) {
+                expect(output.every(Number.isFinite)).toBe(true);
+                expect(Math.min(...output)).toBeGreaterThanOrEqual(0);
+                expect(Math.max(...output)).toBeLessThanOrEqual(10);
+            }
         });
     });
 

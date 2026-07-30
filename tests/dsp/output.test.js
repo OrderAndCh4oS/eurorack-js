@@ -124,6 +124,17 @@ describe('create2hpOut', () => {
             expect(output.leds.L).toBeCloseTo(0.6, 1); // |−3|/5
             expect(output.leds.R).toBeCloseTo(0.8, 1); // |−4|/5
         });
+
+        it('meters safely without a main-thread AudioContext', () => {
+            const workletStyle = create2hpOut(null, { bufferSize: 4 });
+            workletStyle.inputs.L.set([0, 2.5, NaN, 0]);
+            workletStyle.inputs.R.set([0, -5, Infinity, 0]);
+
+            workletStyle.process();
+
+            expect(workletStyle.leds.L).toBe(0.5);
+            expect(workletStyle.leds.R).toBe(1);
+        });
     });
 
     describe('volume control', () => {

@@ -73,7 +73,9 @@ export default {
             },
 
             process() {
-                const divIndex = Math.floor(this.params.division);
+                const divIndex = Number.isFinite(this.params.division)
+                    ? Math.max(0, Math.min(DIVISIONS.length - 1, Math.floor(this.params.division)))
+                    : 2;
                 const ticksPerPulse = DIVISIONS[divIndex]?.ticks || 24;
 
                 if (!midi) {
@@ -109,6 +111,8 @@ export default {
                             isRunning = true;
                         } else if (event.type === 'stop') {
                             isRunning = false;
+                            clockPulse = false;
+                            clockPulseSamples = 0;
                         }
                     }
                     // Clock pulse
@@ -148,6 +152,8 @@ export default {
                 clockOut.fill(0);
                 resetOut.fill(0);
                 runOut.fill(0);
+                this.leds.clock = 0;
+                this.leds.run = 0;
             }
         };
     },

@@ -115,3 +115,23 @@ For our implementation:
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/envf.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Fast mode retains the documented 1ms attack and 10ms release measured as
+  99% transitions. Objective fixtures produce 4.95V after a 1ms rise toward 5V
+  and 0.05V after a 10ms release, identically at 1kHz and 2kHz.
+- Threshold is inclusive at the exact rectified boundary, including negative
+  input polarity, and the LED reports any crossing within the processed block.
+- Threshold, Gain, Slope, and audio samples now use finite fallbacks. Invalid
+  input can no longer poison the envelope state; Env/Inv remain complementary
+  and bounded to 0-10V.
+- Audio explicitly declares the app-standard +/-5V range with a 0V normal.
+  Reset clears that stable input plus envelope state and outputs in place,
+  restoring Env=0V and Inv=10V.
+- Focused and module-contract validation passes 41 assertions across both timing
+  modes, exact threshold, Gain endpoints, polarity rectification, complement,
+  LED, finite recovery, rails, and stable reset.
+- The strict 44.1/48/96kHz by 128/512 matrix completes seven scenarios with
+  finite output, zero voltage flags, stable buffers, exact 10.000V peaks, and a
+  maximum Node diagnostic time below 0.070ms per block.

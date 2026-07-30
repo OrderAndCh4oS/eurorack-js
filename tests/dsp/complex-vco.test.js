@@ -6,6 +6,8 @@ import {
     expectFiniteVoltage,
     maxAbs
 } from './panel-test-helpers.js';
+import { createRealFft } from '../../src/js/utils/fft.js';
+import { softLimitVoltage } from '../../src/js/utils/voltage.js';
 
 function create(options = {}) {
     return complexVcoModule.createDSP({ sampleRate: 48000, bufferSize: 4096, ...options });
@@ -47,6 +49,23 @@ describe('complex-vco', () => {
             outputs: ['core', 'fund', 'even', 'odd', 'full'],
             leds: ['positive', 'negative']
         });
+    });
+
+    it('declares all modulation, trigger, and normal voltage contracts', () => {
+        const inputs = Object.fromEntries(
+            complexVcoModule.ui.inputs.map(input => [input.port, input])
+        );
+
+        expect(inputs.vOct.voltage).toEqual({ min: -10, max: 10, normal: 0 });
+        for (const port of ['expFm', 'phase']) {
+            expect(inputs[port].voltage).toEqual({ min: -5, max: 5, normal: 0 });
+        }
+        for (const port of ['reset', 'flip']) {
+            expect(inputs[port].voltage).toEqual({ min: 0, max: 10, normal: 0 });
+        }
+        for (const port of ['tzFm', 'fundAm', 'evenAm', 'oddAm']) {
+            expect(inputs[port].voltage).toEqual({ min: -5, max: 5, normal: 5 });
+        }
     });
 
     it('maps coarse and fine knobs across useful pitch ranges', () => {
@@ -172,6 +191,54 @@ describe('complex-vco', () => {
         expect(amplitudeAt(dsp.outputs.odd, 8192, 192)).toBeGreaterThan(amplitudeAt(dsp.outputs.odd, 8192, 64) * 4);
     });
 
+    it('fades additive partials before their Nyquist boundary', () => {
+        const sampleAtReset = frequency => {
+            const dsp = create({ sampleRate: 48000, bufferSize: 64 });
+            dsp.params.coarse = complexVcoModule.frequencyToCoarse(frequency);
+            dsp.params.phaseAmt = 1;
+            dsp.inputs.phase.fill(0.25);
+            dsp.inputs.reset[0] = 10;
+            dsp.process();
+            return dsp.outputs.odd[0];
+        };
+        const boundary = 48000 * 0.45 / 13;
+
+        expect(Math.abs(
+            sampleAtReset(boundary * 0.999)
+            - sampleAtReset(boundary * 1.001)
+        )).toBeLessThan(0.02);
+    });
+
+    it('bandlimits the triangle core derivative discontinuities', () => {
+        const sampleRate = 16384;
+        const fftSize = 4096;
+        const generatorFrequency = 3072;
+        const dsp = create({ sampleRate, bufferSize: fftSize });
+        const naive = new Float32Array(fftSize);
+        dsp.params.coarse = complexVcoModule.frequencyToCoarse(generatorFrequency);
+        dsp.process();
+
+        let phase = 0;
+        for (let i = 0; i < fftSize; i++) {
+            naive[i] = softLimitVoltage((4 * Math.abs(phase - 0.5) - 1) * 5, 5);
+            phase = (phase + generatorFrequency / sampleRate * 0.5) % 1;
+        }
+
+        const fft = createRealFft({ size: fftSize });
+        const spectrum = new Float32Array(fftSize / 2);
+        const naiveSpectrum = new Float32Array(fftSize / 2);
+        fft.analyzeCircular(dsp.outputs.core, 0, spectrum);
+        fft.analyzeCircular(naive, 0, naiveSpectrum);
+        const aliasBins = [512, 2560, 5632]
+            .map(aliasFrequency => aliasFrequency * fftSize / sampleRate);
+        const aliasPower = bins => aliasBins.reduce(
+            (sum, bin) => sum + Math.pow(10, bins[bin] / 10),
+            0
+        );
+
+        expect(aliasPower(spectrum)).toBeLessThan(aliasPower(naiveSpectrum) * 0.1);
+    });
+
     it.each([
         ['fundLevel', 'fund', 'fundAm'],
         ['evenLevel', 'even', 'evenAm'],
@@ -263,17 +330,18 @@ describe('complex-vco', () => {
         expect(flip.getPhase()).toBeGreaterThan(afterRetrigger);
     });
 
-    it('restores normalled TZ FM and AM inputs after routed buffers are released', () => {
+    it('preserves stable normalled input buffers and restores them on reset', () => {
         const dsp = create({ bufferSize: 8 });
-        dsp.inputs.tzFm = new Float32Array(8).fill(-5);
-        dsp.inputs.fundAm = new Float32Array(8).fill(0);
-        dsp.inputs.evenAm = new Float32Array(8).fill(0);
-        dsp.inputs.oddAm = new Float32Array(8).fill(0);
+        const inputs = { ...dsp.inputs };
+        Object.values(dsp.inputs).forEach(input => input.fill(-3));
         dsp.process();
-        expect(Array.from(dsp.inputs.tzFm)).toEqual(Array(8).fill(5));
-        expect(Array.from(dsp.inputs.fundAm)).toEqual(Array(8).fill(5));
-        expect(Array.from(dsp.inputs.evenAm)).toEqual(Array(8).fill(5));
-        expect(Array.from(dsp.inputs.oddAm)).toEqual(Array(8).fill(5));
+        dsp.reset();
+
+        Object.entries(inputs).forEach(([port, input]) => {
+            expect(dsp.inputs[port]).toBe(input);
+            const expected = ['tzFm', 'fundAm', 'evenAm', 'oddAm'].includes(port) ? 5 : 0;
+            expect(input.every(value => value === expected)).toBe(true);
+        });
     });
 
     it('drives every output and reports the final full-output polarity on both LEDs', () => {

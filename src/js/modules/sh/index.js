@@ -19,6 +19,10 @@ export default {
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const in1 = new Float32Array(bufferSize);
+        const in2 = new Float32Array(bufferSize);
+        const trig1 = new Float32Array(bufferSize);
+        const trig2 = new Float32Array(bufferSize);
         const out1 = new Float32Array(bufferSize);
         const out2 = new Float32Array(bufferSize);
 
@@ -27,8 +31,8 @@ export default {
         let held2 = 0;
 
         // Trigger edge detection
-        let lastTrig1 = 0;
-        let lastTrig2 = 0;
+        let lastTrig1High = false;
+        let lastTrig2High = false;
 
         // Slew for each channel
         const slew1 = createSlew({ sampleRate, timeMs: 0.5 });
@@ -41,10 +45,10 @@ export default {
             },
 
             inputs: {
-                in1: new Float32Array(bufferSize),
-                in2: new Float32Array(bufferSize),
-                trig1: new Float32Array(bufferSize),
-                trig2: new Float32Array(bufferSize)
+                in1,
+                in2,
+                trig1,
+                trig2
             },
 
             outputs: {
@@ -58,40 +62,44 @@ export default {
             },
 
             process() {
-                const in1Buf = this.inputs.in1;
-                const in2Buf = this.inputs.in2;
-                const trig1Buf = this.inputs.trig1;
-                const trig2Buf = this.inputs.trig2;
+                const safeSlew1 = Number.isFinite(this.params.slew1)
+                    ? clamp(this.params.slew1, 0, 1)
+                    : 0;
+                const safeSlew2 = Number.isFinite(this.params.slew2)
+                    ? clamp(this.params.slew2, 0, 1)
+                    : 0;
 
                 // Update slew times (0 to 50ms)
-                slew1.timeMs = clamp(this.params.slew1, 0, 1) * 50;
-                slew2.timeMs = clamp(this.params.slew2, 0, 1) * 50;
+                slew1.timeMs = safeSlew1 * 50;
+                slew2.timeMs = safeSlew2 * 50;
 
                 for (let i = 0; i < bufferSize; i++) {
                     // Channel 1: Check for trigger edge
-                    const trig1High = trig1Buf[i] >= 1;
-                    if (trig1High && lastTrig1 < 1) {
-                        held1 = in1Buf[i];
+                    const trig1High = Number.isFinite(trig1[i]) && trig1[i] >= 1;
+                    if (trig1High && !lastTrig1High) {
+                        held1 = Number.isFinite(in1[i]) ? clamp(in1[i], -12, 12) : 0;
                     }
-                    lastTrig1 = trig1Buf[i];
+                    lastTrig1High = trig1High;
 
                     // Channel 2: Check for trigger edge
-                    const trig2High = trig2Buf[i] >= 1;
-                    if (trig2High && lastTrig2 < 1) {
-                        held2 = in2Buf[i];
+                    const trig2High = Number.isFinite(trig2[i]) && trig2[i] >= 1;
+                    if (trig2High && !lastTrig2High) {
+                        held2 = Number.isFinite(in2[i]) ? clamp(in2[i], -12, 12) : 0;
                     }
-                    lastTrig2 = trig2Buf[i];
+                    lastTrig2High = trig2High;
 
                     // Apply slew
-                    if (this.params.slew1 > 0.01) {
+                    if (safeSlew1 > 0) {
                         out1[i] = slew1.process(held1);
                     } else {
+                        slew1.reset(held1);
                         out1[i] = held1;
                     }
 
-                    if (this.params.slew2 > 0.01) {
+                    if (safeSlew2 > 0) {
                         out2[i] = slew2.process(held2);
                     } else {
+                        slew2.reset(held2);
                         out2[i] = held2;
                     }
                 }
@@ -104,10 +112,16 @@ export default {
             reset() {
                 held1 = 0;
                 held2 = 0;
-                lastTrig1 = 0;
-                lastTrig2 = 0;
+                lastTrig1High = false;
+                lastTrig2High = false;
+                in1.fill(0);
+                in2.fill(0);
+                trig1.fill(0);
+                trig2.fill(0);
                 out1.fill(0);
                 out2.fill(0);
+                slew1.reset(0);
+                slew2.reset(0);
                 this.leds.ch1 = 0;
                 this.leds.ch2 = 0;
             }
@@ -121,14 +135,14 @@ export default {
             { id: 'slew2', label: 'Slew2', param: 'slew2', min: 0, max: 1, default: 0 }
         ],
         inputs: [
-            { id: 'in1', label: 'In1', port: 'in1', signal: 'any' },
-            { id: 'in2', label: 'In2', port: 'in2', signal: 'any' },
-            { id: 'trig1', label: 'Trg1', port: 'trig1', signal: 'trigger' },
-            { id: 'trig2', label: 'Trg2', port: 'trig2', signal: 'trigger' }
+            { id: 'in1', label: 'In1', port: 'in1', signal: 'any', voltage: { min: -12, max: 12, normal: 0 } },
+            { id: 'in2', label: 'In2', port: 'in2', signal: 'any', voltage: { min: -12, max: 12, normal: 0 } },
+            { id: 'trig1', label: 'Trg1', port: 'trig1', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'trig2', label: 'Trg2', port: 'trig2', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } }
         ],
         outputs: [
-            { id: 'out1', label: 'Out1', port: 'out1', signal: 'any' },
-            { id: 'out2', label: 'Out2', port: 'out2', signal: 'any' }
+            { id: 'out1', label: 'Out1', port: 'out1', signal: 'any', voltage: { min: -12, max: 12 } },
+            { id: 'out2', label: 'Out2', port: 'out2', signal: 'any', voltage: { min: -12, max: 12 } }
         ]
     }
 };

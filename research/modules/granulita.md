@@ -74,25 +74,28 @@ Stereo granular chord generator and resynthesizer with reverb/atmosphere. Takes 
 
 ## Chord Types (16 total)
 
-Based on typical granular chord generators:
+The official manual names the chord bank but does not publish numeric
+voicings. The interval/dyad entries below duplicate their interval across four
+grain voices; triads double the root. This is an explicit app approximation.
+
 | Index | Name | Intervals (semitones) |
 |-------|------|----------------------|
 | 0 | Unison | 0, 0, 0, 0 |
-| 1 | Octave | 0, 12, 0, 12 |
-| 2 | Fifth | 0, 7, 12, 19 |
-| 3 | Major | 0, 4, 7, 12 |
-| 4 | Minor | 0, 3, 7, 12 |
-| 5 | Maj7 | 0, 4, 7, 11 |
-| 6 | Min7 | 0, 3, 7, 10 |
-| 7 | Dom7 | 0, 4, 7, 10 |
-| 8 | Dim | 0, 3, 6, 9 |
-| 9 | Aug | 0, 4, 8, 12 |
-| 10 | Sus4 | 0, 5, 7, 12 |
-| 11 | Sus2 | 0, 2, 7, 12 |
-| 12 | Add9 | 0, 4, 7, 14 |
-| 13 | Min9 | 0, 3, 7, 14 |
-| 14 | Spread | 0, 7, 14, 21 |
-| 15 | Cluster | 0, 1, 2, 3 |
+| 1 | Minor third | 0, 3, 0, 3 |
+| 2 | Major third | 0, 4, 0, 4 |
+| 3 | Fourth | 0, 5, 0, 5 |
+| 4 | Tritone | 0, 6, 0, 6 |
+| 5 | Fifth | 0, 7, 0, 7 |
+| 6 | Minor triad | 0, 3, 7, 12 |
+| 7 | Major triad | 0, 4, 7, 12 |
+| 8 | Diminished seventh | 0, 3, 6, 9 |
+| 9 | Half-diminished seventh | 0, 3, 6, 10 |
+| 10 | Minor seventh | 0, 3, 7, 10 |
+| 11 | Minor-major seventh | 0, 3, 7, 11 |
+| 12 | Dominant seventh | 0, 4, 7, 10 |
+| 13 | Major seventh | 0, 4, 7, 11 |
+| 14 | Augmented major seventh | 0, 4, 8, 11 |
+| 15 | Augmented triad with doubled root | 0, 4, 8, 12 |
 
 ## Granular Synthesis Theory
 
@@ -260,3 +263,65 @@ const lengthMs = 16 * Math.pow(250, length);
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/granulita.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Audit (2026-07-30)
+
+### Confirmed and remediated
+
+- Stereo input normalization used instantaneous right-channel amplitude, which
+  replaced every near-zero right sample with an unrelated left sample. IN R now
+  follows worklet cable lifecycle state; an unpatched IN R still normalizes from
+  IN L.
+- The output limiter had the same discontinuous 5 V transfer found in `verb`.
+  Both channels now use the shared continuous `softLimitVoltage()` rail.
+- `grains.filter(...)` allocated one temporary array per audio sample: 512
+  allocations per 512-sample block, or approximately 48,000 arrays per second
+  at 48 kHz. Active grains are now counted in the existing fixed pool loop with
+  zero per-sample array allocations.
+- The chord bank was replaced with the 16 harmonies in the official manual.
+  Where the manual names an interval but does not publish a four-voice voicing,
+  the app duplicates the interval across its four grain voices.
+- Voice selection now recenters the complete chord around the selected note.
+  For example, selecting the second voice of a minor seventh yields
+  `[-3, 0, 4, 7]`, preserving the chord while that voice tracks the input.
+- All seven CV ports now declare the documented 0-5 V contract.
+
+### Hit-mode scheduling remediation
+
+- The previous FRZ, SYNC, and TRIG branches all spawned the same simultaneous
+  grain burst on a rising Hit edge, leaving normal FRZ/SYNC wet output silent.
+- FRZ and SYNC now run a continuous overlap scheduler. The target active-grain
+  count is implemented as `grain length / count` firing intervals, while Count
+  0 remains silent.
+- FRZ holds the stereo capture buffer under a high Hit gate but continues
+  scheduling grains from the held material. Releasing Hit resumes capture.
+- SYNC measures successive Hit rising edges and applies their period as a
+  bounded scalar around a 500 ms reference to both grain window length and
+  firing interval. It deliberately does not hard-align grain starts to clock
+  edges, matching the official note that SYNC follows tempo but is not locked
+  to the grid. Holding Hit for two seconds clears the learned period.
+- TRIG alone remains edge-fired and emits a bounded burst, preserving precise
+  trigger-driven playback.
+- Exact firmware scaling is unpublished. The 0.125x..8x period scalar is an
+  explicit utility approximation chosen to remain musical and bounded.
+
+### Validation
+
+- Focused tests distinguish all three modes, clock-scaling math, freeze/release
+  capture behavior, chord/Voice mapping, all CV contracts, mono normalization,
+  continuous rails, reset, finite buffers, and per-sample allocation safety.
+- The strict 44.1/48/96 kHz by 128/512-sample matrix completed all 19 scenarios
+  with finite output, stable buffer identities, no voltage flags, peaks at or
+  below 5 V, and a worst observed advisory runtime of 925.1 microseconds/block.
+- **Status**: complete for the documented inspired-by model. Exact proprietary
+  firmware voicings and clock-scalar curves remain declared approximations.
+
+### Primary sources added
+
+- [Granulita Versio manual](https://manuals.noiseengineering.us/gv/) - Noise
+  Engineering, updated 2026-07-13, accessed 2026-07-30. Supports voltage
+  contracts, Hit threshold, chord order, Voice semantics, grain ranges,
+  direction modes, and distinct FRZ/SYNC/TRIG behavior.
+- [Granulita Versio product page](https://noiseengineering.us/products/granulita-versio/)
+  - Noise Engineering, accessed 2026-07-30. Cross-checks the 16 harmonies,
+  stereo platform, complete CV control, and mode descriptions.

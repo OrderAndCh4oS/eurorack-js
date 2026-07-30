@@ -11,7 +11,8 @@
 - 2 independent channels (Shades has 3, we simplify to 2)
 - Attenuverter: gain from -1 (inverted) through 0 (muted) to +1 (unity)
 - Offset: add DC voltage to output
-- Unpatched inputs normalize to internal voltage reference
+- This app-specific utility adaptation normalizes unpatched inputs to 0V; its
+  separate offset controls provide the DC source
 - LED indicators show signal level and polarity
 
 ### Power (Shades Hardware)
@@ -26,8 +27,8 @@
 - **Offset 2**: DC offset channel 2 (-5V to +5V)
 
 ### Inputs
-- **In 1**: Signal input channel 1 (normalized to +5V when unpatched)
-- **In 2**: Signal input channel 2 (normalized to +5V when unpatched)
+- **In 1**: Signal input channel 1 (-10V to +10V, 0V normal)
+- **In 2**: Signal input channel 2 (-10V to +10V, 0V normal)
 
 ### Outputs
 - **Out 1**: Processed signal channel 1
@@ -52,12 +53,13 @@ output = clamp(input * gain + offset, -10, 10);
 ```
 
 ### Normalling Behavior
-When input is unpatched (all zeros), normalize to +5V reference:
-```javascript
-// Check if input appears unpatched (could use a flag or check for silence)
-// For simplicity, we'll always process whatever comes in
-// The user can leave input unpatched and use offset for DC voltage
-```
+
+Shades uses a voltage-reference normal so an attenuverter can create an offset
+without a separate offset control. ATTEN already has a dedicated bipolar offset
+knob on each channel. Its explicit utility contract is therefore a 0V normal:
+an unpatched channel emits only its selected offset. This avoids summing two DC
+sources and makes the default full-clockwise attenuverter produce 0V rather than
+an unexpected +5V.
 
 ### LED Behavior (from Shades)
 - Upper LED (turquoise): positive signal intensity
@@ -113,10 +115,13 @@ led = clamp((avgOutput + 5) / 10, 0, 1);
 - Explicit offset knob is more intuitive
 - No need for daisy-chain since we allow multiple cables from outputs
 
-### Why +5V Normalled Input?
-- Matches Shades default
-- Useful for generating DC voltages without external source
-- With offset, can generate 0-10V range
+### Why 0V-Normalled Inputs?
+- This is an inspired utility adaptation, not a panel-faithful Shades emulation.
+- The dedicated offset controls already generate -5V to +5V without a cable.
+- A 0V normal makes the transfer function unambiguous:
+  `out = input * gain + offset`.
+- Connection state is not inferred from sample amplitude, so patched silence
+  remains silence.
 
 ## DSP References
 - [Mutable Instruments Shades Manual](https://pichenettes.github.io/mutable-instruments-documentation/modules/shades_2020/manual/)
@@ -137,3 +142,21 @@ led = clamp((avgOutput + 5) / 10, 0, 1);
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/atten.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Resolved the research/implementation contradiction in favor of the existing
+  app-specific panel design: both inputs explicitly normal to 0V because each
+  channel already owns a separate bipolar offset source.
+- Inputs accept -10V to +10V and outputs declare the module's exact -10V to
+  +10V clamp. Full counter-clockwise, center, and clockwise gain endpoints
+  remain -1, 0, and +1.
+- Non-finite controls and samples now recover to neutral values instead of
+  propagating NaN through a rack. Reset clears both stable input and output
+  buffers in place and restores the zero-voltage LED indication (0.5).
+- Focused coverage exercises every knob endpoint, both channels, bipolar to
+  unipolar conversion, offsets, rails, LED mapping, stable reset, finite
+  recovery, and exact sample transfer.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes nine scenarios with
+  finite output, zero voltage flags, stable buffers, exact 10.000V rails, and a
+  maximum diagnostic time of 0.103ms per block.

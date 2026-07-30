@@ -99,6 +99,7 @@ export default {
         const inputBuffer = new Float32Array(FFT_SIZE);
         const magnitudes = new Float32Array(NUM_BINS);
         const peaks = new Float32Array(NUM_BINS);
+        peaks.fill(-100);
         const analyzer = createRealFft({ size: FFT_SIZE });
 
         let writeIndex = 0;
@@ -138,12 +139,11 @@ export default {
             process() {
                 const input = this.inputs.audio;
 
-                // Passthrough
-                out.set(input);
-
                 // Accumulate samples into FFT input buffer
                 for (let i = 0; i < input.length; i++) {
-                    inputBuffer[writeIndex] = input[i];
+                    const sample = Number.isFinite(input[i]) ? input[i] : 0;
+                    out[i] = sample;
+                    inputBuffer[writeIndex] = sample;
                     writeIndex = (writeIndex + 1) % FFT_SIZE;
                 }
 
@@ -152,25 +152,23 @@ export default {
                 performFFT();
 
                 // Update peaks with decay
-                // Higher decay param = faster fall (lower hold time)
-                const decayRate = 0.995 - this.params.decay * 0.15; // 0.995 to 0.845
+                // Higher Decay = faster fall. Expressing release in dB/second
+                // keeps the display response invariant across render quanta.
+                const decayParam = Number.isFinite(this.params.decay)
+                    ? Math.max(0, Math.min(1, this.params.decay))
+                    : 0.5;
+                const releaseDb = (2 + decayParam * 58) * input.length / sampleRate;
                 for (let i = 0; i < NUM_BINS; i++) {
-                    // Peaks track the maximum, decay over time
-                    if (magnitudes[i] > peaks[i]) {
-                        peaks[i] = magnitudes[i];
-                    } else {
-                        // Decay towards current magnitude
-                        peaks[i] = peaks[i] * decayRate + magnitudes[i] * (1 - decayRate);
-                    }
+                    peaks[i] = Math.max(magnitudes[i], peaks[i] - releaseDb);
                 }
 
                 // LED shows signal presence
                 let maxAbs = 0;
                 for (let i = 0; i < input.length; i++) {
-                    const abs = Math.abs(input[i]);
+                    const abs = Math.abs(out[i]);
                     if (abs > maxAbs) maxAbs = abs;
                 }
-                this.leds.signal = maxAbs / 10; // +-10V range
+                this.leds.signal = Math.min(1, maxAbs / 10); // +-10V range
 
                 // Reset input if replaced by routing
             },
@@ -178,8 +176,10 @@ export default {
             reset() {
                 inputBuffer.fill(0);
                 magnitudes.fill(0);
-                peaks.fill(0);
+                peaks.fill(-100);
                 writeIndex = 0;
+                ownAudio.fill(0);
+                out.fill(0);
                 this.leds.signal = 0;
             }
         };

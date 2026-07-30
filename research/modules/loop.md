@@ -363,3 +363,33 @@ Only after the 2hp-style looper is stable:
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/loop.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30)
+
+- **Artifacts confirmed**: a captured loop with mismatched endpoint voltages
+  could jump by the full signal span at every wrap, and Clear replaced the last
+  playback sample with 0 V at the next block boundary.
+- **Remediation**: practical-length loops receive 5 ms fade-in/fade-out windows
+  when first recording or overdubbing stops, making their circular boundary
+  meet at 0 V. Record-stop and Clear also use a short output transition from the
+  previous sample. Very short loops (under four fade windows) remain untouched
+  so oscillator-rate/test loops retain exact sample content.
+- **Reset semantics**: reset remains a transport reset and intentionally
+  preserves the captured runtime loop, Reverse, and Half Speed. It now clears
+  the stable audio/trigger input buffers and all de-click transition state.
+  Clear remains the explicit destructive loop-buffer operation.
+- **Coverage**: focused tests cover first-pass limits, normal/half/reverse
+  playback, all four record modes, dry/wet/level, strict >2.5 V trigger edges,
+  wrap and Clear continuity, runtime capture/restore, LEDs, rails, reset, and
+  stable buffers.
+- **Runtime/voltage result**: the strict 44.1/48/96 kHz by 128/512 matrix
+  completed all 15 scenarios with finite samples, stable buffers, no voltage
+  flags, and a 5 V peak.
+- **Status**: complete for the 60-second mono utility adaptation. The hardware's
+  five-minute storage remains an explicit browser-memory trade-off.
+
+### Primary source verification
+
+- [2hp Loop product page](https://www.twohp.com/modules/p/loop) - 2hp,
+  accessed 2026-07-30. Supports 24-bit/48 kHz high-fidelity looping, five-minute
+  hardware capacity, four recording modes, Reverse, and Half Speed.

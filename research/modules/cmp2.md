@@ -212,3 +212,25 @@ When Size is negative (or CV pushes it negative), the window is "inverted" - the
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/cmp2.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30)
+
+- **Defect found**: the right signal input inferred its connection state from
+  sample amplitude, while the right Shift and Size CVs used JavaScript
+  truthiness. A legitimately patched 0 V signal or a bipolar CV at its zero
+  crossing therefore activated the left-to-right normal instead of preserving
+  the cable.
+- **Remediation**: `in2`, `shiftCV2`, and `sizeCV2` now select their normals
+  exclusively from AudioWorklet connection lifecycle state. Sample values never
+  determine whether a cable exists, and disconnecting each port restores its
+  documented left-to-right normal.
+- **Focused coverage**: `tests/dsp/cmp2.test.js` now distinguishes patched 0 V
+  from unpatched state for the signal and both CV normals, exercises
+  disconnection, both comparators, all four logic outputs, the flip-flop,
+  positive/negative/zero windows, LEDs, reset, finite buffers, and gate rails.
+- **Runtime/voltage result**: the strict 44.1/48/96 kHz by 128/512-sample matrix
+  completed all nine scenarios with finite samples, stable buffer identities,
+  0 voltage flags, and a 10 V peak.
+- **Status**: complete for the app utility-adaptation contract. The intentional
+  0/10 V output adaptation remains different from the hardware's documented
+  +5 V logic level.

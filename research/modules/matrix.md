@@ -28,10 +28,12 @@
 - **Not included**: 4ms-style per-cell CV inputs, mute buttons, VCA response curve, external expansion headers, and soft-limit trim behavior.
 
 ### Voltage Contract
-- Inputs accept arbitrary app buffer voltages. Typical audio is +/-5V and typical CV is 0-5V or +/-5V.
+- Inputs explicitly accept -10V to +10V DC-coupled signals with 0V normals.
 - In unipolar output mode, each knob maps 0..1 to gain 0..1.
 - In bipolar output mode, each knob maps 0..1 to gain -1..+1, with 0.5 as zero gain.
-- Outputs are linear DC-coupled sums and are not hard-clipped. This matches the existing `mix` module behavior and keeps CV summing predictable. Downstream modules remain responsible for their own operating ranges.
+- Outputs remain linear through 9.6V, then use a continuous soft knee to
+  approach explicit -10V to +10V rails. This preserves normal CV sums while
+  bounding audio and feedback overload.
 - LEDs map peak absolute output voltage with `peak / 10`, clamped to 0..1, and decay between blocks.
 - No gate, trigger, pitch-tracking, clock, or reset voltage behavior is present.
 
@@ -44,7 +46,10 @@ For each sample, compute each output as a weighted sum of all four input buffers
 outA = in1 * gain(a1, modeA) + in2 * gain(a2, modeA) + in3 * gain(a3, modeA) + in4 * gain(a4, modeA)
 ```
 
-The same formula is used for outputs B-D. Gains are derived once per block from clamped params. This is a faithful utility adaptation of manual matrix mixers rather than a VCA matrix emulation.
+The same formula is used for outputs B-D. Target gains are derived once per
+block from clamped params, then each of the sixteen effective route gains slews
+per sample over 5ms. This is a faithful utility adaptation of manual matrix
+mixers rather than a VCA matrix emulation.
 
 ### Observed Behavior From Reviews/Demos
 - Matrix mixers are valued less as tone generators and more as routing/performance hubs: one signal can feed multiple destinations, multiple signals can be blended per destination, and outputs can be patched back into inputs for feedback patches.
@@ -54,11 +59,14 @@ The same formula is used for outputs B-D. Gains are derived once per block from 
 ### Contradictions and Source Quality
 - Doepfer uses one unipolar/bipolar switch per column; 4ms uses unipolar VCA levels plus CV/mute control. This implementation follows Doepfer for manual polarity because it adds more utility without adding sixteen CV inputs.
 - Doepfer documents optional DC offset generation for the top row via an internal jumper. AI008 and 4ms source material emphasize DC-coupled mixing but not the same normalization behavior. The app version omits offsets for clarity and because an existing `atten` module already provides offset generation.
-- 4ms documents a soft-limit effect. Linear summing is preferred here because this module is a routing utility, not a saturation effect, and the repo's `mix` module already passes summed voltage without clipping.
+- 4ms documents a soft-limit effect. This adaptation likewise keeps ordinary
+  sums linear but uses only the final 4% of the +/-10V range as a continuous
+  overload knee.
 
 ### Code Notes
 - Runtime update (July 2026): keep four stable input buffers. The compiled graph restores declared 0V normals when cables disconnect; the earlier `clearAudioInputs()` plan is superseded.
-- Reset clears all outputs and LEDs, but does not alter user params.
+- Reset clears stable inputs, outputs, route-smoothing state, and LEDs, but does
+  not alter user params.
 - Keep UI declarative even with 16 knobs; no custom renderer is required for the first pass.
 
 ## Test Targets
@@ -77,7 +85,7 @@ The same formula is used for outputs B-D. Gains are derived once per block from 
 - Module ID: `matrix`
 - Category: `utility`
 - Branch/worktree: current worktree `/Users/orderandchaos/code/eurorack-js`
-- DSP model: 4 x 4 DC-coupled weighted sum matrix, Doepfer-style per-output unipolar/bipolar modes, no clipping.
+- DSP model: 4 x 4 DC-coupled weighted sum matrix, Doepfer-style per-output unipolar/bipolar modes, 5ms route slew, continuous +/-10V output rails.
 - Params: 16 route amount knobs (`a1`..`d4`) and four mode switches (`modeA`..`modeD`).
 - Inputs: `in1`, `in2`, `in3`, `in4` with `signal: 'any'` and 0V normals.
 - Outputs: `outA`, `outB`, `outC`, `outD` as `buffer`.
@@ -85,11 +93,10 @@ The same formula is used for outputs B-D. Gains are derived once per block from 
 - Factory patch: `src/js/config/patches/test-matrix.js`, using LFO and VCO signals routed through `matrix` to demonstrate modulation and audio summing into `out`.
 - Focused tests: `npm test -- tests/dsp/matrix.test.js tests/rack/module-contracts.test.js tests/research/module-queue.test.js`
 - Full validation command: `npm test`
-- Known assumptions: no per-cell VCA CV, no mute buttons, no top-row offset normalization, and no soft limiter in this first utility implementation.
+- Known assumptions: no per-cell VCA CV, no mute buttons, and no top-row offset normalization.
 
 ## Potential Improvements
 - Add a custom grid UI with clearer row/column grouping if the generic declarative renderer is cramped.
-- Add optional output soft limiting as a switchable mode for feedback patches.
 - Add per-cell mute buttons or a second VCAM-inspired module if performance routing becomes a priority.
 - Add optional input normalization/DC offset generation once there is a UI pattern for internal jumpers or hidden settings.
 
@@ -112,3 +119,23 @@ The same formula is used for outputs B-D. Gains are derived once per block from 
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/matrix.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- All sixteen route controls now have direct focused coverage across every
+  input/output cell, in addition to independent unipolar and bipolar mode
+  coverage for all four columns.
+- Each effective route gain uses a 5ms sample-rate-invariant slew. This handles
+  both knob moves and polarity-mode changes without a block-boundary step,
+  while initial patch values render directly. A 0-to-1 route on a 5V signal
+  begins at about 0.023V rather than jumping 5V at 44.1 kHz.
+- Four inputs explicitly accept -10V to +10V with 0V normals. Four outputs
+  remain linear through 9.6V and continuously approach +/-10V.
+- Processing sanitizes non-finite routes, modes, and samples. Reset clears all
+  stable input/output buffers and sixteen smoothing states in place.
+- Focused tests cover all cells, modes, summing/cancellation, DC transfer,
+  control and polarity transitions, sample-rate invariance, rails, LEDs,
+  finite recovery, reset, and metadata.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes 41 scenarios with
+  finite output, zero voltage flags, stable buffers, exact 10.000V rails, and a
+  maximum diagnostic time below 0.337ms per block.

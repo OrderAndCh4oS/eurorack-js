@@ -303,6 +303,20 @@ describe('SCOPE - Dual Channel Oscilloscope', () => {
             expect(dsp.outputs.out1.some(v => Number.isNaN(v))).toBe(false);
             expect(dsp.outputs.out2.some(v => Number.isNaN(v))).toBe(false);
         });
+
+        it('contains non-finite input without poisoning passthrough, display, tune, or LEDs', () => {
+            dsp.inputs.in1.fill(NaN);
+            dsp.inputs.in2.fill(Infinity);
+            dsp.process();
+
+            expect(dsp.outputs.out1.every(Number.isFinite)).toBe(true);
+            expect(dsp.outputs.out2.every(Number.isFinite)).toBe(true);
+            expect(dsp.displayBuffer1.every(Number.isFinite)).toBe(true);
+            expect(dsp.displayBuffer2.every(Number.isFinite)).toBe(true);
+            expect(Number.isFinite(dsp.getDetectedFreq())).toBe(true);
+            expect(Number.isFinite(dsp.leds.ch1)).toBe(true);
+            expect(Number.isFinite(dsp.leds.ch2)).toBe(true);
+        });
     });
 
     describe('ui definition', () => {

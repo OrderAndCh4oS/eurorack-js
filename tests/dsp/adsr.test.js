@@ -39,6 +39,21 @@ describe('createADSR', () => {
             const customAdsr = createADSR({ sampleRate: 48000, bufferSize: 256 });
             expect(customAdsr.outputs.env.length).toBe(256);
         });
+
+        it('should declare gate/CV normals and every output voltage contract', () => {
+            expect(adsrModule.ui.inputs).toEqual(expect.arrayContaining([
+                expect.objectContaining({ port: 'gate', signal: 'gate', voltage: { min: 0, max: 10, normal: 0 } }),
+                expect.objectContaining({ port: 'retrig', voltage: { min: 0, max: 10, normal: 0 } }),
+                expect.objectContaining({ port: 'attackCV', voltage: { min: -5, max: 5, normal: 0 } }),
+                expect.objectContaining({ port: 'decayCV', voltage: { min: -5, max: 5, normal: 0 } }),
+                expect.objectContaining({ port: 'releaseCV', voltage: { min: -5, max: 5, normal: 0 } })
+            ]));
+            expect(adsrModule.ui.outputs).toEqual(expect.arrayContaining([
+                expect.objectContaining({ port: 'env', voltage: { min: 0, max: 5 } }),
+                expect.objectContaining({ port: 'inv', voltage: { min: -5, max: 0 } }),
+                expect.objectContaining({ port: 'eoc', voltage: { min: 0, max: 10 } })
+            ]));
+        });
     });
 
     describe('output range (unipolar 0-5V)', () => {
@@ -200,6 +215,24 @@ describe('createADSR', () => {
 
             expect(eocFired).toBe(true);
         });
+
+        it('should emit an exact 5ms 10V trigger at every sample rate', () => {
+            const highSamples = currentSampleRate => {
+                const exact = createADSR({ sampleRate: currentSampleRate, bufferSize: 128 });
+                exact.params.attack = 0;
+                exact.params.decay = 0;
+                exact.params.sustain = 1;
+                exact.params.release = 0;
+                exact.inputs.gate.fill(10);
+                exact.process();
+                exact.inputs.gate.fill(0);
+                exact.process();
+                return Array.from(exact.outputs.eoc).filter(value => value === 10).length;
+            };
+
+            expect(highSamples(1000)).toBe(5);
+            expect(highSamples(2000)).toBe(10);
+        });
     });
 
     describe('retrigger', () => {
@@ -229,6 +262,38 @@ describe('createADSR', () => {
             // After retrigger and attack, should have reached peak
             expect(adsr.outputs.env[511]).toBeGreaterThanOrEqual(sustainLevel);
         });
+
+        it('should apply a retrigger at its exact sample while Gate is held', () => {
+            const exact = createADSR({ sampleRate: 1000, bufferSize: 32 });
+            exact.params.attack = 0.5;
+            exact.params.decay = 0;
+            exact.params.sustain = 0.2;
+            exact.inputs.gate.fill(10);
+            for (let block = 0; block < 20; block++) exact.process();
+            exact.inputs.retrig.fill(0);
+            exact.inputs.retrig[8] = 10;
+
+            exact.process();
+
+            expect(exact.outputs.env[8]).toBeGreaterThan(exact.outputs.env[7]);
+        });
+
+        it('should let a coincident Gate fall enter Release instead of retriggering', () => {
+            const exact = createADSR({ sampleRate: 1000, bufferSize: 32 });
+            exact.params.attack = 0;
+            exact.params.decay = 0;
+            exact.params.sustain = 0.8;
+            exact.params.release = 0.5;
+            exact.inputs.gate.fill(10);
+            for (let block = 0; block < 10; block++) exact.process();
+            exact.inputs.gate.fill(10, 0, 8);
+            exact.inputs.gate.fill(0, 8);
+            exact.inputs.retrig[8] = 10;
+
+            exact.process();
+
+            expect(exact.outputs.env[8]).toBeLessThan(exact.outputs.env[7]);
+        });
     });
 
     describe('LED', () => {
@@ -252,6 +317,59 @@ describe('createADSR', () => {
             expect(adsr.outputs.inv.every(v => !isNaN(v))).toBe(true);
             expect(adsr.outputs.eoc.every(v => !isNaN(v))).toBe(true);
         });
+
+        it('should apply time CV at the exact sample where it changes', () => {
+            const baseline = createADSR({ sampleRate: 1000, bufferSize: 128 });
+            baseline.params.attack = 0.5;
+            baseline.inputs.gate.fill(10);
+            baseline.process();
+
+            const modulated = createADSR({ sampleRate: 1000, bufferSize: 128 });
+            modulated.params.attack = 0.5;
+            modulated.inputs.gate.fill(10);
+            modulated.inputs.attackCV.fill(-5, 64);
+            modulated.process();
+
+            expect(Array.from(modulated.outputs.env.slice(0, 64)))
+                .toEqual(Array.from(baseline.outputs.env.slice(0, 64)));
+            expect(Array.from(modulated.outputs.env.slice(64)))
+                .not.toEqual(Array.from(baseline.outputs.env.slice(64)));
+        });
+
+        it('should recover from non-finite controls and samples within declared rails', () => {
+            adsr.params.attack = Number.NaN;
+            adsr.params.decay = Number.POSITIVE_INFINITY;
+            adsr.params.sustain = Number.NaN;
+            adsr.params.release = Number.NEGATIVE_INFINITY;
+            for (const input of Object.values(adsr.inputs)) input.fill(Number.NaN);
+            adsr.inputs.gate[0] = 10;
+            adsr.process();
+
+            expect(adsr.outputs.env.every(Number.isFinite)).toBe(true);
+            expect(adsr.outputs.inv.every(Number.isFinite)).toBe(true);
+            expect(adsr.outputs.eoc.every(Number.isFinite)).toBe(true);
+            expect(Math.min(...adsr.outputs.env)).toBeGreaterThanOrEqual(0);
+            expect(Math.max(...adsr.outputs.env)).toBeLessThanOrEqual(5);
+            expect(Math.min(...adsr.outputs.inv)).toBeGreaterThanOrEqual(-5);
+            expect(Math.max(...adsr.outputs.inv)).toBeLessThanOrEqual(0);
+            expect(adsr.outputs.eoc.every(value => value === 0 || value === 10)).toBe(true);
+        });
+
+        it('should reset every stable input and output buffer in place', () => {
+            const inputRefs = { ...adsr.inputs };
+            const outputRefs = { ...adsr.outputs };
+            for (const input of Object.values(adsr.inputs)) input.fill(5);
+            adsr.process();
+
+            adsr.reset();
+
+            expect(adsr.inputs).toEqual(inputRefs);
+            expect(adsr.outputs).toEqual(outputRefs);
+            for (const buffer of [...Object.values(adsr.inputs), ...Object.values(adsr.outputs)]) {
+                expect(buffer.every(value => value === 0)).toBe(true);
+            }
+            expect(adsr.leds.env).toBe(0);
+        });
     });
 
     /**
@@ -270,6 +388,24 @@ describe('createADSR', () => {
     describe('CEM3310/AS3310 spec compliance', () => {
 
         describe('timing range (2ms to 20s, 50,000:1 ratio)', () => {
+            it('should reach the 5V attack threshold at the documented 2ms minimum', () => {
+                const crossing = currentSampleRate => {
+                    const exact = createADSR({
+                        sampleRate: currentSampleRate,
+                        bufferSize: Math.round(currentSampleRate * 0.004)
+                    });
+                    exact.params.attack = 0;
+                    exact.params.decay = 1;
+                    exact.params.sustain = 1;
+                    exact.inputs.gate.fill(10);
+                    exact.process();
+                    return Array.from(exact.outputs.env).findIndex(value => value >= 4.999);
+                };
+
+                expect(crossing(1000)).toBe(1);
+                expect(crossing(2000)).toBe(3);
+            });
+
             it('should have minimum attack time around 2ms (knob=0)', () => {
                 const sampleRate = 44100;
                 const testAdsr = createADSR({ sampleRate, bufferSize: 512 });

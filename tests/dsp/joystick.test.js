@@ -92,6 +92,22 @@ describe('JOY - Joystick Controller', () => {
                 expect(joystick.inputs[port]).toBeInstanceOf(Float32Array);
                 expect(joystick.inputs[port].length).toBe(BUFFER_SIZE);
             });
+            expect(joystickModule.ui.inputs.map(port => port.voltage)).toEqual([
+                { min: -5, max: 5, normal: 0 },
+                { min: -5, max: 5, normal: 0 },
+                { min: 0, max: 10, normal: 0 },
+                { min: 0, max: 10, normal: 0 }
+            ]);
+            expect(joystickModule.ui.outputs.map(port => port.voltage)).toEqual([
+                { min: -5, max: 10 },
+                { min: -5, max: 10 },
+                { min: 0, max: 10 },
+                { min: 0, max: 10 },
+                { min: 0, max: 10 },
+                { min: 0, max: 10 },
+                { min: 0, max: 10 },
+                { min: 0, max: 10 }
+            ]);
             ['x', 'y', 'a', 'b', 'c', 'd', 'gate', 'trig'].forEach(port => {
                 expect(joystick.outputs[port]).toBeInstanceOf(Float32Array);
                 expect(joystick.outputs[port].length).toBe(BUFFER_SIZE);
@@ -132,6 +148,20 @@ describe('JOY - Joystick Controller', () => {
             expect([...joystick.outputs.y]).toEqual(Array(BUFFER_SIZE).fill(5));
         });
 
+        it('slews a live bipolar/unipolar range transition', () => {
+            joystick.params.sense = 0;
+            joystick.process();
+            expect(last(joystick.outputs.x)).toBe(0);
+
+            joystick.params.range = 1;
+            joystick.process();
+
+            expect(joystick.outputs.x[0]).toBeGreaterThan(0);
+            expect(joystick.outputs.x[0]).toBeLessThan(5);
+            processBlocks(joystick, 2);
+            expect(last(joystick.outputs.x)).toBeCloseTo(5, 4);
+        });
+
         it('maps X/Y extremes to bipolar, unipolar, and A-D corner voltages', () => {
             joystick.params.x = 1;
             joystick.params.y = 1;
@@ -145,7 +175,7 @@ describe('JOY - Joystick Controller', () => {
             expect(last(joystick.outputs.d)).toBeCloseTo(0, 4);
 
             joystick.params.range = 1;
-            processBlocks(joystick, 1);
+            processBlocks(joystick, 2);
             expect(last(joystick.outputs.x)).toBeCloseTo(10, 4);
             expect(last(joystick.outputs.y)).toBeCloseTo(10, 4);
         });
@@ -169,6 +199,19 @@ describe('JOY - Joystick Controller', () => {
             ['a', 'b', 'c', 'd'].forEach(port => expectBufferInRange(joystick.outputs[port], 0, 10));
             Array.from(joystick.outputs.gate).forEach(value => expect([0, 10]).toContain(value));
             Array.from(joystick.outputs.trig).forEach(value => expect([0, 10]).toContain(value));
+        });
+
+        it('recovers safely from non-finite CV samples', () => {
+            joystick.params.cvMode = 1;
+            joystick.params.cv1Amt = 1;
+            joystick.params.cv2Amt = 1;
+            joystick.inputs.cv1.fill(Number.POSITIVE_INFINITY);
+            joystick.inputs.cv2.fill(Number.NaN);
+
+            joystick.process();
+
+            Object.values(joystick.outputs).forEach(expectFiniteBuffer);
+            Object.values(joystick.leds).forEach(value => expect(Number.isFinite(value)).toBe(true));
         });
     });
 
@@ -430,17 +473,38 @@ describe('JOY - Joystick Controller', () => {
             expect(recorded.params.play).toBe(0);
         });
 
+        it('gives reset priority when reset and trigger rise on the same sample', () => {
+            const recorded = createRecordedJoystick();
+            recorded.reset();
+            recorded.inputs.reset[0] = 10;
+            recorded.inputs.trigger[0] = 10;
+
+            recorded.process();
+
+            expect(recorded.getGestureInfo().playing).toBe(false);
+            expect(recorded.getGestureInfo().playHead).toBe(0);
+            expect(recorded.params.play).toBe(0);
+        });
+
         it('reset() clears transport, LEDs, and buffers without erasing the runtime gesture', () => {
             const recorded = createRecordedJoystick();
+            const inputs = { ...recorded.inputs };
+            const outputs = { ...recorded.outputs };
             recorded.params.play = 1;
+            Object.values(recorded.inputs).forEach(buffer => buffer.fill(5));
             recorded.process();
             recorded.reset();
 
             expect(recorded.getGestureInfo().hasRecording).toBe(true);
             expect(recorded.getGestureInfo().playing).toBe(false);
             expect(recorded.params.play).toBe(0);
-            ['x', 'y', 'a', 'b', 'c', 'd', 'gate', 'trig'].forEach(port => {
-                expect([...recorded.outputs[port]]).toEqual(Array(recorded.outputs[port].length).fill(0));
+            Object.entries(inputs).forEach(([port, buffer]) => {
+                expect(recorded.inputs[port]).toBe(buffer);
+                expect([...buffer]).toEqual(Array(buffer.length).fill(0));
+            });
+            Object.entries(outputs).forEach(([port, buffer]) => {
+                expect(recorded.outputs[port]).toBe(buffer);
+                expect([...buffer]).toEqual(Array(buffer.length).fill(0));
             });
             Object.values(recorded.leds).forEach(value => expect(value).toBe(0));
         });

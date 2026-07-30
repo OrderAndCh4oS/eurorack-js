@@ -315,3 +315,25 @@ Suggested banks:
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/wavetable.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- V/Oct, FM, Position, Bank, and Sync now explicitly declare the voltage ranges
+  processed by DSP and their 0 V normals. Reset clears all five stable inputs
+  in place along with phase, edge history, slew state, output, and LEDs.
+- Factory-bank changes now use a 4 ms allocation-free five-weight crossfade.
+  The measured 440 Hz bank-0-to-bank-4 boundary falls from 4.103 V to 0.182 V.
+  Step table scanning remains intentionally discrete as documented.
+- Octave-spaced bandlimited replicas now crossfade toward the next darker safe
+  replica during the octave before its harmonic ceiling. At the 16-harmonic
+  boundary, the same-phase discontinuity falls from 1.683 V to 0.0024 V without
+  introducing harmonics above the 0.45-sample-rate margin.
+- A coherent 3.072 kHz bright-table render at 16.384 kHz keeps the expected
+  1.024, 4.096, and 7.168 kHz reflected bins at or below the FFT fixture's
+  -100 dB floor.
+- Focused coverage exercises every knob, all CVs, both interpolation modes,
+  bank and position endpoints, frequency/FM, sync edge/hold/reset behavior,
+  LEDs, mute, ranges, and high-frequency replicas.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes all 17 scenarios with
+  finite output, zero voltage flags, stable buffers, and a maximum observed
+  4.935 V peak.

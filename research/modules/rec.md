@@ -20,3 +20,17 @@ Inline stereo recorder that passes audio unchanged, accumulates bounded blocks i
 
 - [Web Audio API](https://www.w3.org/TR/webaudio-1.0/) - W3C Recommendation, accessed 2026-07-11; browser audio processing and worklet context.
 - [WAVE PCM soundfile format](https://www.mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html) - McGill MMSP summary of Microsoft/IBM RIFF WAVE; encoding field reference.
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Valid stereo audio remains sample-identical. Invalid samples recover to 0V in
+  both passthrough and stored chunks, preventing a malformed graph value from
+  producing an invalid WAV payload.
+- Recording still uses one-second chunks, stops at the exact configured sample
+  bound, emits one transferable event, and preserves the padded final chunk
+  with its exact sample count. Invalid duration configuration recovers to five
+  minutes.
+- Reset discards chunks/events, clears stable buffers and the LED, and now also
+  restores the Record action to off.
+- The strict matrix completes two scenarios with zero voltage flags, stable
+  buffers, and maximum Node diagnostic time below 0.160ms/block.

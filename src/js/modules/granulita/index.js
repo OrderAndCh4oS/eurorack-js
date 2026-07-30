@@ -1,4 +1,5 @@
 import { createLinearCircularReader } from '../../utils/interpolation.js';
+import { softLimitVoltage } from '../../utils/voltage.js';
 
 /**
  * GRANULITA - Granular Chord Generator
@@ -16,30 +17,63 @@ import { createLinearCircularReader } from '../../utils/interpolation.js';
  */
 
 // 16 chord types (intervals in semitones from root)
-const CHORDS = [
+export const GRANULITA_CHORDS = [
     [0, 0, 0, 0],       // 0: Unison
-    [0, 12, 0, 12],     // 1: Octave
-    [0, 7, 12, 19],     // 2: Fifth
-    [0, 4, 7, 12],      // 3: Major
-    [0, 3, 7, 12],      // 4: Minor
-    [0, 4, 7, 11],      // 5: Maj7
-    [0, 3, 7, 10],      // 6: Min7
-    [0, 4, 7, 10],      // 7: Dom7
-    [0, 3, 6, 9],       // 8: Dim
-    [0, 4, 8, 12],      // 9: Aug
-    [0, 5, 7, 12],      // 10: Sus4
-    [0, 2, 7, 12],      // 11: Sus2
-    [0, 4, 7, 14],      // 12: Add9
-    [0, 3, 7, 14],      // 13: Min9
-    [0, 7, 14, 21],     // 14: Spread (stacked fifths)
-    [0, 1, 2, 3],       // 15: Cluster
+    [0, 3, 0, 3],       // 1: Minor third
+    [0, 4, 0, 4],       // 2: Major third
+    [0, 5, 0, 5],       // 3: Fourth
+    [0, 6, 0, 6],       // 4: Tritone
+    [0, 7, 0, 7],       // 5: Fifth
+    [0, 3, 7, 12],      // 6: Minor triad
+    [0, 4, 7, 12],      // 7: Major triad
+    [0, 3, 6, 9],       // 8: Diminished seventh
+    [0, 3, 6, 10],      // 9: Half-diminished seventh
+    [0, 3, 7, 10],      // 10: Minor seventh
+    [0, 3, 7, 11],      // 11: Minor-major seventh
+    [0, 4, 7, 10],      // 12: Dominant seventh
+    [0, 4, 7, 11],      // 13: Major seventh
+    [0, 4, 8, 11],      // 14: Augmented major seventh
+    [0, 4, 8, 12],      // 15: Augmented triad, doubled root
 ];
+
+export function getGranulitaVoiceSemitones(chordIndex, rootVoice, voiceIndex, pitchSemitones = 0) {
+    const chord = GRANULITA_CHORDS[Math.max(0, Math.min(15, Math.floor(chordIndex)))] ||
+        GRANULITA_CHORDS[0];
+    const rootIndex = Math.max(0, Math.min(3, Math.floor(rootVoice)));
+    const voice = Math.max(0, Math.min(3, Math.floor(voiceIndex)));
+    return pitchSemitones + chord[voice] - chord[rootIndex];
+}
 
 // Maximum number of grains
 const MAX_GRAINS = 32;
 
 // Grain buffer duration in seconds
 const BUFFER_DURATION = 4;
+const DEFAULT_SYNC_PERIOD_SECONDS = 0.5;
+const MIN_SYNC_SCALE = 0.125;
+const MAX_SYNC_SCALE = 8;
+
+export function getGranulitaGrainTiming(
+    grainLengthSamples,
+    grainCount,
+    syncPeriodSamples,
+    sampleRate
+) {
+    const baseLength = Math.max(1, Math.floor(grainLengthSamples));
+    const count = Math.max(0, Math.min(MAX_GRAINS, Math.floor(grainCount)));
+    const defaultPeriod = Math.max(1, sampleRate * DEFAULT_SYNC_PERIOD_SECONDS);
+    const hasClock = Number.isFinite(syncPeriodSamples) && syncPeriodSamples > 0;
+    const syncScale = hasClock
+        ? Math.max(MIN_SYNC_SCALE, Math.min(MAX_SYNC_SCALE, syncPeriodSamples / defaultPeriod))
+        : 1;
+    const lengthSamples = Math.max(1, Math.floor(baseLength * syncScale));
+
+    return {
+        lengthSamples,
+        intervalSamples: count > 0 ? Math.max(1, Math.floor(lengthSamples / count)) : 0,
+        syncScale
+    };
+}
 
 export default {
     id: 'granulita',
@@ -79,6 +113,11 @@ export default {
         // Grain scheduling
         let samplesSinceLastGrain = 0;
         let grainInterval = 0;
+        let syncPeriodSamples = 0;
+        let samplesSinceSyncEdge = 0;
+        let hasSyncEdge = false;
+        let hitHighSamples = 0;
+        let lastHitMode = 1;
 
         // Simple reverb (allpass chain + comb filters)
         const reverbDelays = [1557, 1617, 1491, 1422, 1277, 1356];
@@ -124,6 +163,7 @@ export default {
         const ownVerbCV = new Float32Array(bufferSize);
         const ownCountCV = new Float32Array(bufferSize);
         const ownLengthCV = new Float32Array(bufferSize);
+        let rightInputConnected = false;
 
         // Gate state for edge detection
         let lastGate = 0;
@@ -150,15 +190,39 @@ export default {
             grain.voice = voiceIdx;
 
             // Calculate pitch ratio based on chord interval and pitch offset
-            const interval = chordIntervals[voiceIdx];
-            // Root voice follows input pitch exactly
-            const totalSemitones = voiceIdx === rootVoice ? pitchSemitones : pitchSemitones + interval;
+            const totalSemitones = pitchSemitones +
+                chordIntervals[voiceIdx] - chordIntervals[rootVoice];
             grain.pitchRatio = Math.pow(2, totalSemitones / 12);
 
             // Set read position (slightly randomized around write head)
             const maxOffset = Math.min(audioBufferSize * 0.8, grainLengthSamples * 2);
             const offset = Math.random() * maxOffset;
             grain.position = (writeHead - offset + audioBufferSize) % audioBufferSize;
+        }
+
+        function chooseDirection(direction) {
+            if (direction === 0) return -1;
+            if (direction === 2) return 1;
+            return Math.random() > 0.5 ? 1 : -1;
+        }
+
+        function spawnTriggeredBurst(
+            grainCount,
+            grainLengthSamples,
+            pitchSemitones,
+            direction,
+            chordIntervals,
+            rootVoice
+        ) {
+            for (let g = 0; g < Math.min(grainCount, 8); g++) {
+                spawnGrain(
+                    grainLengthSamples,
+                    pitchSemitones,
+                    chooseDirection(direction),
+                    chordIntervals,
+                    rootVoice
+                );
+            }
         }
 
         function clearInputBuffers() {
@@ -219,7 +283,12 @@ export default {
             outR.fill(0);
             samplesSinceLastGrain = 0;
             grainInterval = 0;
+            syncPeriodSamples = 0;
+            samplesSinceSyncEdge = 0;
+            hasSyncEdge = false;
+            hitHighSamples = 0;
             lastGate = 0;
+            lastHitMode = 1;
         }
 
         return {
@@ -292,50 +361,105 @@ export default {
                     const grainLengthSamples = Math.floor(grainLengthMs * sampleRate / 1000);
 
                     // Get chord intervals
-                    const chordIntervals = CHORDS[chordIndex];
+                    const chordIntervals = GRANULITA_CHORDS[chordIndex];
 
                     // Handle gate input (threshold >2V)
                     const gateHigh = hit[i] > 2;
                     const gateRising = gateHigh && lastGate <= 2;
                     lastGate = hit[i];
 
-                    // Handle hit modes
+                    if (hitMode !== lastHitMode) {
+                        frozen = false;
+                        samplesSinceLastGrain = 0;
+                        lastHitMode = hitMode;
+                    }
+
+                    let scheduledLengthSamples = grainLengthSamples;
+
+                    // FRZ and SYNC are continuous granular modes. TRIG is the
+                    // only mode in which Hit directly fires a grain burst.
                     if (hitMode === 0) {
-                        // FRZ: Freeze on gate high, spawn grains on trigger
+                        // FRZ holds the captured buffer while the granular
+                        // scheduler keeps producing a texture from it.
                         frozen = gateHigh;
-                        if (gateRising && grainCount > 0) {
-                            // Spawn multiple grains based on count
-                            for (let g = 0; g < Math.min(grainCount, 8); g++) {
-                                const dir = direction === 0 ? -1 : direction === 2 ? 1 : (Math.random() > 0.5 ? 1 : -1);
-                                spawnGrain(grainLengthSamples, pitchSemitones, dir, chordIntervals, rootVoice);
-                            }
-                        }
                     } else if (hitMode === 1) {
-                        // SYNC: Spawn grains on trigger (synced to external clock)
-                        if (gateRising && grainCount > 0) {
-                            // Spawn multiple grains based on count
-                            for (let g = 0; g < Math.min(grainCount, 8); g++) {
-                                const dir = direction === 0 ? -1 : direction === 2 ? 1 : (Math.random() > 0.5 ? 1 : -1);
-                                spawnGrain(grainLengthSamples, pitchSemitones, dir, chordIntervals, rootVoice);
+                        frozen = false;
+                        samplesSinceSyncEdge = Math.min(
+                            samplesSinceSyncEdge + 1,
+                            sampleRate * 60
+                        );
+
+                        if (gateRising) {
+                            if (hasSyncEdge && samplesSinceSyncEdge > 1) {
+                                syncPeriodSamples = samplesSinceSyncEdge;
                             }
+                            hasSyncEdge = true;
+                            samplesSinceSyncEdge = 0;
                         }
-                    } else if (hitMode === 2) {
-                        // TRIG: Spawn grains only on trigger
-                        if (gateRising && grainCount > 0) {
-                            // Spawn multiple grains based on count
-                            for (let g = 0; g < Math.min(grainCount, 8); g++) {
-                                const dir = direction === 0 ? -1 : direction === 2 ? 1 : (Math.random() > 0.5 ? 1 : -1);
-                                spawnGrain(grainLengthSamples, pitchSemitones, dir, chordIntervals, rootVoice);
+
+                        if (gateHigh) {
+                            hitHighSamples++;
+                            if (hitHighSamples >= sampleRate * 2) {
+                                syncPeriodSamples = 0;
+                                hasSyncEdge = false;
+                                samplesSinceSyncEdge = 0;
                             }
+                        } else {
+                            hitHighSamples = 0;
+                        }
+
+                        const timing = getGranulitaGrainTiming(
+                            grainLengthSamples,
+                            grainCount,
+                            syncPeriodSamples,
+                            sampleRate
+                        );
+                        scheduledLengthSamples = timing.lengthSamples;
+                    } else if (hitMode === 2) {
+                        frozen = false;
+                        if (gateRising && grainCount > 0) {
+                            spawnTriggeredBurst(
+                                grainCount,
+                                grainLengthSamples,
+                                pitchSemitones,
+                                direction,
+                                chordIntervals,
+                                rootVoice
+                            );
                         }
                     }
 
-                    // Get input (mono normalization: if R is silent, use L)
-                    let inputL = inL[i];
-                    let inputR = inR[i];
-                    if (Math.abs(inputR) < 0.0001) {
-                        inputR = inputL;
+                    if (hitMode !== 2) {
+                        const timing = getGranulitaGrainTiming(
+                            scheduledLengthSamples,
+                            grainCount,
+                            null,
+                            sampleRate
+                        );
+                        grainInterval = timing.intervalSamples;
+
+                        if (grainInterval > 0) {
+                            samplesSinceLastGrain++;
+                            if (samplesSinceLastGrain >= grainInterval) {
+                                samplesSinceLastGrain -= grainInterval;
+                                spawnGrain(
+                                    scheduledLengthSamples,
+                                    pitchSemitones,
+                                    chooseDirection(direction),
+                                    chordIntervals,
+                                    rootVoice
+                                );
+                            }
+                        } else {
+                            samplesSinceLastGrain = 0;
+                        }
+                    } else {
+                        samplesSinceLastGrain = 0;
+                        grainInterval = 0;
                     }
+
+                    const inputL = inL[i];
+                    const inputR = rightInputConnected ? inR[i] : inputL;
 
                     // Write to audio buffer (unless frozen)
                     if (!frozen) {
@@ -347,6 +471,7 @@ export default {
                     // Process grains
                     let grainOutL = 0;
                     let grainOutR = 0;
+                    let activeGrains = 0;
 
                     for (const grain of grains) {
                         if (!grain.active) continue;
@@ -376,11 +501,12 @@ export default {
                         // Deactivate finished grains
                         if (grain.elapsed >= grain.length) {
                             grain.active = false;
+                        } else {
+                            activeGrains++;
                         }
                     }
 
                     // Normalize grain output
-                    const activeGrains = grains.filter(g => g.active).length;
                     if (activeGrains > 0) {
                         const normFactor = 1 / Math.sqrt(Math.max(1, activeGrains / 4));
                         grainOutL *= normFactor;
@@ -459,16 +585,14 @@ export default {
                     const wetR = grainOutR + reverbR * modVerb;
 
                     // Mix dry and wet
-                    outL[i] = inputL * (1 - modBlend) + wetL * modBlend;
-                    outR[i] = inputR * (1 - modBlend) + wetR * modBlend;
-
-                    // Soft clip
-                    if (Math.abs(outL[i]) > 5) {
-                        outL[i] = Math.tanh(outL[i] / 5) * 5;
-                    }
-                    if (Math.abs(outR[i]) > 5) {
-                        outR[i] = Math.tanh(outR[i] / 5) * 5;
-                    }
+                    outL[i] = softLimitVoltage(
+                        inputL * (1 - modBlend) + wetL * modBlend,
+                        5
+                    );
+                    outR[i] = softLimitVoltage(
+                        inputR * (1 - modBlend) + wetR * modBlend,
+                        5
+                    );
 
                     peakLevel = Math.max(peakLevel, Math.abs(outL[i]), Math.abs(outR[i]));
                 }
@@ -476,6 +600,14 @@ export default {
                 // Update LED
                 this.leds.active = Math.min(1, peakLevel / 5);
 
+            },
+
+            onInputConnected(port) {
+                if (port === 'inR') rightInputConnected = true;
+            },
+
+            onInputDisconnected(port) {
+                if (port === 'inR') rightInputConnected = false;
             },
 
             reset() {
@@ -506,13 +638,13 @@ export default {
             { id: 'inL', label: 'In L', port: 'inL', signal: 'audio' },
             { id: 'inR', label: 'In R', port: 'inR', signal: 'audio' },
             { id: 'hit', label: 'Hit', port: 'hit', signal: 'gate' },
-            { id: 'blendCV', label: 'Blend', port: 'blendCV', signal: 'cv' },
-            { id: 'pitchCV', label: 'Pitch', port: 'pitchCV', signal: 'cv' },
-            { id: 'chordCV', label: 'Chord', port: 'chordCV', signal: 'cv' },
-            { id: 'voiceCV', label: 'Voice', port: 'voiceCV', signal: 'cv' },
-            { id: 'verbCV', label: 'Verb', port: 'verbCV', signal: 'cv' },
-            { id: 'countCV', label: 'Count', port: 'countCV', signal: 'cv' },
-            { id: 'lengthCV', label: 'Length', port: 'lengthCV', signal: 'cv' }
+            { id: 'blendCV', label: 'Blend', port: 'blendCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } },
+            { id: 'pitchCV', label: 'Pitch', port: 'pitchCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } },
+            { id: 'chordCV', label: 'Chord', port: 'chordCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } },
+            { id: 'voiceCV', label: 'Voice', port: 'voiceCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } },
+            { id: 'verbCV', label: 'Verb', port: 'verbCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } },
+            { id: 'countCV', label: 'Count', port: 'countCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } },
+            { id: 'lengthCV', label: 'Length', port: 'lengthCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } }
         ],
         outputs: [
             { id: 'outL', label: 'Out L', port: 'outL', signal: 'audio' },

@@ -20,9 +20,9 @@
 
 ### Inputs
 - **Audio In**: Signal to delay (±5V)
-- **Time CV**: Delay time modulation (±5V = ±0.5 range)
-- **Feedback CV**: Feedback modulation (±5V = ±0.5 range)
-- **Mix CV**: Mix modulation (±5V = ±0.5 range)
+- **Time CV**: 0-5 V is added to the knob; 5 V spans one normalized range
+- **Feedback CV**: 0-5 V is added to the knob; 5 V spans one normalized range
+- **Mix CV**: 0-5 V is added to the knob; 5 V spans one normalized range
 
 ### Outputs
 - **Out**: Processed audio output (±5V)
@@ -166,3 +166,35 @@ const bufferSize = Math.ceil(sampleRate * MAX_DELAY_TIME) + bufferSize;
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/dly.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.
+
+## Individual Contract Audit (2026-07-30)
+
+- **Primary-source correction**: the official 2hp manual specifies 10 Vpp
+  audio and unipolar 0-5 V Time, Feedback, and Mix CV inputs whose voltages are
+  added to the knob. The previous implementation divided CV by 10, so a full
+  5 V signal covered only half the control range. All three now divide by 5 and
+  explicitly declare `{ min: 0, max: 5, normal: 0 }`.
+- **Sample-rate behavior**: the feedback low-pass previously used a fixed
+  per-sample coefficient, changing its audible cutoff with sample rate. It now
+  derives the coefficient from an 8 kHz target (bounded below Nyquist).
+- **State/reset**: all four owned input buffers remain identity-stable and are
+  cleared by reset alongside delay, damping, output, and LED state.
+- **Discontinuity/behavior coverage**: focused tests exercise exact impulse
+  timing, repeat decay, full-range CV modulation, dry/wet endpoints, continuous
+  soft rails, feedback extremes, reset, LED, finite samples, and buffer
+  identity. Linear fractional reading supports continuous LFO modulation;
+  deliberate stepped delay-time changes retain the familiar pitch/jump
+  behavior of a modulated delay rather than hiding it with latency.
+- **Runtime/voltage result**: the strict 44.1/48/96 kHz by 128/512-sample matrix
+  completed all seven scenarios with finite samples, stable buffers, no
+  voltage flags, and peaks below 5 V.
+- **Status**: complete for the documented 2hp-inspired contract.
+
+### Primary source verification
+
+- [2hp Delay product page](https://www.twohp.com/modules/p/delay) - 2hp,
+  accessed 2026-07-30. Supports the nearly one-second range, CV over all
+  parameters, and feedback-to-infinity behavior.
+- [2hp Delay manual](https://www.twohp.com/s/Delay_Manual-9wbg.pdf) - 2hp,
+  accessed 2026-07-30. Supports the 10 Vpp audio range and 0-5 V additive CV
+  contracts for Time, Feedback, and Mix.

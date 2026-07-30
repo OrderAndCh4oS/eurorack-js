@@ -131,7 +131,7 @@ export default {
         let captureIndex = 0;
         let sampleAccumulator = 0;
         let sampleCount = 0;
-        let downsampleRatio = Math.floor(sampleRate / CAPTURE_RATE);
+        const downsampleRatio = Math.max(1, Math.floor(sampleRate / CAPTURE_RATE));
 
         // Statistics
         let peakPos = 0;
@@ -176,7 +176,10 @@ export default {
 
             getTimeWindow() {
                 // Map 0-1 to 1-10 seconds
-                return 1 + this.params.time * 9;
+                const time = Number.isFinite(this.params.time)
+                    ? Math.max(0, Math.min(1, this.params.time))
+                    : 0.5;
+                return 1 + time * 9;
             },
 
             getStats() {
@@ -202,11 +205,13 @@ export default {
                 const frozen = this.params.freeze === 1;
 
                 // Passthrough
-                out.set(input);
+                for (let i = 0; i < input.length; i++) {
+                    out[i] = Number.isFinite(input[i]) ? input[i] : 0;
+                }
 
                 // Check for trigger
                 for (let i = 0; i < trig.length; i++) {
-                    const trigVal = trig[i];
+                    const trigVal = Number.isFinite(trig[i]) ? trig[i] : 0;
                     if (trigVal >= 1 && lastTrig < 1) {
                         // Rising edge - start capture
                         if (triggerArmed || !capturing) {
@@ -229,7 +234,7 @@ export default {
                 if (!frozen && capturing) {
                     // Capture audio with downsampling
                     for (let i = 0; i < input.length; i++) {
-                        const sample = input[i];
+                        const sample = out[i];
 
                         // Update statistics
                         if (sample > peakPos) peakPos = sample;
@@ -266,10 +271,10 @@ export default {
                 // LED shows signal presence
                 let maxAbs = 0;
                 for (let i = 0; i < input.length; i++) {
-                    const abs = Math.abs(input[i]);
+                    const abs = Math.abs(out[i]);
                     if (abs > maxAbs) maxAbs = abs;
                 }
-                this.leds.signal = maxAbs / 10;
+                this.leds.signal = Math.min(1, maxAbs / 10);
 
                 // Reset inputs if replaced by routing
             },
@@ -289,6 +294,9 @@ export default {
                 capturing = true;
                 captureComplete = false;
                 triggerArmed = false;
+                ownAudio.fill(0);
+                ownTrig.fill(0);
+                out.fill(0);
                 this.leds.signal = 0;
             }
         };

@@ -166,10 +166,11 @@ function applyCurve(t, curve) {
 
 ### Slew Limiter Mode
 
-When signal is patched to IN (without trigger), acts as slew limiter:
+When a signal cable is patched to IN, cable state selects slew mode even when
+the instantaneous voltage is 0V. In slew mode Trigger and Cycle are ignored:
 
 ```javascript
-const target = input;
+const target = clamp(input, 0, 10);
 const diff = target - output;
 
 if (diff > 0) {
@@ -238,3 +239,28 @@ if (diff > 0) {
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/func.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Slew mode now follows actual In cable state. Previously mode selection used
+  `abs(input) > 0.1V`, so a patched 0V signal silently switched into envelope/
+  cycle mode and negative or small CV could change the module's operating mode.
+- The utility adaptation defines In as 0-10V/0V normal and clamps its slew
+  target to the unipolar output domain. When In is connected it owns the
+  function and Trigger/Cycle are ignored; disconnect returns to generated mode.
+- The envelope is explicitly non-retriggerable during both Rise and Fall.
+  Previously a trigger during Fall reset phase to zero, causing a measured
+  upward/downward discontinuity instead of completing the active function.
+- EOR and EOC now emit exactly 5ms at every sample rate. Their event samples
+  were formerly added on top of a full counter, producing 5ms plus one sample.
+- Rise/Fall/Curve/Cycle and all CV/gate samples have bounded finite fallbacks.
+  All five inputs declare exact normals/ranges and all four outputs declare
+  0-10V.
+- Reset clears modes, phases, edge/pulse state, LEDs, and every stable buffer in
+  place while preserving the current cable-ownership mode.
+- Focused and module-contract validation passes 53 assertions across every
+  control/CV/mode, trigger/cycle transitions, exact EOR/EOC width, slew cable
+  state and targets, finite recovery, complement, rails, and reset.
+- The strict 44.1/48/96kHz by 128/512 matrix completes nine scenarios with
+  finite output, zero voltage flags, stable buffers, exact 10.000V peaks, and a
+  maximum Node diagnostic time below 0.219ms per block.

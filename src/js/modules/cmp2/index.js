@@ -37,6 +37,9 @@ export default {
         const ownSizeCV1 = new Float32Array(bufferSize);
         const ownShiftCV2 = new Float32Array(bufferSize);
         const ownSizeCV2 = new Float32Array(bufferSize);
+        let in2Connected = false;
+        let shiftCV2Connected = false;
+        let sizeCV2Connected = false;
 
         return {
             params: {
@@ -80,20 +83,10 @@ export default {
                 const { in1, in2, shiftCV1, sizeCV1, shiftCV2, sizeCV2 } = this.inputs;
                 const { out1, not1, out2, not2, and, or, xor, ff } = this.outputs;
 
-                // Check if in2 has any non-zero values (indicates it's being used)
-                let in2HasSignal = false;
-                for (let i = 0; i < bufferSize; i++) {
-                    if (in2[i] !== 0) {
-                        in2HasSignal = true;
-                        break;
-                    }
-                }
-
                 for (let i = 0; i < bufferSize; i++) {
                     // Get input values with normalization
                     const input1 = in1[i];
-                    // in2 normalized from in1 if in2 has no signal
-                    const input2 = in2HasSignal ? in2[i] : input1;
+                    const input2 = in2Connected ? in2[i] : input1;
 
                     // Calculate effective shift and size with CV
                     // Shift CV normalized from left to right
@@ -101,8 +94,12 @@ export default {
                     // Size can go negative via CV - negative window never triggers
                     const effSize1 = size1 + (sizeCV1[i] || 0);
 
-                    const effShift2 = shift2 + (shiftCV2[i] || shiftCV1[i] || 0);
-                    const effSize2 = size2 + (sizeCV2[i] || sizeCV1[i] || 0);
+                    const effShift2 = shift2 + (
+                        shiftCV2Connected ? shiftCV2[i] : shiftCV1[i]
+                    );
+                    const effSize2 = size2 + (
+                        sizeCV2Connected ? sizeCV2[i] : sizeCV1[i]
+                    );
 
                     // Comparator 1
                     const halfSize1 = effSize1 / 2;
@@ -141,8 +138,7 @@ export default {
 
                 // Update LEDs with final sample state
                 const finalIn1 = in1[bufferSize - 1];
-                // Use in2HasSignal (computed at start of process) for correct normalization
-                const finalIn2 = in2HasSignal ? in2[bufferSize - 1] : finalIn1;
+                const finalIn2 = in2Connected ? in2[bufferSize - 1] : finalIn1;
 
                 const effShift1Led = shift1 + (shiftCV1[bufferSize - 1] || 0);
                 const effSize1Led = size1 + (sizeCV1[bufferSize - 1] || 0);
@@ -169,8 +165,12 @@ export default {
                     this.leds.state1 = 0.5; // Inside (white)
                 }
 
-                const effShift2Led = shift2 + (shiftCV2[bufferSize - 1] || shiftCV1[bufferSize - 1] || 0);
-                const effSize2Led = size2 + (sizeCV2[bufferSize - 1] || sizeCV1[bufferSize - 1] || 0);
+                const effShift2Led = shift2 + (
+                    shiftCV2Connected ? shiftCV2[bufferSize - 1] : shiftCV1[bufferSize - 1]
+                );
+                const effSize2Led = size2 + (
+                    sizeCV2Connected ? sizeCV2[bufferSize - 1] : sizeCV1[bufferSize - 1]
+                );
                 const lower2Led = effShift2Led - effSize2Led / 2;
                 const upper2Led = effShift2Led + effSize2Led / 2;
 
@@ -197,6 +197,18 @@ export default {
                 this.leds.ff = ff[bufferSize - 1] > 0 ? 1 : 0;
 
                 // Reset own inputs if replaced by routing
+            },
+
+            onInputConnected(port) {
+                if (port === 'in2') in2Connected = true;
+                else if (port === 'shiftCV2') shiftCV2Connected = true;
+                else if (port === 'sizeCV2') sizeCV2Connected = true;
+            },
+
+            onInputDisconnected(port) {
+                if (port === 'in2') in2Connected = false;
+                else if (port === 'shiftCV2') shiftCV2Connected = false;
+                else if (port === 'sizeCV2') sizeCV2Connected = false;
             },
 
             reset() {

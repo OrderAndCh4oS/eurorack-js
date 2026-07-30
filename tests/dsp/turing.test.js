@@ -28,7 +28,16 @@ describe('Turing Module', () => {
         it('should have default parameters', () => {
             expect(dsp.params.lock).toBeDefined();
             expect(dsp.params.scale).toBeDefined();
-            expect(dsp.params.length).toBeDefined();
+            expect(dsp.params.length).toBe(5);
+            expect(dsp.params.length).toBe(turingModule.ui.knobs[2].default);
+            expect(turingModule.ui.inputs.map(port => port.voltage)).toEqual([
+                { min: 0, max: 10, normal: 0 },
+                { min: -5, max: 5, normal: 0 }
+            ]);
+            expect(turingModule.ui.outputs.map(port => port.voltage)).toEqual([
+                { min: 0, max: 5 },
+                { min: 0, max: 10 }
+            ]);
         });
 
         it('should have LED indicators for 8 bits', () => {
@@ -93,6 +102,20 @@ describe('Turing Module', () => {
             }
 
             expect(dsp.outputs.cv.every(v => v === 0)).toBe(true);
+        });
+
+        it('applies Scale immediately without waiting for another clock', () => {
+            dsp.params.scale = 1;
+            dsp.inputs.clock[0] = 10;
+            dsp.process();
+            const fullScale = dsp.outputs.cv[bufferSize - 1];
+
+            dsp.inputs.clock.fill(0);
+            dsp.params.scale = 0;
+            dsp.process();
+
+            expect(fullScale).toBeGreaterThanOrEqual(0);
+            expect(dsp.outputs.cv.every(value => value === 0)).toBe(true);
         });
     });
 
@@ -260,6 +283,20 @@ describe('Turing Module', () => {
 
             expect(dsp.outputs.pulse.every(v => v === 0)).toBe(true);
         });
+
+        it('never emits Pulse outside a high Clock sample', () => {
+            dsp.params.lock = 0.5;
+            for (let i = 0; i < bufferSize; i++) {
+                dsp.inputs.clock[i] = i % 4 === 0 ? 10 : 0;
+            }
+            dsp.process();
+
+            for (let i = 0; i < bufferSize; i++) {
+                if (dsp.outputs.pulse[i] === 10) {
+                    expect(dsp.inputs.clock[i]).toBeGreaterThanOrEqual(1);
+                }
+            }
+        });
     });
 
     describe('Clock Input', () => {
@@ -395,6 +432,18 @@ describe('Turing Module', () => {
             expect(dsp.outputs.pulse.every(v => !isNaN(v))).toBe(true);
         });
 
+        it('should recover safely from non-finite controls and inputs', () => {
+            dsp.params.lock = Number.NaN;
+            dsp.params.scale = Number.POSITIVE_INFINITY;
+            dsp.params.length = Number.NEGATIVE_INFINITY;
+            dsp.inputs.clock.fill(Number.NaN);
+            dsp.inputs.lockCV.fill(Number.POSITIVE_INFINITY);
+
+            expect(() => dsp.process()).not.toThrow();
+            expect(dsp.outputs.cv.every(Number.isFinite)).toBe(true);
+            expect(dsp.outputs.pulse.every(Number.isFinite)).toBe(true);
+        });
+
         it('should fill entire buffer', () => {
             dsp.inputs.clock[0] = 10;
             dsp.process();
@@ -416,16 +465,25 @@ describe('Turing Module', () => {
     });
 
     describe('Reset', () => {
-        it('should clear outputs on reset', () => {
+        it('should clear stable inputs and outputs on reset', () => {
+            const inputs = { ...dsp.inputs };
+            const outputs = { ...dsp.outputs };
             for (let b = 0; b < 5; b++) {
                 dsp.inputs.clock[0] = 10;
+                dsp.inputs.lockCV.fill(2);
                 dsp.process();
             }
 
             dsp.reset();
 
-            expect(dsp.outputs.cv.every(v => v === 0)).toBe(true);
-            expect(dsp.outputs.pulse.every(v => v === 0)).toBe(true);
+            Object.entries(inputs).forEach(([key, buffer]) => {
+                expect(dsp.inputs[key]).toBe(buffer);
+                expect(buffer.every(value => value === 0)).toBe(true);
+            });
+            Object.entries(outputs).forEach(([key, buffer]) => {
+                expect(dsp.outputs[key]).toBe(buffer);
+                expect(buffer.every(value => value === 0)).toBe(true);
+            });
         });
 
         it('should reset LED states', () => {

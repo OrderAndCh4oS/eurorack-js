@@ -10,18 +10,17 @@ function sendTrigger(euclid, input = 'clock') {
     euclid.process();
     euclid.inputs[input].fill(10);
     euclid.process();
+    const fired = euclid.outputs.trig.some(v => v > 0);
     euclid.inputs[input].fill(0);
     euclid.process();
+    return fired;
 }
 
 // Helper to collect pattern by stepping through
 function collectPattern(euclid, steps) {
     const pattern = [];
     for (let i = 0; i < steps; i++) {
-        sendTrigger(euclid, 'clock');
-        // Check if trigger output fired (any sample > 0)
-        const fired = euclid.outputs.trig.some(v => v > 0);
-        pattern.push(fired ? 1 : 0);
+        pattern.push(sendTrigger(euclid, 'clock') ? 1 : 0);
     }
     return pattern;
 }
@@ -61,6 +60,13 @@ describe('createEuclid', () => {
             expect(euclid.inputs.reset).toBeInstanceOf(Float32Array);
             expect(euclid.inputs.lenCV).toBeInstanceOf(Float32Array);
             expect(euclid.inputs.hitsCV).toBeInstanceOf(Float32Array);
+            expect(euclidModule.ui.inputs.map(port => port.voltage)).toEqual([
+                { min: 0, max: 10, normal: 0 },
+                { min: 0, max: 10, normal: 0 },
+                { min: -5, max: 5, normal: 0 },
+                { min: -5, max: 5, normal: 0 }
+            ]);
+            expect(euclidModule.ui.outputs[0].voltage).toEqual({ min: 0, max: 10 });
         });
 
         it('should have LED output', () => {
@@ -245,9 +251,26 @@ describe('createEuclid', () => {
             sendTrigger(euclid, 'reset');
 
             // Next clock should be at step 0 (which has a hit since all steps do)
-            sendTrigger(euclid, 'clock');
-            const fired = euclid.outputs.trig.some(v => v > 0);
+            const fired = sendTrigger(euclid, 'clock');
             expect(fired).toBe(true);
+        });
+
+        it('gives reset priority when reset and clock rise together', () => {
+            const timed = createEuclid({ sampleRate: 1000, bufferSize: 16 });
+            timed.params.length = 1;
+            timed.params.hits = 1;
+            timed.inputs.reset[0] = 10;
+            timed.inputs.clock[0] = 10;
+
+            timed.process();
+
+            expect(timed.outputs.trig.every(value => value === 0)).toBe(true);
+            timed.inputs.reset.fill(0);
+            timed.inputs.clock.fill(0);
+            timed.process();
+            timed.inputs.clock[0] = 10;
+            timed.process();
+            expect(timed.outputs.trig[0]).toBe(10);
         });
     });
 
@@ -294,6 +317,20 @@ describe('createEuclid', () => {
 
             expect(hits2).toBeGreaterThanOrEqual(hits1);
         });
+
+        it('applies Hits CV per sample rather than once per block', () => {
+            const timed = createEuclid({ sampleRate: 1000, bufferSize: 8 });
+            timed.params.length = 4;
+            timed.params.hits = 1;
+            for (let i = 0; i < 8; i++) {
+                timed.inputs.clock[i] = i % 2 === 0 ? 10 : 0;
+                timed.inputs.hitsCV[i] = i >= 4 ? 5 : 0;
+            }
+
+            timed.process();
+
+            expect(timed.outputs.trig[4]).toBe(10);
+        });
     });
 
     describe('trigger output', () => {
@@ -301,11 +338,7 @@ describe('createEuclid', () => {
             euclid.params.length = 4;
             euclid.params.hits = 4;  // All hits
 
-            sendTrigger(euclid, 'clock');
-
-            // Should have 10V output during trigger
-            const maxOutput = Math.max(...euclid.outputs.trig);
-            expect(maxOutput).toBeCloseTo(10, 0);
+            expect(sendTrigger(euclid, 'clock')).toBe(true);
         });
 
         it('should output 0V on non-hit', () => {
@@ -338,6 +371,8 @@ describe('createEuclid', () => {
 
     describe('reset', () => {
         it('should reset all state', () => {
+            const inputs = { ...euclid.inputs };
+            const output = euclid.outputs.trig;
             euclid.params.length = 8;
             euclid.params.hits = 4;
 
@@ -348,7 +383,12 @@ describe('createEuclid', () => {
 
             euclid.reset();
 
-            expect(euclid.outputs.trig[0]).toBe(0);
+            Object.entries(inputs).forEach(([key, buffer]) => {
+                expect(euclid.inputs[key]).toBe(buffer);
+                expect(buffer.every(value => value === 0)).toBe(true);
+            });
+            expect(euclid.outputs.trig).toBe(output);
+            expect(output.every(value => value === 0)).toBe(true);
             expect(euclid.leds.active).toBe(0);
         });
     });
@@ -360,6 +400,18 @@ describe('createEuclid', () => {
             sendTrigger(euclid, 'clock');
 
             expect(euclid.outputs.trig.every(v => !isNaN(v))).toBe(true);
+        });
+
+        it('should recover safely from non-finite params and CV', () => {
+            euclid.params.length = Number.NaN;
+            euclid.params.hits = Number.POSITIVE_INFINITY;
+            euclid.params.rotate = Number.NEGATIVE_INFINITY;
+            euclid.inputs.lenCV.fill(Number.NaN);
+            euclid.inputs.hitsCV.fill(Number.POSITIVE_INFINITY);
+
+            expect(() => euclid.process()).not.toThrow();
+            expect(euclid.outputs.trig.every(Number.isFinite)).toBe(true);
+            expect(Number.isFinite(euclid.leds.active)).toBe(true);
         });
     });
 

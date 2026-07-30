@@ -62,10 +62,11 @@ output = crossfade(waveA(phase), waveB(phase), morphAmount)
 
 ### Crossfade Algorithm
 ```javascript
-const pos = waveKnob * 4  // 0-4 across 4 waveforms
-const idx = Math.floor(pos) % 4
+const pos = waveKnob * 3  // 0-3 across 4 waveforms
+const idx = Math.floor(pos)
 const frac = pos - Math.floor(pos)
-output = (1 - frac) * wave[idx](t) + frac * wave[idx+1](t)
+const next = Math.min(idx + 1, 3)
+output = (1 - frac) * wave[idx](t) + frac * wave[next](t)
 ```
 
 ### Output Scaling
@@ -94,3 +95,23 @@ output = (1 - frac) * wave[idx](t) + frac * wave[idx+1](t)
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/lfo.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Rate CV, Wave CV, and Reset are now sampled per audio sample instead of only
+  at index zero of each render block. Mid-block fixtures prove that modulation
+  and reset take effect at the exact incoming sample.
+- Reset now renders phase zero on its rising-edge sample before phase advances,
+  producing the documented 2.5V sine center at that sample.
+- The Wave mapping now spans positions 0-3 and clamps its final neighbor.
+  Previously maximum Wave wrapped from the fourth shape back to sine, making the
+  documented square/stepped-triangle endpoints unreachable at knob/CV maximum.
+- DSP and UI Rate defaults now agree at 0.3. Non-finite params/CV recover safely;
+  Rate/Wave CV declare 0-5V normals, Reset 0-10V, and both outputs exact 0-5V.
+- Reset clears phase, edge state, and every stable input/output buffer in place.
+- Focused and module-contract validation passes 46 assertions, including both
+  frequency ranges, all continuous/switch/CV controls, endpoint shapes,
+  sample-exact Reset, rails, finite recovery, and stable reset.
+- The strict 44.1/48/96kHz by 128/512 matrix completes seven scenarios with
+  finite output, zero voltage flags, stable buffers, exact 5.000V peaks, and a
+  maximum Node diagnostic time below 0.175ms per block.

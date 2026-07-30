@@ -236,3 +236,21 @@ When closed trigger fires, it:
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/hat.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Open and closed triggers are evaluated independently at each sample. When they
+  coincide, the closed trigger intentionally runs last and owns the envelope,
+  guaranteeing the documented choke rather than an order-dependent open tail.
+- The six metallic oscillators remain free-running between hits. The
+  sizzle-tuned resonator is capped at 45% of sample rate, preserving the
+  4-12kHz target where available without tuning beyond Nyquist at lower rates.
+- Non-finite controls recover to their panel defaults. Reset now restores the
+  seeded noise generator in addition to phases, envelope, filter, triggers,
+  buffers, and LED, so post-reset renders are deterministic.
+- Focused and module-contract validation passes simultaneous-trigger priority,
+  open/closed decay, choke, Decay/Sizzle/Blend, spectral activity, rails, finite
+  recovery, LED, full-buffer, and reset assertions.
+- The strict 44.1/48/96kHz by 128/512 matrix completes seven scenarios with
+  finite output, zero voltage flags, stable buffers, and maximum Node
+  diagnostic time below 0.183ms per block.

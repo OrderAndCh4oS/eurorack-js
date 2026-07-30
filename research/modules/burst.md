@@ -244,3 +244,24 @@ This is not bit-identical to the firmware, but it preserves the audible behavior
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/burst.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Trig/Ping now explicitly declare 0-10V with 0V normals, all four modulation
+  inputs declare bipolar -5V to +5V with 0V normals, and Out/Tempo/EOC declare
+  exact 0V/10V trigger rails.
+- Every continuous parameter and CV sample now has a documented finite fallback.
+  Previously a non-finite Time or Distribution path could create `NaN` pulse
+  deadlines/completion times and strand the module permanently active.
+- Per-sample active-pulse checks now use direct loops rather than array callback
+  traversals. Burst-plan allocation remains bounded to the externally triggered
+  event and a maximum of 32 documented pulses.
+- Reset preserves params while clearing the ping/tempo reference, active plan,
+  forced boundary pulse, edge state, LEDs, and every stable input/output buffer
+  in place.
+- Focused and module-contract validation passes 38 assertions across thresholds,
+  retrigger/cycle policies, frozen settings, every CV, probability, distribution,
+  ping timing, EOC, pulse-width collision handling, finite recovery, and reset.
+- The strict 44.1/48/96kHz by 128/512 matrix completes 19 scenarios with finite
+  output, zero voltage flags, stable buffers, exact 10.000V peaks, and a maximum
+  Node diagnostic time of 0.210ms per block.

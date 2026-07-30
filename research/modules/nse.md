@@ -55,7 +55,8 @@ output = heldSample
 
 Downsample mapping (quadratic for musical response):
 ```javascript
-downsampleFactor = 1 + (1 - rate)² × 500
+maxHoldSamples = sampleRate * (501 / 44100)
+downsampleFactor = 1 + (1 - rate)² × (maxHoldSamples - 1)
 ```
 
 ### VCA Mode Envelope
@@ -111,3 +112,29 @@ output = noise × envelopeLevel
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/nse.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- DSP and panel Rate defaults now agree at 1, giving full-rate white noise by
+  default. Trigger declares 0-10V with 0V normal and the exact >=1V threshold;
+  Noise declares +/-5V.
+- Normal-mode downsampling now scales its hold count with sample rate. At minimum
+  Rate the number of random changes per physical second agrees within one
+  quantized event at 44.1 and 96kHz; the old fixed 501-sample hold ran over
+  twice as fast at 96kHz.
+- VCA retrigger captures the current envelope as its attack start rather than
+  dropping gain to zero for one attack, eliminating the retrigger notch under a
+  deterministic constant noise source.
+- Switching VCA mode off clears the old burst envelope so re-enabling it cannot
+  resume stale attack/decay state without a new trigger.
+- Noise generation is injectable and invalid RNG/param/trigger values recover
+  safely. The 1ms attack and 10-500ms Rate-frozen decay use rounded physical
+  sample counts; minimum decay agrees across sample rates within one sample.
+- Reset clears trigger/noise buffers, envelope/mode/edge state, held noise, and
+  LED in place.
+- Focused and module-contract validation passes 38 assertions across white-noise
+  range/mean/variation, downsampling, both modes, exact threshold, retrigger and
+  mode transitions, decay endpoints, LEDs, finite recovery, rails, and reset.
+- The strict 44.1/48/96kHz by 128/512 matrix completes five scenarios with
+  finite output, zero voltage flags, stable buffers, peaks within 0.002V of the
+  +/-5V rails, and a maximum Node diagnostic time below 0.124ms per block.

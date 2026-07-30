@@ -85,6 +85,9 @@ smoothedCV = cvSlew.process(rawCV);
 1. **Response curve**: We use linear; hardware is exponential
 2. **Gain staging**: Simplified to 0-1 range
 3. **Noise floor**: Perfect digital (no analog noise)
+4. **Panel contract**: this is a symmetric two-channel utility adaptation;
+   unlike the cited 2hp panel, both channels expose a level control and a
+   0-5V CV input
 
 ### Potential Improvements
 - Add exponential response mode switch
@@ -103,3 +106,24 @@ smoothedCV = cvSlew.process(rawCV);
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/vca.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- The worklet defaults now match the declarative panel defaults (0.8 on both
+  channels); previously a direct DSP instance started at 1.0 while a rack
+  instance started at 0.8.
+- Signal ports explicitly accept and emit -10V to +10V DC-coupled signals.
+  Both CV inputs retain their documented 5V normal, 0V-closed, 5V-unity
+  linear response.
+- CV slew state now initializes and resets to the 5V normal. This removes the
+  unintended startup fade on an unpatched channel while retaining the 3ms
+  smoothing after a real CV transition.
+- Reset clears every stable buffer in place, restores CV normals, resets both
+  slew filters, and clears the peak meters. Non-finite controls and samples
+  fall back to safe neutral values rather than contaminating downstream DSP.
+- Focused coverage now includes default consistency, voltage contracts,
+  first-sample normalization, both channel/control paths, smoothing, LED
+  decay, finite recovery, and complete reset.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes five scenarios with
+  finite output, zero voltage flags, stable buffers, and a maximum diagnostic
+  time below 0.139ms per block.

@@ -74,10 +74,10 @@ export default {
 
                 case 2: // Reassign (steal oldest)
                     let oldest = 0;
-                    let maxAge = voices[0].age;
+                    let minAge = voices[0].age;
                     for (let i = 1; i < 4; i++) {
-                        if (voices[i].age > maxAge) {
-                            maxAge = voices[i].age;
+                        if (voices[i].age < minAge) {
+                            minAge = voices[i].age;
                             oldest = i;
                         }
                     }
@@ -122,10 +122,18 @@ export default {
             },
 
             process() {
-                const channel = Math.floor(this.params.channel);
-                const transpose = Math.floor(this.params.transpose);
-                const bendRange = this.params.bendRange;
-                const mode = Math.floor(this.params.mode);
+                const channel = Number.isFinite(this.params.channel)
+                    ? Math.max(0, Math.min(15, Math.floor(this.params.channel)))
+                    : 0;
+                const transpose = Number.isFinite(this.params.transpose)
+                    ? Math.max(-24, Math.min(24, Math.floor(this.params.transpose)))
+                    : 0;
+                const bendRange = Number.isFinite(this.params.bendRange)
+                    ? Math.max(0, Math.min(12, this.params.bendRange))
+                    : 2;
+                const mode = Number.isFinite(this.params.mode)
+                    ? Math.max(0, Math.min(2, Math.floor(this.params.mode)))
+                    : 0;
 
                 if (!midi) {
                     pitch1.fill(0); pitch2.fill(0); pitch3.fill(0); pitch4.fill(0);
@@ -138,7 +146,10 @@ export default {
                 let eventIndex = 0;
 
                 // Get pitch bend
-                const pitchBend = midi.getPitchBend(channel);
+                const rawPitchBend = midi.getPitchBend(channel);
+                const pitchBend = Number.isFinite(rawPitchBend)
+                    ? Math.max(-8192, Math.min(8192, rawPitchBend))
+                    : 0;
                 const bendSemitones = (pitchBend / 8192) * bendRange;
 
                 // Calculate CV outputs
@@ -149,10 +160,16 @@ export default {
                     while (eventIndex < events.length && events[eventIndex].sampleOffset <= i) {
                         const event = events[eventIndex++];
                         if (event.type === 'noteOn') {
-                            let voiceIndex = findVoiceWithNote(event.note);
+                            const note = Number.isFinite(event.note)
+                                ? Math.max(0, Math.min(127, Math.floor(event.note)))
+                                : 60;
+                            const velocity = Number.isFinite(event.velocity)
+                                ? Math.max(0, Math.min(127, event.velocity))
+                                : 0;
+                            let voiceIndex = findVoiceWithNote(note);
                             if (voiceIndex < 0) voiceIndex = findVoice(mode);
-                            voices[voiceIndex].note = event.note;
-                            voices[voiceIndex].velocity = event.velocity;
+                            voices[voiceIndex].note = note;
+                            voices[voiceIndex].velocity = velocity;
                             voices[voiceIndex].age = ageCounter++;
                             retriggerSamples[voiceIndex] = retriggerLength;
                         } else if (event.type === 'noteOff') {
@@ -193,6 +210,10 @@ export default {
                 ageCounter = 0;
                 pitch1.fill(0); pitch2.fill(0); pitch3.fill(0); pitch4.fill(0);
                 gate1.fill(0); gate2.fill(0); gate3.fill(0); gate4.fill(0);
+                this.leds.v1 = 0;
+                this.leds.v2 = 0;
+                this.leds.v3 = 0;
+                this.leds.v4 = 0;
             }
         };
     },

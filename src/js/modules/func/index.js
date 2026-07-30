@@ -28,6 +28,8 @@
  * - https://modulargrid.net/e/make-noise-maths--
  */
 
+import { clamp } from '../../utils/math.js';
+
 export default {
     id: 'func',
     name: 'FUNC',
@@ -36,6 +38,11 @@ export default {
     category: 'modulation',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const signalInput = new Float32Array(bufferSize);
+        const trig = new Float32Array(bufferSize);
+        const riseCV = new Float32Array(bufferSize);
+        const fallCV = new Float32Array(bufferSize);
+        const cycleCV = new Float32Array(bufferSize);
         const out = new Float32Array(bufferSize);
         const inv = new Float32Array(bufferSize);
         const eor = new Float32Array(bufferSize);
@@ -47,28 +54,29 @@ export default {
         let rising = false;
         let falling = false;
         let lastTrig = 0;
-        let lastIn = 0;
-        let hasInput = false;    // Track if signal input is being used
+        let inputConnected = false;
         let eorPulseCount = 0;   // For gate pulse timing
         let eocPulseCount = 0;
 
         // Timing constants
         const MIN_TIME_MS = 0.5;
         const MAX_TIME_MS = 10000; // 10 seconds
-        const GATE_PULSE_SAMPLES = Math.floor(sampleRate * 0.005); // 5ms pulse
+        const GATE_PULSE_SAMPLES = Math.max(1, Math.round(sampleRate * 0.005)); // 5ms pulse
 
         // Convert knob (0-1) to time in seconds
-        function knobToTime(knob) {
+        function knobToTime(knob, fallback) {
             // Exponential mapping: 0.5ms to 10s
             const minLog = Math.log(MIN_TIME_MS);
             const maxLog = Math.log(MAX_TIME_MS);
-            const timeMs = Math.exp(minLog + knob * (maxLog - minLog));
+            const normalized = Number.isFinite(knob) ? clamp(knob, 0, 1) : fallback;
+            const timeMs = Math.exp(minLog + normalized * (maxLog - minLog));
             return timeMs / 1000;
         }
 
         // Apply CV modulation to time (exponential, +/-5V = +/-2 octaves)
         function modulateTime(baseTime, cv) {
-            const octaves = cv / 2.5; // +/-5V = +/-2 octaves
+            const cvValue = Number.isFinite(cv) ? clamp(cv, -5, 5) : 0;
+            const octaves = cvValue / 2.5; // +/-5V = +/-2 octaves
             return baseTime * Math.pow(2, octaves);
         }
 
@@ -104,11 +112,11 @@ export default {
             },
 
             inputs: {
-                in: new Float32Array(bufferSize),
-                trig: new Float32Array(bufferSize),
-                riseCV: new Float32Array(bufferSize),
-                fallCV: new Float32Array(bufferSize),
-                cycleCV: new Float32Array(bufferSize)
+                in: signalInput,
+                trig,
+                riseCV,
+                fallCV,
+                cycleCV
             },
 
             outputs: { out, inv, eor, eoc },
@@ -116,12 +124,15 @@ export default {
             leds: { level: 0 },
 
             process() {
-                const { rise, fall, curve, cycle } = this.params;
-                const { in: sigIn, trig, riseCV, fallCV, cycleCV } = this.inputs;
+                const curve = Number.isFinite(this.params.curve)
+                    ? clamp(this.params.curve, 0, 1)
+                    : 0.5;
+                const cycle = Number.isFinite(this.params.cycle) &&
+                    this.params.cycle > 0.5;
 
                 // Base times from knobs
-                const baseRiseTime = knobToTime(rise);
-                const baseFallTime = knobToTime(fall);
+                const baseRiseTime = knobToTime(this.params.rise, 0.3);
+                const baseFallTime = knobToTime(this.params.fall, 0.3);
 
                 for (let i = 0; i < bufferSize; i++) {
                     // Get modulated times
@@ -129,17 +140,14 @@ export default {
                     const fallTime = modulateTime(baseFallTime, fallCV[i]);
 
                     // Check if cycling is enabled (panel switch OR CV gate)
-                    const cycling = cycle > 0.5 || cycleCV[i] > 2.5;
+                    const cycling = cycle ||
+                        (Number.isFinite(cycleCV[i]) && cycleCV[i] > 2.5);
 
                     // Trigger detection (rising edge above 1V)
-                    const trigHigh = trig[i] >= 1;
+                    const trigValue = Number.isFinite(trig[i]) ? trig[i] : 0;
+                    const trigHigh = trigValue >= 1;
                     const trigEdge = trigHigh && lastTrig < 1;
-                    lastTrig = trig[i];
-
-                    // Check if signal input has meaningful content (for slew mode)
-                    // Use higher threshold to avoid triggering on noise/residual values
-                    const inputActive = Math.abs(sigIn[i]) > 0.1;
-                    hasInput = inputActive;
+                    lastTrig = trigValue;
 
                     // Handle EOR/EOC pulse decay
                     if (eorPulseCount > 0) {
@@ -156,9 +164,11 @@ export default {
                         eoc[i] = 0;
                     }
 
-                    if (hasInput && !trigEdge) {
+                    if (inputConnected) {
                         // SLEW LIMITER MODE: Follow input with rise/fall rates
-                        const target = Math.abs(sigIn[i]); // Use absolute for CV following
+                        const target = Number.isFinite(signalInput[i])
+                            ? clamp(signalInput[i], 0, 10)
+                            : 0;
                         const diff = target - output;
 
                         if (diff > 0) {
@@ -171,11 +181,11 @@ export default {
                             output += Math.max(diff, -maxChange);
                         }
 
-                        lastIn = sigIn[i];
                     } else {
                         // ENVELOPE / LFO MODE
-                        // Start on trigger (only if not already rising)
-                        if (trigEdge && !rising) {
+                        // The simplified generator is non-retriggerable until
+                        // the active Rise/Fall function completes.
+                        if (trigEdge && !rising && !falling) {
                             phase = 0;
                             rising = true;
                             falling = false;
@@ -196,7 +206,7 @@ export default {
                                 rising = false;
                                 falling = true;
                                 // Fire EOR gate
-                                eorPulseCount = GATE_PULSE_SAMPLES;
+                                eorPulseCount = GATE_PULSE_SAMPLES - 1;
                                 eor[i] = 10;
                             }
                         } else if (falling) {
@@ -208,7 +218,7 @@ export default {
                                 phase = 0;
                                 falling = false;
                                 // Fire EOC gate
-                                eocPulseCount = GATE_PULSE_SAMPLES;
+                                eocPulseCount = GATE_PULSE_SAMPLES - 1;
                                 eoc[i] = 10;
 
                                 // Restart if cycling
@@ -249,6 +259,11 @@ export default {
             },
 
             reset() {
+                signalInput.fill(0);
+                trig.fill(0);
+                riseCV.fill(0);
+                fallCV.fill(0);
+                cycleCV.fill(0);
                 out.fill(0);
                 inv.fill(10);
                 eor.fill(0);
@@ -258,11 +273,29 @@ export default {
                 rising = false;
                 falling = false;
                 lastTrig = 0;
-                lastIn = 0;
-                hasInput = false;
                 eorPulseCount = 0;
                 eocPulseCount = 0;
                 this.leds.level = 0;
+            },
+
+            onInputConnected(port) {
+                if (port !== 'in') return;
+                inputConnected = true;
+                phase = 0;
+                rising = false;
+                falling = false;
+                eorPulseCount = 0;
+                eocPulseCount = 0;
+            },
+
+            onInputDisconnected(port) {
+                if (port !== 'in') return;
+                inputConnected = false;
+                phase = 0;
+                rising = false;
+                falling = false;
+                eorPulseCount = 0;
+                eocPulseCount = 0;
             }
         };
     },
@@ -278,17 +311,17 @@ export default {
             { id: 'cycle', label: 'Cycle', param: 'cycle', positions: ['Off', 'On'], default: 0 }
         ],
         inputs: [
-            { id: 'in', label: 'In', port: 'in', signal: 'cv' },
-            { id: 'trig', label: 'Trig', port: 'trig', signal: 'trigger' },
-            { id: 'riseCV', label: 'R CV', port: 'riseCV', signal: 'cv' },
-            { id: 'fallCV', label: 'F CV', port: 'fallCV', signal: 'cv' },
-            { id: 'cycleCV', label: 'Cyc', port: 'cycleCV', signal: 'gate' }
+            { id: 'in', label: 'In', port: 'in', signal: 'cv', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'trig', label: 'Trig', port: 'trig', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'riseCV', label: 'R CV', port: 'riseCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'fallCV', label: 'F CV', port: 'fallCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'cycleCV', label: 'Cyc', port: 'cycleCV', signal: 'gate', voltage: { min: 0, max: 10, normal: 0 } }
         ],
         outputs: [
             { id: 'out', label: 'Out', port: 'out', signal: 'cv', voltage: { min: 0, max: 10 } },
             { id: 'inv', label: 'Inv', port: 'inv', signal: 'cv', voltage: { min: 0, max: 10 } },
-            { id: 'eor', label: 'EOR', port: 'eor', signal: 'gate' },
-            { id: 'eoc', label: 'EOC', port: 'eoc', signal: 'gate' }
+            { id: 'eor', label: 'EOR', port: 'eor', signal: 'gate', voltage: { min: 0, max: 10 } },
+            { id: 'eoc', label: 'EOC', port: 'eoc', signal: 'gate', voltage: { min: 0, max: 10 } }
         ]
     }
 };

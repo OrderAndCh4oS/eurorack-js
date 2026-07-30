@@ -61,3 +61,18 @@ Negative feedback emphasizes odd harmonics (more hollow sound).
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/flanger.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.
+
+## Individual Contract Audit (2026-07-30)
+
+- **Defect found**: an unpatched In R remained silent instead of receiving the
+  left source, so the 180-degree stereo modulation was unavailable in a normal
+  one-cable patch. In R now uses cable lifecycle normalization; connected 0 V
+  remains 0 V and disconnect restores the left normal.
+- **Reset/coverage**: reset clears the stable input buffers as well as delay,
+  LFO, output, and LED state. Focused tests exercise Rate, Depth, bipolar
+  feedback endpoints, Mix, comb response, stereo normalization transitions,
+  continuous rails, long feedback stability, reset, and finite buffers.
+- **Runtime/voltage result**: the strict 44.1/48/96 kHz by 128/512 matrix
+  completed nine scenarios with no errors or voltage flags, stable buffers, and
+  a 4.926 V peak.
+- **Status**: complete for the documented stereo flanger model.

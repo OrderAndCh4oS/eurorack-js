@@ -13,6 +13,9 @@
 
 import { clamp } from '../../utils/math.js';
 
+const finiteOr = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
+const INITIAL_NOISE_STATE = 12345;
+
 export default {
     id: 'hat',
     name: 'HAT',
@@ -39,7 +42,7 @@ export default {
         let lastTrigClosed = 0;
 
         // Noise state
-        let noiseState = 12345;
+        let noiseState = INITIAL_NOISE_STATE;
 
         // Filter states (bandpass for metallic character)
         let bpState1 = 0;
@@ -65,15 +68,15 @@ export default {
             leds,
 
             process() {
-                const decayParam = clamp(this.params.decay, 0, 1);
-                const sizzleParam = clamp(this.params.sizzle, 0, 1);
-                const blendParam = clamp(this.params.blend, 0, 1);
+                const decayParam = clamp(finiteOr(this.params.decay, 0.5), 0, 1);
+                const sizzleParam = clamp(finiteOr(this.params.sizzle, 0.5), 0, 1);
+                const blendParam = clamp(finiteOr(this.params.blend, 0.5), 0, 1);
 
                 // Sizzle affects frequency multiplier
                 const freqMult = 0.5 + sizzleParam * 1.5; // 0.5x to 2x
 
                 // Bandpass filter coefficients affected by sizzle
-                const bpFreq = 4000 + sizzleParam * 8000; // 4kHz to 12kHz
+                const bpFreq = Math.min(4000 + sizzleParam * 8000, sampleRate * 0.45);
                 const bpQ = 2 + sizzleParam * 4;
                 const w0 = (2 * Math.PI * bpFreq) / sampleRate;
                 const alpha = Math.sin(w0) / (2 * bpQ);
@@ -85,8 +88,8 @@ export default {
                 let peak = 0;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    const trigOpen = this.inputs.trigOpen[i];
-                    const trigClosed = this.inputs.trigClosed[i];
+                    const trigOpen = finiteOr(this.inputs.trigOpen[i]);
+                    const trigClosed = finiteOr(this.inputs.trigClosed[i]);
 
                     // Open hat trigger
                     // Note: oscillators are intentionally free-running (not phase-reset)
@@ -166,6 +169,7 @@ export default {
                 isOpen = false;
                 lastTrigOpen = 0;
                 lastTrigClosed = 0;
+                noiseState = INITIAL_NOISE_STATE;
                 bpState1 = 0;
                 bpState2 = 0;
                 leds.active = 0;

@@ -21,6 +21,11 @@ describe('createClk', () => {
             expect(clk.inputs.rateCV).toBeInstanceOf(Float32Array);
             expect(clk.inputs.pause).toBeInstanceOf(Float32Array);
             expect(clk.inputs.rateCV.length).toBe(512);
+            expect(clkModule.ui.inputs.map(port => port.voltage)).toEqual([
+                { min: 0, max: 10, normal: 0 },
+                { min: 0, max: 10, normal: 0 }
+            ]);
+            expect(clkModule.ui.outputs[0].voltage).toEqual({ min: 0, max: 10 });
         });
 
         it('should create output buffer', () => {
@@ -118,6 +123,18 @@ describe('createClk', () => {
             expect(clk.outputs.clock.every(v => v === 0)).toBe(true);
         });
 
+        it('closes an in-progress pulse immediately when Pause goes high', () => {
+            const timed = createClk({ sampleRate: 1000, bufferSize: 1001 });
+            timed.params.rate = 0.2; // 1Hz, 10ms pulse
+            timed.process();
+            expect(timed.outputs.clock[1000]).toBe(10);
+
+            timed.inputs.pause.fill(3);
+            timed.process();
+
+            expect(timed.outputs.clock.every(value => value === 0)).toBe(true);
+        });
+
         it('should resume when pause is released', () => {
             clk.params.rate = 0.8;
 
@@ -183,10 +200,20 @@ describe('createClk', () => {
         });
 
         it('should reset clock phase', () => {
+            const inputs = { ...clk.inputs };
+            const output = clk.outputs.clock;
             clk.params.rate = 0.5;
+            clk.inputs.rateCV.fill(5);
+            clk.inputs.pause.fill(3);
             clk.process();
             clk.reset();
-            // After reset, no immediate pulse expected
+            Object.entries(inputs).forEach(([key, buffer]) => {
+                expect(clk.inputs[key]).toBe(buffer);
+                expect(buffer.every(value => value === 0)).toBe(true);
+            });
+            expect(clk.outputs.clock).toBe(output);
+            expect(output.every(value => value === 0)).toBe(true);
+            expect(clk.leds.clock).toBe(0);
         });
     });
 
@@ -194,6 +221,17 @@ describe('createClk', () => {
         it('should fill entire output buffer without NaN', () => {
             clk.process();
             expect(clk.outputs.clock.every(v => !isNaN(v))).toBe(true);
+        });
+
+        it('should recover safely from non-finite controls and inputs', () => {
+            clk.params.rate = Number.NaN;
+            clk.params.pause = Number.POSITIVE_INFINITY;
+            clk.inputs.rateCV.fill(Number.NaN);
+            clk.inputs.pause.fill(Number.NEGATIVE_INFINITY);
+
+            expect(() => clk.process()).not.toThrow();
+            expect(clk.outputs.clock.every(Number.isFinite)).toBe(true);
+            expect(Number.isFinite(clk.leds.clock)).toBe(true);
         });
     });
 

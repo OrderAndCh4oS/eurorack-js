@@ -300,6 +300,18 @@ describe('PLOT - Waveform Plotter', () => {
 
             expect(dsp.outputs.out.some(v => Number.isNaN(v))).toBe(false);
         });
+
+        it('contains non-finite audio, trigger, and time controls', () => {
+            dsp.inputs.audio.fill(NaN);
+            dsp.inputs.trig.fill(Infinity);
+            dsp.params.time = NaN;
+            dsp.process();
+
+            expect(dsp.outputs.out.every(Number.isFinite)).toBe(true);
+            expect(dsp.displayBuffer.every(Number.isFinite)).toBe(true);
+            expect(Object.values(dsp.getStats()).every(Number.isFinite)).toBe(true);
+            expect(Number.isFinite(dsp.leds.signal)).toBe(true);
+        });
     });
 
     describe('time window', () => {

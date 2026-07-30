@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import vcoModule from '../../src/js/modules/vco/index.js';
+import { createRealFft } from '../../src/js/utils/fft.js';
+import { softLimitVoltage } from '../../src/js/utils/voltage.js';
 
 // Helper to create VCO instance using new module system
 const create2hpVCO = (options = {}) => vcoModule.createDSP(options);
@@ -39,6 +41,17 @@ describe('create2hpVCO', () => {
                 fmVoltsPerHz: 100
             });
             expect(customVco.outputs.triangle.length).toBe(256);
+        });
+
+        it('declares the implemented input voltage contracts', () => {
+            const inputs = Object.fromEntries(
+                vcoModule.ui.inputs.map(input => [input.port, input])
+            );
+
+            expect(inputs.vOct.voltage).toEqual({ min: -8, max: 8, normal: 0 });
+            expect(inputs.fm.voltage).toEqual({ min: -5, max: 5, normal: 0 });
+            expect(inputs.pwm.voltage).toEqual({ min: 0, max: 5, normal: 2.5 });
+            expect(inputs.sync.voltage).toEqual({ min: 0, max: 10, normal: 0 });
         });
     });
 
@@ -192,22 +205,19 @@ describe('create2hpVCO', () => {
     });
 
     describe('hard sync', () => {
-        it('should reset phase on sync rising edge', () => {
-            vco.params.coarse = 0.5;
-            vco.process();
+        it('resets phase only on a >=1V sync rising edge', () => {
+            const renderAfterSync = voltage => {
+                const oscillator = create2hpVCO({ bufferSize: 128 });
+                oscillator.params.coarse = 0.5;
+                oscillator.process();
+                oscillator.inputs.sync[0] = voltage;
+                oscillator.process();
+                return oscillator.outputs.ramp[0];
+            };
 
-            // Get current state
-            const beforeSync = [...vco.outputs.ramp];
-
-            // Apply sync trigger (rising edge: was 0, now >0)
-            vco.inputs.sync = 5;
-            vco.process();
-
-            // After sync, phase resets - saw wave should start near -5
-            // The first few samples after reset should be close to the ramp start
-            // (Note: exact value depends on frequency and buffer timing)
-            expect(vco.outputs.ramp[0]).toBeDefined();
-            expect(vco.outputs.triangle[0]).toBeDefined();
+            const withoutSync = renderAfterSync(0);
+            expect(renderAfterSync(0.99)).toBeCloseTo(withoutSync, 6);
+            expect(Math.abs(renderAfterSync(1) - withoutSync)).toBeGreaterThan(0.5);
         });
     });
 
@@ -215,12 +225,12 @@ describe('create2hpVCO', () => {
         it('should smooth pitch changes with glide', () => {
             const noGlide = create2hpVCO();
             noGlide.params.glide = 0.1; // Minimal glide
-            noGlide.inputs.vOct = 2;
+            noGlide.inputs.vOct.fill(2);
             noGlide.process();
 
             const withGlide = create2hpVCO();
             withGlide.params.glide = 100; // Max glide
-            withGlide.inputs.vOct = 2;
+            withGlide.inputs.vOct.fill(2);
             withGlide.process();
 
             // Both should produce output, glide affects transition speed
@@ -236,6 +246,50 @@ describe('create2hpVCO', () => {
             expect(vco.outputs.triangle.every(v => !isNaN(v))).toBe(true);
             expect(vco.outputs.ramp.every(v => !isNaN(v))).toBe(true);
             expect(vco.outputs.pulse.every(v => !isNaN(v))).toBe(true);
+        });
+
+        it('reduces reflected saw harmonics relative to a naive oscillator', () => {
+            const sampleRate = 16384;
+            const fftSize = 4096;
+            const frequency = 3072;
+            const oscillator = create2hpVCO({ sampleRate, bufferSize: fftSize });
+            const naive = new Float32Array(fftSize);
+            oscillator.params.coarse = Math.log(frequency / 4.3) / Math.log(22000 / 4.3);
+            oscillator.params.glide = 0.1;
+            oscillator.process();
+
+            let phase = 0;
+            for (let i = 0; i < fftSize; i++) {
+                phase = (phase + frequency / sampleRate) % 1;
+                naive[i] = softLimitVoltage((2 * phase - 1) * 5, 5);
+            }
+
+            const fft = createRealFft({ size: fftSize });
+            const spectrum = new Float32Array(fftSize / 2);
+            const naiveSpectrum = new Float32Array(fftSize / 2);
+            fft.analyzeCircular(oscillator.outputs.ramp, 0, spectrum);
+            fft.analyzeCircular(naive, 0, naiveSpectrum);
+            const aliasBins = [1024, 4096, 7168]
+                .map(aliasFrequency => aliasFrequency * fftSize / sampleRate);
+            const aliasPower = bins => aliasBins.reduce(
+                (sum, bin) => sum + Math.pow(10, bins[bin] / 10),
+                0
+            );
+
+            expect(aliasPower(spectrum)).toBeLessThan(aliasPower(naiveSpectrum) * 0.1);
+        });
+
+        it('clears stable inputs and restores the PWM normal on reset', () => {
+            const inputs = { ...vco.inputs };
+            Object.values(vco.inputs).forEach(input => input.fill(3));
+            vco.process();
+            vco.reset();
+
+            Object.entries(inputs).forEach(([port, input]) => {
+                expect(vco.inputs[port]).toBe(input);
+                const expected = port === 'pwm' ? 2.5 : 0;
+                expect(input.every(value => value === expected)).toBe(true);
+            });
         });
     });
 });

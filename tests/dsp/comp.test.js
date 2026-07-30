@@ -15,6 +15,7 @@ function runBlocks(dsp, count = 1) {
 function setProgram(dsp, left, right = left) {
     dsp.inputs.inL.fill(left);
     dsp.inputs.inR.fill(right);
+    dsp.onInputConnected('inR');
 }
 
 function configureFastCompressor(dsp) {
@@ -254,6 +255,7 @@ describe('COMP Module', () => {
             configureFastCompressor(dsp);
             setProgram(dsp, 3);
             dsp.inputs.sidechain.fill(5);
+            dsp.onInputConnected('sidechain');
             dsp.params.filterMode = 0;
             runBlocks(dsp, 80);
             const unfilteredOut = dsp.outputs.outL[bufferSize - 1];
@@ -262,6 +264,7 @@ describe('COMP Module', () => {
             configureFastCompressor(dsp);
             setProgram(dsp, 3);
             dsp.inputs.sidechain.fill(5);
+            dsp.onInputConnected('sidechain');
             dsp.params.filterMode = 1;
             dsp.params.sideFilter = 1;
             dsp.inputs.filterCV.fill(2);
@@ -301,6 +304,7 @@ describe('COMP Module', () => {
             configureFastCompressor(dsp);
             setProgram(dsp, 1);
             dsp.inputs.sidechain.fill(5);
+            dsp.onInputConnected('sidechain');
             runBlocks(dsp, 80);
             const duckedOut = dsp.outputs.outL[bufferSize - 1];
 
@@ -318,10 +322,47 @@ describe('COMP Module', () => {
             expect(dsp.outputs.outR[bufferSize - 1]).toBeGreaterThan(0);
         });
 
+        it('preserves a connected silent right channel', () => {
+            dsp.params.bypass = 1;
+            dsp.inputs.inL.fill(2);
+            dsp.inputs.inR.fill(0);
+            dsp.onInputConnected('inR');
+
+            dsp.process();
+
+            expect(dsp.outputs.outL[bufferSize - 1]).toBe(2);
+            expect(dsp.outputs.outR[bufferSize - 1]).toBe(0);
+        });
+
+        it('uses a connected silent sidechain instead of falling back to program audio', () => {
+            configureFastCompressor(dsp);
+            setProgram(dsp, 4);
+            dsp.inputs.sidechain.fill(0);
+            dsp.onInputConnected('sidechain');
+
+            runBlocks(dsp, 80);
+
+            expect(dsp.outputs.outL[bufferSize - 1]).toBeCloseTo(4, 4);
+            expect(dsp.outputs.gr[bufferSize - 1]).toBe(0);
+        });
+
+        it('restores program detection when the sidechain cable is removed', () => {
+            configureFastCompressor(dsp);
+            setProgram(dsp, 4);
+            dsp.onInputConnected('sidechain');
+            dsp.onInputDisconnected('sidechain');
+
+            runBlocks(dsp, 80);
+
+            expect(dsp.outputs.outL[bufferSize - 1]).toBeLessThan(2.2);
+            expect(dsp.outputs.gr[bufferSize - 1]).toBeGreaterThan(1);
+        });
+
         it('uses stereo-linked gain reduction when either channel crosses threshold', () => {
             configureFastCompressor(dsp);
             dsp.inputs.inL.fill(5);
             dsp.inputs.inR.fill(1);
+            dsp.onInputConnected('inR');
             runBlocks(dsp, 80);
 
             expect(dsp.outputs.outR[bufferSize - 1]).toBeLessThan(1);
@@ -371,6 +412,7 @@ describe('COMP Module', () => {
             configureFastCompressor(dsp);
             setProgram(dsp, 3);
             dsp.inputs.sidechain.fill(5);
+            dsp.onInputConnected('sidechain');
             dsp.params.bypass = 1;
 
             dsp.process();

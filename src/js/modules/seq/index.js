@@ -15,6 +15,8 @@
  * - Gate output (0V / +10V while clock pulse is present)
  */
 
+import { clamp } from '../../utils/math.js';
+
 // Direction mode names
 const DIRECTION_NAMES = ['up', 'down', '2xUp', '2xDown', 'pend1', '2xPend1', 'pend2', 'random'];
 
@@ -87,13 +89,19 @@ export default {
     `,
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const clockIn = new Float32Array(bufferSize);
+        const resetIn = new Float32Array(bufferSize);
         const cvOut = new Float32Array(bufferSize);
         const gateOut = new Float32Array(bufferSize);
+        const stepValues = new Float32Array(8);
+        const gateValues = new Uint8Array(8);
 
         let currentStep = 0;
         let lastClockState = false;
         let lastResetState = false;
         let pendulumDirection = 1; // 1 = forward, -1 = backward
+        let playsOnCurrentStep = 1;
+        let lastDirection = -1;
 
         return {
             params: {
@@ -110,8 +118,8 @@ export default {
             },
 
             inputs: {
-                clock: new Float32Array(bufferSize),
-                reset: new Float32Array(bufferSize)
+                clock: clockIn,
+                reset: resetIn
             },
 
             outputs: {
@@ -126,44 +134,55 @@ export default {
 
             process() {
                 const { range, length, direction } = this.params;
-                const clockIn = this.inputs.clock;
-                const resetIn = this.inputs.reset;
+                const rangeIndex = Number.isFinite(range) ? clamp(Math.round(range), 0, 2) : 1;
+                const rangeMultiplier = RANGE_MULTIPLIERS[rangeIndex];
+                const seqLength = Number.isFinite(length)
+                    ? clamp(Math.round(length), 1, 8)
+                    : 8;
+                const safeDirection = Number.isFinite(direction)
+                    ? clamp(Math.round(direction), 0, 7)
+                    : 0;
 
-                const rangeMultiplier = RANGE_MULTIPLIERS[Math.floor(range)] || 2;
-                const seqLength = Math.max(1, Math.min(8, Math.floor(length)));
+                for (let step = 0; step < 8; step++) {
+                    const stepValue = this.params[`step${step + 1}`];
+                    const gateValue = this.params[`gate${step + 1}`];
+                    stepValues[step] = Number.isFinite(stepValue) ? clamp(stepValue, 0, 1) : 0;
+                    gateValues[step] = Number.isFinite(gateValue) && gateValue >= 0.5 ? 1 : 0;
+                }
 
-                // Get step values array
-                const stepValues = [
-                    this.params.step1, this.params.step2, this.params.step3, this.params.step4,
-                    this.params.step5, this.params.step6, this.params.step7, this.params.step8
-                ];
-                const gateValues = [
-                    this.params.gate1, this.params.gate2, this.params.gate3, this.params.gate4,
-                    this.params.gate5, this.params.gate6, this.params.gate7, this.params.gate8
-                ];
+                if (currentStep >= seqLength) {
+                    currentStep = seqLength - 1;
+                    playsOnCurrentStep = 1;
+                }
+                if (safeDirection !== lastDirection) {
+                    playsOnCurrentStep = 1;
+                    pendulumDirection = currentStep >= seqLength - 1 ? -1 : 1;
+                    lastDirection = safeDirection;
+                }
 
                 for (let i = 0; i < bufferSize; i++) {
                     // Check reset (>3V threshold)
-                    const resetActive = resetIn[i] >= 3;
+                    const resetActive = Number.isFinite(resetIn[i]) && resetIn[i] >= 3;
                     if (resetActive && !lastResetState) {
                         currentStep = 0;
                         pendulumDirection = 1;
+                        playsOnCurrentStep = 1;
                     }
                     lastResetState = resetActive;
 
                     // Check clock (>3V threshold)
-                    const clockActive = clockIn[i] >= 3;
-                    if (clockActive && !lastClockState) {
+                    const clockActive = Number.isFinite(clockIn[i]) && clockIn[i] >= 3;
+                    if (!resetActive && clockActive && !lastClockState) {
                         // Advance based on direction mode
-                        this.advanceStep(seqLength, direction);
+                        this.advanceStep(seqLength, safeDirection);
                     }
                     lastClockState = clockActive;
 
                     // Output current step CV and gate.
                     // Gate follows the clock pulse so removing the clock closes
                     // downstream envelopes/VCAs instead of latching a step high.
-                    const stepCV = stepValues[currentStep] || 0;
-                    const stepGate = gateValues[currentStep] || 0;
+                    const stepCV = stepValues[currentStep];
+                    const stepGate = gateValues[currentStep];
 
                     cvOut[i] = stepCV * rangeMultiplier;
                     gateOut[i] = clockActive && stepGate ? 10 : 0;
@@ -176,7 +195,26 @@ export default {
             },
 
             advanceStep(seqLength, direction) {
-                const dir = Math.floor(direction) % 8;
+                if (seqLength <= 1) {
+                    currentStep = 0;
+                    playsOnCurrentStep = 1;
+                    return;
+                }
+
+                const dir = clamp(Math.round(direction), 0, 7);
+                const repeatsForCurrent = dir === 2 || dir === 3
+                    ? 2
+                    : dir === 4
+                        ? (currentStep === 0 || currentStep === seqLength - 1 ? 2 : 1)
+                        : dir === 5
+                            ? (currentStep === 0 || currentStep === seqLength - 1 ? 4 : 2)
+                            : 1;
+
+                if (playsOnCurrentStep < repeatsForCurrent) {
+                    playsOnCurrentStep++;
+                    return;
+                }
+                playsOnCurrentStep = 1;
 
                 switch (dir) {
                     case 0: // up (forward)
@@ -242,6 +280,10 @@ export default {
                 lastClockState = false;
                 lastResetState = false;
                 pendulumDirection = 1;
+                playsOnCurrentStep = 1;
+                lastDirection = -1;
+                clockIn.fill(0);
+                resetIn.fill(0);
                 cvOut.fill(0);
                 gateOut.fill(0);
 
@@ -402,12 +444,12 @@ export default {
             { id: 'gate8', label: 'G8', param: 'gate8', default: 1 }
         ],
         inputs: [
-            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger' },
-            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger' }
+            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } }
         ],
         outputs: [
-            { id: 'cv', label: 'CV', port: 'cv', signal: 'cv' },
-            { id: 'gate', label: 'Gate', port: 'gate', signal: 'gate' }
+            { id: 'cv', label: 'CV', port: 'cv', signal: 'cv', voltage: { min: 0, max: 4 } },
+            { id: 'gate', label: 'Gate', port: 'gate', signal: 'gate', voltage: { min: 0, max: 10 } }
         ]
     }
 };

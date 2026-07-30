@@ -68,6 +68,11 @@ describe('simple-quantizer', () => {
             const result = quantizeVoltage(-0.5, SCALES.chromatic, 0, 0);
             expect(result).toBeCloseTo(-0.5, 5);
         });
+
+        it('chooses the nearest note across a negative octave boundary', () => {
+            expect(quantizeVoltage(-0.01, SCALES.chromatic)).toBeCloseTo(0, 6);
+            expect(quantizeVoltage(-11.9 / 12, SCALES.chromatic)).toBeCloseTo(-1, 6);
+        });
     });
 
     describe('createSimpleQuantizer', () => {
@@ -83,13 +88,15 @@ describe('simple-quantizer', () => {
             });
 
             it('should have correct default params', () => {
-                expect(quantizer.params.scale).toBe(0);
+                expect(quantizer.params.scale).toBe(1);
+                expect(quantizer.params.scale).toBe(quantModule.ui.knobs[0].default);
                 expect(quantizer.params.octave).toBe(0);
                 expect(quantizer.params.semitone).toBe(0);
             });
 
             it('should have cv input', () => {
                 expect(quantizer.inputs).toHaveProperty('cv');
+                expect(quantModule.ui.inputs[0].voltage).toEqual({ min: -5, max: 5, normal: 0 });
             });
 
             it('should have cv and trigger outputs', () => {
@@ -97,6 +104,7 @@ describe('simple-quantizer', () => {
                 expect(quantizer.outputs.trigger).toBeDefined();
                 expect(quantizer.outputs.cv.length).toBe(128);
                 expect(quantizer.outputs.trigger.length).toBe(128);
+                expect(quantModule.ui.outputs[1].voltage).toEqual({ min: 0, max: 5 });
             });
 
             it('should have active LED', () => {
@@ -115,8 +123,7 @@ describe('simple-quantizer', () => {
             });
 
             it('should quantize input CV to selected scale', () => {
-                const inputBuffer = new Float32Array(128).fill(0.25); // ~3 semitones
-                quantizer.inputs.cv = inputBuffer;
+                quantizer.inputs.cv.fill(0.25); // ~3 semitones
                 quantizer.params.scale = 1; // major scale
 
                 quantizer.process();
@@ -127,8 +134,7 @@ describe('simple-quantizer', () => {
             });
 
             it('should apply octave transpose', () => {
-                const inputBuffer = new Float32Array(128).fill(0);
-                quantizer.inputs.cv = inputBuffer;
+                quantizer.inputs.cv.fill(0);
                 quantizer.params.octave = 1;
 
                 quantizer.process();
@@ -137,8 +143,7 @@ describe('simple-quantizer', () => {
             });
 
             it('should apply semitone transpose', () => {
-                const inputBuffer = new Float32Array(128).fill(0);
-                quantizer.inputs.cv = inputBuffer;
+                quantizer.inputs.cv.fill(0);
                 quantizer.params.semitone = 5; // Perfect 4th
 
                 quantizer.process();
@@ -148,11 +153,11 @@ describe('simple-quantizer', () => {
 
             it('should generate trigger on note change', () => {
                 // First process with 0V
-                quantizer.inputs.cv = new Float32Array(128).fill(0);
+                quantizer.inputs.cv.fill(0);
                 quantizer.process();
 
                 // Now change to different note
-                quantizer.inputs.cv = new Float32Array(128).fill(1); // 1 octave up
+                quantizer.inputs.cv.fill(1); // 1 octave up
                 quantizer.process();
 
                 // Should have trigger at start of buffer
@@ -160,7 +165,7 @@ describe('simple-quantizer', () => {
             });
 
             it('should not trigger when note stays same', () => {
-                quantizer.inputs.cv = new Float32Array(128).fill(0);
+                quantizer.inputs.cv.fill(0);
                 quantizer.process();
 
                 // Process again with same input
@@ -171,29 +176,51 @@ describe('simple-quantizer', () => {
             });
 
             it('should handle all 16 scales', () => {
-                const inputBuffer = new Float32Array(128).fill(0.5);
-                quantizer.inputs.cv = inputBuffer;
+                quantizer.inputs.cv.fill(0.5);
 
                 for (let i = 0; i < 16; i++) {
                     quantizer.params.scale = i;
                     expect(() => quantizer.process()).not.toThrow();
                 }
             });
+
+            it('emits an 8ms 5V trigger pulse on a note change', () => {
+                const timed = createQuantizer({ sampleRate: 1000, bufferSize: 16 });
+                timed.inputs.cv.fill(1);
+
+                timed.process();
+
+                expect([...timed.outputs.trigger.slice(0, 8)]).toEqual(Array(8).fill(5));
+                expect([...timed.outputs.trigger.slice(8)]).toEqual(Array(8).fill(0));
+            });
+
+            it('clamps invalid params and recovers from non-finite CV', () => {
+                quantizer.params.scale = Number.NaN;
+                quantizer.params.octave = Number.POSITIVE_INFINITY;
+                quantizer.params.semitone = Number.NEGATIVE_INFINITY;
+                quantizer.inputs.cv.fill(Number.NaN);
+
+                quantizer.process();
+
+                expect(quantizer.outputs.cv.every(Number.isFinite)).toBe(true);
+                expect(quantizer.outputs.trigger.every(Number.isFinite)).toBe(true);
+                expect(Number.isFinite(quantizer.leds.active)).toBe(true);
+            });
         });
 
         describe('LED behavior', () => {
             it('should light LED when note changes', () => {
-                quantizer.inputs.cv = new Float32Array(128).fill(0);
+                quantizer.inputs.cv.fill(0);
                 quantizer.process();
 
-                quantizer.inputs.cv = new Float32Array(128).fill(1);
+                quantizer.inputs.cv.fill(1);
                 quantizer.process();
 
                 expect(quantizer.leds.active).toBe(1);
             });
 
             it('should decay LED when no note change', () => {
-                quantizer.inputs.cv = new Float32Array(128).fill(0);
+                quantizer.inputs.cv.fill(0);
                 quantizer.process();
                 quantizer.leds.active = 1;
 
@@ -201,6 +228,26 @@ describe('simple-quantizer', () => {
                 quantizer.process();
 
                 expect(quantizer.leds.active).toBeLessThan(1);
+            });
+        });
+
+        describe('reset', () => {
+            it('clears stable buffers, trigger timing, held pitch, and LED state', () => {
+                const input = quantizer.inputs.cv;
+                const cvOut = quantizer.outputs.cv;
+                const triggerOut = quantizer.outputs.trigger;
+                quantizer.inputs.cv.fill(1);
+                quantizer.process();
+
+                quantizer.reset();
+
+                expect(quantizer.inputs.cv).toBe(input);
+                expect(quantizer.outputs.cv).toBe(cvOut);
+                expect(quantizer.outputs.trigger).toBe(triggerOut);
+                expect(input.every(value => value === 0)).toBe(true);
+                expect(cvOut.every(value => value === 0)).toBe(true);
+                expect(triggerOut.every(value => value === 0)).toBe(true);
+                expect(quantizer.leds.active).toBe(0);
             });
         });
     });

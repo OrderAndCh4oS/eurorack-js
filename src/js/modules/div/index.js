@@ -31,6 +31,9 @@ export default {
      * Create DSP instance
      */
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const clock = new Float32Array(bufferSize);
+        const rate1CV = new Float32Array(bufferSize);
+        const rate2CV = new Float32Array(bufferSize);
         const out1 = new Float32Array(bufferSize);
         const out2 = new Float32Array(bufferSize);
 
@@ -57,12 +60,25 @@ export default {
         let ch2SamplesSinceLastClock = 0;
 
         // Pulse state (1ms pulse)
-        const pulseWidth = Math.floor(0.001 * sampleRate);
+        const pulseWidth = Math.max(1, Math.round(0.001 * sampleRate));
+        const ledHoldSamples = Math.max(1, Math.round(0.05 * sampleRate));
         let ch1PulseSamples = 0;
         let ch2PulseSamples = 0;
+        let ch1LedSamples = 0;
+        let ch2LedSamples = 0;
 
         function rateToRatioIndex(rate) {
             return Math.round(clamp(rate, 0, 1) * (RATIOS.length - 1));
+        }
+
+        function startCh1Pulse() {
+            ch1PulseSamples = pulseWidth;
+            ch1LedSamples = ledHoldSamples;
+        }
+
+        function startCh2Pulse() {
+            ch2PulseSamples = pulseWidth;
+            ch2LedSamples = ledHoldSamples;
         }
 
         return {
@@ -72,9 +88,9 @@ export default {
             },
 
             inputs: {
-                clock: new Float32Array(bufferSize),
-                rate1CV: new Float32Array(bufferSize),
-                rate2CV: new Float32Array(bufferSize)
+                clock,
+                rate1CV,
+                rate2CV
             },
 
             outputs: {
@@ -88,18 +104,20 @@ export default {
             },
 
             process() {
-                const baseRate1 = this.params.rate1;
-                const baseRate2 = this.params.rate2;
-                const clockIn = this.inputs.clock;
-                const rate1CVIn = this.inputs.rate1CV;
-                const rate2CVIn = this.inputs.rate2CV;
+                const baseRate1 = Number.isFinite(this.params.rate1)
+                    ? clamp(this.params.rate1, 0, 1)
+                    : 0.5;
+                const baseRate2 = Number.isFinite(this.params.rate2)
+                    ? clamp(this.params.rate2, 0, 1)
+                    : 0.5;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    const clockHigh = clockIn[i] > 2.5;
+                    const clockSample = Number.isFinite(clock[i]) ? clock[i] : 0;
+                    const clockHigh = clockSample > 2.5;
                     const clockEdge = clockHigh && !lastClockState;
 
                     if (clockHigh) {
-                        inputPulseHeight = clockIn[i];
+                        inputPulseHeight = clamp(clockSample, 0, 10);
                     }
 
                     if (clockEdge) {
@@ -117,8 +135,12 @@ export default {
                     lastClockState = clockHigh;
 
                     // Apply CV modulation
-                    const cv1 = clamp(rate1CVIn[i], 0, 5) / 5;
-                    const cv2 = clamp(rate2CVIn[i], 0, 5) / 5;
+                    const cv1 = Number.isFinite(rate1CV[i])
+                        ? clamp(rate1CV[i], 0, 5) / 5
+                        : 0;
+                    const cv2 = Number.isFinite(rate2CV[i])
+                        ? clamp(rate2CV[i], 0, 5) / 5
+                        : 0;
                     const rate1 = clamp(baseRate1 + cv1, 0, 1);
                     const rate2 = clamp(baseRate2 + cv2, 0, 1);
 
@@ -129,17 +151,17 @@ export default {
                     if (ratio1 < 1) {
                         const divideBy = Math.round(1 / ratio1);
                         if (clockEdge && ch1Counter % divideBy === 0) {
-                            ch1PulseSamples = pulseWidth;
+                            startCh1Pulse();
                         }
                     } else if (ratio1 > 1 && hasClockReference && ch1SamplesSinceLastClock <= ch1LastPeriod) {
                         const multiplyBy = Math.round(ratio1);
-                        const phasePerPulse = ch1LastPeriod / multiplyBy;
-                        if (ch1SamplesSinceLastClock % Math.floor(phasePerPulse) === 0) {
-                            ch1PulseSamples = pulseWidth;
+                        const pulseInterval = Math.max(1, Math.round(ch1LastPeriod / multiplyBy));
+                        if (ch1SamplesSinceLastClock % pulseInterval === 0) {
+                            startCh1Pulse();
                         }
                     } else {
                         if (clockEdge) {
-                            ch1PulseSamples = pulseWidth;
+                            startCh1Pulse();
                         }
                     }
 
@@ -147,17 +169,17 @@ export default {
                     if (ratio2 < 1) {
                         const divideBy = Math.round(1 / ratio2);
                         if (clockEdge && ch2Counter % divideBy === 0) {
-                            ch2PulseSamples = pulseWidth;
+                            startCh2Pulse();
                         }
                     } else if (ratio2 > 1 && hasClockReference && ch2SamplesSinceLastClock <= ch2LastPeriod) {
                         const multiplyBy = Math.round(ratio2);
-                        const phasePerPulse = ch2LastPeriod / multiplyBy;
-                        if (ch2SamplesSinceLastClock % Math.floor(phasePerPulse) === 0) {
-                            ch2PulseSamples = pulseWidth;
+                        const pulseInterval = Math.max(1, Math.round(ch2LastPeriod / multiplyBy));
+                        if (ch2SamplesSinceLastClock % pulseInterval === 0) {
+                            startCh2Pulse();
                         }
                     } else {
                         if (clockEdge) {
-                            ch2PulseSamples = pulseWidth;
+                            startCh2Pulse();
                         }
                     }
 
@@ -167,13 +189,15 @@ export default {
 
                     if (ch1PulseSamples > 0) ch1PulseSamples--;
                     if (ch2PulseSamples > 0) ch2PulseSamples--;
+                    if (ch1LedSamples > 0) ch1LedSamples--;
+                    if (ch2LedSamples > 0) ch2LedSamples--;
 
                     ch1SamplesSinceLastClock++;
                     ch2SamplesSinceLastClock++;
                 }
 
-                this.leds.ch1 = ch1PulseSamples > 0 ? 1 : 0;
-                this.leds.ch2 = ch2PulseSamples > 0 ? 1 : 0;
+                this.leds.ch1 = ch1LedSamples > 0 ? 1 : 0;
+                this.leds.ch2 = ch2LedSamples > 0 ? 1 : 0;
             },
 
             reset() {
@@ -183,18 +207,16 @@ export default {
                 ch2SamplesSinceLastClock = 0;
                 ch1PulseSamples = 0;
                 ch2PulseSamples = 0;
+                ch1LedSamples = 0;
+                ch2LedSamples = 0;
                 lastClockState = false;
+                inputPulseHeight = 10;
                 hasClockReference = false;
-                this.leds.ch1 = 0;
-                this.leds.ch2 = 0;
-            },
-
-            onInputDisconnected(port) {
-                if (port !== 'clock') return;
-                ch1PulseSamples = 0;
-                ch2PulseSamples = 0;
-                lastClockState = false;
-                hasClockReference = false;
+                ch1LastPeriod = sampleRate;
+                ch2LastPeriod = sampleRate;
+                clock.fill(0);
+                rate1CV.fill(0);
+                rate2CV.fill(0);
                 out1.fill(0);
                 out2.fill(0);
                 this.leds.ch1 = 0;
@@ -214,13 +236,13 @@ export default {
             { id: 'rate2', label: 'Rate2', param: 'rate2', min: 0, max: 1, default: 0.5 }
         ],
         inputs: [
-            { id: 'clock', label: 'In', port: 'clock', signal: 'trigger' },
-            { id: 'rate1CV', label: 'CV1', port: 'rate1CV', signal: 'cv' },
-            { id: 'rate2CV', label: 'CV2', port: 'rate2CV', signal: 'cv' }
+            { id: 'clock', label: 'In', port: 'clock', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'rate1CV', label: 'CV1', port: 'rate1CV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } },
+            { id: 'rate2CV', label: 'CV2', port: 'rate2CV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } }
         ],
         outputs: [
-            { id: 'out1', label: 'Out1', port: 'out1', signal: 'trigger' },
-            { id: 'out2', label: 'Out2', port: 'out2', signal: 'trigger' }
+            { id: 'out1', label: 'Out1', port: 'out1', signal: 'trigger', voltage: { min: 0, max: 10 } },
+            { id: 'out2', label: 'Out2', port: 'out2', signal: 'trigger', voltage: { min: 0, max: 10 } }
         ]
     }
 };

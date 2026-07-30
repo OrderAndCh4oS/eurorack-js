@@ -12,6 +12,8 @@
  * - Stereo I/O with mono normalization
  */
 
+import { softLimitVoltage } from '../../utils/voltage.js';
+
 // Freeverb-style comb filter delay times (in samples at 44100Hz)
 const COMB_DELAYS = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617];
 const ALLPASS_DELAYS = [556, 441, 341, 225];
@@ -78,6 +80,7 @@ export default {
         // Own input buffers (for reset pattern)
         const ownAudioL = new Float32Array(bufferSize);
         const ownAudioR = new Float32Array(bufferSize);
+        let rightInputConnected = false;
 
         return {
             params: {
@@ -117,15 +120,10 @@ export default {
                 let peakLevel = 0;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    // Get input (mono normalization: if R is silent, use L)
-                    let inputL = audioL[i];
-                    let inputR = audioR[i];
-
-                    // Check if right channel has significant signal
-                    const rHasSignal = Math.abs(inputR) > 0.0001;
-                    if (!rHasSignal) {
-                        inputR = inputL; // Normalize mono to stereo
-                    }
+                    const inputL = audioL[i];
+                    // Physical jack normalization depends on cable presence, not
+                    // whether the right-channel waveform is crossing zero.
+                    const inputR = rightInputConnected ? audioR[i] : inputL;
 
                     // Mix modulation
                     const modulatedMix = Math.max(0, Math.min(1, mix + (mixCV[i] / 10)));
@@ -207,16 +205,14 @@ export default {
                     const fullWetR = earlyR + wetR;
 
                     // Mix dry and wet (early + late)
-                    outL[i] = inputL * (1 - modulatedMix) + fullWetL * modulatedMix;
-                    outR[i] = inputR * (1 - modulatedMix) + fullWetR * modulatedMix;
-
-                    // Soft clip to prevent excessive levels
-                    if (Math.abs(outL[i]) > 5) {
-                        outL[i] = Math.tanh(outL[i] / 5) * 5;
-                    }
-                    if (Math.abs(outR[i]) > 5) {
-                        outR[i] = Math.tanh(outR[i] / 5) * 5;
-                    }
+                    outL[i] = softLimitVoltage(
+                        inputL * (1 - modulatedMix) + fullWetL * modulatedMix,
+                        5
+                    );
+                    outR[i] = softLimitVoltage(
+                        inputR * (1 - modulatedMix) + fullWetR * modulatedMix,
+                        5
+                    );
 
                     // Track peak for LED
                     peakLevel = Math.max(peakLevel, Math.abs(outL[i]), Math.abs(outR[i]));
@@ -226,6 +222,14 @@ export default {
                 this.leds.active = Math.min(1, peakLevel / 5);
 
                 // Reset inputs if they were replaced by routing
+            },
+
+            onInputConnected(port) {
+                if (port === 'audioR') rightInputConnected = true;
+            },
+
+            onInputDisconnected(port) {
+                if (port === 'audioR') rightInputConnected = false;
             },
 
             reset() {

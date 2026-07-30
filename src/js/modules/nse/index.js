@@ -20,8 +20,10 @@ export default {
     color: 'module-color-one',
     category: 'source',
 
-    createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+    createDSP({ sampleRate = 44100, bufferSize = 512, random = Math.random } = {}) {
+        const triggerInput = new Float32Array(bufferSize);
         const noiseOut = new Float32Array(bufferSize);
+        const rng = typeof random === 'function' ? random : Math.random;
 
         // Downsample state
         let heldSample = 0;
@@ -29,31 +31,45 @@ export default {
 
         // VCA envelope state
         let vcaLevel = 0;
+        let attackStartLevel = 0;
         let lastTrigger = 0;
-        const attackTime = Math.floor(0.001 * sampleRate);
+        const attackTime = Math.max(1, Math.round(0.001 * sampleRate));
         let envelopePhase = 0;
         let envelopeSamples = 0;
         let currentDecayTime = 0;
+        let wasVcaEnabled = false;
+
+        function nextNoiseSample() {
+            const value = rng();
+            const unit = Number.isFinite(value) ? clamp(value, 0, 1) : 0.5;
+            return (unit * 2 - 1) * 5;
+        }
 
         function rateToDownsample(rate) {
-            const r = clamp(rate, 0, 1);
-            return Math.floor(1 + (1 - r) * (1 - r) * 500);
+            const r = Number.isFinite(rate) ? clamp(rate, 0, 1) : 1;
+            const maxHoldSamples = sampleRate * (501 / 44100);
+            return Math.max(1, Math.round(
+                1 + (1 - r) * (1 - r) * (maxHoldSamples - 1)
+            ));
         }
 
         function rateToDecay(rate) {
             const minDecay = 0.01 * sampleRate;
             const maxDecay = 0.5 * sampleRate;
-            return Math.floor(minDecay + clamp(rate, 0, 1) * (maxDecay - minDecay));
+            const normalized = Number.isFinite(rate) ? clamp(rate, 0, 1) : 1;
+            return Math.max(1, Math.round(
+                minDecay + normalized * (maxDecay - minDecay)
+            ));
         }
 
         return {
             params: {
-                rate: 0.5,
+                rate: 1,
                 vcaMode: 0
             },
 
             inputs: {
-                trigger: new Float32Array(bufferSize)
+                trigger: triggerInput
             },
 
             outputs: {
@@ -66,29 +82,43 @@ export default {
 
             process() {
                 const vcaEnabled = this.params.vcaMode === 1;
-                const triggerIn = this.inputs.trigger;
-                const downsampleFactor = vcaEnabled ? 1 : rateToDownsample(this.params.rate);
+                const rate = Number.isFinite(this.params.rate)
+                    ? clamp(this.params.rate, 0, 1)
+                    : 1;
+                const downsampleFactor = vcaEnabled ? 1 : rateToDownsample(rate);
+
+                if (!vcaEnabled && wasVcaEnabled) {
+                    vcaLevel = 0;
+                    attackStartLevel = 0;
+                    envelopePhase = 0;
+                    envelopeSamples = 0;
+                    currentDecayTime = 0;
+                }
+                wasVcaEnabled = vcaEnabled;
 
                 for (let i = 0; i < bufferSize; i++) {
                     sampleCounter++;
                     if (sampleCounter >= downsampleFactor) {
-                        heldSample = (Math.random() * 2 - 1) * 5;
+                        heldSample = nextNoiseSample();
                         sampleCounter = 0;
                     }
 
-                    if (vcaEnabled) {
-                        const trig = triggerIn[i];
-                        const trigEdge = trig >= 1 && lastTrigger < 1;
-                        lastTrigger = trig;
+                    const trig = Number.isFinite(triggerInput[i]) ? triggerInput[i] : 0;
+                    const trigEdge = trig >= 1 && lastTrigger < 1;
+                    lastTrigger = trig;
 
+                    if (vcaEnabled) {
                         if (trigEdge) {
+                            attackStartLevel = vcaLevel;
                             envelopePhase = 1;
                             envelopeSamples = 0;
-                            currentDecayTime = rateToDecay(this.params.rate);
+                            currentDecayTime = rateToDecay(rate);
                         }
 
                         if (envelopePhase === 1) {
-                            vcaLevel = envelopeSamples / attackTime;
+                            const progress = envelopeSamples / attackTime;
+                            vcaLevel = attackStartLevel +
+                                (1 - attackStartLevel) * progress;
                             envelopeSamples++;
                             if (envelopeSamples >= attackTime) {
                                 envelopePhase = 2;
@@ -119,7 +149,11 @@ export default {
                 envelopePhase = 0;
                 envelopeSamples = 0;
                 currentDecayTime = 0;
+                attackStartLevel = 0;
                 lastTrigger = 0;
+                wasVcaEnabled = false;
+                triggerInput.fill(0);
+                noiseOut.fill(0);
                 this.leds.active = 0;
             }
         };
@@ -134,10 +168,10 @@ export default {
             { id: 'vcaMode', label: 'VCA', param: 'vcaMode', default: 0 }
         ],
         inputs: [
-            { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger' }
+            { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } }
         ],
         outputs: [
-            { id: 'noise', label: 'Out', port: 'noise', signal: 'audio' }
+            { id: 'noise', label: 'Out', port: 'noise', signal: 'audio', voltage: { min: -5, max: 5 } }
         ]
     }
 };

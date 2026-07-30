@@ -156,6 +156,16 @@ describe('TAPE module', () => {
                 'freezeGate'
             ]);
             expect(tapeModule.ui.outputs.map(output => output.port)).toEqual(['out', 'clock']);
+            expect(Object.fromEntries(
+                tapeModule.ui.inputs
+                    .filter(input => input.voltage)
+                    .map(input => [input.port, input.voltage])
+            )).toEqual({
+                timeCV: { min: -5, max: 5, normal: 0 },
+                speedCV: { min: -5, max: 5, normal: 0 },
+                feedbackCV: { min: -5, max: 5, normal: 0 },
+                mixCV: { min: -5, max: 5, normal: 0 }
+            });
             expect(tapeModule.ui.socketLayout).toEqual({
                 columns: [
                     {
@@ -359,6 +369,52 @@ describe('TAPE module', () => {
 
             expect(wobbled.outputs.out.every(Number.isFinite)).toBe(true);
             expect(diff).toBeGreaterThan(0.05);
+        });
+
+        it('slews delay-time control changes without a read-head discontinuity', () => {
+            const tape = createTape({ sampleRate: 1000, bufferSize: 128 });
+            configureTiming(tape);
+            let sample = 0;
+            const fillInput = () => {
+                for (let i = 0; i < tape.inputs.audio.length; i++, sample++) {
+                    tape.inputs.audio[i] = Math.sin(2 * Math.PI * 5 * sample / 1000) * 4;
+                }
+            };
+
+            for (let block = 0; block < 4; block++) {
+                fillInput();
+                tape.process();
+            }
+            const before = tape.outputs.out[tape.outputs.out.length - 1];
+
+            tape.params.time = 0.3;
+            fillInput();
+            tape.process();
+
+            expect(Math.abs(tape.outputs.out[0] - before)).toBeLessThan(1);
+        });
+
+        it('crossfades head-mode changes instead of switching wet taps abruptly', () => {
+            const tape = createTape({ sampleRate: 1000, bufferSize: 128 });
+            configureTiming(tape, { headMode: 0 });
+            let sample = 0;
+            const fillInput = () => {
+                for (let i = 0; i < tape.inputs.audio.length; i++, sample++) {
+                    tape.inputs.audio[i] = Math.sin(2 * Math.PI * 7 * sample / 1000) * 4;
+                }
+            };
+
+            for (let block = 0; block < 4; block++) {
+                fillInput();
+                tape.process();
+            }
+            const before = tape.outputs.out[tape.outputs.out.length - 1];
+
+            tape.params.headMode = 2;
+            fillInput();
+            tape.process();
+
+            expect(Math.abs(tape.outputs.out[0] - before)).toBeLessThan(1);
         });
 
         it('crinkle creates deterministic wet dropouts and drives the dropout LED', () => {

@@ -125,6 +125,20 @@ describe('createBurst', () => {
             expect(custom.inputs.trig.length).toBe(32);
             expect(custom.outputs.out.length).toBe(32);
         });
+
+        it('declares trigger, bipolar CV, normalization, and output voltage contracts', () => {
+            expect(burstModule.ui.inputs).toEqual(expect.arrayContaining([
+                expect.objectContaining({ port: 'trig', voltage: { min: 0, max: 10, normal: 0 } }),
+                expect.objectContaining({ port: 'ping', voltage: { min: 0, max: 10, normal: 0 } }),
+                expect.objectContaining({ port: 'quantityCv', voltage: { min: -5, max: 5, normal: 0 } }),
+                expect.objectContaining({ port: 'distributionCv', voltage: { min: -5, max: 5, normal: 0 } }),
+                expect.objectContaining({ port: 'timeCv', voltage: { min: -5, max: 5, normal: 0 } }),
+                expect.objectContaining({ port: 'probabilityCv', voltage: { min: -5, max: 5, normal: 0 } })
+            ]));
+            for (const output of burstModule.ui.outputs) {
+                expect(output.voltage).toEqual({ min: 0, max: 10 });
+            }
+        });
     });
 
     describe('voltage and buffer integrity', () => {
@@ -147,6 +161,30 @@ describe('createBurst', () => {
                 expect(Number.isFinite(value)).toBe(true);
                 expect([0, 10]).toContain(value);
             });
+        });
+
+        it('recovers from non-finite controls and CV without stranding an active burst', () => {
+            for (const param of [
+                'tempo', 'quantity', 'quantityCvAmount', 'distribution',
+                'timeFactor', 'probability'
+            ]) {
+                burst.params[param] = Number.NaN;
+            }
+
+            const result = collect(burst, {
+                totalSamples: 600,
+                trigEdges: [0],
+                quantityCv: Number.NaN,
+                distributionCv: Number.POSITIVE_INFINITY,
+                timeCv: Number.NaN,
+                probabilityCv: Number.NEGATIVE_INFINITY
+            });
+
+            for (const output of Object.values(result)) {
+                expect(output.every(Number.isFinite)).toBe(true);
+                expect(output.every(value => value === 0 || value === 10)).toBe(true);
+            }
+            expect(burst.leds.active).toBe(0);
         });
     });
 
@@ -494,6 +532,8 @@ describe('createBurst', () => {
         });
 
         it('reset clears state and outputs but preserves params', () => {
+            const inputRefs = { ...burst.inputs };
+            const outputRefs = { ...burst.outputs };
             burst.params.tempo = 60;
             burst.params.quantity = 7;
 
@@ -504,6 +544,11 @@ describe('createBurst', () => {
 
             burst.reset();
 
+            expect(burst.inputs).toEqual(inputRefs);
+            expect(burst.outputs).toEqual(outputRefs);
+            for (const input of Object.values(burst.inputs)) {
+                expect(input.every(value => value === 0)).toBe(true);
+            }
             expect(burst.outputs.out.every(value => value === 0)).toBe(true);
             expect(burst.outputs.tempo.every(value => value === 0)).toBe(true);
             expect(burst.outputs.eoc.every(value => value === 0)).toBe(true);

@@ -19,10 +19,12 @@
  * Algorithm: sin(drive * (input + offset))
  * - Drive scales with fold amount
  * - Offset adds DC bias for asymmetric folding
+ * - First-order antiderivative antialiasing reduces reflected harmonics
  *
  * References:
  * - https://noiseengineering.us/blogs/loquelic-literitas-the-blog/getting-started-wavefolders/
  * - https://ccrma.stanford.edu/~jatin/ComplexNonlinearities/Wavefolder.html
+ * - https://www.pure.ed.ac.uk/ws/portalfiles/portal/34115216/bilbao_pdf.pdf
  */
 
 export default {
@@ -34,6 +36,10 @@ export default {
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         const out = new Float32Array(bufferSize);
+        const ownAudio = new Float32Array(bufferSize);
+        const ownFoldCV = new Float32Array(bufferSize);
+        const ownSymCV = new Float32Array(bufferSize);
+        let previousDrivenInput = 0;
 
         // Output scaling (sin outputs ±1, scale to ±5V)
         const OUTPUT_SCALE = 5;
@@ -49,9 +55,9 @@ export default {
             },
 
             inputs: {
-                audio: new Float32Array(bufferSize),
-                foldCV: new Float32Array(bufferSize),
-                symCV: new Float32Array(bufferSize)
+                audio: ownAudio,
+                foldCV: ownFoldCV,
+                symCV: ownSymCV
             },
 
             outputs: { out },
@@ -76,13 +82,20 @@ export default {
                     // Get input and add symmetry offset
                     const input = audio[i] + offset;
 
-                    // Normalize input to folding range
-                    // Divide by 5 to normalize ±5V audio to ±1
-                    const normalizedInput = input / 5;
+                    // Combine drive and normalized input so parameter/CV changes
+                    // are part of the signal presented to the nonlinearity.
+                    const drivenInput = drive * input / 5;
+                    const delta = drivenInput - previousDrivenInput;
 
-                    // Apply sine wavefolder
-                    // sin(drive * x) folds the wave back on itself
-                    const folded = Math.sin(drive * normalizedInput * Math.PI);
+                    // First-order antiderivative antialiasing for sin(PI*x).
+                    // The divided difference integrates the memoryless transfer
+                    // curve between samples, reducing harmonics reflected below
+                    // Nyquist without an oversampling buffer.
+                    const folded = Math.abs(delta) > 1e-8
+                        ? (Math.cos(Math.PI * previousDrivenInput)
+                            - Math.cos(Math.PI * drivenInput)) / (Math.PI * delta)
+                        : Math.sin(Math.PI * (drivenInput + previousDrivenInput) * 0.5);
+                    previousDrivenInput = drivenInput;
 
                     // Scale output back to audio range
                     out[i] = folded * OUTPUT_SCALE;
@@ -90,7 +103,11 @@ export default {
             },
 
             reset() {
+                ownAudio.fill(0);
+                ownFoldCV.fill(0);
+                ownSymCV.fill(0);
                 out.fill(0);
+                previousDrivenInput = 0;
             }
         };
     },
@@ -102,8 +119,8 @@ export default {
         ],
         inputs: [
             { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
-            { id: 'foldCV', label: 'Fold', port: 'foldCV', signal: 'cv' },
-            { id: 'symCV', label: 'Sym', port: 'symCV', signal: 'cv' }
+            { id: 'foldCV', label: 'Fold', port: 'foldCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'symCV', label: 'Sym', port: 'symCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } }
         ],
         outputs: [
             { id: 'out', label: 'Out', port: 'out', signal: 'audio' }

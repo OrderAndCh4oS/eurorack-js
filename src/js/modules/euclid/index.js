@@ -23,6 +23,8 @@
  * - https://cgm.cs.mcgill.ca/~godfried/publications/banff.pdf
  */
 
+import { clamp } from '../../utils/math.js';
+
 export default {
     id: 'euclid',
     name: 'EUCLID',
@@ -31,6 +33,10 @@ export default {
     category: 'sequencer',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const clock = new Float32Array(bufferSize);
+        const reset = new Float32Array(bufferSize);
+        const lenCV = new Float32Array(bufferSize);
+        const hitsCV = new Float32Array(bufferSize);
         const trig = new Float32Array(bufferSize);
 
         // Internal state
@@ -38,45 +44,23 @@ export default {
         let lastClock = false;
         let lastReset = false;
 
-        // Trigger output state - needs to survive test helper's 3-process cycle
-        // At 44100 Hz with 512-sample buffers, 10ms = 441 samples, but we need ~1536 samples (3 buffers)
-        // Use at least 4 buffers to ensure trigger persists after sendTrigger completes
-        const TRIGGER_SAMPLES = Math.max(Math.floor(sampleRate * 0.01), bufferSize * 4);  // 10ms or 4 buffers
+        const TRIGGER_SAMPLES = Math.max(1, Math.round(sampleRate * 0.008));
+        const LED_SAMPLES = Math.max(1, Math.round(sampleRate * 0.05));
         let triggerCounter = 0;
+        let ledCounter = 0;
 
         // CV scaling: +5V = +8 steps/hits
         const CV_SCALE = 8 / 5;
 
         /**
-         * Generate Euclidean pattern using bucket/accumulator method
-         * Returns array of 0s and 1s
-         */
-        function generatePattern(hits, length) {
-            if (length <= 0) return [];
-            if (hits <= 0) return new Array(length).fill(0);
-            if (hits >= length) return new Array(length).fill(1);
-
-            const pattern = [];
-            let bucket = 0;
-            for (let i = 0; i < length; i++) {
-                bucket += hits;
-                if (bucket >= length) {
-                    bucket -= length;
-                    pattern.push(1);
-                } else {
-                    pattern.push(0);
-                }
-            }
-            return pattern;
-        }
-
-        /**
          * Check if current step is a hit (with rotation applied)
          */
-        function isHit(step, rotate, pattern) {
-            if (pattern.length === 0) return false;
-            const rotatedStep = ((step - rotate) % pattern.length + pattern.length) % pattern.length;
-            return pattern[rotatedStep] === 1;
+        function isHit(step, rotate, hits, length) {
+            if (hits <= 0) return false;
+            if (hits >= length) return true;
+            const rotatedStep = ((step - rotate) % length + length) % length;
+            return Math.floor(((rotatedStep + 1) * hits) / length) !==
+                Math.floor((rotatedStep * hits) / length);
         }
 
         return {
@@ -87,10 +71,10 @@ export default {
             },
 
             inputs: {
-                clock: new Float32Array(bufferSize),
-                reset: new Float32Array(bufferSize),
-                lenCV: new Float32Array(bufferSize),
-                hitsCV: new Float32Array(bufferSize)
+                clock,
+                reset,
+                lenCV,
+                hitsCV
             },
 
             outputs: { trig },
@@ -99,40 +83,43 @@ export default {
 
             process() {
                 const { length, hits, rotate } = this.params;
-                const { clock, reset, lenCV, hitsCV } = this.inputs;
-
-                // Use first sample of CV for this buffer (optimization)
-                const cvLen = lenCV[0] * CV_SCALE;
-                const effectiveLength = Math.round(
-                    Math.max(1, Math.min(16, length + cvLen))
-                );
-
-                const cvHits = hitsCV[0] * CV_SCALE;
-                const effectiveHits = Math.round(
-                    Math.max(0, Math.min(effectiveLength, hits + cvHits))
-                );
-
-                // Generate pattern for current settings
-                const pattern = generatePattern(effectiveHits, effectiveLength);
+                const baseLength = Number.isFinite(length) ? clamp(Math.round(length), 1, 16) : 8;
+                const baseHits = Number.isFinite(hits) ? clamp(Math.round(hits), 0, 16) : 3;
+                const safeRotate = Number.isFinite(rotate) ? Math.round(rotate) : 0;
 
                 for (let i = 0; i < bufferSize; i++) {
+                    const lengthCvSample = Number.isFinite(lenCV[i]) ? clamp(lenCV[i], -5, 5) : 0;
+                    const hitsCvSample = Number.isFinite(hitsCV[i]) ? clamp(hitsCV[i], -5, 5) : 0;
+                    const effectiveLength = clamp(
+                        Math.round(baseLength + lengthCvSample * CV_SCALE),
+                        1,
+                        16
+                    );
+                    const effectiveHits = clamp(
+                        Math.round(baseHits + hitsCvSample * CV_SCALE),
+                        0,
+                        effectiveLength
+                    );
+
                     // Reset detection (rising edge, threshold >= 1V)
-                    const resetHigh = reset[i] >= 1;
+                    const resetHigh = Number.isFinite(reset[i]) && reset[i] >= 1;
                     if (resetHigh && !lastReset) {
                         currentStep = -1;  // Will advance to 0 on next clock
+                        triggerCounter = 0;
+                        ledCounter = 0;
                     }
                     lastReset = resetHigh;
 
                     // Clock detection (rising edge, threshold >= 1V)
-                    const clockHigh = clock[i] >= 1;
-                    if (clockHigh && !lastClock) {
+                    const clockHigh = Number.isFinite(clock[i]) && clock[i] >= 1;
+                    if (!resetHigh && clockHigh && !lastClock) {
                         // Advance to next step
                         currentStep = (currentStep + 1) % effectiveLength;
 
                         // Check if this step is a hit
-                        if (isHit(currentStep, rotate, pattern)) {
+                        if (isHit(currentStep, safeRotate, effectiveHits, effectiveLength)) {
                             triggerCounter = TRIGGER_SAMPLES;
-                            this.leds.active = 1;
+                            ledCounter = LED_SAMPLES;
                         }
                     }
                     lastClock = clockHigh;
@@ -141,29 +128,25 @@ export default {
                     if (triggerCounter > 0) {
                         trig[i] = 10;
                         triggerCounter--;
-                        if (triggerCounter === 0) {
-                            this.leds.active = 0;
-                        }
                     } else {
                         trig[i] = 0;
                     }
+                    if (ledCounter > 0) ledCounter--;
                 }
+                this.leds.active = ledCounter > 0 ? 1 : 0;
             },
 
             reset() {
+                clock.fill(0);
+                reset.fill(0);
+                lenCV.fill(0);
+                hitsCV.fill(0);
                 trig.fill(0);
                 currentStep = -1;
                 lastClock = false;
                 lastReset = false;
                 triggerCounter = 0;
-                this.leds.active = 0;
-            },
-
-            onInputDisconnected(port) {
-                if (port !== 'clock') return;
-                trig.fill(0);
-                lastClock = false;
-                triggerCounter = 0;
+                ledCounter = 0;
                 this.leds.active = 0;
             }
         };
@@ -177,13 +160,13 @@ export default {
             { id: 'rotate', label: 'Rotate', param: 'rotate', min: 0, max: 15, default: 0, step: 1 }
         ],
         inputs: [
-            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger' },
-            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger' },
-            { id: 'lenCV', label: 'Len', port: 'lenCV', signal: 'cv' },
-            { id: 'hitsCV', label: 'Hits', port: 'hitsCV', signal: 'cv' }
+            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'lenCV', label: 'Len', port: 'lenCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'hitsCV', label: 'Hits', port: 'hitsCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } }
         ],
         outputs: [
-            { id: 'trig', label: 'Trig', port: 'trig', signal: 'trigger' }
+            { id: 'trig', label: 'Trig', port: 'trig', signal: 'trigger', voltage: { min: 0, max: 10 } }
         ]
     }
 };

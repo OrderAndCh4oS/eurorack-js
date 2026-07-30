@@ -242,6 +242,19 @@ describe('SPECTROGRAM - Frequency Over Time', () => {
                 expect(snapshot.some(v => Number.isNaN(v))).toBe(false);
             }
         });
+
+        it('contains non-finite input and display controls', () => {
+            dsp.inputs.audio.fill(NaN);
+            dsp.params.time = Infinity;
+            dsp.params.floor = NaN;
+            for (let cycle = 0; cycle < 5; cycle++) dsp.process();
+
+            expect(dsp.outputs.out.every(Number.isFinite)).toBe(true);
+            expect(dsp.history.every(snapshot => snapshot.every(Number.isFinite))).toBe(true);
+            expect(Number.isFinite(dsp.getTimeWindow())).toBe(true);
+            expect(Number.isFinite(dsp.getExportData().floor)).toBe(true);
+            expect(Number.isFinite(dsp.leds.signal)).toBe(true);
+        });
     });
 
     describe('time window', () => {

@@ -85,7 +85,9 @@ All arrays and delay lines are allocated in `createDSP()`. Per-sample coefficien
 
 ## Assumptions And Deviations
 
-- The engine provides no patch-state flag to DSP. Stable input buffers never change identity, so the adaptation uses block signal activity to select external versus internal excitation; silence at a patched input is indistinguishable from an unpatched input.
+- The AudioWorklet reports input connection lifecycle separately from stable
+  sample buffers. Audio/Strum normalizations use that state, so patched silence
+  remains distinct from an unpatched port.
 - Exact fixed-point firmware lookup tables and hidden algorithms are not copied.
 - The explicit `mix` output is a software-panel adaptation and the documented default for mono patches.
 - Resolution reduction is a deliberate CPU/fidelity trade-off also present in the reference behavior.
@@ -113,3 +115,25 @@ All arrays and delay lines are allocated in `createDSP()`. Per-sample coefficien
 - **Focused coverage**: modal/string models, controls, excitation paths, pitch tracking, voice allocation, reset, buffer identity, and voltage bounds are covered by `tests/dsp/resbank.test.js`.
 - **Measured status**: the 44.1/48/96 kHz by 128/512-sample matrix completed 25 scenarios per configuration with zero errors or voltage flags, finite/stable buffers, and a measured maximum of 535.6 us/block. Modal coefficients are updated per block/voice rather than per sample.
 - **Next action**: listening-test long 4-voice tails and remeasure if modal resolution or feedback limits change.
+
+## Individual Contract Audit (2026-07-30)
+
+- **Normalization defects found**: the module scanned each block for nonzero
+  Audio samples and high Strum values to infer patch state. A patched silent
+  Audio input therefore invoked the internal exciter, while a patched-low Strum
+  input incorrectly left pitch-step and audio-transient auto-strumming enabled.
+- **Remediation**: Audio and Strum use AudioWorklet connection lifecycle state.
+  The internal exciter is available only when Audio is unpatched; automatic
+  pitch/audio allocation is available only when Strum is unpatched. Connected
+  silence and disconnect restoration have explicit regressions.
+- **Voltage/reset contract**: V/Oct and the four attenuverted CVs explicitly
+  declare -5..+5 V. Reset clears every stable input/output and detector/voice
+  state while restoring Frequency CV's documented 1/12 V normal.
+- **Coverage**: focused tests exercise all three models, all controls and CV
+  attenuverters, 1 V/oct, 1/2/4 voices, explicit/internal/external excitation,
+  exact cable normals, trigger threshold/held state, three outputs, LEDs,
+  reset, rails, finite samples, and stable buffers.
+- **Runtime/voltage result**: the strict 44.1/48/96 kHz by 128/512 matrix
+  completed all 25 scenarios with no errors or voltage flags, stable buffers, a
+  5 V peak, and a worst observed advisory runtime of 489.9 microseconds/block.
+- **Status**: complete for the documented Rings-inspired adaptation.

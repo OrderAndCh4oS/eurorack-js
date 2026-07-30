@@ -38,4 +38,34 @@ describe('MIDI-CV', () => {
         dsp.reset();
         expect(dsp.outputs.pitch.every(value => value === 0)).toBe(true);
     });
+
+    it('keeps expression and malformed controls within declared voltage rails', () => {
+        const midi = createService();
+        midi.notes = [{ type: 'noteOn', channel: 0, note: 60, velocity: Infinity, sampleOffset: 0 }];
+        midi.bend = Infinity;
+        midi.mod = Infinity;
+        const dsp = moduleDefinition.createDSP({ sampleRate: 1000, bufferSize: 16, services: { midiManager: midi } });
+        dsp.params.transpose = NaN;
+        dsp.params.bendRange = NaN;
+        dsp.process();
+
+        Object.values(dsp.outputs).forEach(output => expect(output.every(Number.isFinite)).toBe(true));
+        expect(Math.max(...dsp.outputs.velocity)).toBeLessThanOrEqual(10);
+        expect(Math.max(...dsp.outputs.mod)).toBeLessThanOrEqual(10);
+        dsp.reset();
+        expect(dsp.leds.gate).toBe(0);
+    });
+
+    it('keeps the gate high for overlapping notes in legato mode', () => {
+        const midi = createService();
+        midi.notes = [
+            { type: 'noteOn', channel: 0, note: 60, velocity: 100, sampleOffset: 0 },
+            { type: 'noteOn', channel: 0, note: 64, velocity: 100, sampleOffset: 8 }
+        ];
+        const dsp = moduleDefinition.createDSP({ sampleRate: 1000, bufferSize: 16, services: { midiManager: midi } });
+        dsp.params.legato = 1;
+        dsp.process();
+
+        expect([...dsp.outputs.gate.slice(5)]).toEqual(new Array(11).fill(10));
+    });
 });

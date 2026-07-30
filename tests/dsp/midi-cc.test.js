@@ -18,5 +18,20 @@ describe('MIDI-CC', () => {
         dsp.process();
         dsp.reset();
         expect(dsp.outputs.cv1.every(value => value === 0)).toBe(true);
+        expect(dsp.leds.active).toBe(0);
+    });
+
+    it('bounds malformed controller values and assignments to 0-10 V', () => {
+        const midi = { getCCValue: (_channel, number) => number === 1 ? Infinity : NaN };
+        const dsp = moduleDefinition.createDSP({ sampleRate: 1000, bufferSize: 32, services: { midiManager: midi } });
+        dsp.params.channel = NaN;
+        dsp.params.cc2 = Infinity;
+        dsp.process();
+
+        Object.values(dsp.outputs).forEach(output => {
+            expect(output.every(Number.isFinite)).toBe(true);
+            expect(Math.min(...output)).toBeGreaterThanOrEqual(0);
+            expect(Math.max(...output)).toBeLessThanOrEqual(10);
+        });
     });
 });

@@ -237,6 +237,19 @@ describe('SPECTRUM - Spectrum Analyzer', () => {
             // Fast decay should result in lower remaining peak
             expect(fastDecayPeak).toBeLessThan(slowDecayPeak);
         });
+
+        it('uses a sample-rate-invariant peak release', () => {
+            const renderRelease = bufferSize => {
+                const analyzer = spectrumModule.createDSP({ sampleRate: 65536, bufferSize });
+                analyzer.params.decay = 0.5;
+                analyzer.peaks.fill(0);
+                const blocks = 65536 / bufferSize;
+                for (let block = 0; block < blocks; block++) analyzer.process();
+                return analyzer.peaks[20];
+            };
+
+            expect(renderRelease(128)).toBeCloseTo(renderRelease(512), 3);
+        });
     });
 
     describe('LED indicator', () => {
@@ -283,7 +296,7 @@ describe('SPECTRUM - Spectrum Analyzer', () => {
 
             dsp.reset();
 
-            expect(dsp.peaks.every(v => v === 0)).toBe(true);
+            expect(dsp.peaks.every(v => v === -100)).toBe(true);
         });
 
         it('should reset LED state', () => {
@@ -329,6 +342,17 @@ describe('SPECTRUM - Spectrum Analyzer', () => {
 
             // Magnitudes are in dB, valid range is roughly -100dB to +20dB
             expect(dsp.magnitudes.every(v => v >= -120 && v <= 20)).toBe(true);
+        });
+
+        it('contains non-finite input and controls without poisoning analysis state', () => {
+            dsp.inputs.audio.fill(NaN);
+            dsp.params.decay = Infinity;
+            dsp.process();
+
+            expect(dsp.outputs.out.every(Number.isFinite)).toBe(true);
+            expect(dsp.magnitudes.every(Number.isFinite)).toBe(true);
+            expect(dsp.peaks.every(Number.isFinite)).toBe(true);
+            expect(Number.isFinite(dsp.leds.signal)).toBe(true);
         });
     });
 

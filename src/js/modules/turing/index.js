@@ -17,6 +17,8 @@
  * - 8 LEDs showing current bit states
  */
 
+import { clamp } from '../../utils/math.js';
+
 export default {
     id: 'turing',
     name: 'TURING',
@@ -26,34 +28,34 @@ export default {
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         // 16-bit shift register
-        let register = new Array(16).fill(0).map(() => Math.random() > 0.5 ? 1 : 0);
+        const register = new Uint8Array(16);
+        function randomizeRegister() {
+            for (let i = 0; i < register.length; i++) {
+                register[i] = Math.random() > 0.5 ? 1 : 0;
+            }
+        }
+        randomizeRegister();
 
         // Length options
         const lengths = [2, 3, 4, 5, 6, 8, 12, 16];
 
         // State
-        let lastClock = 0;
-        let currentCV = 0;
+        let lastClockHigh = false;
+        let currentUnscaledCV = 0;
         let currentPulse = 0;
-
-        // Pulse threshold - based on bit pattern, not scaled CV
-        // This ensures pulse output works regardless of scale setting
-        const pulseThresholdBits = 4; // Out of 8 bits - pulse when >= 4 bits high
 
         // Own input buffers
         const ownClock = new Float32Array(bufferSize);
         const ownLockCV = new Float32Array(bufferSize);
 
-        // Calculate CV from register (always uses first 8 bits)
-        // Returns unscaled value (0-5V) for pulse comparison, and scaled for output
-        function calculateCV(scale) {
+        // Calculate unscaled CV from register (always uses first 8 bits).
+        function calculateCV() {
             let value = 0;
             for (let i = 0; i < 8; i++) {
                 value += register[i] * (1 << i);
             }
             // Normalize 0-255 to 0-5V
-            const unscaledCV = (value / 255) * 5;
-            return { unscaled: unscaledCV, scaled: unscaledCV * scale };
+            return (value / 255) * 5;
         }
 
         // Update LED states from register (first 8 bits)
@@ -67,7 +69,7 @@ export default {
             params: {
                 lock: 0.5,    // 0=always flip (2x lock), 0.5=random, 1=never flip (locked)
                 scale: 0.8,   // Output voltage range
-                length: 3     // Switch position 0-7 → lengths[i]
+                length: 5     // Switch position 0-7 → lengths[i]
             },
 
             inputs: {
@@ -90,19 +92,24 @@ export default {
                 const { lock, scale, length } = this.params;
                 const { cv, pulse } = this.outputs;
 
-                const seqLength = lengths[Math.floor(length)] || 8;
+                const safeLock = Number.isFinite(lock) ? clamp(lock, 0, 1) : 0.5;
+                const safeScale = Number.isFinite(scale) ? clamp(scale, 0, 1) : 0.8;
+                const lengthIndex = Number.isFinite(length) ? clamp(Math.round(length), 0, 7) : 5;
+                const seqLength = lengths[lengthIndex];
 
                 for (let i = 0; i < bufferSize; i++) {
                     // Detect rising edge on clock
-                    const clockHigh = clock[i] >= 1;
-                    const risingEdge = clockHigh && lastClock < 1;
-                    lastClock = clock[i];
+                    const clockHigh = Number.isFinite(clock[i]) && clock[i] >= 1;
+                    const risingEdge = clockHigh && !lastClockHigh;
+                    lastClockHigh = clockHigh;
 
                     if (risingEdge) {
                         // Calculate effective lock amount (knob + CV)
                         // CV is ±5V, normalize to ±0.5 contribution
-                        const cvMod = (lockCV[i] || 0) / 10;
-                        const effectiveLock = Math.max(0, Math.min(1, lock + cvMod));
+                        const cvMod = Number.isFinite(lockCV[i])
+                            ? clamp(lockCV[i], -5, 5) / 10
+                            : 0;
+                        const effectiveLock = clamp(safeLock + cvMod, 0, 1);
 
                         // Convert lock (0-1) to threshold for comparison
                         // At lock=1: threshold=1, noise never exceeds → never flip
@@ -128,44 +135,36 @@ export default {
                         register[0] = newBit;
 
                         // Calculate CV (unscaled for pulse, scaled for output)
-                        const cvResult = calculateCV(scale);
-                        currentCV = cvResult.scaled;
+                        currentUnscaledCV = calculateCV();
 
                         // Pulse output: high when unscaled CV > 1.5V (per original spec)
-                        currentPulse = cvResult.unscaled > 1.5 ? 10 : 0;
+                        currentPulse = currentUnscaledCV > 1.5 ? 10 : 0;
 
                         // Update LEDs
                         updateLEDs(this.leds);
                     }
 
                     // Output current values (sample and hold CV, pulse qualified by clock)
-                    cv[i] = currentCV;
+                    cv[i] = currentUnscaledCV * safeScale;
                     pulse[i] = clockHigh ? currentPulse : 0;
                 }
-
-                // Reset own inputs if replaced by routing
             },
 
             reset() {
                 // Reinitialize with random register
-                register = new Array(16).fill(0).map(() => Math.random() > 0.5 ? 1 : 0);
-                lastClock = 0;
-                currentCV = 0;
+                randomizeRegister();
+                lastClockHigh = false;
+                currentUnscaledCV = 0;
                 currentPulse = 0;
 
+                ownClock.fill(0);
+                ownLockCV.fill(0);
                 this.outputs.cv.fill(0);
                 this.outputs.pulse.fill(0);
 
                 for (let i = 0; i < 8; i++) {
                     this.leds[`bit${i}`] = 0;
                 }
-            },
-
-            onInputDisconnected(port) {
-                if (port !== 'clock') return;
-                lastClock = 0;
-                currentPulse = 0;
-                this.outputs.pulse.fill(0);
             }
         };
     },
@@ -179,12 +178,12 @@ export default {
         ],
         switches: [],
         inputs: [
-            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger' },
-            { id: 'lockCV', label: 'CV', port: 'lockCV', signal: 'cv' }
+            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'lockCV', label: 'CV', port: 'lockCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } }
         ],
         outputs: [
-            { id: 'cv', label: 'CV', port: 'cv', signal: 'cv' },
-            { id: 'pulse', label: 'Pulse', port: 'pulse', signal: 'gate' }
+            { id: 'cv', label: 'CV', port: 'cv', signal: 'cv', voltage: { min: 0, max: 5 } },
+            { id: 'pulse', label: 'Pulse', port: 'pulse', signal: 'gate', voltage: { min: 0, max: 10 } }
         ]
     }
 };

@@ -41,6 +41,14 @@ describe('createSH', () => {
             expect(sh.inputs.in2).toBeInstanceOf(Float32Array);
             expect(sh.inputs.trig1).toBeInstanceOf(Float32Array);
             expect(sh.inputs.trig2).toBeInstanceOf(Float32Array);
+            expect(shModule.ui.inputs.map(port => port.voltage)).toEqual([
+                { min: -12, max: 12, normal: 0 },
+                { min: -12, max: 12, normal: 0 },
+                { min: 0, max: 10, normal: 0 },
+                { min: 0, max: 10, normal: 0 }
+            ]);
+            expect(shModule.ui.outputs.map(port => port.voltage))
+                .toEqual([{ min: -12, max: 12 }, { min: -12, max: 12 }]);
         });
 
         it('should have LED outputs', () => {
@@ -185,6 +193,19 @@ describe('createSH', () => {
     });
 
     describe('slew control', () => {
+        it.each([44100, 48000, 96000])('reaches one 50ms time constant at %i Hz', sampleRate => {
+            const bufferSize = Math.round(sampleRate * 0.05);
+            const timed = createSH({ sampleRate, bufferSize });
+            timed.params.slew1 = 1;
+            timed.inputs.in1.fill(10);
+            timed.inputs.trig1.fill(1);
+
+            timed.process();
+
+            expect(timed.outputs.out1[bufferSize - 1])
+                .toBeCloseTo(10 * (1 - Math.exp(-1)), 3);
+        });
+
         it('should pass through instantly when slew=0', () => {
             sh.params.slew1 = 0;
 
@@ -225,6 +246,31 @@ describe('createSH', () => {
             }
 
             expect(maxJump).toBeLessThan(1); // Slewed, not instant
+        });
+
+        it('applies the full continuous knob range above the exact-zero bypass', () => {
+            sh.params.slew1 = 0.005; // 0.25ms, below the old hidden dead zone
+            sh.inputs.in1.fill(5);
+            sh.inputs.trig1.fill(5);
+
+            sh.process();
+
+            expect(sh.outputs.out1[0]).toBeGreaterThan(0);
+            expect(sh.outputs.out1[0]).toBeLessThan(5);
+        });
+
+        it('does not fall toward zero when slew is enabled after holding a value', () => {
+            sh.params.slew1 = 0;
+            sh.inputs.in1.fill(5);
+            sh.inputs.trig1.fill(5);
+            sh.process();
+            expect(sh.outputs.out1[0]).toBe(5);
+
+            sh.inputs.trig1.fill(0);
+            sh.params.slew1 = 1;
+            sh.process();
+
+            expect([...sh.outputs.out1]).toEqual(Array(512).fill(5));
         });
 
         it('should have independent slew per channel', () => {
@@ -308,6 +354,8 @@ describe('createSH', () => {
 
     describe('reset', () => {
         it('should reset all state', () => {
+            const inputs = { ...sh.inputs };
+            const outputs = { ...sh.outputs };
             // Sample some values
             sh.inputs.in1.fill(5.0);
             sh.inputs.in2.fill(7.0);
@@ -317,10 +365,22 @@ describe('createSH', () => {
 
             sh.reset();
 
+            Object.entries(inputs).forEach(([key, buffer]) => {
+                expect(sh.inputs[key]).toBe(buffer);
+                expect(buffer.every(value => value === 0)).toBe(true);
+            });
+            Object.entries(outputs).forEach(([key, buffer]) => {
+                expect(sh.outputs[key]).toBe(buffer);
+                expect(buffer.every(value => value === 0)).toBe(true);
+            });
             expect(sh.leds.ch1).toBe(0);
             expect(sh.leds.ch2).toBe(0);
-            expect(sh.outputs.out1[0]).toBe(0);
-            expect(sh.outputs.out2[0]).toBe(0);
+
+            sh.params.slew1 = 1;
+            sh.inputs.in1.fill(5);
+            sh.inputs.trig1.fill(5);
+            sh.process();
+            expect(sh.outputs.out1[0]).toBeLessThan(1);
         });
     });
 
@@ -334,6 +394,22 @@ describe('createSH', () => {
 
             expect(sh.outputs.out1.every(v => !isNaN(v))).toBe(true);
             expect(sh.outputs.out2.every(v => !isNaN(v))).toBe(true);
+        });
+
+        it('should recover safely from non-finite controls and samples', () => {
+            sh.params.slew1 = Number.NaN;
+            sh.params.slew2 = Number.POSITIVE_INFINITY;
+            sh.inputs.in1.fill(Number.NaN);
+            sh.inputs.in2.fill(Number.NEGATIVE_INFINITY);
+            sh.inputs.trig1.fill(Number.POSITIVE_INFINITY);
+            sh.inputs.trig2.fill(Number.NaN);
+
+            sh.process();
+
+            expect(sh.outputs.out1.every(Number.isFinite)).toBe(true);
+            expect(sh.outputs.out2.every(Number.isFinite)).toBe(true);
+            expect(Number.isFinite(sh.leds.ch1)).toBe(true);
+            expect(Number.isFinite(sh.leds.ch2)).toBe(true);
         });
     });
 });

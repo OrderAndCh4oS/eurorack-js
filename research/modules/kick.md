@@ -180,3 +180,19 @@ pitchEnv *= pitchDecayRate;
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/kick.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Trigger detection remains sample-accurate at the app's 1V trigger threshold;
+  phase resets on every accepted edge for repeatable attacks.
+- Pitch, Tone, and their CV paths are evaluated per sample. Pitch CV keeps the
+  documented 1V/octave relationship across a bounded +/-5V range, while the
+  oscillator is capped below Nyquist so an invalid or extreme control cannot
+  poison phase state.
+- Non-finite controls and CV samples recover to their documented defaults or 0V.
+  Output remains finite and within the +/-5V audio rails.
+- Focused and module-contract validation passes trigger, Pitch/Decay/Tone/Click,
+  CV, decay, rail, finite, full-buffer, LED, and reset assertions.
+- The strict 44.1/48/96kHz by 128/512 matrix completes nine scenarios with
+  finite output, zero voltage flags, stable buffers, and maximum Node
+  diagnostic time below 0.161ms per block.

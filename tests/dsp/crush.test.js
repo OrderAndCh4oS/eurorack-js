@@ -182,6 +182,7 @@ describe('CRUSH Module', () => {
             dsp.params.mix = 1;
             dsp.params.bits = 0.5;
             dsp.params.rate = 0.3;
+            dsp.onInputConnected('inR');
 
             // Feed different signals to L and R
             for (let i = 0; i < bufferSize; i++) {
@@ -243,6 +244,47 @@ describe('CRUSH Module', () => {
             dsp.process();
 
             expect(dsp.outputs.outL[0]).toBe(0);
+        });
+
+        it('clears stable input buffers without replacing them', () => {
+            const inputs = { ...dsp.inputs };
+            dsp.inputs.inL.fill(2);
+            dsp.inputs.inR.fill(3);
+            dsp.reset();
+
+            expect(dsp.inputs.inL).toBe(inputs.inL);
+            expect(dsp.inputs.inR).toBe(inputs.inR);
+            expect(dsp.inputs.inL.every(value => value === 0)).toBe(true);
+            expect(dsp.inputs.inR.every(value => value === 0)).toBe(true);
+        });
+    });
+
+    describe('Stereo normalization and rails', () => {
+        it('normals right from left but preserves connected silence and disconnects cleanly', () => {
+            dsp.params.mix = 0;
+            dsp.inputs.inL.fill(2);
+            dsp.process();
+            expect(dsp.outputs.outR.every(value => value === 2)).toBe(true);
+
+            dsp.inputs.inR.fill(0);
+            dsp.onInputConnected('inR');
+            dsp.process();
+            expect(dsp.outputs.outR.every(value => value === 0)).toBe(true);
+
+            dsp.onInputDisconnected('inR');
+            dsp.process();
+            expect(dsp.outputs.outR.every(value => value === 2)).toBe(true);
+        });
+
+        it('uses a continuous positive output rail', () => {
+            const rail = crushModule.createDSP({ bufferSize: 4 });
+            rail.params.mix = 0;
+            rail.inputs.inL.set([4.99, 5, 5.01, 6]);
+            rail.process();
+
+            expect([...rail.outputs.outL]).toEqual([...rail.outputs.outL].sort((a, b) => a - b));
+            expect(rail.outputs.outL[2] - rail.outputs.outL[1]).toBeLessThan(0.1);
+            expect(rail.outputs.outL.every(value => value <= 5)).toBe(true);
         });
     });
 

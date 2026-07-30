@@ -331,12 +331,16 @@ export default {
         const frequencies = new Float64Array(MAX_VOICES);
         const frozenFrequencies = new Float64Array(MAX_VOICES);
         const previousSines = new Float64Array(MAX_VOICES);
+        const modulationSines = new Float64Array(MAX_VOICES);
         const weights = new Float64Array(MAX_VOICES);
         const frozenVoices = new Uint8Array(MAX_VOICES);
         let lastLearn = 0;
         let lastFreeze = 0;
         let frozen = false;
         let lastScaleSlot = -1;
+        let cachedScaleMemory = null;
+        let cachedScaleSlot = -1;
+        let cachedScaleNotes = null;
 
         const dsp = {
             params: {
@@ -417,44 +421,91 @@ export default {
             process() {
                 const count = Math.round(clamp(finite(this.params.oscillatorCount, 8), 1, MAX_VOICES));
                 const group = Math.round(clamp(finite(this.params.scaleGroup), 0, 2));
-                const selectedScale = clamp(
-                    Math.round(finite(this.params.scale, 1) + finite(inputs.scaleCv[0]) / 5 * 9), 0, 9
-                );
-                const notes = this.currentScale(group, selectedScale);
-                const slot = scaleSlot(group, selectedScale);
-                if (slot !== lastScaleSlot) {
-                    this.leds.scale = 1;
-                    lastScaleSlot = slot;
-                } else {
-                    this.leds.scale *= 0.9;
-                }
-
                 const rootFrequency = expMap(clamp(finite(this.params.root, 0.35)), 27.5, 440);
-                const spread = clamp(finite(this.params.spread, 0.4) + finite(inputs.spreadCv[0]) / 5);
-                const rootSemitones = finite(inputs.root[0]) * 12;
-                const pitchSemitones = finite(this.params.pitch) * 24 + finite(inputs.pitch[0]) * 12 + finite(this.params.fine);
                 const crossfade = clamp(finite(this.params.crossfade, 0.75));
                 const detune = clamp(finite(this.params.detune, 0.08)) * 0.4;
-                const balance = clamp(finite(this.params.balance, 0.5) + finite(inputs.balanceCv[0]) / 5);
+                let scaleChanged = false;
 
-                let weightEnergy = 0;
-                for (let voice = 0; voice < count; voice++) {
-                    const position = rootSemitones + spread * voice * 2.5;
-                    const gridSemitone = quantizePosition(position, notes, group, crossfade);
-                    const detuneOffset = count === 1 ? 0 : (voice / (count - 1) * 2 - 1) * detune;
-                    const target = rootFrequency * 2 ** ((gridSemitone + pitchSemitones + detuneOffset) / 12);
-                    if (!(frozen && frozenVoices[voice])) frequencies[voice] = clamp(target, 0.01, sampleRate * 0.45);
-                    else frequencies[voice] = frozenFrequencies[voice];
-                    const normalized = count === 1 ? 0 : voice / (count - 1);
-                    const tilt = balance < 0.5
-                        ? Math.exp(-normalized * (0.5 - balance) * 8)
-                        : Math.exp(-(1 - normalized) * (balance - 0.5) * 8);
-                    weights[voice] = tilt;
-                    weightEnergy += tilt * tilt;
+                for (let voice = count; voice < MAX_VOICES; voice++) {
+                    frequencies[voice] = 0;
+                    weights[voice] = 0;
                 }
-                const normalization = 1 / Math.sqrt(Math.max(1e-9, weightEnergy));
+
+                const requestedFreeze = finite(this.params.freeze) >= 0.5;
+                let freezeParamPending = requestedFreeze !== frozen;
+                if (freezeParamPending && frequencies[0] > 0) {
+                    this.toggleFreeze(count);
+                    freezeParamPending = false;
+                }
 
                 for (let i = 0; i < bufferSize; i++) {
+                    const selectedScale = clamp(
+                        Math.round(finite(this.params.scale, 1) + finite(inputs.scaleCv[i]) / 5 * 9),
+                        0,
+                        9
+                    );
+                    const slot = scaleSlot(group, selectedScale);
+                    const memory = this.params.scaleMemory;
+                    const learned = memory?.[slot];
+                    let notes;
+                    if (learned) {
+                        if (
+                            cachedScaleMemory !== memory
+                            || cachedScaleSlot !== slot
+                            || !cachedScaleNotes
+                        ) {
+                            cachedScaleMemory = memory;
+                            cachedScaleSlot = slot;
+                            cachedScaleNotes = sanitizeScale(learned);
+                        }
+                        notes = cachedScaleNotes;
+                    } else {
+                        notes = SCALE_GROUPS[group][selectedScale];
+                    }
+                    if (slot !== lastScaleSlot) {
+                        this.leds.scale = 1;
+                        lastScaleSlot = slot;
+                        scaleChanged = true;
+                    }
+
+                    const spread = clamp(
+                        finite(this.params.spread, 0.4) + finite(inputs.spreadCv[i]) / 5
+                    );
+                    const rootSemitones = finite(inputs.root[i]) * 12;
+                    const pitchSemitones = finite(this.params.pitch) * 24
+                        + finite(inputs.pitch[i]) * 12
+                        + finite(this.params.fine);
+                    const balance = clamp(
+                        finite(this.params.balance, 0.5) + finite(inputs.balanceCv[i]) / 5
+                    );
+                    let weightEnergy = 0;
+                    for (let voice = 0; voice < count; voice++) {
+                        const position = rootSemitones + spread * voice * 2.5;
+                        const gridSemitone = quantizePosition(position, notes, group, crossfade);
+                        const detuneOffset = count === 1
+                            ? 0
+                            : (voice / (count - 1) * 2 - 1) * detune;
+                        const target = rootFrequency
+                            * 2 ** ((gridSemitone + pitchSemitones + detuneOffset) / 12);
+                        if (!(frozen && frozenVoices[voice])) {
+                            frequencies[voice] = clamp(target, 0.01, sampleRate * 0.45);
+                        } else {
+                            frequencies[voice] = frozenFrequencies[voice];
+                        }
+                        const normalized = count === 1 ? 0 : voice / (count - 1);
+                        const tilt = balance < 0.5
+                            ? Math.exp(-normalized * (0.5 - balance) * 8)
+                            : Math.exp(-(1 - normalized) * (balance - 0.5) * 8);
+                        weights[voice] = tilt;
+                        weightEnergy += tilt * tilt;
+                    }
+                    const normalization = 1 / Math.sqrt(Math.max(1e-9, weightEnergy));
+
+                    if (freezeParamPending) {
+                        this.toggleFreeze(count);
+                        freezeParamPending = false;
+                    }
+
                     const learnValue = finite(inputs.learn[i]);
                     const freezeValue = finite(inputs.freeze[i]);
                     if (learnValue > FREEZE_THRESHOLD && lastLearn <= FREEZE_THRESHOLD && finite(this.params.learnMode) >= 0.5) {
@@ -475,11 +526,12 @@ export default {
                     let aSample = 0;
                     let bSample = 0;
 
+                    modulationSines.set(previousSines);
                     for (let voice = 0; voice < count; voice++) {
                         let modulator;
-                        if (crossMode === 0) modulator = previousSines[0];
-                        else if (crossMode === 1) modulator = previousSines[(voice + count - 1) % count];
-                        else modulator = previousSines[count - 1];
+                        if (crossMode === 0) modulator = modulationSines[0];
+                        else if (crossMode === 1) modulator = modulationSines[(voice + count - 1) % count];
+                        else modulator = modulationSines[count - 1];
                         const increment = frequencies[voice] / sampleRate * (1 + modulator * crossFm * 0.45);
                         phases[voice] = wrapPhase(phases[voice] + increment);
                         const shapedPhase = twistPhase(phases[voice], twist, twistMode);
@@ -496,6 +548,7 @@ export default {
                     outB[i] = softLimitVoltage(bSample * 4, 5);
                 }
 
+                if (!scaleChanged) this.leds.scale *= 0.9;
                 this.leds.learn = finite(this.params.learnMode) >= 0.5 ? 1 : 0;
                 this.leds.freeze = frozen ? 1 : 0;
             },
@@ -513,6 +566,7 @@ export default {
                 frequencies.fill(0);
                 frozenFrequencies.fill(0);
                 previousSines.fill(0);
+                modulationSines.fill(0);
                 weights.fill(0);
                 frozenVoices.fill(0);
                 mono.fill(0);
@@ -522,6 +576,10 @@ export default {
                 lastFreeze = 0;
                 frozen = false;
                 lastScaleSlot = -1;
+                cachedScaleMemory = null;
+                cachedScaleSlot = -1;
+                cachedScaleNotes = null;
+                Object.values(inputs).forEach(input => input.fill(0));
                 this.params.freeze = 0;
                 this.leds.learn = 0;
                 this.leds.freeze = 0;
@@ -569,14 +627,14 @@ export default {
             { param: 'scaleMemory', default: {} }
         ],
         inputs: [
-            { id: 'root', label: 'Root', port: 'root', signal: 'cv' },
-            { id: 'pitch', label: 'Pitch', port: 'pitch', signal: 'cv' },
-            { id: 'scaleCv', label: 'Scale', port: 'scaleCv', signal: 'cv' },
-            { id: 'spreadCv', label: 'Spread', port: 'spreadCv', signal: 'cv' },
-            { id: 'balanceCv', label: 'Balance', port: 'balanceCv', signal: 'cv' },
-            { id: 'crossFmCv', label: 'Cross FM', port: 'crossFmCv', signal: 'cv' },
-            { id: 'twistCv', label: 'Twist', port: 'twistCv', signal: 'cv' },
-            { id: 'warpCv', label: 'Warp', port: 'warpCv', signal: 'cv' },
+            { id: 'root', label: 'Root', port: 'root', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'pitch', label: 'Pitch', port: 'pitch', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'scaleCv', label: 'Scale', port: 'scaleCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'spreadCv', label: 'Spread', port: 'spreadCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'balanceCv', label: 'Balance', port: 'balanceCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'crossFmCv', label: 'Cross FM', port: 'crossFmCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'twistCv', label: 'Twist', port: 'twistCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'warpCv', label: 'Warp', port: 'warpCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
             { id: 'learn', label: 'Learn', port: 'learn', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
             { id: 'freeze', label: 'Freeze', port: 'freeze', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } }
         ],

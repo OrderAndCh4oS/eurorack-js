@@ -23,7 +23,8 @@ const HOLD_THRESHOLD = 2;
 const OUTPUT_SCALE = 5;
 
 function getRange(params) {
-    return QUAD_LFO_RANGES[Math.round(clamp(params.range, 0, QUAD_LFO_RANGES.length - 1))];
+    const range = Number.isFinite(params.range) ? params.range : 0;
+    return QUAD_LFO_RANGES[Math.round(clamp(range, 0, QUAD_LFO_RANGES.length - 1))];
 }
 
 export default {
@@ -34,6 +35,10 @@ export default {
     category: 'modulation',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const rateCV = new Float32Array(bufferSize);
+        const rateMod = new Float32Array(bufferSize);
+        const resetInput = new Float32Array(bufferSize);
+        const hold = new Float32Array(bufferSize);
         const out0 = new Float32Array(bufferSize);
         const out90 = new Float32Array(bufferSize);
         const out180 = new Float32Array(bufferSize);
@@ -44,12 +49,21 @@ export default {
 
         function baseFrequency(params) {
             const range = getRange(params);
-            return expMap(params.rate, range.min, range.max);
+            const rate = Number.isFinite(params.rate) ? params.rate : 0.35;
+            return expMap(rate, range.min, range.max);
         }
 
-        function effectiveFrequency(params, rateCV, rateMod) {
-            const cvOctaves = clamp(rateCV || 0, -5, 5);
-            const modOctaves = clamp(rateMod || 0, -5, 5) * clamp(params.rateCvAmt, -1, 1);
+        function effectiveFrequency(params, rateCVSample, rateModSample) {
+            const cvOctaves = Number.isFinite(rateCVSample)
+                ? clamp(rateCVSample, -5, 5)
+                : 0;
+            const modInput = Number.isFinite(rateModSample)
+                ? clamp(rateModSample, -5, 5)
+                : 0;
+            const rateCvAmt = Number.isFinite(params.rateCvAmt)
+                ? clamp(params.rateCvAmt, -1, 1)
+                : 0;
+            const modOctaves = modInput * rateCvAmt;
             const frequency = baseFrequency(params) * 2 ** (cvOctaves + modOctaves);
             return clamp(frequency, MIN_FREQUENCY, Math.min(MAX_FREQUENCY, sampleRate * 0.45));
         }
@@ -62,10 +76,10 @@ export default {
             },
 
             inputs: {
-                rateCV: new Float32Array(bufferSize),
-                rateMod: new Float32Array(bufferSize),
-                reset: new Float32Array(bufferSize),
-                hold: new Float32Array(bufferSize)
+                rateCV,
+                rateMod,
+                reset: resetInput,
+                hold
             },
 
             outputs: {
@@ -83,13 +97,8 @@ export default {
             },
 
             process() {
-                const rateCV = this.inputs.rateCV;
-                const rateMod = this.inputs.rateMod;
-                const reset = this.inputs.reset;
-                const hold = this.inputs.hold;
-
                 for (let i = 0; i < bufferSize; i++) {
-                    const resetValue = reset[i] || 0;
+                    const resetValue = Number.isFinite(resetInput[i]) ? resetInput[i] : 0;
                     const resetRising = resetValue >= RESET_THRESHOLD && lastReset < RESET_THRESHOLD;
                     if (resetRising) phase = 0;
 
@@ -103,7 +112,8 @@ export default {
                     out180[i] = Math.sin(phase180 * TWO_PI) * OUTPUT_SCALE;
                     out270[i] = Math.sin(phase270 * TWO_PI) * OUTPUT_SCALE;
 
-                    if ((hold[i] || 0) <= HOLD_THRESHOLD) {
+                    const holdValue = Number.isFinite(hold[i]) ? hold[i] : 0;
+                    if (holdValue <= HOLD_THRESHOLD) {
                         const inc = effectiveFrequency(this.params, rateCV[i], rateMod[i]) / sampleRate;
                         phase = wrapPhase(phase + inc);
                     }
@@ -121,6 +131,10 @@ export default {
             reset() {
                 phase = 0;
                 lastReset = 0;
+                rateCV.fill(0);
+                rateMod.fill(0);
+                resetInput.fill(0);
+                hold.fill(0);
                 out0.fill(0);
                 out90.fill(0);
                 out180.fill(0);
@@ -141,16 +155,16 @@ export default {
             { id: 'rateCvAmt', label: 'CV Amt', param: 'rateCvAmt', min: -1, max: 1, default: 0 }
         ],
         inputs: [
-            { id: 'rateCV', label: '1V/Oct', port: 'rateCV', signal: 'cv' },
-            { id: 'rateMod', label: 'FM', port: 'rateMod', signal: 'cv' },
-            { id: 'reset', label: 'Reset', port: 'reset', signal: 'trigger' },
-            { id: 'hold', label: 'Hold', port: 'hold', signal: 'gate' }
+            { id: 'rateCV', label: '1V/Oct', port: 'rateCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'rateMod', label: 'FM', port: 'rateMod', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'reset', label: 'Reset', port: 'reset', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'hold', label: 'Hold', port: 'hold', signal: 'gate', voltage: { min: 0, max: 10, normal: 0 } }
         ],
         outputs: [
-            { id: 'out0', label: '0', port: 'out0', signal: 'cv' },
-            { id: 'out90', label: '90', port: 'out90', signal: 'cv' },
-            { id: 'out180', label: '180', port: 'out180', signal: 'cv' },
-            { id: 'out270', label: '270', port: 'out270', signal: 'cv' }
+            { id: 'out0', label: '0', port: 'out0', signal: 'cv', voltage: { min: -5, max: 5 } },
+            { id: 'out90', label: '90', port: 'out90', signal: 'cv', voltage: { min: -5, max: 5 } },
+            { id: 'out180', label: '180', port: 'out180', signal: 'cv', voltage: { min: -5, max: 5 } },
+            { id: 'out270', label: '270', port: 'out270', signal: 'cv', voltage: { min: -5, max: 5 } }
         ]
     }
 };

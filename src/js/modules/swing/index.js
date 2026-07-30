@@ -27,6 +27,10 @@ export default {
     category: 'clock',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const clock = new Float32Array(bufferSize);
+        const resetInput = new Float32Array(bufferSize);
+        const swingCV = new Float32Array(bufferSize);
+        const humanCV = new Float32Array(bufferSize);
         const swungOut = new Float32Array(bufferSize);
         const straightOut = new Float32Array(bufferSize);
 
@@ -57,7 +61,8 @@ export default {
         }
 
         function currentTemplateIndex(params) {
-            return Math.round(clamp(params.template, 0, SWING_TEMPLATE_WEIGHTS.length - 1));
+            const template = Number.isFinite(params.template) ? params.template : 0;
+            return Math.round(clamp(template, 0, SWING_TEMPLATE_WEIGHTS.length - 1));
         }
 
         function getPulseWidthSamples(params) {
@@ -68,13 +73,14 @@ export default {
                 return maxPulseSamples;
             }
 
-            return Math.round(
-                minPulseSamples + clamp(params.width, 0, 1) * (maxPulseSamples - minPulseSamples)
-            );
+            const width = Number.isFinite(params.width) ? clamp(params.width, 0, 1) : 0.1;
+            return Math.round(minPulseSamples + width * (maxPulseSamples - minPulseSamples));
         }
 
         function getEffectiveParam(knobValue, cvValue) {
-            return clamp(clamp(knobValue, 0, 1) + clamp(cvValue, 0, 5) / 5, 0, 1);
+            const knob = Number.isFinite(knobValue) ? clamp(knobValue, 0, 1) : 0;
+            const cv = Number.isFinite(cvValue) ? clamp(cvValue, 0, 5) : 0;
+            return clamp(knob + cv / 5, 0, 1);
         }
 
         function getTemplateWeight(params) {
@@ -133,10 +139,10 @@ export default {
             },
 
             inputs: {
-                clock: new Float32Array(bufferSize),
-                reset: new Float32Array(bufferSize),
-                swingCV: new Float32Array(bufferSize),
-                humanCV: new Float32Array(bufferSize)
+                clock,
+                reset: resetInput,
+                swingCV,
+                humanCV
             },
 
             outputs: {
@@ -150,17 +156,15 @@ export default {
             },
 
             process() {
-                const clockIn = this.inputs.clock;
-                const resetIn = this.inputs.reset;
-                const swingCVIn = this.inputs.swingCV;
-                const humanCVIn = this.inputs.humanCV;
                 let inputActivity = false;
                 let outputActivity = false;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    const resetHigh = resetIn[i] > CLOCK_THRESHOLD;
+                    const resetHigh = Number.isFinite(resetInput[i]) &&
+                        resetInput[i] > CLOCK_THRESHOLD;
                     const resetEdge = resetHigh && !lastResetHigh;
-                    const clockHigh = clockIn[i] > CLOCK_THRESHOLD;
+                    const clockHigh = Number.isFinite(clock[i]) &&
+                        clock[i] > CLOCK_THRESHOLD;
                     const clockEdge = clockHigh && !lastClockHigh;
 
                     if (resetEdge) {
@@ -187,8 +191,8 @@ export default {
                         straightPulseSamples = Math.max(straightPulseSamples, pulseWidthSamples);
                         const delaySamples = computeDelaySamples(
                             this.params,
-                            swingCVIn[i],
-                            humanCVIn[i],
+                            swingCV[i],
+                            humanCV[i],
                             pulseWidthSamples
                         );
 
@@ -226,18 +230,10 @@ export default {
                 samplesSinceLastClock = 0;
                 lastPeriodSamples = defaultPeriodSamples;
                 sampleClock = 0;
-                this.leds.in = 0;
-                this.leds.out = 0;
-            },
-
-            onInputDisconnected(port) {
-                if (port !== 'clock') return;
-                swungOut.fill(0);
-                straightOut.fill(0);
-                clearScheduledState({ resetPattern: false });
-                lastClockHigh = false;
-                hasClockReference = false;
-                samplesSinceLastClock = 0;
+                clock.fill(0);
+                resetInput.fill(0);
+                swingCV.fill(0);
+                humanCV.fill(0);
                 this.leds.in = 0;
                 this.leds.out = 0;
             }
@@ -253,14 +249,14 @@ export default {
             { id: 'template', label: 'Tmpl', param: 'template', min: 0, max: 3, default: 0, step: 1 }
         ],
         inputs: [
-            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger' },
-            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger' },
-            { id: 'swingCV', label: 'SwCV', port: 'swingCV', signal: 'cv' },
-            { id: 'humanCV', label: 'HmCV', port: 'humanCV', signal: 'cv' }
+            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'swingCV', label: 'SwCV', port: 'swingCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } },
+            { id: 'humanCV', label: 'HmCV', port: 'humanCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } }
         ],
         outputs: [
-            { id: 'swung', label: 'Swg', port: 'swung', signal: 'trigger' },
-            { id: 'straight', label: 'Str', port: 'straight', signal: 'trigger' }
+            { id: 'swung', label: 'Swg', port: 'swung', signal: 'trigger', voltage: { min: 0, max: 10 } },
+            { id: 'straight', label: 'Str', port: 'straight', signal: 'trigger', voltage: { min: 0, max: 10 } }
         ]
     }
 };

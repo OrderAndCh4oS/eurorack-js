@@ -14,7 +14,7 @@ function timeToSamples(value, sampleRate) {
 }
 
 function createChannel() {
-    return { lastHigh: false, pending: -1, remaining: 0 };
+    return { lastHigh: false, pending: -1, remaining: 0, ledRemaining: 0 };
 }
 
 export default {
@@ -30,6 +30,7 @@ export default {
         const gate1 = new Float32Array(bufferSize);
         const gate2 = new Float32Array(bufferSize);
         const channels = [createChannel(), createChannel()];
+        const ledHoldSamples = Math.max(1, Math.round(sampleRate * 0.05));
 
         function processChannel(input, output, state, delay, length) {
             const delaySamples = timeToSamples(delay, sampleRate);
@@ -55,7 +56,12 @@ export default {
                 }
 
                 output[i] = state.remaining > 0 ? 10 : 0;
-                if (state.remaining > 0) state.remaining--;
+                if (state.remaining > 0) {
+                    state.remaining--;
+                    state.ledRemaining = ledHoldSamples;
+                } else if (state.ledRemaining > 0) {
+                    state.ledRemaining--;
+                }
             }
         }
 
@@ -68,8 +74,8 @@ export default {
             process() {
                 processChannel(this.inputs.trig1, gate1, channels[0], this.params.delay1, this.params.length1);
                 processChannel(this.inputs.trig2, gate2, channels[1], this.params.delay2, this.params.length2);
-                this.leds.gate1 = gate1[bufferSize - 1] / 10;
-                this.leds.gate2 = gate2[bufferSize - 1] / 10;
+                this.leds.gate1 = channels[0].ledRemaining > 0 ? 1 : 0;
+                this.leds.gate2 = channels[1].ledRemaining > 0 ? 1 : 0;
             },
 
             reset() {

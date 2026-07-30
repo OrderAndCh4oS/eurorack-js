@@ -21,6 +21,8 @@
  * - https://synthesizeracademy.com/ring-modulator/
  */
 
+import { softLimitVoltage } from '../../utils/voltage.js';
+
 export default {
     id: 'ring',
     name: 'RING',
@@ -30,6 +32,8 @@ export default {
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         const out = new Float32Array(bufferSize);
+        const ownX = new Float32Array(bufferSize);
+        const ownY = new Float32Array(bufferSize);
 
         // Scale factor: ±5V * ±5V = ±25V, divide by 5 to get back to ±5V
         const SCALE = 1 / 5;
@@ -40,8 +44,8 @@ export default {
             },
 
             inputs: {
-                x: new Float32Array(bufferSize),  // Carrier
-                y: new Float32Array(bufferSize)   // Modulator
+                x: ownX,  // Carrier
+                y: ownY   // Modulator
             },
 
             outputs: { out },
@@ -57,11 +61,13 @@ export default {
                     const ringMod = x[i] * y[i] * SCALE;
 
                     // Mix dry (carrier) with wet (ring mod)
-                    out[i] = x[i] * (1 - mix) + ringMod * mix;
+                    out[i] = softLimitVoltage(x[i] * (1 - mix) + ringMod * mix, 5);
                 }
             },
 
             reset() {
+                ownX.fill(0);
+                ownY.fill(0);
                 out.fill(0);
             }
         };

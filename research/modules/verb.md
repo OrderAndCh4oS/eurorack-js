@@ -191,3 +191,30 @@ const scaledDelay = Math.floor(baseDelay * rateScale);
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/verb.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Feedback Remediation (2026-07-30)
+
+- A shared stereo patch exposed two discontinuities that generic range testing
+  did not catch. The DSP treated every near-zero right-channel sample as an
+  unpatched jack and substituted the left channel. With independently delayed
+  inputs, this spliced unrelated left samples into every right-channel zero
+  crossing. A deterministic render of the reported patch measured a worst
+  adjacent-sample jump of about 1.80 V at the module output, compared with about
+  0.20 V in the reverb-bypassed patch. With connection-aware normalization, the
+  same render's worst jump fell to about 0.14 V.
+- The hardware manual describes physical jack normalization: IN L feeds both
+  outputs only when IN R is not patched. The app now receives input
+  connect/disconnect lifecycle notifications from the worklet and normalizes by
+  cable state, never by instantaneous sample amplitude.
+- The former overload branch also jumped from an identity transfer at 5 V to
+  `tanh(x / 5) * 5` immediately above 5 V. That discontinuous transfer is
+  replaced by the shared continuous `softLimitVoltage()` rail.
+- Focused regression targets: a connected right input retains its zero
+  crossings, disconnecting it restores mono normalization, and a rising input
+  sweep remains monotonic and continuous around +5 V.
+
+### Source added
+
+- [2hp Verb Manual](https://www.twohp.com/s/Verb_Manual.pdf)
+  - 2hp, accessed 2026-07-30. Primary source for stereo jack behavior: IN L
+    normalizes to both outputs only when IN R is absent, with 10 Vpp audio I/O.

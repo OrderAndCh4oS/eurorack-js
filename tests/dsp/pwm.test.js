@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import pwmModule from '../../src/js/modules/pwm/index.js';
+import { createRealFft } from '../../src/js/utils/fft.js';
 
 describe('PWM - Pulse Width Modulation Generator', () => {
     let dsp;
@@ -61,6 +62,14 @@ describe('PWM - Pulse Width Modulation Generator', () => {
         it('should have LED indicators', () => {
             expect(dsp.leds.out).toBeDefined();
             expect(dsp.leds.inv).toBeDefined();
+        });
+
+        it('declares bipolar PWM CV with a 0V normal', () => {
+            expect(pwmModule.ui.inputs.find(input => input.port === 'pwmCV').voltage).toEqual({
+                min: -5,
+                max: 5,
+                normal: 0
+            });
         });
     });
 
@@ -183,7 +192,8 @@ describe('PWM - Pulse Width Modulation Generator', () => {
             const withNegativeCV = dsp.outputs.out[0];
 
             expect(withPositiveCV).toBeGreaterThan(0);
-            expect(withNegativeCV).toBeLessThan(0);
+            expect(withNegativeCV).toBeLessThanOrEqual(0);
+            expect(dsp.outputs.out.at(-1)).toBeLessThan(0);
         });
 
         it('should respect PWM amount attenuator', () => {
@@ -205,6 +215,18 @@ describe('PWM - Pulse Width Modulation Generator', () => {
             expect(fullAmount).toBeGreaterThan(0);
             // At exactly 0V input with 0V threshold, could go either way
             // The key is that large CV has no effect when amount is 0
+        });
+
+        it('maps full-scale PWM CV to one threshold-range endpoint', () => {
+            dsp.params.pw = 0.5;
+            dsp.params.pwmAmt = 1;
+            dsp.inputs.in.fill(-7);
+            dsp.inputs.pwmCV.fill(5);
+            dsp.process();
+
+            // +5V moves the 0V center threshold to -5V, not beyond the
+            // documented input range.
+            expect(dsp.outputs.out.every(value => value < 0)).toBe(true);
         });
 
         it('should create PWM effect with LFO on CV input', () => {
@@ -261,11 +283,12 @@ describe('PWM - Pulse Width Modulation Generator', () => {
 
             dsp.process();
 
-            // Output should be binary
-            const allBinary = dsp.outputs.out.every(v =>
+            // Steady samples are binary; sub-sample crossing estimates may
+            // produce an intermediate value on an antialiased edge sample.
+            const binaryFraction = dsp.outputs.out.filter(v =>
                 Math.abs(Math.abs(v) - 5) < 0.1
-            );
-            expect(allBinary).toBe(true);
+            ).length / BUFFER_SIZE;
+            expect(binaryFraction).toBeGreaterThan(0.95);
         });
 
         it('should convert sine wave to pulse', () => {
@@ -278,11 +301,10 @@ describe('PWM - Pulse Width Modulation Generator', () => {
 
             dsp.process();
 
-            // Output should be binary
-            const allBinary = dsp.outputs.out.every(v =>
+            const binaryFraction = dsp.outputs.out.filter(v =>
                 Math.abs(Math.abs(v) - 5) < 0.1
-            );
-            expect(allBinary).toBe(true);
+            ).length / BUFFER_SIZE;
+            expect(binaryFraction).toBeGreaterThan(0.95);
         });
     });
 
@@ -389,6 +411,23 @@ describe('PWM - Pulse Width Modulation Generator', () => {
             expect(dsp.leds.out).toBe(0);
             expect(dsp.leds.inv).toBe(0);
         });
+
+        it('clears stable inputs and outputs in place', () => {
+            const inputs = { ...dsp.inputs };
+            const outputs = { ...dsp.outputs };
+            Object.values(dsp.inputs).forEach(input => input.fill(3));
+            dsp.process();
+            dsp.reset();
+
+            Object.entries(inputs).forEach(([port, input]) => {
+                expect(dsp.inputs[port]).toBe(input);
+                expect(input.every(value => value === 0)).toBe(true);
+            });
+            Object.entries(outputs).forEach(([port, output]) => {
+                expect(dsp.outputs[port]).toBe(output);
+                expect(output.every(value => value === 0)).toBe(true);
+            });
+        });
     });
 
     describe('buffer integrity', () => {
@@ -414,6 +453,36 @@ describe('PWM - Pulse Width Modulation Generator', () => {
             // Check no undefined/empty values
             expect(dsp.outputs.out.length).toBe(BUFFER_SIZE);
             expect(dsp.outputs.inv.length).toBe(BUFFER_SIZE);
+        });
+
+        it('reduces reflected comparator edges relative to naive sampling', () => {
+            const sampleRate = 16384;
+            const fftSize = 4096;
+            const frequency = 3072;
+            const comparator = pwmModule.createDSP({ sampleRate, bufferSize: fftSize });
+            const naive = new Float32Array(fftSize);
+            comparator.params.pw = 0.5;
+            comparator.params.pwmAmt = 0;
+            for (let i = 0; i < fftSize; i++) {
+                const input = Math.sin(2 * Math.PI * frequency * i / sampleRate) * 5;
+                comparator.inputs.in[i] = input;
+                naive[i] = input > 0 ? 5 : -5;
+            }
+            comparator.process();
+
+            const fft = createRealFft({ size: fftSize });
+            const spectrum = new Float32Array(fftSize / 2);
+            const naiveSpectrum = new Float32Array(fftSize / 2);
+            fft.analyzeCircular(comparator.outputs.out, 0, spectrum);
+            fft.analyzeCircular(naive, 0, naiveSpectrum);
+            const aliasBins = [1024, 4096, 7168]
+                .map(aliasFrequency => aliasFrequency * fftSize / sampleRate);
+            const aliasPower = bins => aliasBins.reduce(
+                (sum, bin) => sum + Math.pow(10, bins[bin] / 10),
+                0
+            );
+
+            expect(aliasPower(spectrum)).toBeLessThan(aliasPower(naiveSpectrum) * 0.4);
         });
     });
 

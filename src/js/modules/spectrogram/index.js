@@ -163,7 +163,10 @@ export default {
             getSampleRate() { return sampleRate; },
 
             getTimeWindow() {
-                return 2 + this.params.time * 28; // 2-30 seconds
+                const time = Number.isFinite(this.params.time)
+                    ? Math.max(0, Math.min(1, this.params.time))
+                    : 0.5;
+                return 2 + time * 28; // 2-30 seconds
             },
 
             getHistoryCount() {
@@ -182,7 +185,11 @@ export default {
                     numBins: NUM_BINS,
                     sampleRate: this.getSampleRate(),
                     snapshotInterval: SNAPSHOT_INTERVAL,
-                    floor: -80 + this.params.floor * 60
+                    floor: -80 + (
+                        Number.isFinite(this.params.floor)
+                            ? Math.max(0, Math.min(1, this.params.floor))
+                            : 0.5
+                    ) * 60
                 };
             },
 
@@ -190,13 +197,14 @@ export default {
                 const input = this.inputs.audio;
                 const frozen = this.params.freeze === 1;
 
-                // Passthrough
-                out.set(input);
+                for (let i = 0; i < input.length; i++) {
+                    out[i] = Number.isFinite(input[i]) ? input[i] : 0;
+                }
 
                 if (!frozen) {
                     // Accumulate samples
                     for (let i = 0; i < input.length; i++) {
-                        inputBuffer[writeIndex] = input[i];
+                        inputBuffer[writeIndex] = out[i];
                         writeIndex = (writeIndex + 1) % FFT_SIZE;
                         sampleCounter++;
 
@@ -217,20 +225,23 @@ export default {
                 // LED shows signal presence
                 let maxAbs = 0;
                 for (let i = 0; i < input.length; i++) {
-                    const abs = Math.abs(input[i]);
+                    const abs = Math.abs(out[i]);
                     if (abs > maxAbs) maxAbs = abs;
                 }
-                this.leds.signal = maxAbs / 10;
+                this.leds.signal = Math.min(1, maxAbs / 10);
 
                 // Reset input if replaced by routing
             },
 
             reset() {
                 inputBuffer.fill(0);
+                fftOutput.fill(0);
                 history.length = 0;
                 historyIndex = 0;
                 sampleCounter = 0;
                 writeIndex = 0;
+                ownAudio.fill(0);
+                out.fill(0);
                 this.leds.signal = 0;
             }
         };

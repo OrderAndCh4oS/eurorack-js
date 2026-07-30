@@ -1,5 +1,5 @@
 // Keep this revision aligned with worklet-engine.js and core-plugin.js.
-import './core-plugin.js?core=20260713-1';
+import './core-plugin.js?core=20260730-1';
 import { compileGraph } from '../graph.js';
 import { assertModuleParam, getModulePort, getModulePorts } from '../../rack/module-contract.js';
 import { getNestedValue, setNestedValue } from '../../utils/nested-access.js';
@@ -212,6 +212,17 @@ class EurorackProcessor extends AudioWorkletProcessor {
             Object.entries(specification.params || {}).forEach(([param, value]) => setNestedValue(module.instance.params, param, value));
         });
         const nextInputs = new Set(topology.cables.map(cable => `${cable.toModule}\u0000${cable.toPort}`));
+        const previousInputs = new Set((this.lastTopology?.cables || [])
+            .map(cable => `${cable.toModule}\u0000${cable.toPort}`));
+        topology.cables.forEach(cable => {
+            const inputKey = `${cable.toModule}\u0000${cable.toPort}`;
+            const previousModule = this.modules[cable.toModule];
+            const nextModule = nextModules[cable.toModule];
+            const retainedInstance = previousModule?.instance === nextModule?.instance;
+            if (!retainedInstance || !previousInputs.has(inputKey)) {
+                nextModule?.instance.onInputConnected?.(cable.toPort);
+            }
+        });
         (this.lastTopology?.cables || []).forEach(cable => {
             if (nextInputs.has(`${cable.toModule}\u0000${cable.toPort}`)) return;
             const module = nextModules[cable.toModule];
@@ -325,20 +336,29 @@ class EurorackProcessor extends AudioWorkletProcessor {
 
         Object.values(this.modules).forEach(module => {
             if (module.def.role !== 'audio-output') return;
-            const volume = module.instance.params.volume ?? 1;
+            const rawVolume = module.instance.params.volume;
+            const volume = Number.isFinite(rawVolume)
+                ? Math.max(0, Math.min(1, rawVolume))
+                : 0.8;
             const sourceLeft = module.instance.inputs.L;
             const sourceRight = module.instance.inputs.R;
             let peakLeft = 0;
             let peakRight = 0;
             for (let index = 0; index < this.blockSize; index += 1) {
-                left[index] += sourceLeft[index] * volume / 5;
-                right[index] += sourceRight[index] * volume / 5;
-                peakLeft = Math.max(peakLeft, Math.abs(sourceLeft[index]));
-                peakRight = Math.max(peakRight, Math.abs(sourceRight[index]));
+                const inputLeft = Number.isFinite(sourceLeft[index]) ? sourceLeft[index] : 0;
+                const inputRight = Number.isFinite(sourceRight[index]) ? sourceRight[index] : 0;
+                left[index] += inputLeft * volume / 5;
+                right[index] += inputRight * volume / 5;
+                peakLeft = Math.max(peakLeft, Math.abs(inputLeft));
+                peakRight = Math.max(peakRight, Math.abs(inputRight));
             }
-            module.instance.leds.L = peakLeft / 5;
-            module.instance.leds.R = peakRight / 5;
+            module.instance.leds.L = Math.min(1, peakLeft / 5);
+            module.instance.leds.R = Math.min(1, peakRight / 5);
         });
+        for (let index = 0; index < this.blockSize; index += 1) {
+            left[index] = Math.max(-1, Math.min(1, left[index]));
+            right[index] = Math.max(-1, Math.min(1, right[index]));
+        }
 
         this.telemetryFrames += this.blockSize;
         if (this.telemetryFrames >= sampleRate / 30) {

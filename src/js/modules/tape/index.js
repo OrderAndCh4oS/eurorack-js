@@ -125,6 +125,8 @@ export default {
         const maxNominalDelaySamples = MAX_DELAY_MS * sampleRate / 1000;
         const tapDebounceSamples = Math.max(1, Math.floor(sampleRate * 0.01));
         const clockPulseSamples = Math.max(1, Math.floor(sampleRate * 0.005));
+        const delaySlewCoeff = 1 - Math.exp(-1 / Math.max(1, sampleRate * 0.02));
+        const headModeFadeStep = 1 / Math.max(1, sampleRate * 0.01);
 
         const delayBuffer = new Float32Array(delayBufferSize);
         const readDelayBuffer = createLinearCircularReader(delayBuffer);
@@ -148,6 +150,11 @@ export default {
         let tappedDelayMs = null;
         let clockPhaseSamples = 0;
         let clockPulseRemaining = 0;
+        let smoothedDelayMs = null;
+        let currentHeadMode = 1;
+        let previousHeadMode = 1;
+        let headModeFade = 1;
+        let headModeInitialized = false;
 
         function random() {
             randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0;
@@ -188,6 +195,11 @@ export default {
             tappedDelayMs = null;
             clockPhaseSamples = 0;
             clockPulseRemaining = 0;
+            smoothedDelayMs = null;
+            currentHeadMode = 1;
+            previousHeadMode = 1;
+            headModeFade = 1;
+            headModeInitialized = false;
         }
 
         function processTone(input, age, lowCut) {
@@ -262,6 +274,9 @@ export default {
                     const intervalSamples = now - lastTapSample;
                     const intervalMs = intervalSamples * 1000 / sampleRate;
                     tappedDelayMs = clamp(intervalMs, MIN_DELAY_MS, MAX_DELAY_MS);
+                    // Preserve exact tap timing and transient playback. Knob/CV
+                    // changes use the read-head slew below.
+                    smoothedDelayMs = tappedDelayMs;
                 }
 
                 lastTapSample = now;
@@ -274,6 +289,28 @@ export default {
         function baseDelayMs(time, timeCV) {
             if (tappedDelayMs !== null) return tappedDelayMs;
             return delayMsFromNorm(clampFinite(time + finite(timeCV) / 10));
+        }
+
+        function slewDelayMs(target) {
+            if (smoothedDelayMs === null) {
+                smoothedDelayMs = target;
+            } else {
+                smoothedDelayMs += delaySlewCoeff * (target - smoothedDelayMs);
+            }
+            return smoothedDelayMs;
+        }
+
+        function readHeads(config, head4Delay, wowOffset) {
+            let wet = 0;
+            for (let head = 0; head < config.ratios.length; head++) {
+                const headDelay = clamp(
+                    head4Delay * config.ratios[head] + wowOffset,
+                    1,
+                    maxDelaySamples
+                );
+                wet += readInterpolated(headDelay) * config.gains[head];
+            }
+            return wet;
         }
 
         function nextClockSample(periodSamples) {
@@ -320,8 +357,17 @@ export default {
                 const lowCut = clampFinite(this.params.lowCut);
                 const wow = clampFinite(this.params.wow);
                 const crinkle = clampFinite(this.params.crinkle);
-                const headMode = headModeFromParam(this.params.headMode);
-                const headConfig = HEAD_CONFIGS[headMode];
+                const requestedHeadMode = headModeFromParam(this.params.headMode);
+                if (!headModeInitialized) {
+                    currentHeadMode = requestedHeadMode;
+                    previousHeadMode = requestedHeadMode;
+                    headModeFade = 1;
+                    headModeInitialized = true;
+                } else if (requestedHeadMode !== currentHeadMode) {
+                    previousHeadMode = currentHeadMode;
+                    currentHeadMode = requestedHeadMode;
+                    headModeFade = 0;
+                }
 
                 let peak = 0;
                 let lastDropout = 0;
@@ -331,7 +377,7 @@ export default {
                 for (let i = 0; i < bufferSize; i++) {
                     maybeUpdateTap(tap[i]);
 
-                    const delayMs = baseDelayMs(this.params.time, timeCV[i]);
+                    const delayMs = slewDelayMs(baseDelayMs(this.params.time, timeCV[i]));
                     const speedRatio = Math.pow(2, clamp(finite(speedCV[i]), -3, 3));
                     const head4Delay = clamp(delayMs * sampleRate / 1000 / speedRatio, 1, maxDelaySamples);
                     const feedback = clamp(this.params.feedback + finite(feedbackCV[i]) / 10, 0, 0.98);
@@ -347,10 +393,15 @@ export default {
                         crinkleState.jitter * 0.10
                     );
 
-                    let wet = 0;
-                    for (let head = 0; head < headConfig.ratios.length; head++) {
-                        const headDelay = clamp(head4Delay * headConfig.ratios[head] + wowOffset, 1, maxDelaySamples);
-                        wet += readInterpolated(headDelay) * headConfig.gains[head];
+                    let wet = readHeads(HEAD_CONFIGS[currentHeadMode], head4Delay, wowOffset);
+                    if (headModeFade < 1) {
+                        const previousWet = readHeads(
+                            HEAD_CONFIGS[previousHeadMode],
+                            head4Delay,
+                            wowOffset
+                        );
+                        wet = previousWet * (1 - headModeFade) + wet * headModeFade;
+                        headModeFade = Math.min(1, headModeFade + headModeFadeStep);
                     }
 
                     wet *= crinkleState.wetGain;
@@ -431,10 +482,10 @@ export default {
         ],
         inputs: [
             { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
-            { id: 'timeCV', label: 'Time', port: 'timeCV', signal: 'cv' },
-            { id: 'speedCV', label: 'Speed', port: 'speedCV', signal: 'cv' },
-            { id: 'feedbackCV', label: 'Fdbk', port: 'feedbackCV', signal: 'cv' },
-            { id: 'mixCV', label: 'Mix', port: 'mixCV', signal: 'cv' },
+            { id: 'timeCV', label: 'Time', port: 'timeCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'speedCV', label: 'Speed', port: 'speedCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'feedbackCV', label: 'Fdbk', port: 'feedbackCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'mixCV', label: 'Mix', port: 'mixCV', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
             { id: 'tap', label: 'Tap', port: 'tap', signal: 'trigger' },
             { id: 'freezeGate', label: 'Freeze', port: 'freezeGate', signal: 'gate' }
         ],

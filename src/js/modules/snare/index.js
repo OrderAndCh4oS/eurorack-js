@@ -13,6 +13,9 @@
 
 import { clamp } from '../../utils/math.js';
 
+const finiteOr = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
+const INITIAL_NOISE_STATE = 0;
+
 export default {
     id: 'snare',
     name: 'SNARE',
@@ -30,7 +33,7 @@ export default {
         let noiseEnv = 0;
 
         // Noise state (simple white noise)
-        let noiseState = 0;
+        let noiseState = INITIAL_NOISE_STATE;
 
         // Trigger detection
         let lastTrig = 0;
@@ -66,14 +69,14 @@ export default {
             leds,
 
             process() {
-                const snapParam = clamp(this.params.snap, 0, 1);
-                const decayParam = clamp(this.params.decay, 0, 1);
-                const pitchParam = clamp(this.params.pitch, 0, 1);
+                const snapParam = clamp(finiteOr(this.params.snap, 0.5), 0, 1);
+                const decayParam = clamp(finiteOr(this.params.decay, 0.5), 0, 1);
+                const pitchParam = clamp(finiteOr(this.params.pitch, 0.5), 0, 1);
 
                 let peak = 0;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    const trig = this.inputs.trigger[i];
+                    const trig = finiteOr(this.inputs.trigger[i]);
 
                     // Rising edge detection
                     if (trig >= 1 && lastTrig < 1) {
@@ -82,7 +85,7 @@ export default {
                         noiseEnv = 1;
 
                         // Calculate decay rates based on decay param + CV
-                        const decayCV = this.inputs.decayCV[i] / 5;
+                        const decayCV = finiteOr(this.inputs.decayCV[i]) / 5;
                         const totalDecay = clamp(decayParam + decayCV * 0.5, 0.05, 1);
 
                         // Body amplitude decay: 30ms to 300ms
@@ -98,14 +101,13 @@ export default {
                     lastTrig = trig;
 
                     // Calculate frequency
-                    const pitchCV = this.inputs.pitchCV[i];
+                    const pitchCV = clamp(finiteOr(this.inputs.pitchCV[i]), -5, 5);
                     const baseFreq = BASE_FREQ_MIN + pitchParam * (BASE_FREQ_MAX - BASE_FREQ_MIN);
-                    const freq = baseFreq * Math.pow(2, pitchCV);
+                    const freq = Math.min(baseFreq * Math.pow(2, pitchCV), sampleRate * 0.45);
 
                     // Triangle oscillator for body
                     const phaseInc = (freq / sampleRate);
-                    phase += phaseInc;
-                    if (phase > 1) phase -= 1;
+                    phase = (phase + phaseInc) % 1;
 
                     // Triangle wave: 4 * |phase - 0.5| - 1
                     const triSample = 4 * Math.abs(phase - 0.5) - 1;
@@ -119,7 +121,7 @@ export default {
                     noiseFilterState = noise * (1 - noiseFilterCoeff);
 
                     // Mix body and noise based on snap parameter + CV
-                    const snapCV = this.inputs.snapCV[i] / 5;
+                    const snapCV = finiteOr(this.inputs.snapCV[i]) / 5;
                     const totalSnap = clamp(snapParam + snapCV * 0.5, 0, 1);
 
                     // Body with envelope
@@ -156,6 +158,7 @@ export default {
                 ampEnv = 0;
                 noiseEnv = 0;
                 lastTrig = 0;
+                noiseState = INITIAL_NOISE_STATE;
                 noiseFilterState = 0;
                 leds.active = 0;
             }

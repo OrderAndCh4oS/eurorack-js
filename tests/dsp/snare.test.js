@@ -246,6 +246,16 @@ describe('2hp Snare - Snare Drum Synthesizer', () => {
             snare.process();
             expect(snare.outputs.out.every(v => !isNaN(v))).toBe(true);
         });
+
+        it('keeps extreme and non-finite modulation finite and within the audio rails', () => {
+            snare.inputs.trigger[0] = 10;
+            snare.inputs.pitchCV.fill(Infinity);
+            snare.inputs.snapCV.fill(NaN);
+            snare.process();
+
+            expect(snare.outputs.out.every(Number.isFinite)).toBe(true);
+            expect(Math.max(...snare.outputs.out.map(Math.abs))).toBeLessThanOrEqual(5);
+        });
     });
 
     describe('reset', () => {
@@ -256,6 +266,17 @@ describe('2hp Snare - Snare Drum Synthesizer', () => {
 
             expect(snare.outputs.out[0]).toBe(0);
             expect(snare.leds.active).toBe(0);
+        });
+
+        it('restores the deterministic noise sequence', () => {
+            snare.inputs.trigger[0] = 10;
+            snare.process();
+            const firstHit = [...snare.outputs.out];
+
+            snare.reset();
+            snare.process();
+
+            expect([...snare.outputs.out]).toEqual(firstHit);
         });
     });
 

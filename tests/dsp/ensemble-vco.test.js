@@ -47,6 +47,22 @@ describe('ensemble-vco', () => {
         });
     });
 
+    it('declares bipolar CV and trigger voltage contracts', () => {
+        const inputs = Object.fromEntries(
+            ensembleModule.ui.inputs.map(input => [input.port, input])
+        );
+
+        for (const port of [
+            'root', 'pitch', 'scaleCv', 'spreadCv', 'balanceCv',
+            'crossFmCv', 'twistCv', 'warpCv'
+        ]) {
+            expect(inputs[port].voltage).toEqual({ min: -5, max: 5, normal: 0 });
+        }
+        for (const port of ['learn', 'freeze']) {
+            expect(inputs[port].voltage).toEqual({ min: 0, max: 10, normal: 0 });
+        }
+    });
+
     it('maps root, pitch, and fine knobs to independent pitch ranges', () => {
         const rootLow = frequenciesWith({ root: 0 })[0];
         const rootHigh = frequenciesWith({ root: 1 })[0];
@@ -111,6 +127,17 @@ describe('ensemble-vco', () => {
         const base = frequenciesWith()[0];
         expect(frequenciesWith({}, { root: 1 })[0]).toBeCloseTo(base * 2, 3);
         expect(frequenciesWith({}, { pitch: 1 })[0]).toBeCloseTo(base * 2, 3);
+    });
+
+    it('processes pitch CV within the current audio block', () => {
+        const dsp = create({ sampleRate: 8000, bufferSize: 128 });
+        dsp.params.oscillatorCount = 1;
+        dsp.inputs.pitch.fill(0);
+        dsp.inputs.pitch.fill(1, 64);
+        dsp.process();
+
+        const base = frequenciesWith({ oscillatorCount: 1 })[0];
+        expect(dsp.getVoiceFrequencies()[0]).toBeCloseTo(base * 2, 3);
     });
 
     it('provides distinct scale groups and responds smoothly to spread', () => {
@@ -208,6 +235,22 @@ describe('ensemble-vco', () => {
         const shifted = dsp.getVoiceFrequencies();
         expect(shifted[0]).toBeCloseTo(frozen[0], 5);
         expect(shifted[1]).toBeGreaterThan(frozen[1] * 1.5);
+    });
+
+    it('applies the patch/UI freeze parameter to production DSP', () => {
+        const dsp = create({ bufferSize: 128 });
+        dsp.params.oscillatorCount = 4;
+        dsp.process();
+        const before = dsp.getVoiceFrequencies();
+
+        dsp.params.freeze = 1;
+        dsp.inputs.root.fill(1);
+        dsp.process();
+        const after = dsp.getVoiceFrequencies();
+
+        expect(dsp.getFrozen()).toBe(true);
+        expect(after[0]).toBeCloseTo(before[0], 6);
+        expect(after[1]).toBeGreaterThan(before[1] * 1.5);
     });
 
     it.each([
@@ -358,5 +401,19 @@ describe('ensemble-vco', () => {
         expect(dsp.getFrozen()).toBe(false);
         expect(dsp.leds).toEqual({ learn: 0, freeze: 0, scale: 0 });
         Object.values(dsp.outputs).forEach(output => expect(maxAbs(output)).toBe(0));
+        Object.values(dsp.inputs).forEach(input => {
+            expect(input.every(value => value === 0)).toBe(true);
+        });
+    });
+
+    it('clears inactive voice frequencies when oscillator count decreases', () => {
+        const dsp = create({ bufferSize: 64 });
+        dsp.params.oscillatorCount = 16;
+        dsp.process();
+        expect(dsp.getVoiceFrequencies()[15]).toBeGreaterThan(0);
+
+        dsp.params.oscillatorCount = 4;
+        dsp.process();
+        expect(dsp.getVoiceFrequencies().slice(4).every(value => value === 0)).toBe(true);
     });
 });

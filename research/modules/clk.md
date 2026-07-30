@@ -50,6 +50,8 @@ freq = 0.1 * Math.pow(100000, rate)  // 0.1Hz to 10kHz
 - Dynamic pulse width: 25% of period
 - Maximum pulse width capped at 10ms (for low frequencies)
 - Output: 0V (low) / 10V (high)
+- Pause closes an in-progress pulse immediately and freezes phase
+- A separate 50ms LED hold keeps narrow/audio-rate ticks visible
 
 ### Key Concepts
 - **Phase accumulator**: Classic NCO (Numerically Controlled Oscillator) technique
@@ -71,3 +73,20 @@ freq = 0.1 * Math.pow(100000, rate)  // 0.1Hz to 10kHz
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/clk.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Pause now forces Clock low immediately. Previously a pulse that began before
+  Pause could continue for up to 10ms, contradicting the documented
+  hold-low behavior.
+- A separate 50ms LED hold makes ticks visible even when their pulse ends
+  before the block telemetry update; it does not lengthen the electrical pulse.
+- Rate, Pause, Rate CV, and Pause input reject non-finite values. Rate CV and
+  Pause declare 0-10V with 0V normals, and Clock declares exact 0-10V.
+- Reset clears stable inputs/output, phase, pulse/LED timers, and the LED in
+  place. Focused tests cover frequency extremes, relative rates, 0-10V CV,
+  strict >2V Pause, immediate closure, resume, rails, finite integrity, and
+  reset.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes five scenarios with
+  finite output, zero voltage flags, stable buffers, exact 10.000V peaks, and a
+  maximum diagnostic time below 0.088ms per block.

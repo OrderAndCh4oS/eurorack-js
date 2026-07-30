@@ -20,3 +20,15 @@ This is a four-voice MIDI-to-CV utility inspired by the polyphonic modes of Muta
 
 - [MIDI 1.0 Core Specifications](https://midi.org/midi-1-0-core-specifications) - MIDI Association, accessed 2026-07-11.
 - [Mutable Instruments Yarns documentation](https://pichenettes.github.io/mutable-instruments-documentation/modules/yarns/) - Mutable Instruments; polyphonic converter precedent.
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Reassign mode now steals the smallest allocation age (the oldest voice).
+  Previously it selected the greatest age and stole the newest voice, contrary
+  to the documented contract.
+- Chord allocation, exact sample offsets, common bend, and all four pitch/gate
+  pairs are covered. MIDI and panel values are bounded before CV conversion.
+- Reset clears allocator ages, rotation, retrigger counters, outputs, and all
+  four voice LEDs.
+- The strict matrix completes nine scenarios with finite output, zero voltage
+  flags, stable buffers, and maximum Node diagnostic time below 0.150ms/block.

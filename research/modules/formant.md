@@ -190,3 +190,21 @@ Use a four-band parallel resonator bank:
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/formant.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Vowel, Shift, and Resonance CV now explicitly declare their documented
+  bipolar -5..+5 V ranges and 0 V normals.
+- Reset clears all four stable input buffers in place, not only Audio, along
+  with the four biquad states, output, LED, and all control-slew states.
+- Drive and Mix now use the same 5 ms live-control slew as the formant controls.
+  Pre-render/restored values initialize directly, so loading a patch does not
+  introduce an artificial startup ramp.
+- On a coherent 440 Hz fixture, an established dry-to-wet boundary previously
+  jumped 2.841 V. The smoothed transition measures 0.040 V.
+- Focused tests cover every knob and CV path, A/E/I/O/U interpolation regions,
+  formant shift and resonance selectivity, dry/wet math, drive, limiter, LED,
+  reset, and buffer integrity.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes all 11 scenarios with
+  finite output, zero voltage flags, stable buffers, and a maximum 4.952 V
+  observed peak. The four-band process remains allocation-free.

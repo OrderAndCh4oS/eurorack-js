@@ -60,3 +60,17 @@ Passive 2-input, 6-output signal splitter. Duplicates CV or audio signals to mul
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/mult.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- The researched IN 1 -> IN 2 normalization is now implemented through cable
+  lifecycle state. Unpatched IN 2 fans IN 1 to all six outputs; patched silence
+  remains silence, and disconnect restores the normal without inspecting sample
+  values.
+- Both stable input buffers and all six output buffers clear in place on reset.
+- Focused tests verify sample-exact audio, CV, gate, negative-voltage, and
+  audio-rate fan-out; channel independence; cable-state normalization; reset;
+  finite buffers; and exact output identity.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes its transparent-copy
+  scenario with finite output, zero voltage flags, stable buffers, and exact
+  5.000 V stimulus peaks.

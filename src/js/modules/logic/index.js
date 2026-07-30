@@ -2,17 +2,17 @@
  * Logic Module
  *
  * Based on: 2hp Logic
- * 2-channel boolean gate operator with AND and OR outputs.
+ * Two independent boolean operators with AND and OR outputs.
  *
  * Inputs:
- * - IN 1: Gate/trigger input 1
- * - IN 2: Gate/trigger input 2
+ * - AND A/B: Gate/trigger inputs for AND
+ * - OR A/B: Gate/trigger inputs for OR, normalled from AND A/B
  *
  * Outputs:
- * - AND: High (10V) when both inputs are high
- * - OR: High (10V) when either input is high
+ * - AND: High (5V) when both AND inputs are high
+ * - OR: High (5V) when either OR input is high
  *
- * Threshold: Signals >= 1V are considered HIGH
+ * Threshold: Signals >2.5V are considered HIGH
  *
  * References:
  * - https://www.twohp.com/modules/p/logic
@@ -29,18 +29,26 @@ export default {
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         const andOut = new Float32Array(bufferSize);
         const orOut = new Float32Array(bufferSize);
+        const andA = new Float32Array(bufferSize);
+        const andB = new Float32Array(bufferSize);
+        const orA = new Float32Array(bufferSize);
+        const orB = new Float32Array(bufferSize);
+        let orAConnected = false;
+        let orBConnected = false;
 
-        // Gate threshold (1V)
-        const THRESHOLD = 1;
+        // Comparator and output levels from the 2hp Logic manual.
+        const THRESHOLD = 2.5;
         // Output gate voltage
-        const GATE_HIGH = 10;
+        const GATE_HIGH = 5;
 
         return {
             params: {},
 
             inputs: {
-                in1: new Float32Array(bufferSize),
-                in2: new Float32Array(bufferSize)
+                andA,
+                andB,
+                orA,
+                orB
             },
 
             outputs: {
@@ -53,21 +61,29 @@ export default {
                 or: 0
             },
 
+            onInputConnectionChange(port, connected) {
+                if (port === 'orA') orAConnected = Boolean(connected);
+                if (port === 'orB') orBConnected = Boolean(connected);
+            },
+
             process() {
-                const { in1, in2 } = this.inputs;
+                const orInputA = orAConnected ? orA : andA;
+                const orInputB = orBConnected ? orB : andB;
 
                 let andHigh = false;
                 let orHigh = false;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    const a = in1[i] >= THRESHOLD;
-                    const b = in2[i] >= THRESHOLD;
+                    const a = andA[i] > THRESHOLD;
+                    const b = andB[i] > THRESHOLD;
+                    const c = orInputA[i] > THRESHOLD;
+                    const d = orInputB[i] > THRESHOLD;
 
                     // AND: both must be high
                     andOut[i] = (a && b) ? GATE_HIGH : 0;
 
                     // OR: either must be high
-                    orOut[i] = (a || b) ? GATE_HIGH : 0;
+                    orOut[i] = (c || d) ? GATE_HIGH : 0;
 
                     // Track if any sample was high (for LEDs)
                     if (andOut[i] > 0) andHigh = true;
@@ -82,6 +98,10 @@ export default {
             reset() {
                 andOut.fill(0);
                 orOut.fill(0);
+                andA.fill(0);
+                andB.fill(0);
+                orA.fill(0);
+                orB.fill(0);
                 this.leds.and = 0;
                 this.leds.or = 0;
             }
@@ -91,12 +111,14 @@ export default {
     ui: {
         leds: ['and', 'or'],
         inputs: [
-            { id: 'in1', label: 'In 1', port: 'in1', signal: 'gate' },
-            { id: 'in2', label: 'In 2', port: 'in2', signal: 'gate' }
+            { id: 'andA', label: 'AND A', port: 'andA', signal: 'gate', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'andB', label: 'AND B', port: 'andB', signal: 'gate', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'orA', label: 'OR A', port: 'orA', signal: 'gate', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'orB', label: 'OR B', port: 'orB', signal: 'gate', voltage: { min: 0, max: 10, normal: 0 } }
         ],
         outputs: [
-            { id: 'and', label: 'AND', port: 'and', signal: 'gate' },
-            { id: 'or', label: 'OR', port: 'or', signal: 'gate' }
+            { id: 'and', label: 'AND', port: 'and', signal: 'gate', voltage: { min: 0, max: 5 } },
+            { id: 'or', label: 'OR', port: 'or', signal: 'gate', voltage: { min: 0, max: 5 } }
         ]
     }
 };

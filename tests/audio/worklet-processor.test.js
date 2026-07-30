@@ -43,6 +43,36 @@ describe('Eurorack AudioWorkletProcessor', () => {
         expect(outputs[0][0]).toEqual(outputs[0][1]);
     });
 
+    it('bounds output volume and contains non-finite sink samples', () => {
+        const processor = new Processor();
+        processor.handleMessage({
+            type: 'topology',
+            topology: {
+                revision: 1,
+                plugins: { core: 1 },
+                modules: [
+                    { id: 'out_1', type: 'out', pluginId: 'core', params: { volume: 1 }, order: 0, rackOrder: 0 }
+                ],
+                cables: []
+            }
+        });
+        const sink = processor.modules.out_1.instance;
+        sink.params.volume = Infinity;
+        sink.inputs.L.set([5, NaN, -5]);
+        sink.inputs.R.set([Infinity, 2.5, -2.5]);
+        processor.graph.route = vi.fn();
+        const outputs = [[new Float32Array(128), new Float32Array(128)]];
+
+        processor.process([], outputs);
+
+        expect(outputs[0][0].every(Number.isFinite)).toBe(true);
+        expect(outputs[0][1].every(Number.isFinite)).toBe(true);
+        expect(Math.max(...outputs[0][0].map(Math.abs))).toBeLessThanOrEqual(1);
+        expect(Math.max(...outputs[0][1].map(Math.abs))).toBeLessThanOrEqual(1);
+        expect(sink.leds.L).toBe(1);
+        expect(sink.leds.R).toBe(0.5);
+    });
+
     it('restores declared normals when a cable is removed', () => {
         const processor = new Processor();
         const modules = [
@@ -67,6 +97,40 @@ describe('Eurorack AudioWorkletProcessor', () => {
         });
 
         expect(processor.modules.vca_1.instance.inputs.ch1CV.every(value => value === 5)).toBe(true);
+    });
+
+    it('notifies modules when an input cable is connected or disconnected', () => {
+        const processor = new Processor();
+        const modules = [
+            { id: 'vco_1', type: 'vco', pluginId: 'core', params: {}, order: 0, rackOrder: 0 },
+            { id: 'verb_1', type: 'verb', pluginId: 'core', params: {}, order: 1, rackOrder: 1 }
+        ];
+        processor.handleMessage({
+            type: 'topology',
+            topology: { revision: 1, plugins: { core: 1 }, modules, cables: [] }
+        });
+        const verb = processor.modules.verb_1.instance;
+        const connected = vi.spyOn(verb, 'onInputConnected');
+        const disconnected = vi.spyOn(verb, 'onInputDisconnected');
+
+        processor.handleMessage({
+            type: 'topology',
+            topology: {
+                revision: 2,
+                plugins: { core: 1 },
+                modules,
+                cables: [
+                    { fromModule: 'vco_1', fromPort: 'triangle', toModule: 'verb_1', toPort: 'audioR' }
+                ]
+            }
+        });
+        expect(connected).toHaveBeenCalledWith('audioR');
+
+        processor.handleMessage({
+            type: 'topology',
+            topology: { revision: 3, plugins: { core: 1 }, modules, cables: [] }
+        });
+        expect(disconnected).toHaveBeenCalledWith('audioR');
     });
 
     it('transfers completed recorder data to the main thread as a module event', () => {

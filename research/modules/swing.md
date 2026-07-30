@@ -93,7 +93,9 @@ The proposed module is an app-adapted clock processor, not a clone of one hardwa
 - Reset behavior:
   - Reset rising edge clears pending delayed pulses, resets the template step to 0, clears output pulse counters, and turns LEDs off.
 - Disconnect behavior:
-  - When the clock input cable is removed, the engine notifies the module and clears pending delayed/straight pulses immediately. The pattern step is preserved, but no scheduled clock output remains after disconnect.
+  - When the clock input cable is removed, the graph restores Clock to its 0V
+    normal. A delayed pulse already caused by a prior edge is allowed to finish;
+    after the bounded pending queue drains, no further output is produced.
 
 ## DSP Implementation
 
@@ -254,3 +256,25 @@ The exact table values are app-specific and intentionally documented so tests ca
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/swing.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Clock/Reset explicitly use 0-10V with 0V normals and the strict >2.5V
+  threshold. Swing/Human CV use 0-5V with 0V normals; both outputs are exact
+  0V/10V triggers.
+- Non-finite knob, template, CV, clock, and reset values recover to documented
+  defaults instead of scheduling an event with a `NaN` due time that can never
+  leave the pending queue.
+- Cable removal follows the stable-input graph contract. Already-caused delayed
+  events complete deterministically, then the normalled 0V clock leaves both
+  outputs silent; the obsolete cleanup callback was removed.
+- Reset clears timing, pending events, deterministic humanization, LEDs, and all
+  stable input/output buffers in place. Reset still wins a coincident Clock edge.
+- Focused and module-contract validation passes 32 assertions, including exact
+  template delays, CV bounds, 5ms minimum width, cross-block scheduling, causal
+  disconnect behavior, and stable reset.
+- The strict 44.1/48/96kHz by 128/512 matrix completes nine scenarios with
+  finite output, zero voltage flags, stable buffers, and a maximum Node
+  diagnostic time below 0.095ms per block. The generic stimulus does not create
+  clock edges for this module, so its reported peak is 0V; focused fixtures
+  assert exact 10V pulses.

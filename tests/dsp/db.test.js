@@ -76,6 +76,15 @@ describe('DB - Dual VU Meter', () => {
             expect(dsp.leds.peakL).toBe(0);
             expect(dsp.leds.peakR).toBe(0);
         });
+
+        it('should declare stereo +/-10V meter and thru voltage contracts', () => {
+            for (const input of dbModule.ui.inputs) {
+                expect(input.voltage).toEqual({ min: -10, max: 10, normal: 0 });
+            }
+            for (const output of dbModule.ui.outputs) {
+                expect(output.voltage).toEqual({ min: -10, max: 10 });
+            }
+        });
     });
 
     describe('thru outputs', () => {
@@ -202,6 +211,24 @@ describe('DB - Dual VU Meter', () => {
             // Level should still be high (slow decay)
             expect(dsp.leds.L8).toBeGreaterThan(settledLevel * 0.5);
         });
+
+        it('should reach 99% after the documented 300ms at different block sizes', () => {
+            const measure = currentBufferSize => {
+                const meter = dbModule.createDSP({
+                    sampleRate: 1000,
+                    bufferSize: currentBufferSize
+                });
+                meter.params.mode = 0;
+                meter.inputs.L.fill(5);
+                const blocks = 300 / currentBufferSize;
+                for (let block = 0; block < blocks; block++) meter.process();
+                return meter.leds.L9;
+            };
+
+            expect(measure(10)).toBeGreaterThan(0.9);
+            expect(measure(20)).toBeGreaterThan(0.9);
+            expect(measure(10)).toBeCloseTo(measure(20), 6);
+        });
     });
 
     describe('peak metering (mode 1)', () => {
@@ -237,6 +264,18 @@ describe('DB - Dual VU Meter', () => {
             expect(dsp.leds.L8).toBeGreaterThan(0);
             expect(dsp.leds.L8).toBeLessThanOrEqual(peakLevel);
         });
+
+        it('should fall by 20dB over 1.5 seconds', () => {
+            const meter = dbModule.createDSP({ sampleRate: 1000, bufferSize: 10 });
+            meter.params.mode = 1;
+            meter.inputs.L.fill(5);
+            meter.process();
+            meter.inputs.L.fill(0);
+            for (let block = 0; block < 150; block++) meter.process();
+
+            expect(meter.leds.L4).toBeGreaterThan(0.9);
+            expect(meter.leds.L5).toBeLessThan(0.2);
+        });
     });
 
     describe('combined mode (mode 2)', () => {
@@ -259,6 +298,20 @@ describe('DB - Dual VU Meter', () => {
 
             // Peak indicator should be higher than VU level
             expect(dsp.leds.peakL).toBeGreaterThan(0);
+        });
+
+        it('should show a raw transient in the peak marker while bars remain VU-weighted', () => {
+            const meter = dbModule.createDSP({ sampleRate: 1000, bufferSize: 100 });
+            meter.params.mode = 2;
+            meter.params.hold = 1;
+            meter.inputs.L.fill(0.5);
+            for (let block = 0; block < 10; block++) meter.process();
+            meter.inputs.L.fill(0);
+            meter.inputs.L[50] = 10;
+            meter.process();
+
+            expect(meter.leds.peakL).toBe(11);
+            expect(meter.leds.L11).toBe(0);
         });
     });
 
@@ -357,6 +410,8 @@ describe('DB - Dual VU Meter', () => {
 
     describe('reset', () => {
         it('should clear all LED states', () => {
+            const inputRefs = { ...dsp.inputs };
+            const outputRefs = { ...dsp.outputs };
             // Generate signal
             for (let i = 0; i < BUFFER_SIZE; i++) {
                 dsp.inputs.L[i] = 5 * Math.sin(i * 0.1);
@@ -369,6 +424,11 @@ describe('DB - Dual VU Meter', () => {
 
             dsp.reset();
 
+            expect(dsp.inputs).toEqual(inputRefs);
+            expect(dsp.outputs).toEqual(outputRefs);
+            for (const buffer of [...Object.values(dsp.inputs), ...Object.values(dsp.outputs)]) {
+                expect(buffer.every(value => value === 0)).toBe(true);
+            }
             for (let i = 0; i < 12; i++) {
                 expect(dsp.leds[`L${i}`]).toBe(0);
                 expect(dsp.leds[`R${i}`]).toBe(0);
@@ -409,6 +469,24 @@ describe('DB - Dual VU Meter', () => {
 
             expect(dsp.outputs.outL.some(v => Number.isNaN(v))).toBe(false);
             expect(dsp.outputs.outR.some(v => Number.isNaN(v))).toBe(false);
+        });
+
+        it('should recover from non-finite samples and switch params', () => {
+            dsp.params.mode = Number.NaN;
+            dsp.params.hold = Number.POSITIVE_INFINITY;
+            dsp.inputs.L.fill(Number.NaN);
+            dsp.inputs.R.fill(Number.NEGATIVE_INFINITY);
+            dsp.inputs.L[0] = 5;
+            dsp.process();
+
+            for (const output of Object.values(dsp.outputs)) {
+                expect(output.every(Number.isFinite)).toBe(true);
+                expect(Math.min(...output)).toBeGreaterThanOrEqual(-10);
+                expect(Math.max(...output)).toBeLessThanOrEqual(10);
+            }
+            for (const value of Object.values(dsp.leds)) {
+                expect(Number.isFinite(value)).toBe(true);
+            }
         });
 
         it('should not produce NaN in LED values', () => {

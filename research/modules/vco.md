@@ -180,3 +180,27 @@ const sqrVal = phase < duty ? 1 : -1;
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/vco.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- V/Oct, linear FM, PWM, and Sync now explicitly declare their implemented
+  voltage ranges and normals. V/Oct is safely bounded to -8..+8 octaves; Sync
+  follows the app's >=1 V rising-edge standard instead of responding to any
+  positive noise.
+- PWM slew now initializes and resets at its 2.5 V / 50% normal. Reset clears
+  all stable inputs in place, restores that normal, clears output/phase/sync
+  history, and resets both slew states.
+- The hard-sync and glide regressions now drive the stable typed buffers; the
+  previous tests replaced inputs with scalar numbers and therefore did not
+  exercise production DSP.
+- A coherent 3.072 kHz / 16.384 kHz saw render measures reflected products at
+  1.024, 4.096, and 7.168 kHz. PolyBLEP leaves 4.26% of the equivalent naive
+  oscillator's combined alias power (-13.71 dB).
+- Hard sync is tested at comparator boundaries and for deterministic phase
+  restart. Its deliberately discontinuous reset remains a stronger
+  high-frequency case than the free-running PolyBLEP waveform; a future
+  arbitrary-phase minBLEP comparison could further refine that characteristic
+  without changing the current hard-sync contract.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes all seven scenarios
+  with finite output, zero voltage flags, stable buffers, and a maximum
+  observed 4.926 V peak.

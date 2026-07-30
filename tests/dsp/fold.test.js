@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import foldModule from '../../src/js/modules/fold/index.js';
+import { createRealFft } from '../../src/js/utils/fft.js';
 
 describe('Fold Module', () => {
     let dsp;
@@ -113,6 +114,44 @@ describe('Fold Module', () => {
             // Higher fold should have more zero crossings (more harmonics)
             expect(highCrossings).toBeGreaterThanOrEqual(lowCrossings);
         });
+
+        it('suppresses folded harmonics that would reflect below Nyquist', () => {
+            const fftSize = 4096;
+            const auditSampleRate = 16384;
+            const frequency = 3072;
+            const amplitude = 4;
+            const drive = 7;
+            const auditDSP = foldModule.createDSP({
+                sampleRate: auditSampleRate,
+                bufferSize: fftSize
+            });
+            const naive = new Float32Array(fftSize);
+
+            auditDSP.params.fold = (drive - 1) / 9;
+            for (let i = 0; i < fftSize; i++) {
+                const input = Math.sin(2 * Math.PI * frequency * i / auditSampleRate) * amplitude;
+                auditDSP.inputs.audio[i] = input;
+                naive[i] = Math.sin(drive * input / 5 * Math.PI) * 5;
+            }
+            auditDSP.process();
+
+            const fft = createRealFft({ size: fftSize });
+            const spectrum = new Float32Array(fftSize / 2);
+            const naiveSpectrum = new Float32Array(fftSize / 2);
+            fft.analyzeCircular(auditDSP.outputs.out, 0, spectrum);
+            fft.analyzeCircular(naive, 0, naiveSpectrum);
+
+            // At this coherent test frequency, upper odd harmonics reflect into
+            // the 1, 5, and 7 kHz bins. Compare their combined linear power.
+            const aliasBins = [1024, 5120, 7168]
+                .map(aliasFrequency => aliasFrequency * fftSize / auditSampleRate);
+            const aliasPower = bins => aliasBins.reduce(
+                (sum, bin) => sum + Math.pow(10, bins[bin] / 10),
+                0
+            );
+
+            expect(aliasPower(spectrum)).toBeLessThan(aliasPower(naiveSpectrum) * 0.35);
+        });
     });
 
     describe('CV Modulation', () => {
@@ -140,6 +179,16 @@ describe('Fold Module', () => {
                 }
             }
             expect(differences).toBeGreaterThan(0);
+        });
+
+        it('declares bipolar CV ranges with a 0V normal', () => {
+            for (const port of ['foldCV', 'symCV']) {
+                expect(foldModule.ui.inputs.find(input => input.port === port).voltage).toEqual({
+                    min: -5,
+                    max: 5,
+                    normal: 0
+                });
+            }
         });
 
         it('should respond to symmetry CV', () => {
@@ -246,6 +295,17 @@ describe('Fold Module', () => {
             dsp.reset();
 
             expect(dsp.outputs.out.every(v => v === 0)).toBe(true);
+        });
+
+        it('clears stable inputs without replacing their buffers', () => {
+            const inputs = { ...dsp.inputs };
+            Object.values(dsp.inputs).forEach(input => input.fill(3));
+            dsp.reset();
+
+            Object.entries(inputs).forEach(([port, input]) => {
+                expect(dsp.inputs[port]).toBe(input);
+                expect(input.every(value => value === 0)).toBe(true);
+            });
         });
     });
 

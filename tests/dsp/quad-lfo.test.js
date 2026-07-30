@@ -72,6 +72,18 @@ describe('createQuadLfo', () => {
             ]);
             expect(quadLfoModule.ui.outputs.map(output => output.port)).toEqual(OUTPUT_PORTS);
         });
+
+        it('declares bipolar CV, gate/trigger normals, and output voltage contracts', () => {
+            expect(quadLfoModule.ui.inputs).toEqual(expect.arrayContaining([
+                expect.objectContaining({ port: 'rateCV', voltage: { min: -5, max: 5, normal: 0 } }),
+                expect.objectContaining({ port: 'rateMod', voltage: { min: -5, max: 5, normal: 0 } }),
+                expect.objectContaining({ port: 'reset', voltage: { min: 0, max: 10, normal: 0 } }),
+                expect.objectContaining({ port: 'hold', voltage: { min: 0, max: 10, normal: 0 } })
+            ]));
+            for (const output of quadLfoModule.ui.outputs) {
+                expect(output.voltage).toEqual({ min: -5, max: 5 });
+            }
+        });
     });
 
     describe('voltage range and buffer integrity', () => {
@@ -91,6 +103,24 @@ describe('createQuadLfo', () => {
                     expect(value).toBeLessThanOrEqual(5.00001);
                 });
             });
+        });
+
+        it('recovers from non-finite params and samples inside +/-5V', () => {
+            lfo.params.rate = Number.NaN;
+            lfo.params.range = Number.POSITIVE_INFINITY;
+            lfo.params.rateCvAmt = Number.NaN;
+            lfo.inputs.rateCV.fill(Number.NaN);
+            lfo.inputs.rateMod.fill(Number.NEGATIVE_INFINITY);
+            lfo.inputs.reset.fill(Number.NaN);
+            lfo.inputs.hold.fill(Number.NaN);
+
+            lfo.process();
+
+            for (const output of Object.values(lfo.outputs)) {
+                expect(output.every(Number.isFinite)).toBe(true);
+                expect(Math.min(...output)).toBeGreaterThanOrEqual(-5);
+                expect(Math.max(...output)).toBeLessThanOrEqual(5);
+            }
         });
     });
 
@@ -144,6 +174,18 @@ describe('createQuadLfo', () => {
             dsp.process();
             expect(dsp.outputs.out0[0]).toBeCloseTo(0, 5);
         });
+
+        it('resets at the exact sample of a mid-block rising edge', () => {
+            const dsp = createQuadLfo({ sampleRate: 16, bufferSize: 16 });
+            configureOneHz(dsp);
+            dsp.process();
+            dsp.inputs.reset[7] = 1;
+
+            dsp.process();
+
+            expect(dsp.outputs.out0[7]).toBeCloseTo(0, 5);
+            expect(dsp.outputs.out90[7]).toBeCloseTo(5, 5);
+        });
     });
 
     describe('hold input', () => {
@@ -177,6 +219,18 @@ describe('createQuadLfo', () => {
 
             expect(dsp.outputs.out0[0]).toBeGreaterThan(4.9);
             expect(dsp.outputs.out0[1]).toBeLessThan(4.9);
+        });
+
+        it('holds from the exact sample where a mid-block gate exceeds 2V', () => {
+            const dsp = createQuadLfo({ sampleRate: 16, bufferSize: 16 });
+            configureOneHz(dsp);
+            dsp.inputs.hold.fill(3, 7);
+
+            dsp.process();
+
+            for (let i = 8; i < 16; i++) {
+                expect(dsp.outputs.out0[i]).toBeCloseTo(dsp.outputs.out0[7], 6);
+            }
         });
     });
 
@@ -255,6 +309,22 @@ describe('createQuadLfo', () => {
             expect(countZeroCrossings(inverted.outputs.out0))
                 .toBeLessThan(countZeroCrossings(neutral.outputs.out0));
         });
+
+        it('applies direct Rate CV on the exact sample where it changes', () => {
+            const baseline = createQuadLfo({ sampleRate: 1000, bufferSize: 128 });
+            configureOneHz(baseline);
+            baseline.process();
+
+            const modulated = createQuadLfo({ sampleRate: 1000, bufferSize: 128 });
+            configureOneHz(modulated);
+            modulated.inputs.rateCV.fill(5, 64);
+            modulated.process();
+
+            expect(Array.from(modulated.outputs.out0.slice(0, 65)))
+                .toEqual(Array.from(baseline.outputs.out0.slice(0, 65)));
+            expect(Array.from(modulated.outputs.out0.slice(65)))
+                .not.toEqual(Array.from(baseline.outputs.out0.slice(65)));
+        });
     });
 
     describe('LEDs and reset method', () => {
@@ -272,6 +342,8 @@ describe('createQuadLfo', () => {
 
         it('clears phase, edge memory, outputs, and LEDs', () => {
             const dsp = createQuadLfo({ sampleRate: 16, bufferSize: 4 });
+            const inputRefs = { ...dsp.inputs };
+            const outputRefs = { ...dsp.outputs };
             configureOneHz(dsp);
             dsp.inputs.reset.fill(5);
             dsp.inputs.hold.fill(3);
@@ -279,6 +351,11 @@ describe('createQuadLfo', () => {
 
             dsp.reset();
 
+            expect(dsp.inputs).toEqual(inputRefs);
+            expect(dsp.outputs).toEqual(outputRefs);
+            Object.values(dsp.inputs).forEach(input => {
+                expect(input.every(value => value === 0)).toBe(true);
+            });
             OUTPUT_PORTS.forEach(port => {
                 expect(Array.from(dsp.outputs[port])).toEqual([0, 0, 0, 0]);
             });

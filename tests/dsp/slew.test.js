@@ -41,6 +41,14 @@ describe('createSlewModule', () => {
             expect(slew.inputs.in2).toBeInstanceOf(Float32Array);
             expect(slew.inputs.cv1).toBeInstanceOf(Float32Array);
             expect(slew.inputs.cv2).toBeInstanceOf(Float32Array);
+            expect(slewModule.ui.inputs.map(port => port.voltage)).toEqual([
+                { min: -10, max: 10, normal: 0 },
+                { min: -5, max: 5, normal: 0 },
+                { min: -10, max: 10, normal: 0 },
+                { min: -5, max: 5, normal: 0 }
+            ]);
+            expect(slewModule.ui.outputs.map(port => port.voltage))
+                .toEqual([{ min: -10, max: 10 }, { min: -10, max: 10 }]);
         });
 
         it('should have LED outputs', () => {
@@ -60,7 +68,7 @@ describe('createSlewModule', () => {
             slew.inputs.in1.fill(5.0);
             slew.process();
 
-            // Should immediately reach target
+            expect(slew.outputs.out1[0]).toBe(5);
             expect(slew.outputs.out1[slew.outputs.out1.length - 1]).toBeCloseTo(5.0, 1);
         });
 
@@ -80,6 +88,17 @@ describe('createSlewModule', () => {
     });
 
     describe('slew behavior - maximum rate (slow)', () => {
+        it.each([44100, 48000, 96000])('reaches one RC time constant at %i Hz', sampleRate => {
+            const bufferSize = Math.round(sampleRate * 0.2);
+            const timed = createSlewModule({ sampleRate, bufferSize });
+            timed.params.rate1 = 0.1; // 200ms
+            timed.inputs.in1.fill(5);
+
+            timed.process();
+
+            expect(timed.outputs.out1[bufferSize - 1]).toBeCloseTo(5 * (1 - Math.exp(-1)), 3);
+        });
+
         it('should smooth transitions when rate=1', () => {
             slew.params.rate1 = 1;  // Maximum slew (2000ms)
 
@@ -169,6 +188,7 @@ describe('createSlewModule', () => {
             slew.reset();
 
             // With negative CV (should be faster, more progress)
+            slew.inputs.in1.fill(5.0);
             slew.inputs.cv1.fill(-5);
             slew.process();
             const withCV = slew.outputs.out1[511];
@@ -267,17 +287,27 @@ describe('createSlewModule', () => {
 
     describe('reset', () => {
         it('should reset all state', () => {
+            const inputs = { ...slew.inputs };
+            const outputs = { ...slew.outputs };
             // Build up some state
             slew.inputs.in1.fill(5.0);
             slew.inputs.in2.fill(5.0);
+            slew.inputs.cv1.fill(2);
+            slew.inputs.cv2.fill(-2);
             slew.process();
 
             slew.reset();
 
-            expect(slew.outputs.out1[0]).toBe(0);
-            expect(slew.outputs.out2[0]).toBe(0);
-            expect(slew.leds.ch1).toBe(0);
-            expect(slew.leds.ch2).toBe(0);
+            for (const key of Object.keys(inputs)) {
+                expect(slew.inputs[key]).toBe(inputs[key]);
+                expect(slew.inputs[key].every(value => value === 0)).toBe(true);
+            }
+            for (const key of Object.keys(outputs)) {
+                expect(slew.outputs[key]).toBe(outputs[key]);
+                expect(slew.outputs[key].every(value => value === 0)).toBe(true);
+            }
+            expect(slew.leds.ch1).toBe(0.5);
+            expect(slew.leds.ch2).toBe(0.5);
         });
 
         it('should reset internal slew state', () => {
@@ -303,6 +333,22 @@ describe('createSlewModule', () => {
 
             expect(slew.outputs.out1.every(v => !isNaN(v))).toBe(true);
             expect(slew.outputs.out2.every(v => !isNaN(v))).toBe(true);
+        });
+
+        it('should recover safely from non-finite controls and samples', () => {
+            slew.params.rate1 = Number.NaN;
+            slew.params.rate2 = Number.POSITIVE_INFINITY;
+            slew.inputs.in1.fill(Number.NaN);
+            slew.inputs.in2.fill(Number.NEGATIVE_INFINITY);
+            slew.inputs.cv1.fill(Number.POSITIVE_INFINITY);
+            slew.inputs.cv2.fill(Number.NaN);
+
+            slew.process();
+
+            expect(slew.outputs.out1.every(Number.isFinite)).toBe(true);
+            expect(slew.outputs.out2.every(Number.isFinite)).toBe(true);
+            expect(Number.isFinite(slew.leds.ch1)).toBe(true);
+            expect(Number.isFinite(slew.leds.ch2)).toBe(true);
         });
 
         it('should produce continuous output (no jumps between samples)', () => {

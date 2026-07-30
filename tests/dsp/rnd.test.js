@@ -33,6 +33,18 @@ describe('Rnd Module', () => {
         it('should have LED indicator', () => {
             expect(dsp.leds).toHaveProperty('active');
         });
+
+        it('should declare clock normalization and all output voltage contracts', () => {
+            expect(rndModule.ui.inputs[0]).toMatchObject({
+                port: 'clock',
+                voltage: { min: 0, max: 10, normal: 0 }
+            });
+            expect(rndModule.ui.outputs).toEqual(expect.arrayContaining([
+                expect.objectContaining({ port: 'step', voltage: { min: 0, max: 10 } }),
+                expect.objectContaining({ port: 'smooth', voltage: { min: 0, max: 10 } }),
+                expect.objectContaining({ port: 'gate', voltage: { min: 0, max: 10 } })
+            ]));
+        });
     });
 
     describe('Stepped Output', () => {
@@ -72,6 +84,23 @@ describe('Rnd Module', () => {
             dsp.params.amp = 0;
             dsp.process();
             expect(dsp.outputs.step.every(v => v === 0 || Math.abs(v) < 0.01)).toBe(true);
+        });
+
+        it('should apply amplitude continuously to a held random value', () => {
+            const scaled = rndModule.createDSP({
+                sampleRate: 1000,
+                bufferSize: 16,
+                random: () => 0.8
+            });
+            scaled.onInputConnected('clock');
+            scaled.inputs.clock[0] = 10;
+            scaled.process();
+            expect(scaled.outputs.step[15]).toBeCloseTo(8, 6);
+
+            scaled.inputs.clock.fill(0);
+            scaled.params.amp = 0.25;
+            scaled.process();
+            expect(scaled.outputs.step[0]).toBeCloseTo(2, 6);
         });
 
         it('should hold value between clock pulses', () => {
@@ -152,6 +181,24 @@ describe('Rnd Module', () => {
             // Smooth should have fewer large jumps (more gradual)
             expect(smoothJumps).toBeLessThan(stepJumps);
         });
+
+        it('should preserve its physical slew time across sample rates', () => {
+            const render = currentSampleRate => {
+                const current = rndModule.createDSP({
+                    sampleRate: currentSampleRate,
+                    bufferSize: Math.round(currentSampleRate * 0.25),
+                    random: () => 1
+                });
+                current.params.rate = 0;
+                current.onInputConnected('clock');
+                current.inputs.clock[0] = 10;
+                current.process();
+                return current.outputs.smooth.at(-1);
+            };
+
+            expect(render(1000)).toBeCloseTo(render(2000), 2);
+            expect(render(1000)).toBeCloseTo(10 * (1 - Math.exp(-1)), 1);
+        });
     });
 
     describe('Gate Output', () => {
@@ -185,6 +232,51 @@ describe('Rnd Module', () => {
 
             // Should have generated some gates
             expect(gateCount).toBeGreaterThan(0);
+        });
+
+        it('should use Rate as external-clock gate probability while Step always updates', () => {
+            const blocked = rndModule.createDSP({
+                sampleRate: 1000,
+                bufferSize: 16,
+                random: () => 0.4
+            });
+            blocked.params.rate = 0;
+            blocked.onInputConnected('clock');
+            blocked.inputs.clock[0] = 10;
+            blocked.process();
+            expect(blocked.outputs.step[0]).toBeCloseTo(4, 6);
+            expect(blocked.outputs.gate.every(value => value === 0)).toBe(true);
+
+            const passed = rndModule.createDSP({
+                sampleRate: 1000,
+                bufferSize: 16,
+                random: () => 0.4
+            });
+            passed.params.rate = 1;
+            passed.onInputConnected('clock');
+            passed.inputs.clock[0] = 10;
+            passed.process();
+            expect(passed.outputs.step[0]).toBeCloseTo(4, 6);
+            expect(passed.outputs.gate[0]).toBe(10);
+        });
+
+        it('should stop the internal clock whenever an external cable is connected', () => {
+            const external = rndModule.createDSP({
+                sampleRate: 1000,
+                bufferSize: 100,
+                random: () => 0.75
+            });
+            external.params.rate = 1;
+            external.onInputConnected('clock');
+
+            for (let block = 0; block < 4; block++) external.process();
+
+            expect(external.outputs.step.every(value => value === 0)).toBe(true);
+            expect(external.outputs.gate.every(value => value === 0)).toBe(true);
+
+            external.onInputDisconnected('clock');
+            external.process();
+            expect(external.outputs.step.some(value => value > 0)).toBe(true);
         });
     });
 
@@ -251,10 +343,31 @@ describe('Rnd Module', () => {
             expect(dsp.outputs.smooth.length).toBe(bufferSize);
             expect(dsp.outputs.gate.length).toBe(bufferSize);
         });
+
+        it('should recover from non-finite params, clock samples, and RNG values', () => {
+            const invalid = rndModule.createDSP({
+                sampleRate,
+                bufferSize,
+                random: () => Number.NaN
+            });
+            invalid.params.rate = Number.NaN;
+            invalid.params.amp = Number.POSITIVE_INFINITY;
+            invalid.inputs.clock.fill(Number.NaN);
+            invalid.inputs.clock[0] = 10;
+            invalid.process();
+
+            for (const output of Object.values(invalid.outputs)) {
+                expect(output.every(Number.isFinite)).toBe(true);
+                expect(Math.min(...output)).toBeGreaterThanOrEqual(0);
+                expect(Math.max(...output)).toBeLessThanOrEqual(10);
+            }
+        });
     });
 
     describe('Reset', () => {
         it('should clear outputs on reset', () => {
+            const inputRefs = { ...dsp.inputs };
+            const outputRefs = { ...dsp.outputs };
             dsp.params.rate = 0.8;
             dsp.params.amp = 1;
 
@@ -264,6 +377,9 @@ describe('Rnd Module', () => {
 
             dsp.reset();
 
+            expect(dsp.inputs).toEqual(inputRefs);
+            expect(dsp.outputs).toEqual(outputRefs);
+            expect(dsp.inputs.clock.every(value => value === 0)).toBe(true);
             expect(dsp.outputs.step.every(v => v === 0)).toBe(true);
             expect(dsp.outputs.smooth.every(v => v === 0)).toBe(true);
             expect(dsp.outputs.gate.every(v => v === 0)).toBe(true);

@@ -1,278 +1,149 @@
-/**
- * Logic Module Tests
- *
- * Tests for the 2hp Logic boolean gate operator.
- * Provides AND and OR logic operations on gate/trigger signals.
- */
-
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import logicModule from '../../src/js/modules/logic/index.js';
 
-describe('Logic Module', () => {
-    let dsp;
-    const sampleRate = 44100;
-    const bufferSize = 128;
+const createLogic = (options = {}) => logicModule.createDSP({
+    sampleRate: 44100,
+    bufferSize: 128,
+    ...options
+});
 
-    beforeEach(() => {
-        dsp = logicModule.createDSP({ sampleRate, bufferSize });
-    });
+describe('Logic module', () => {
+    it('declares the researched four-input, two-output panel contract', () => {
+        const dsp = createLogic();
 
-    describe('Initialization', () => {
-        it('should create with correct buffer sizes', () => {
-            expect(dsp.inputs.in1.length).toBe(bufferSize);
-            expect(dsp.inputs.in2.length).toBe(bufferSize);
-            expect(dsp.outputs.and.length).toBe(bufferSize);
-            expect(dsp.outputs.or.length).toBe(bufferSize);
+        expect(logicModule).toMatchObject({
+            id: 'logic',
+            name: 'LOGIC',
+            hp: 4,
+            category: 'utility'
         });
-
-        it('should initialize with zero outputs', () => {
-            dsp.process();
-            expect(dsp.outputs.and.every(v => v === 0)).toBe(true);
-            expect(dsp.outputs.or.every(v => v === 0)).toBe(true);
+        expect(Object.keys(dsp.inputs)).toEqual(['andA', 'andB', 'orA', 'orB']);
+        expect(Object.keys(dsp.outputs)).toEqual(['and', 'or']);
+        expect(logicModule.ui.inputs.map(input => input.port)).toEqual([
+            'andA', 'andB', 'orA', 'orB'
+        ]);
+        logicModule.ui.inputs.forEach(input => {
+            expect(input.voltage).toEqual({ min: 0, max: 10, normal: 0 });
         });
-
-        it('should have LED indicators', () => {
-            expect(dsp.leds).toHaveProperty('and');
-            expect(dsp.leds).toHaveProperty('or');
-        });
-    });
-
-    describe('AND Logic', () => {
-        it('should output 0V when both inputs are low', () => {
-            dsp.inputs.in1.fill(0);
-            dsp.inputs.in2.fill(0);
-            dsp.process();
-            expect(dsp.outputs.and.every(v => v === 0)).toBe(true);
-        });
-
-        it('should output 0V when only IN 1 is high', () => {
-            dsp.inputs.in1.fill(10);
-            dsp.inputs.in2.fill(0);
-            dsp.process();
-            expect(dsp.outputs.and.every(v => v === 0)).toBe(true);
-        });
-
-        it('should output 0V when only IN 2 is high', () => {
-            dsp.inputs.in1.fill(0);
-            dsp.inputs.in2.fill(10);
-            dsp.process();
-            expect(dsp.outputs.and.every(v => v === 0)).toBe(true);
-        });
-
-        it('should output 10V when both inputs are high', () => {
-            dsp.inputs.in1.fill(10);
-            dsp.inputs.in2.fill(10);
-            dsp.process();
-            expect(dsp.outputs.and.every(v => v === 10)).toBe(true);
-        });
-
-        it('should use 1V threshold for high detection', () => {
-            // Just below threshold
-            dsp.inputs.in1.fill(0.9);
-            dsp.inputs.in2.fill(10);
-            dsp.process();
-            expect(dsp.outputs.and[0]).toBe(0);
-
-            // At threshold
-            dsp.inputs.in1.fill(1);
-            dsp.inputs.in2.fill(10);
-            dsp.process();
-            expect(dsp.outputs.and[0]).toBe(10);
-        });
-
-        it('should handle sample-by-sample logic', () => {
-            // Alternating pattern
-            for (let i = 0; i < bufferSize; i++) {
-                dsp.inputs.in1[i] = (i % 2 === 0) ? 10 : 0;
-                dsp.inputs.in2[i] = (i % 4 < 2) ? 10 : 0;
-            }
-            dsp.process();
-
-            for (let i = 0; i < bufferSize; i++) {
-                const in1High = dsp.inputs.in1[i] >= 1;
-                const in2High = dsp.inputs.in2[i] >= 1;
-                const expected = (in1High && in2High) ? 10 : 0;
-                expect(dsp.outputs.and[i]).toBe(expected);
-            }
+        logicModule.ui.outputs.forEach(output => {
+            expect(output.voltage).toEqual({ min: 0, max: 5 });
         });
     });
 
-    describe('OR Logic', () => {
-        it('should output 0V when both inputs are low', () => {
-            dsp.inputs.in1.fill(0);
-            dsp.inputs.in2.fill(0);
-            dsp.process();
-            expect(dsp.outputs.or.every(v => v === 0)).toBe(true);
-        });
+    it.each([
+        [0, 0, 0],
+        [5, 0, 0],
+        [0, 5, 0],
+        [5, 5, 5]
+    ])('computes AND(%sV, %sV) as %sV', (a, b, expected) => {
+        const dsp = createLogic();
+        dsp.inputs.andA.fill(a);
+        dsp.inputs.andB.fill(b);
+        dsp.process();
 
-        it('should output 10V when only IN 1 is high', () => {
-            dsp.inputs.in1.fill(10);
-            dsp.inputs.in2.fill(0);
-            dsp.process();
-            expect(dsp.outputs.or.every(v => v === 10)).toBe(true);
-        });
-
-        it('should output 10V when only IN 2 is high', () => {
-            dsp.inputs.in1.fill(0);
-            dsp.inputs.in2.fill(10);
-            dsp.process();
-            expect(dsp.outputs.or.every(v => v === 10)).toBe(true);
-        });
-
-        it('should output 10V when both inputs are high', () => {
-            dsp.inputs.in1.fill(10);
-            dsp.inputs.in2.fill(10);
-            dsp.process();
-            expect(dsp.outputs.or.every(v => v === 10)).toBe(true);
-        });
-
-        it('should use 1V threshold for high detection', () => {
-            // Just below threshold on both
-            dsp.inputs.in1.fill(0.9);
-            dsp.inputs.in2.fill(0.5);
-            dsp.process();
-            expect(dsp.outputs.or[0]).toBe(0);
-
-            // One at threshold
-            dsp.inputs.in1.fill(1);
-            dsp.inputs.in2.fill(0);
-            dsp.process();
-            expect(dsp.outputs.or[0]).toBe(10);
-        });
-
-        it('should handle sample-by-sample logic', () => {
-            // Alternating pattern
-            for (let i = 0; i < bufferSize; i++) {
-                dsp.inputs.in1[i] = (i % 2 === 0) ? 10 : 0;
-                dsp.inputs.in2[i] = (i % 4 < 2) ? 10 : 0;
-            }
-            dsp.process();
-
-            for (let i = 0; i < bufferSize; i++) {
-                const in1High = dsp.inputs.in1[i] >= 1;
-                const in2High = dsp.inputs.in2[i] >= 1;
-                const expected = (in1High || in2High) ? 10 : 0;
-                expect(dsp.outputs.or[i]).toBe(expected);
-            }
-        });
+        expect(dsp.outputs.and.every(value => value === expected)).toBe(true);
     });
 
-    describe('LED Indicators', () => {
-        it('should light AND LED when AND output is high', () => {
-            dsp.inputs.in1.fill(10);
-            dsp.inputs.in2.fill(10);
-            dsp.process();
-            expect(dsp.leds.and).toBe(1);
-        });
+    it.each([
+        [0, 0, 0],
+        [5, 0, 5],
+        [0, 5, 5],
+        [5, 5, 5]
+    ])('computes OR(%sV, %sV) as %sV', (a, b, expected) => {
+        const dsp = createLogic();
+        dsp.onInputConnectionChange('orA', true);
+        dsp.onInputConnectionChange('orB', true);
+        dsp.inputs.orA.fill(a);
+        dsp.inputs.orB.fill(b);
+        dsp.process();
 
-        it('should not light AND LED when AND output is low', () => {
-            dsp.inputs.in1.fill(10);
-            dsp.inputs.in2.fill(0);
-            dsp.process();
-            expect(dsp.leds.and).toBe(0);
-        });
-
-        it('should light OR LED when OR output is high', () => {
-            dsp.inputs.in1.fill(10);
-            dsp.inputs.in2.fill(0);
-            dsp.process();
-            expect(dsp.leds.or).toBe(1);
-        });
-
-        it('should not light OR LED when OR output is low', () => {
-            dsp.inputs.in1.fill(0);
-            dsp.inputs.in2.fill(0);
-            dsp.process();
-            expect(dsp.leds.or).toBe(0);
-        });
+        expect(dsp.outputs.or.every(value => value === expected)).toBe(true);
     });
 
-    describe('Buffer Integrity', () => {
-        it('should produce no NaN values', () => {
-            dsp.inputs.in1.fill(5);
-            dsp.inputs.in2.fill(5);
-            dsp.process();
-            expect(dsp.outputs.and.every(v => !isNaN(v))).toBe(true);
-            expect(dsp.outputs.or.every(v => !isNaN(v))).toBe(true);
-        });
+    it('uses the manual’s strictly-above-2.5V threshold', () => {
+        const dsp = createLogic({ bufferSize: 4 });
+        dsp.onInputConnectionChange('orA', true);
+        dsp.onInputConnectionChange('orB', true);
+        dsp.inputs.andA.set([2.499, 2.5, 2.501, 10]);
+        dsp.inputs.andB.fill(10);
+        dsp.inputs.orA.set([2.499, 2.5, 2.501, 10]);
+        dsp.inputs.orB.fill(0);
+        dsp.process();
 
-        it('should fill entire buffer', () => {
-            dsp.inputs.in1.fill(10);
-            dsp.inputs.in2.fill(10);
-            dsp.process();
-
-            let nonZeroAnd = 0;
-            let nonZeroOr = 0;
-            for (let i = 0; i < bufferSize; i++) {
-                if (dsp.outputs.and[i] !== 0) nonZeroAnd++;
-                if (dsp.outputs.or[i] !== 0) nonZeroOr++;
-            }
-            expect(nonZeroAnd).toBe(bufferSize);
-            expect(nonZeroOr).toBe(bufferSize);
-        });
-
-        it('should only output 0V or 10V (gate levels)', () => {
-            // Various input levels
-            for (let i = 0; i < bufferSize; i++) {
-                dsp.inputs.in1[i] = Math.random() * 10;
-                dsp.inputs.in2[i] = Math.random() * 10;
-            }
-            dsp.process();
-
-            expect(dsp.outputs.and.every(v => v === 0 || v === 10)).toBe(true);
-            expect(dsp.outputs.or.every(v => v === 0 || v === 10)).toBe(true);
-        });
+        expect(Array.from(dsp.outputs.and)).toEqual([0, 0, 5, 5]);
+        expect(Array.from(dsp.outputs.or)).toEqual([0, 0, 5, 5]);
     });
 
-    describe('Reset', () => {
-        it('should clear outputs on reset', () => {
-            dsp.inputs.in1.fill(10);
-            dsp.inputs.in2.fill(10);
-            dsp.process();
+    it('processes both truth tables independently for every sample', () => {
+        const dsp = createLogic({ bufferSize: 8 });
+        dsp.onInputConnectionChange('orA', true);
+        dsp.onInputConnectionChange('orB', true);
+        for (let i = 0; i < 8; i++) {
+            dsp.inputs.andA[i] = i % 2 ? 5 : 0;
+            dsp.inputs.andB[i] = i % 4 < 2 ? 5 : 0;
+            dsp.inputs.orA[i] = i % 3 ? 5 : 0;
+            dsp.inputs.orB[i] = i % 5 ? 0 : 5;
+        }
+        dsp.process();
 
-            dsp.reset();
-
-            expect(dsp.outputs.and.every(v => v === 0)).toBe(true);
-            expect(dsp.outputs.or.every(v => v === 0)).toBe(true);
-        });
-
-        it('should clear LEDs on reset', () => {
-            dsp.inputs.in1.fill(10);
-            dsp.inputs.in2.fill(10);
-            dsp.process();
-
-            dsp.reset();
-
-            expect(dsp.leds.and).toBe(0);
-            expect(dsp.leds.or).toBe(0);
-        });
+        for (let i = 0; i < 8; i++) {
+            expect(dsp.outputs.and[i]).toBe(
+                dsp.inputs.andA[i] > 2.5 && dsp.inputs.andB[i] > 2.5 ? 5 : 0
+            );
+            expect(dsp.outputs.or[i]).toBe(
+                dsp.inputs.orA[i] > 2.5 || dsp.inputs.orB[i] > 2.5 ? 5 : 0
+            );
+        }
     });
 
-    describe('Module Metadata', () => {
-        it('should have correct module id', () => {
-            expect(logicModule.id).toBe('logic');
+    it('normals AND A/B to unpatched OR A/B by cable state', () => {
+        const dsp = createLogic();
+        dsp.inputs.andA.fill(5);
+        dsp.inputs.andB.fill(0);
+        dsp.process();
+        expect(dsp.outputs.or.every(value => value === 5)).toBe(true);
+
+        dsp.onInputConnectionChange('orA', true);
+        dsp.onInputConnectionChange('orB', true);
+        dsp.inputs.orA.fill(0);
+        dsp.inputs.orB.fill(0);
+        dsp.process();
+        expect(dsp.outputs.or.every(value => value === 0)).toBe(true);
+
+        dsp.onInputConnectionChange('orA', false);
+        dsp.process();
+        expect(dsp.outputs.or.every(value => value === 5)).toBe(true);
+    });
+
+    it('reports whether each output was active during the block', () => {
+        const dsp = createLogic({ bufferSize: 8 });
+        dsp.inputs.andA[3] = 5;
+        dsp.inputs.andB[3] = 5;
+        dsp.process();
+
+        expect(dsp.leds).toEqual({ and: 1, or: 1 });
+    });
+
+    it('produces finite 0/5V gates and clears stable buffers on reset', () => {
+        const dsp = createLogic();
+        const inputs = { ...dsp.inputs };
+        const outputs = { ...dsp.outputs };
+        Object.values(dsp.inputs).forEach(input => input.fill(10));
+        dsp.process();
+
+        Object.values(dsp.outputs).forEach(output => {
+            expect(output.every(value => value === 0 || value === 5)).toBe(true);
         });
 
-        it('should have correct HP width', () => {
-            expect(logicModule.hp).toBe(4);
+        dsp.reset();
+        Object.entries(inputs).forEach(([port, input]) => {
+            expect(dsp.inputs[port]).toBe(input);
+            expect(input.every(value => value === 0)).toBe(true);
         });
-
-        it('should have UI definition', () => {
-            expect(logicModule.ui).toBeDefined();
-            expect(logicModule.ui.inputs).toBeDefined();
-            expect(logicModule.ui.outputs).toBeDefined();
+        Object.entries(outputs).forEach(([port, output]) => {
+            expect(dsp.outputs[port]).toBe(output);
+            expect(output.every(value => value === 0)).toBe(true);
         });
-
-        it('should define correct inputs in UI', () => {
-            const inputPorts = logicModule.ui.inputs.map(i => i.port);
-            expect(inputPorts).toContain('in1');
-            expect(inputPorts).toContain('in2');
-        });
-
-        it('should define correct outputs in UI', () => {
-            const outputPorts = logicModule.ui.outputs.map(o => o.port);
-            expect(outputPorts).toContain('and');
-            expect(outputPorts).toContain('or');
-        });
+        expect(dsp.leds).toEqual({ and: 0, or: 0 });
     });
 });

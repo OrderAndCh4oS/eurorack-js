@@ -68,9 +68,9 @@ if (samplesSinceLastClock % phasePerPulse === 0) {
 
 The app only extrapolates multiplied pulses within the most recently measured
 period. If no new clock edge arrives after that window, multiplied outputs stop.
-When the clock cable is removed, the engine notifies DIV and pending output
-pulses are cleared immediately so downstream triggers cannot continue from the
-last measured tempo.
+When the clock cable is removed, the graph restores the stable Clock input
+buffer to its 0V normal. DIV naturally stops extrapolating after the final
+measured period; it does not depend on a module-specific cable cleanup hook.
 
 ### Ratio Table
 | Knob Position | Ratio | Effect |
@@ -101,3 +101,23 @@ last measured tempo.
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/div.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Clock is a 0-10V trigger input with the documented strict >2.5V threshold;
+  Rate CV 1/2 are 0-5V controls; outputs are bounded 0-10V triggers that retain
+  the connected input pulse height within those rails.
+- Multiplication now uses a rounded, minimum-one-sample interval. This avoids
+  modulo-by-zero at high ratios and short measured periods, while a focused
+  1kHz fixture verifies x4 at exact quarter-period subdivisions.
+- Multiplied pulses stop naturally after the last measured period when Clock
+  returns to its 0V normal. The obsolete disconnect callback was removed to
+  follow the compiled graph's stable-input contract.
+- Electrical pulses remain 1ms. Independent 50ms activity timers make both LEDs
+  visible without lengthening trigger outputs.
+- Non-finite parameters and samples recover to safe defaults, and reset clears
+  all timing state plus stable input/output buffers in place.
+- Focused and module-contract validation passes 39 assertions. The strict
+  44.1/48/96kHz by 128/512 matrix completes five scenarios with finite output,
+  zero voltage flags, stable buffers, exact 10.000V peaks, and a maximum Node
+  diagnostic time below 0.156ms per block.

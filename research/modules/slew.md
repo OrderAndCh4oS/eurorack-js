@@ -66,8 +66,12 @@ CV adds to knob value, scaled appropriately:
 // CV: ±5V maps to ±1000ms
 const baseRate = knob * 2000;
 const cvRate = cv * 200;  // 5V = +1000ms
-const totalRate = Math.max(0.1, baseRate + cvRate);
+const totalRate = clamp(baseRate + cvRate, 0, 3000);
 ```
+
+The implemented 0ms endpoint is an exact bypass. Positive time values use the
+one-pole coefficient above; -5V to +5V CV extends the knob-selected 0-2000ms
+range to an effective 0-3000ms range.
 
 ### Key Concepts
 - **Slew limiting**: Limits the rate of change of a signal
@@ -133,3 +137,21 @@ const totalRate = Math.max(0.1, baseRate + cvRate);
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/slew.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- The advertised 0ms endpoint is now a sample-exact bypass rather than a hidden
+  0.1ms low-pass. All positive settings retain exponential RC behavior.
+- A one-time-constant fixture verifies that 200ms reaches
+  `1 - exp(-1)` of a 5V step at 44.1, 48, and 96 kHz.
+- Both signal paths explicitly accept and emit -10V to +10V; rate CV is bipolar
+  -5V to +5V with a 0V normal. CV is evaluated per sample, and the effective
+  time is bounded to 0-3000ms.
+- Reset clears all four stable input buffers and both outputs in place, restores
+  zero state, and returns bipolar LEDs to their 0V midpoint. Non-finite
+  controls and samples recover safely.
+- Focused tests exercise both channels, knob/CV endpoints, bipolar transitions,
+  portamento, LEDs, continuity, rate invariance, finite recovery, and reset.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes five scenarios with
+  finite output, zero voltage flags, stable buffers, exact 5.000V stimulus
+  peaks, and a maximum diagnostic time below 0.153ms per block.

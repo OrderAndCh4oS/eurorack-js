@@ -123,6 +123,19 @@ describe('2hp Hat - Hi-Hat Cymbal Synthesizer', () => {
             const level = Math.max(...hat.outputs.out.map(Math.abs));
             expect(level).toBeLessThan(1);
         });
+
+        it('gives the closed trigger priority when open and closed arrive together', () => {
+            hat.params.decay = 1;
+            hat.inputs.trigOpen[0] = 10;
+            hat.inputs.trigClosed[0] = 10;
+            hat.process();
+            hat.inputs.trigOpen.fill(0);
+            hat.inputs.trigClosed.fill(0);
+
+            for (let i = 0; i < 20; i++) hat.process();
+
+            expect(Math.max(...hat.outputs.out.map(Math.abs))).toBeLessThan(1);
+        });
     });
 
     describe('decay control', () => {
@@ -226,6 +239,16 @@ describe('2hp Hat - Hi-Hat Cymbal Synthesizer', () => {
             hat.process();
             expect(hat.outputs.out.every(v => !isNaN(v))).toBe(true);
         });
+
+        it('keeps non-finite controls finite and within the audio rails', () => {
+            hat.params.sizzle = NaN;
+            hat.params.blend = Infinity;
+            hat.inputs.trigClosed[0] = 10;
+            hat.process();
+
+            expect(hat.outputs.out.every(Number.isFinite)).toBe(true);
+            expect(Math.max(...hat.outputs.out.map(Math.abs))).toBeLessThanOrEqual(5);
+        });
     });
 
     describe('reset', () => {
@@ -236,6 +259,17 @@ describe('2hp Hat - Hi-Hat Cymbal Synthesizer', () => {
 
             expect(hat.outputs.out[0]).toBe(0);
             expect(hat.leds.active).toBe(0);
+        });
+
+        it('restores the deterministic noise sequence', () => {
+            hat.inputs.trigClosed[0] = 10;
+            hat.process();
+            const firstHit = [...hat.outputs.out];
+
+            hat.reset();
+            hat.process();
+
+            expect([...hat.outputs.out]).toEqual(firstHit);
         });
     });
 

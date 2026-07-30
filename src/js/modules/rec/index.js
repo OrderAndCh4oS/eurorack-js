@@ -138,7 +138,10 @@ export default {
         let pendingEvents = [];
 
         const chunkSize = Math.max(bufferSize, Math.floor(sampleRate));
-        const maxSamples = Math.max(1, Math.floor(sampleRate * maxRecordingSeconds));
+        const recordingSeconds = Number.isFinite(maxRecordingSeconds) && maxRecordingSeconds > 0
+            ? maxRecordingSeconds
+            : 300;
+        const maxSamples = Math.max(1, Math.floor(sampleRate * recordingSeconds));
 
         function appendSample(left, right) {
             const chunkOffset = sampleCount % chunkSize;
@@ -170,9 +173,11 @@ export default {
                 const inputL = this.inputs.L;
                 const inputR = this.inputs.R;
 
-                // Pass-through audio
-                outL.set(inputL);
-                outR.set(inputR);
+                // Preserve valid audio sample-identically; contain invalid graph data.
+                for (let index = 0; index < bufferSize; index++) {
+                    outL[index] = Number.isFinite(inputL[index]) ? inputL[index] : 0;
+                    outR[index] = Number.isFinite(inputR[index]) ? inputR[index] : 0;
+                }
 
                 // Handle record state changes
                 const shouldRecord = this.params.record === 1;
@@ -194,7 +199,7 @@ export default {
                 // Capture audio if recording (with max time limit)
                 if (isRecording) {
                     for (let index = 0; index < bufferSize && isRecording; index++) {
-                        appendSample(inputL[index], inputR[index]);
+                        appendSample(outL[index], outR[index]);
                         if (sampleCount >= maxSamples) {
                             // Auto-stop exactly at the configured sample bound.
                             isRecording = false;
@@ -237,6 +242,7 @@ export default {
                 recordedR = [];
                 pendingEvents = [];
                 sampleCount = 0;
+                this.params.record = 0;
                 this.leds.recording = 0;
             }
         };

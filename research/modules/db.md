@@ -83,8 +83,8 @@ A VU/dB meter module provides visual feedback of signal levels. Essential for mo
 |------|-------|
 | HP | 4 |
 | Channels | 2 (stereo) |
-| LEDs per channel | 8 |
-| Range | -30dB to +6dB |
+| LEDs per channel | 12 |
+| Range | -36dB to +6dB |
 | 0dB reference | 5V peak (our audio standard) |
 | Response | VU-style (300ms attack) |
 | Peak hold | 1 second decay |
@@ -117,8 +117,8 @@ A VU/dB meter module provides visual feedback of signal levels. Essential for mo
 
 **VU Metering (RMS-based)**:
 ```javascript
-// 300ms attack/release for VU-style response
-const vuCoeff = Math.exp(-1 / (sampleRate * 0.3));
+// 300ms to reach 99% for VU-style response
+const vuCoeff = Math.exp(Math.log(0.01) / (sampleRate * 0.3));
 rmsLevel = vuCoeff * rmsLevel + (1 - vuCoeff) * sample * sample;
 dbLevel = 10 * Math.log10(rmsLevel);
 ```
@@ -127,7 +127,7 @@ dbLevel = 10 * Math.log10(rmsLevel);
 ```javascript
 // Fast attack, slow decay
 const peakAttack = 0; // instant
-const peakRelease = Math.exp(-1 / (sampleRate * 1.5)); // 1.5s decay
+const peakRelease = Math.exp(Math.log(0.1) / (sampleRate * 1.5)); // -20dB in 1.5s
 peak = Math.max(Math.abs(sample), peak * peakRelease);
 ```
 
@@ -155,3 +155,25 @@ const ledIndex = Math.floor((dbLevel + 30) / 4.5);
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/db.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- The VU coefficient now reaches 99% in the documented 300ms. Previously 300ms
+  was treated as one time constant and reached only 63.2%; 10- and 20-sample
+  block fixtures now agree at 99%.
+- Peak release now falls 20dB in 1.5 seconds, matching the stated PPM behavior.
+  The previous single-time-constant coefficient fell only 8.7dB in that period.
+- Combined mode now uses VU-smoothed main bars and the raw/decaying peak detector
+  for its peak marker. Previously the “peak” marker was derived from the VU bar,
+  so a 10V one-sample transient could be missed entirely.
+- Valid stereo signals pass through sample-identically within explicit +/-10V
+  meter headroom. Non-finite samples recover to 0V, switch values recover to VU/
+  Hold defaults, and meter state remains finite.
+- Reset clears all averaging/hold state, 26 telemetry LEDs, and every stable
+  input/output buffer in place.
+- Focused and module-contract validation passes 50 assertions across calibration,
+  300ms VU/1.5s peak timing, all three modes, hold policies, stereo independence,
+  passthrough, rails, finite recovery, custom UI contract, and reset.
+- The strict 44.1/48/96kHz by 128/512 matrix completes five scenarios with
+  finite output, zero voltage flags, stable buffers, exact 5.000V stimulus
+  passthrough, and a maximum Node diagnostic time below 0.193ms per block.

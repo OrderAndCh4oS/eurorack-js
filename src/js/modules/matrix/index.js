@@ -6,6 +6,7 @@
  */
 
 import { clamp } from '../../utils/math.js';
+import { createSlew } from '../../utils/slew.js';
 import { softLimitVoltage } from '../../utils/voltage.js';
 
 const OUTPUTS = [
@@ -36,8 +37,9 @@ const OUTPUTS = [
 ];
 
 function gainFor(value, mode) {
-    const amount = clamp(value, 0, 1);
-    return mode >= 0.5 ? (amount - 0.5) * 2 : amount;
+    const amount = Number.isFinite(value) ? clamp(value, 0, 1) : 0;
+    const bipolar = Number.isFinite(mode) && mode >= 0.5;
+    return bipolar ? (amount - 0.5) * 2 : amount;
 }
 
 function createRouteKnobs() {
@@ -74,6 +76,13 @@ export default {
         const outB = new Float32Array(bufferSize);
         const outC = new Float32Array(bufferSize);
         const outD = new Float32Array(bufferSize);
+        const routedInputs = [ownIn1, ownIn2, ownIn3, ownIn4];
+        const targetGains = OUTPUTS.map(() => new Float64Array(4));
+        const routeSlews = Object.fromEntries(
+            OUTPUTS.flatMap(outputConfig => outputConfig.params)
+                .map(param => [param, createSlew({ sampleRate, timeMs: 5 })])
+        );
+        let routesInitialized = false;
 
         const leds = {
             outA: 0,
@@ -125,25 +134,35 @@ export default {
             leds,
 
             process() {
-                const routedInputs = [
-                    this.inputs.in1,
-                    this.inputs.in2,
-                    this.inputs.in3,
-                    this.inputs.in4
-                ];
-
-                OUTPUTS.forEach(outputConfig => {
-                    const output = this.outputs[outputConfig.port];
+                OUTPUTS.forEach((outputConfig, outputIndex) => {
                     const mode = this.params[outputConfig.mode];
-                    const gains = outputConfig.params.map(param => gainFor(this.params[param], mode));
+                    outputConfig.params.forEach((param, routeIndex) => {
+                        targetGains[outputIndex][routeIndex] = gainFor(this.params[param], mode);
+                    });
+                });
+                if (!routesInitialized) {
+                    OUTPUTS.forEach((outputConfig, outputIndex) => {
+                        outputConfig.params.forEach((param, routeIndex) => {
+                            routeSlews[param].reset(targetGains[outputIndex][routeIndex]);
+                        });
+                    });
+                    routesInitialized = true;
+                }
+
+                OUTPUTS.forEach((outputConfig, outputIndex) => {
+                    const output = this.outputs[outputConfig.port];
                     let peak = 0;
 
                     for (let i = 0; i < bufferSize; i++) {
+                        const gain0 = routeSlews[outputConfig.params[0]].process(targetGains[outputIndex][0]);
+                        const gain1 = routeSlews[outputConfig.params[1]].process(targetGains[outputIndex][1]);
+                        const gain2 = routeSlews[outputConfig.params[2]].process(targetGains[outputIndex][2]);
+                        const gain3 = routeSlews[outputConfig.params[3]].process(targetGains[outputIndex][3]);
                         const sum =
-                            routedInputs[0][i] * gains[0] +
-                            routedInputs[1][i] * gains[1] +
-                            routedInputs[2][i] * gains[2] +
-                            routedInputs[3][i] * gains[3];
+                            (Number.isFinite(routedInputs[0][i]) ? routedInputs[0][i] : 0) * gain0 +
+                            (Number.isFinite(routedInputs[1][i]) ? routedInputs[1][i] : 0) * gain1 +
+                            (Number.isFinite(routedInputs[2][i]) ? routedInputs[2][i] : 0) * gain2 +
+                            (Number.isFinite(routedInputs[3][i]) ? routedInputs[3][i] : 0) * gain3;
 
                         output[i] = softLimitVoltage(sum, 10);
                         peak = Math.max(peak, Math.abs(output[i]));
@@ -154,10 +173,16 @@ export default {
             },
 
             reset() {
+                ownIn1.fill(0);
+                ownIn2.fill(0);
+                ownIn3.fill(0);
+                ownIn4.fill(0);
                 outA.fill(0);
                 outB.fill(0);
                 outC.fill(0);
                 outD.fill(0);
+                Object.values(routeSlews).forEach(routeSlew => routeSlew.reset(0));
+                routesInitialized = false;
                 leds.outA = 0;
                 leds.outB = 0;
                 leds.outC = 0;
@@ -176,10 +201,10 @@ export default {
             { id: 'modeD', label: 'D Pol', param: 'modeD', default: 0 }
         ],
         inputs: [
-            { id: 'in1', label: 'In1', port: 'in1', signal: 'any' },
-            { id: 'in2', label: 'In2', port: 'in2', signal: 'any' },
-            { id: 'in3', label: 'In3', port: 'in3', signal: 'any' },
-            { id: 'in4', label: 'In4', port: 'in4', signal: 'any' }
+            { id: 'in1', label: 'In1', port: 'in1', signal: 'any', voltage: { min: -10, max: 10, normal: 0 } },
+            { id: 'in2', label: 'In2', port: 'in2', signal: 'any', voltage: { min: -10, max: 10, normal: 0 } },
+            { id: 'in3', label: 'In3', port: 'in3', signal: 'any', voltage: { min: -10, max: 10, normal: 0 } },
+            { id: 'in4', label: 'In4', port: 'in4', signal: 'any', voltage: { min: -10, max: 10, normal: 0 } }
         ],
         outputs: [
             { id: 'outA', label: 'A', port: 'outA', signal: 'any', voltage: { min: -10, max: 10 } },

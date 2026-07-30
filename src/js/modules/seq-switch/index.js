@@ -16,7 +16,7 @@ function clampSignal(value) {
 }
 
 function quantizeSteps(value) {
-    return Math.round(clamp(value, 2, 4));
+    return Number.isFinite(value) ? Math.round(clamp(value, 2, 4)) : 4;
 }
 
 export default {
@@ -27,6 +27,8 @@ export default {
     category: 'sequencer',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const clockIn = new Float32Array(bufferSize);
+        const resetIn = new Float32Array(bufferSize);
         const commonOut = new Float32Array(bufferSize);
         const out1 = new Float32Array(bufferSize);
         const out2 = new Float32Array(bufferSize);
@@ -40,6 +42,7 @@ export default {
         const ownIn4 = new Float32Array(bufferSize);
 
         const outputs = [out1, out2, out3, out4];
+        const inputStages = [ownIn1, ownIn2, ownIn3, ownIn4];
         const leds = {
             stage1: 1,
             stage2: 0,
@@ -74,8 +77,8 @@ export default {
             },
 
             inputs: {
-                clock: new Float32Array(bufferSize),
-                reset: new Float32Array(bufferSize),
+                clock: clockIn,
+                reset: resetIn,
                 commonIn: ownCommonIn,
                 in1: ownIn1,
                 in2: ownIn2,
@@ -94,18 +97,13 @@ export default {
             leds,
 
             process() {
-                const inputStages = [this.inputs.in1, this.inputs.in2, this.inputs.in3, this.inputs.in4];
-                const clock = this.inputs.clock;
-                const reset = this.inputs.reset;
-                const commonIn = this.inputs.commonIn;
+                const steps = quantizeSteps(this.params.steps);
+                if (stage >= steps) switchTo(0);
+                if (previousStage >= steps) previousStage = stage;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    const steps = quantizeSteps(this.params.steps);
-                    if (stage >= steps) switchTo(0);
-                    if (previousStage >= steps) previousStage = stage;
-
-                    const clockHigh = clock[i] > TRIGGER_THRESHOLD;
-                    const resetHigh = reset[i] > TRIGGER_THRESHOLD;
+                    const clockHigh = Number.isFinite(clockIn[i]) && clockIn[i] > TRIGGER_THRESHOLD;
+                    const resetHigh = Number.isFinite(resetIn[i]) && resetIn[i] > TRIGGER_THRESHOLD;
                     const clockRising = clockHigh && !lastClockHigh;
                     const resetRising = resetHigh && !lastResetHigh;
 
@@ -130,7 +128,7 @@ export default {
                     outputs[3][i] = 0;
 
                     const selected = clampSignal(inputStages[stage][i]);
-                    const common = clampSignal(commonIn[i]);
+                    const common = clampSignal(ownCommonIn[i]);
 
                     if (fade < 1) {
                         const previous = clampSignal(inputStages[previousStage][i]);
@@ -153,6 +151,13 @@ export default {
                 fadeRemaining = 0;
                 lastClockHigh = false;
                 lastResetHigh = false;
+                clockIn.fill(0);
+                resetIn.fill(0);
+                ownCommonIn.fill(0);
+                ownIn1.fill(0);
+                ownIn2.fill(0);
+                ownIn3.fill(0);
+                ownIn4.fill(0);
                 commonOut.fill(0);
                 out1.fill(0);
                 out2.fill(0);
@@ -177,20 +182,20 @@ export default {
             { id: 'steps', label: 'Steps', param: 'steps', min: 2, max: 4, step: 1, default: 4 }
         ],
         inputs: [
-            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger' },
-            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger' },
-            { id: 'commonIn', label: 'Com In', port: 'commonIn', signal: 'any' },
-            { id: 'in1', label: 'In1', port: 'in1', signal: 'any' },
-            { id: 'in2', label: 'In2', port: 'in2', signal: 'any' },
-            { id: 'in3', label: 'In3', port: 'in3', signal: 'any' },
-            { id: 'in4', label: 'In4', port: 'in4', signal: 'any' }
+            { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'commonIn', label: 'Com In', port: 'commonIn', signal: 'any', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'in1', label: 'In1', port: 'in1', signal: 'any', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'in2', label: 'In2', port: 'in2', signal: 'any', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'in3', label: 'In3', port: 'in3', signal: 'any', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'in4', label: 'In4', port: 'in4', signal: 'any', voltage: { min: -5, max: 5, normal: 0 } }
         ],
         outputs: [
-            { id: 'commonOut', label: 'Com Out', port: 'commonOut', signal: 'any' },
-            { id: 'out1', label: 'Out1', port: 'out1', signal: 'any' },
-            { id: 'out2', label: 'Out2', port: 'out2', signal: 'any' },
-            { id: 'out3', label: 'Out3', port: 'out3', signal: 'any' },
-            { id: 'out4', label: 'Out4', port: 'out4', signal: 'any' }
+            { id: 'commonOut', label: 'Com Out', port: 'commonOut', signal: 'any', voltage: { min: -5, max: 5 } },
+            { id: 'out1', label: 'Out1', port: 'out1', signal: 'any', voltage: { min: -5, max: 5 } },
+            { id: 'out2', label: 'Out2', port: 'out2', signal: 'any', voltage: { min: -5, max: 5 } },
+            { id: 'out3', label: 'Out3', port: 'out3', signal: 'any', voltage: { min: -5, max: 5 } },
+            { id: 'out4', label: 'Out4', port: 'out4', signal: 'any', voltage: { min: -5, max: 5 } }
         ]
     }
 };

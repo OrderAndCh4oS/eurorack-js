@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import wavetableModule from '../../src/js/modules/wavetable/index.js';
+import { createRealFft } from '../../src/js/utils/fft.js';
 
 const createWavetable = (options = {}) => wavetableModule.createDSP(options);
 
@@ -79,6 +80,18 @@ describe('wavetable module', () => {
 
             expect(finiteBuffer(wavetable.outputs.out)).toBe(true);
             expect(peak(wavetable.outputs.out)).toBeGreaterThan(0.1);
+        });
+
+        it('declares the documented CV and sync voltage contracts', () => {
+            const inputs = Object.fromEntries(
+                wavetableModule.ui.inputs.map(input => [input.port, input])
+            );
+
+            expect(inputs.vOct.voltage).toEqual({ min: -10, max: 10, normal: 0 });
+            for (const port of ['fm', 'position', 'bankCv']) {
+                expect(inputs[port].voltage).toEqual({ min: -5, max: 5, normal: 0 });
+            }
+            expect(inputs.sync.voltage).toEqual({ min: 0, max: 10, normal: 0 });
         });
     });
 
@@ -227,6 +240,24 @@ describe('wavetable module', () => {
             expect(finiteBuffer(high)).toBe(true);
             expect(Math.max(peak(low), peak(high))).toBeLessThanOrEqual(5);
         });
+
+        it('crossfades bank changes without a boundary click', () => {
+            const oscillator = createWavetable({ sampleRate: 44100, bufferSize: 128 });
+            Object.assign(oscillator.params, {
+                coarse: Math.log(440 / 10) / Math.log(10000 / 10),
+                bank: 0,
+                position: 0,
+                level: 1
+            });
+            for (let block = 0; block < 30; block++) oscillator.process();
+
+            const before = oscillator.outputs.out.at(-1);
+            oscillator.params.bank = 4;
+            oscillator.params.position = 1;
+            oscillator.process();
+
+            expect(Math.abs(oscillator.outputs.out[0] - before)).toBeLessThan(0.8);
+        });
     });
 
     describe('interpolation mode', () => {
@@ -320,6 +351,67 @@ describe('wavetable module', () => {
 
             expect(finiteBuffer(osc.outputs.out)).toBe(true);
             expect(peak(osc.outputs.out)).toBeLessThanOrEqual(5);
+        });
+
+        it('crossfades adjacent bandlimited replicas at octave boundaries', () => {
+            const sampleAtReset = frequency => {
+                const oscillator = createWavetable({ sampleRate: 44100, bufferSize: 512 });
+                Object.assign(oscillator.params, {
+                    coarse: Math.log(frequency / 10) / Math.log(10000 / 10),
+                    bank: 4,
+                    position: 1,
+                    scanAmt: 0,
+                    level: 1
+                });
+                for (let block = 0; block < 5; block++) oscillator.process();
+                oscillator.inputs.sync[0] = 5;
+                oscillator.process();
+                return oscillator.outputs.out[0];
+            };
+            const replicaBoundary = 44100 * 0.45 / 16;
+
+            expect(Math.abs(
+                sampleAtReset(replicaBoundary * 0.999)
+                - sampleAtReset(replicaBoundary * 1.001)
+            )).toBeLessThan(0.1);
+        });
+
+        it('keeps reflected products out of a coherent high-frequency table render', () => {
+            const sampleRate = 16384;
+            const fftSize = 4096;
+            const frequency = 3072;
+            const oscillator = createWavetable({ sampleRate, bufferSize: fftSize });
+            Object.assign(oscillator.params, {
+                coarse: Math.log(frequency / 10) / Math.log(10000 / 10),
+                bank: 1,
+                position: 1,
+                scanAmt: 0,
+                level: 1
+            });
+            for (let block = 0; block < 3; block++) oscillator.process();
+
+            const spectrum = new Float32Array(fftSize / 2);
+            createRealFft({ size: fftSize }).analyzeCircular(
+                oscillator.outputs.out,
+                0,
+                spectrum
+            );
+            const aliasBins = [1024, 4096, 7168]
+                .map(aliasFrequency => aliasFrequency * fftSize / sampleRate);
+
+            aliasBins.forEach(bin => expect(spectrum[bin]).toBeLessThan(-70));
+        });
+
+        it('clears every stable input buffer on reset', () => {
+            const inputs = { ...wavetable.inputs };
+            Object.values(wavetable.inputs).forEach(input => input.fill(3));
+            wavetable.process();
+            wavetable.reset();
+
+            Object.entries(inputs).forEach(([port, input]) => {
+                expect(wavetable.inputs[port]).toBe(input);
+                expect(input.every(value => value === 0)).toBe(true);
+            });
         });
     });
 });

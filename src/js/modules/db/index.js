@@ -111,15 +111,11 @@ export default {
         // VU meter time constants (per-buffer, not per-sample)
         // Standard VU: 300ms to reach 99% of steady state
         const buffersFor300ms = (sampleRate * 0.3) / bufferSize;
-        const vuCoeff = Math.exp(-1 / buffersFor300ms);
+        const vuCoeff = Math.exp(Math.log(0.01) / buffersFor300ms);
 
-        // Peak meter: instant attack, ~1.5s decay (per-buffer)
+        // Peak meter: instant attack, 20dB fall over 1.5s
         const buffersFor1500ms = (sampleRate * 1.5) / bufferSize;
-        const peakReleaseCoeff = Math.exp(-1 / buffersFor1500ms);
-
-        // Peak hold decay (when hold is off): faster for testing ~0.5s
-        const buffersFor500ms = (sampleRate * 0.5) / bufferSize;
-        const peakHoldDecayCoeff = Math.exp(-1 / buffersFor500ms);
+        const peakReleaseCoeff = Math.exp(Math.log(0.1) / buffersFor1500ms);
 
         // Internal state
         let vuLevelL = 0;
@@ -174,6 +170,8 @@ export default {
 
         const ownL = new Float32Array(bufferSize);
         const ownR = new Float32Array(bufferSize);
+        const outL = new Float32Array(bufferSize);
+        const outR = new Float32Array(bufferSize);
 
         return {
             params: {
@@ -187,20 +185,28 @@ export default {
             },
 
             outputs: {
-                outL: new Float32Array(bufferSize),
-                outR: new Float32Array(bufferSize)
+                outL,
+                outR
             },
 
             leds,
 
             process() {
-                const { L, R } = this.inputs;
-                const { mode, hold } = this.params;
+                const mode = Number.isFinite(this.params.mode)
+                    ? Math.max(0, Math.min(2, Math.round(this.params.mode)))
+                    : 0;
+                const hold = this.params.hold === 1 || this.params.hold === true;
 
                 // Pass through to outputs
                 for (let i = 0; i < bufferSize; i++) {
-                    this.outputs.outL[i] = L[i];
-                    this.outputs.outR[i] = R[i];
+                    const sampleL = Number.isFinite(ownL[i])
+                        ? Math.max(-10, Math.min(10, ownL[i]))
+                        : 0;
+                    const sampleR = Number.isFinite(ownR[i])
+                        ? Math.max(-10, Math.min(10, ownR[i]))
+                        : 0;
+                    outL[i] = sampleL;
+                    outR[i] = sampleR;
                 }
 
                 // Calculate levels for this buffer
@@ -210,8 +216,8 @@ export default {
                 let maxR = 0;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    const sampleL = L[i];
-                    const sampleR = R[i];
+                    const sampleL = outL[i];
+                    const sampleR = outR[i];
 
                     sumSqL += sampleL * sampleL;
                     sumSqR += sampleR * sampleR;
@@ -272,29 +278,30 @@ export default {
 
                 // Peak hold indicators - track the displayed level, not raw input
                 // This way the peak sits on top of the lit bars
-                const displayLedL = ledIndexL + 1;
-                const displayLedR = ledIndexR + 1;
+                const peakLedL = dbToLedIndex(ampToDb(peakLevelL)) + 1;
+                const peakLedR = dbToLedIndex(ampToDb(peakLevelR)) + 1;
 
-                if (hold === 1) {
-                    // Update peak hold if display level is higher
-                    if (displayLedL >= peakHoldL) {
-                        peakHoldL = displayLedL;
+                if (hold) {
+                    // Peak markers always track the raw peak detector. In Both
+                    // mode this leaves the main bar VU-weighted.
+                    if (peakLedL >= peakHoldL) {
+                        peakHoldL = peakLedL;
                         peakHoldTimerL = peakHoldTime;
                     } else {
                         peakHoldTimerL -= bufferSize;
                         if (peakHoldTimerL <= 0) {
-                            peakHoldL = displayLedL;
+                            peakHoldL = peakLedL;
                             peakHoldTimerL = peakHoldTime;
                         }
                     }
 
-                    if (displayLedR >= peakHoldR) {
-                        peakHoldR = displayLedR;
+                    if (peakLedR >= peakHoldR) {
+                        peakHoldR = peakLedR;
                         peakHoldTimerR = peakHoldTime;
                     } else {
                         peakHoldTimerR -= bufferSize;
                         if (peakHoldTimerR <= 0) {
-                            peakHoldR = displayLedR;
+                            peakHoldR = peakLedR;
                             peakHoldTimerR = peakHoldTime;
                         }
                     }
@@ -302,9 +309,9 @@ export default {
                     leds.peakL = Math.max(0, Math.min(11, Math.floor(peakHoldL)));
                     leds.peakR = Math.max(0, Math.min(11, Math.floor(peakHoldR)));
                 } else {
-                    // No hold - peak follows display level
-                    leds.peakL = Math.max(0, Math.min(11, Math.floor(displayLedL)));
-                    leds.peakR = Math.max(0, Math.min(11, Math.floor(displayLedR)));
+                    // No hold - marker follows the decaying peak detector
+                    leds.peakL = Math.max(0, Math.min(11, Math.floor(peakLedL)));
+                    leds.peakR = Math.max(0, Math.min(11, Math.floor(peakLedR)));
                 }
 
                 // Reset inputs if replaced by routing
@@ -319,6 +326,10 @@ export default {
                 peakHoldR = 0;
                 peakHoldTimerL = 0;
                 peakHoldTimerR = 0;
+                ownL.fill(0);
+                ownR.fill(0);
+                outL.fill(0);
+                outR.fill(0);
 
                 for (let i = 0; i < 12; i++) {
                     leds[`L${i}`] = 0;
@@ -541,12 +552,12 @@ export default {
             { id: 'hold', label: 'Hold', param: 'hold', positions: ['Off', 'On'], default: 1 }
         ],
         inputs: [
-            { id: 'L', label: 'L', port: 'L', signal: 'audio' },
-            { id: 'R', label: 'R', port: 'R', signal: 'audio' }
+            { id: 'L', label: 'L', port: 'L', signal: 'audio', voltage: { min: -10, max: 10, normal: 0 } },
+            { id: 'R', label: 'R', port: 'R', signal: 'audio', voltage: { min: -10, max: 10, normal: 0 } }
         ],
         outputs: [
-            { id: 'outL', label: 'L', port: 'outL', signal: 'audio' },
-            { id: 'outR', label: 'R', port: 'outR', signal: 'audio' }
+            { id: 'outL', label: 'L', port: 'outL', signal: 'audio', voltage: { min: -10, max: 10 } },
+            { id: 'outR', label: 'R', port: 'outR', signal: 'audio', voltage: { min: -10, max: 10 } }
         ]
     }
 };

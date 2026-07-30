@@ -113,13 +113,25 @@ export default {
                 "fromModule": "euclid1",
                 "fromPort": "trig",
                 "toModule": "logic",
-                "toPort": "in1"
+                "toPort": "andA"
             },
             {
                 "fromModule": "euclid2",
                 "fromPort": "trig",
                 "toModule": "logic",
-                "toPort": "in2"
+                "toPort": "andB"
+            },
+            {
+                "fromModule": "euclid1",
+                "fromPort": "trig",
+                "toModule": "logic",
+                "toPort": "orA"
+            },
+            {
+                "fromModule": "euclid2",
+                "fromPort": "trig",
+                "toModule": "logic",
+                "toPort": "orB"
             },
             {
                 "fromModule": "logic",

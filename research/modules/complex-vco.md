@@ -94,3 +94,23 @@ Generate the triangle core analytically. Generate harmonic outputs with additive
 - **Focused coverage**: audio/LF tracking, signed through-zero FM, phase modulation, harmonic separation, balanced AM, sync, reset, buffer identity, and voltage bounds are covered by `tests/dsp/complex-vco.test.js`.
 - **Measured status**: the 44.1/48/96 kHz by 128/512-sample matrix completed 23 scenarios per configuration with zero errors or voltage flags, finite/stable buffers, and a measured maximum of 477.9 us/block.
 - **Next action**: profile additive partial count at low fundamentals before increasing the 31-harmonic ceiling.
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Every pitch/modulation/trigger input now declares the voltage and normal that
+  DSP implements. Reset clears all nine stable input buffers in place,
+  restoring +5 V TZFM and balanced-AM normals while leaving their identities
+  intact; obsolete routed-buffer replacement logic was removed.
+- Additive even/odd partials now fade smoothly through the 0.40-0.45
+  sample-rate guard band instead of disappearing at an integer harmonic count.
+  The measured 13th-partial boundary falls from 0.1736 V to 0.000046 V.
+- The triangle core is now an odd-harmonic Fourier series with the same smooth
+  Nyquist fade. On the coherent 1.536 kHz-core / 16.384 kHz fixture, reflected
+  derivative-corner power is 62.24 dB below the former analytic triangle.
+- Focused tests cover all controls and switches, 1 V/oct, exponential and
+  signed through-zero FM, AC/bias behavior, phase modulation, reset/flip edge
+  rules, all spectral groups, balanced AM and normals, LEDs, rails, and reset.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes all 23 scenarios with
+  finite output, zero voltage flags, stable buffers, and a maximum 5.000 V
+  observed peak. The bounded 31-partial process remains allocation-free; the
+  largest Node diagnostic observation was 775.9 microseconds per block.

@@ -221,11 +221,51 @@ describe('arp', () => {
             it('should respond to root CV', () => {
                 arp.params.root = 0;
                 arp.params.chord = 0; // major
-                arp.inputs.rootCV = new Float32Array(128).fill(0.5); // +6 semitones
+                arp.inputs.rootCV.fill(0.5); // +6 semitones
 
                 arp.process();
 
                 expect(arp.outputs.cv[0]).toBeCloseTo(6 / 12, 5);
+            });
+
+            it('should add 0-5V chord CV across all 13 chord choices', () => {
+                arp.params.root = 0;
+                arp.params.chord = 0; // major
+                arp.params.mode = 0; // up
+                arp.inputs.chordCV.fill(5); // select final chord: sus4 minor 7
+                arp.inputs.trigger.fill(5);
+
+                arp.process();
+
+                // The first rising trigger advances to the chord's second note.
+                expect(arp.outputs.cv[0]).toBeCloseTo(5 / 12, 5);
+            });
+
+            it('should add chord CV to the knob position and clamp at the final chord', () => {
+                arp.params.root = 0;
+                arp.params.chord = 8; // augmented
+                arp.params.mode = 0; // up
+                arp.inputs.chordCV.fill(2.5);
+                arp.inputs.trigger.fill(5);
+
+                arp.process();
+
+                // Positive CV cannot wrap beyond sus4 minor 7.
+                expect(arp.outputs.cv[0]).toBeCloseTo(5 / 12, 5);
+            });
+
+            it('should follow chord CV changes within a processing block', () => {
+                arp.params.root = 0;
+                arp.params.chord = 0; // major
+                arp.params.mode = 0; // up
+                arp.inputs.trigger[0] = 5;
+                arp.inputs.chordCV.fill(0, 0, 64);
+                arp.inputs.chordCV.fill(5, 64);
+
+                arp.process();
+
+                expect(arp.outputs.cv[32]).toBeCloseTo(4 / 12, 5);
+                expect(arp.outputs.cv[96]).toBeCloseTo(5 / 12, 5);
             });
 
             it('should handle multiple octaves', () => {
@@ -263,6 +303,22 @@ describe('arp', () => {
 
                 // Should be back at step 0
                 expect(arp.getCurrentStep()).toBe(0);
+            });
+
+            it('should give reset priority when reset and trigger rise together', () => {
+                arp.params.chord = 0; // major
+                arp.inputs.trigger.fill(5);
+                arp.process();
+                arp.inputs.trigger.fill(0);
+                arp.process();
+                expect(arp.getCurrentStep()).toBe(1);
+
+                arp.inputs.reset.fill(5);
+                arp.inputs.trigger.fill(5);
+                arp.process();
+
+                expect(arp.getCurrentStep()).toBe(0);
+                expect(arp.outputs.cv[0]).toBe(0);
             });
         });
 

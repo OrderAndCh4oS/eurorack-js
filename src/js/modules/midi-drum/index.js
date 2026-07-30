@@ -57,7 +57,7 @@ export default {
         const velocities = [0, 0, 0, 0, 0, 0, 0, 0];
 
         // Trigger pulse length (~5ms)
-        const TRIGGER_LENGTH = Math.floor(sampleRate * 0.005);
+        const TRIGGER_LENGTH = Math.max(1, Math.floor(sampleRate * 0.005));
 
         // LED decay
         const ledDecay = Math.exp(-1 / (sampleRate * 0.08) * bufferSize);
@@ -86,17 +86,15 @@ export default {
                     return;
                 }
 
-                const channelParam = Math.floor(clamp(this.params.channel, 0, 16));
-                const noteAssignments = [
-                    Math.floor(this.params.note1),
-                    Math.floor(this.params.note2),
-                    Math.floor(this.params.note3),
-                    Math.floor(this.params.note4),
-                    Math.floor(this.params.note5),
-                    Math.floor(this.params.note6),
-                    Math.floor(this.params.note7),
-                    Math.floor(this.params.note8)
-                ];
+                const channelParam = Number.isFinite(this.params.channel)
+                    ? Math.floor(clamp(this.params.channel, 0, 16))
+                    : 0;
+                const noteAssignments = DEFAULT_NOTES.map((fallback, index) => {
+                    const value = this.params[`note${index + 1}`];
+                    return Number.isFinite(value)
+                        ? Math.floor(clamp(value, 0, 127))
+                        : fallback;
+                });
 
                 // Get note events from MIDI manager
                 const events = channelParam === 0
@@ -109,10 +107,16 @@ export default {
                     while (eventIndex < events.length && events[eventIndex].sampleOffset <= i) {
                         const event = events[eventIndex++];
                         if (event.type === 'noteOn') {
-                            const padIndex = noteAssignments.indexOf(event.note);
-                            if (padIndex !== -1) {
+                            const note = Number.isFinite(event.note)
+                                ? Math.floor(clamp(event.note, 0, 127))
+                                : -1;
+                            const velocityValue = Number.isFinite(event.velocity)
+                                ? clamp(event.velocity, 0, 127) / 127
+                                : 0;
+                            for (let padIndex = 0; padIndex < noteAssignments.length; padIndex++) {
+                                if (noteAssignments[padIndex] !== note) continue;
                                 triggerSamples[padIndex] = TRIGGER_LENGTH;
-                                velocities[padIndex] = event.velocity / 127;
+                                velocities[padIndex] = velocityValue;
                                 leds[`pad${padIndex + 1}`] = 1;
                             }
                         }

@@ -30,7 +30,7 @@ describe('gate-delay', () => {
         dsp.inputs.trig1.fill(10, 1);
         dsp.process();
         expect(Array.from(dsp.outputs.gate1)).toEqual([10, 10, 0, 0, 0, 0, 0, 0]);
-        expect(dsp.leds.gate1).toBe(0);
+        expect(dsp.leds.gate1).toBe(1);
     });
 
     it('preserves delayed timing across process blocks', () => {
@@ -129,6 +129,56 @@ describe('gate-delay', () => {
         dsp.inputs.trig1.fill(0);
         dsp.process();
         expect(Array.from(dsp.outputs.gate1)).toEqual([0, 0, 0, 0]);
+        expect(dsp.leds).toEqual({ gate1: 0, gate2: 0 });
+    });
+
+    it('holds each activity LED for 50ms without extending its electrical gate', () => {
+        const dsp = create({ sampleRate: 1000, bufferSize: 10 });
+        dsp.params.length1 = 0.001;
+        dsp.inputs.trig1[0] = 10;
+        dsp.process();
+
+        expect(Array.from(dsp.outputs.gate1)).toEqual([10, 10, 0, 0, 0, 0, 0, 0, 0, 0]);
+        expect(dsp.leds.gate1).toBe(1);
+
+        dsp.inputs.trig1.fill(0);
+        for (let block = 0; block < 5; block++) dsp.process();
+        expect(dsp.outputs.gate1.every(value => value === 0)).toBe(true);
+        expect(dsp.leds.gate1).toBe(0);
+    });
+
+    it('recovers from non-finite timing controls and input samples', () => {
+        const dsp = create({ sampleRate: 1000, bufferSize: 8 });
+        dsp.params.delay1 = Number.NaN;
+        dsp.params.length1 = Number.POSITIVE_INFINITY;
+        dsp.params.delay2 = Number.NEGATIVE_INFINITY;
+        dsp.params.length2 = Number.NaN;
+        dsp.inputs.trig1.fill(Number.NaN);
+        dsp.inputs.trig2.fill(Number.POSITIVE_INFINITY);
+        dsp.inputs.trig1[0] = 10;
+        dsp.process();
+
+        for (const output of Object.values(dsp.outputs)) {
+            expect(output.every(Number.isFinite)).toBe(true);
+            expect(output.every(value => value === 0 || value === 10)).toBe(true);
+        }
+    });
+
+    it('reset preserves all stable buffer identities and clears them in place', () => {
+        const dsp = create();
+        const inputRefs = { ...dsp.inputs };
+        const outputRefs = { ...dsp.outputs };
+        dsp.inputs.trig1.fill(10);
+        dsp.inputs.trig2.fill(10);
+        dsp.process();
+
+        dsp.reset();
+
+        expect(dsp.inputs).toEqual(inputRefs);
+        expect(dsp.outputs).toEqual(outputRefs);
+        for (const buffer of [...Object.values(dsp.inputs), ...Object.values(dsp.outputs)]) {
+            expect(buffer.every(value => value === 0)).toBe(true);
+        }
         expect(dsp.leds).toEqual({ gate1: 0, gate2: 0 });
     });
 

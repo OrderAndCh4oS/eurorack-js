@@ -57,10 +57,12 @@ out = x * (1 - mix) + (x * y) * mix;
 - Multiply produces ±25V, need to scale back
 - Divide by 5 to keep output in ±5V range
 
-### No Oversampling Needed
-- Ring modulation is a linear operation
-- No new harmonics created beyond sum/difference
-- Aliasing only from input signals, not the modulation itself
+### Bandwidth
+
+Ring multiplication creates sum and difference components but no nonlinear
+harmonic series. A sum component above Nyquist can still alias; callers should
+use band-limited oscillators and leave bandwidth for the chosen carrier and
+modulator. Oversampling is not included in this compact utility.
 
 ## Use Cases
 1. **Bell tones** - Two slightly detuned oscillators
@@ -76,3 +78,17 @@ out = x * (1 - mix) + (x * y) * mix;
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/ring.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30)
+
+- Both +/-5 V inputs multiply with the documented 1/5 voltage scaling and the
+  Mix control is sample-exact across dry, half, and wet endpoints.
+- The output now uses the shared continuous +/-5 V rail for over-range inputs;
+  ordinary in-range multiplication remains unchanged. Reset clears both stable
+  input buffers and output without replacing buffer identities.
+- Focused tests cover four-quadrant DC multiplication, bipolar waveforms,
+  sum/difference behavior, dry/wet endpoints, rails, reset, and finite
+  full-buffer output.
+- The strict 44.1/48/96 kHz by 128/512 matrix completed all three scenarios
+  with no errors or voltage flags, stable buffers, and a 4.926 V peak.
+- **Status**: complete for the compact four-quadrant multiplier contract.

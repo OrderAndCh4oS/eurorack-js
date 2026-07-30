@@ -191,3 +191,21 @@ out[i] = sample * 5;
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/snare.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Trigger edges reset the body phase and both envelopes for repeatable attacks.
+  Pitch and Snap CV remain per-sample; Decay CV is intentionally sampled at the
+  trigger that establishes the voice envelope.
+- Pitch CV preserves 1V/octave over a bounded +/-5V range and the body oscillator
+  stays below Nyquist. Non-finite controls and CV recover without contaminating
+  oscillator, envelope, filter, LED, or output state.
+- Reset now restores the seeded noise generator as well as the body/filter
+  state, making identical post-reset hits deterministic.
+- Output remains within the +/-5V audio rails through the existing soft
+  saturation. Focused and module-contract validation passes 36 module
+  assertions spanning every control/CV, noise/body behavior, rails, finite
+  recovery, LED behavior, buffers, and reset.
+- The strict 44.1/48/96kHz by 128/512 matrix completes seven scenarios with
+  finite output, zero voltage flags, stable buffers, and maximum Node
+  diagnostic time below 0.184ms per block.

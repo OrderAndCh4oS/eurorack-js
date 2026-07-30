@@ -33,6 +33,16 @@ describe('ENVF Module', () => {
         it('should have LED indicator', () => {
             expect(dsp.leds).toHaveProperty('active');
         });
+
+        it('should declare audio normalization and unipolar output voltage contracts', () => {
+            expect(envfModule.ui.inputs[0]).toMatchObject({
+                port: 'audio',
+                voltage: { min: -5, max: 5, normal: 0 }
+            });
+            for (const output of envfModule.ui.outputs) {
+                expect(output.voltage).toEqual({ min: 0, max: 10 });
+            }
+        });
     });
 
     describe('Envelope Output', () => {
@@ -202,6 +212,18 @@ describe('ENVF Module', () => {
 
             expect(dsp.leds.active).toBe(1);
         });
+
+        it('should treat a sample exactly at Threshold as active', () => {
+            const exact = envfModule.createDSP({ sampleRate: 1000, bufferSize: 1 });
+            exact.params.threshold = 0.1; // 0.5V
+            exact.params.gain = 1;
+            exact.inputs.audio[0] = -0.5;
+
+            exact.process();
+
+            expect(exact.outputs.env[0]).toBeGreaterThan(0);
+            expect(exact.leds.active).toBe(1);
+        });
     });
 
     describe('Gain Control', () => {
@@ -312,6 +334,46 @@ describe('ENVF Module', () => {
             // Fast should decay more
             expect(fastDecay).toBeGreaterThan(slowDecay);
         });
+
+        it('should preserve the documented 1ms fast attack across sample rates', () => {
+            const render = currentSampleRate => {
+                const samples = Math.round(currentSampleRate * 0.001);
+                const follower = envfModule.createDSP({
+                    sampleRate: currentSampleRate,
+                    bufferSize: samples
+                });
+                follower.params.threshold = 0;
+                follower.params.gain = 0.5;
+                follower.params.slope = 0;
+                follower.inputs.audio.fill(5);
+                follower.process();
+                return follower.outputs.env.at(-1);
+            };
+
+            expect(render(1000)).toBeCloseTo(4.95, 5);
+            expect(render(2000)).toBeCloseTo(4.95, 5);
+        });
+
+        it('should preserve the documented 10ms fast release across sample rates', () => {
+            const render = currentSampleRate => {
+                const samples = Math.round(currentSampleRate * 0.01);
+                const follower = envfModule.createDSP({
+                    sampleRate: currentSampleRate,
+                    bufferSize: samples
+                });
+                follower.params.threshold = 0;
+                follower.params.gain = 0.5;
+                follower.params.slope = 0;
+                follower.inputs.audio.fill(5);
+                for (let block = 0; block < 3; block++) follower.process();
+                follower.inputs.audio.fill(0);
+                follower.process();
+                return follower.outputs.env.at(-1);
+            };
+
+            expect(render(1000)).toBeCloseTo(0.05, 4);
+            expect(render(2000)).toBeCloseTo(0.05, 4);
+        });
     });
 
     describe('Buffer Integrity', () => {
@@ -336,10 +398,28 @@ describe('ENVF Module', () => {
             expect(dsp.outputs.env.length).toBe(bufferSize);
             expect(dsp.outputs.inv.length).toBe(bufferSize);
         });
+
+        it('should recover from non-finite params and audio samples within 0-10V', () => {
+            dsp.params.threshold = Number.NaN;
+            dsp.params.gain = Number.POSITIVE_INFINITY;
+            dsp.params.slope = Number.NaN;
+            dsp.inputs.audio.fill(Number.NaN);
+            dsp.inputs.audio[0] = Number.POSITIVE_INFINITY;
+
+            dsp.process();
+
+            for (const output of Object.values(dsp.outputs)) {
+                expect(output.every(Number.isFinite)).toBe(true);
+                expect(Math.min(...output)).toBeGreaterThanOrEqual(0);
+                expect(Math.max(...output)).toBeLessThanOrEqual(10);
+            }
+        });
     });
 
     describe('Reset', () => {
         it('should clear outputs on reset', () => {
+            const inputRefs = { ...dsp.inputs };
+            const outputRefs = { ...dsp.outputs };
             // Build up envelope
             for (let b = 0; b < 20; b++) {
                 dsp.inputs.audio.fill(5);
@@ -348,6 +428,11 @@ describe('ENVF Module', () => {
 
             dsp.reset();
 
+            expect(dsp.inputs).toEqual(inputRefs);
+            expect(dsp.outputs).toEqual(outputRefs);
+            expect(dsp.inputs.audio.every(value => value === 0)).toBe(true);
+            expect(dsp.outputs.env.every(value => value === 0)).toBe(true);
+            expect(dsp.outputs.inv.every(value => value === 10)).toBe(true);
             // After reset, envelope should be near 0
             dsp.inputs.audio.fill(0);
             dsp.process();

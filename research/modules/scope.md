@@ -215,3 +215,15 @@ const y = centerY - ((sample + offset) / range) * (height / 2);
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/scope.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Valid dual-channel +/-10V signals remain sample-identical through the analyzer.
+  Invalid samples recover to 0V before passthrough, telemetry, triggering, tune
+  detection, and metering, so one bad graph value cannot poison display state.
+- Trigger level is bounded, LED telemetry is capped at 1, and reset now clears
+  every frequency accumulator/counter plus stable input/output/display buffers.
+- Focused tests cover trigger threshold, tune frequency, circular history,
+  passthrough, LEDs, telemetry bounds, finite recovery, and reset.
+- The strict matrix completes fifteen scenarios with zero voltage flags, stable
+  buffers, and maximum Node diagnostic time below 0.083ms/block.

@@ -83,12 +83,13 @@ function quantizeVoltage(voltage, scaleNotes, octaveOffset, semitoneOffset) {
 ```
 
 ### Trigger Generation
-Output trigger pulse when quantized note changes:
+Output an app-standard 8ms trigger pulse when the quantized note changes:
 ```javascript
 if (Math.abs(quantized - lastQuantized) > 0.001) {
-    triggerOut = 5;  // 5V trigger
+    triggerSamplesRemaining = round(sampleRate * 0.008)
     lastQuantized = quantized;
 }
+triggerOut = triggerSamplesRemaining > 0 ? 5 : 0
 ```
 
 ### Key Concepts
@@ -137,3 +138,22 @@ if (Math.abs(quantized - lastQuantized) > 0.001) {
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/simple-quantizer.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Fixed nearest-note search across negative octave boundaries. For example,
+  -0.01V now correctly selects 0V in the chromatic scale instead of -1/12V.
+  The algorithm evaluates scale candidates in both adjacent octaves.
+- Worklet and panel defaults now agree on scale 1 (major). Scale, octave, and
+  semitone controls are rounded and bounded before lookup; non-finite input CV
+  falls back to 0V.
+- Note changes now emit an 8ms, 5V pulse rather than a single-sample spike.
+  The Active LED decay is based on physical time instead of losing 0.1 per
+  block.
+- Input explicitly accepts -5V to +5V with a 0V normal; output retains its
+  complete -7V to 95/12V transposed range, and Trigger declares 0-5V.
+- Reset clears the stable input/output buffers, pitch comparison state, pulse
+  timer, and LED. Tests no longer replace input buffer identities.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes seven scenarios with
+  finite output, zero voltage flags, stable buffers, exact 7.000V audit peaks,
+  and a maximum diagnostic time below 0.200ms per block.

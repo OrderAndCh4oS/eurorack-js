@@ -24,6 +24,12 @@ describe('2hp Mix - 4 Channel Mixer', () => {
             expect(mix.inputs.in3).toBeInstanceOf(Float32Array);
             expect(mix.inputs.in4).toBeInstanceOf(Float32Array);
             expect(mix.inputs.in1.length).toBe(512);
+            expect(mixModule.ui.inputs.map(port => port.voltage)).toEqual([
+                { min: -10, max: 10, normal: 0 },
+                { min: -10, max: 10, normal: 0 },
+                { min: -10, max: 10, normal: 0 },
+                { min: -10, max: 10, normal: 0 }
+            ]);
         });
 
         it('should create output buffer', () => {
@@ -86,6 +92,40 @@ describe('2hp Mix - 4 Channel Mixer', () => {
 
             // 1*1 + 2*0.5 + 3*0.25 + 4*0 = 1 + 1 + 0.75 + 0 = 2.75
             expect(mix.outputs.out[0]).toBeCloseTo(2.75, 5);
+        });
+
+        it('slews a level change without changing the initial patch render', () => {
+            mix.inputs.in1.fill(5);
+            mix.params.lvl1 = 0;
+            mix.params.lvl2 = 0;
+            mix.params.lvl3 = 0;
+            mix.params.lvl4 = 0;
+            mix.process();
+            expect(mix.outputs.out[0]).toBe(0);
+
+            mix.params.lvl1 = 1;
+            mix.process();
+
+            expect(mix.outputs.out[0]).toBeGreaterThan(0);
+            expect(mix.outputs.out[0]).toBeLessThan(5);
+            for (let block = 0; block < 10; block++) mix.process();
+            expect(mix.outputs.out[511]).toBeCloseTo(5, 2);
+        });
+
+        it.each([44100, 48000, 96000])('uses a sample-rate-invariant 5ms level slew at %i Hz', sampleRate => {
+            const bufferSize = Math.round(sampleRate * 0.005);
+            const timed = createMix({ sampleRate, bufferSize });
+            timed.inputs.in1.fill(5);
+            timed.params.lvl1 = 0;
+            timed.params.lvl2 = 0;
+            timed.params.lvl3 = 0;
+            timed.params.lvl4 = 0;
+            timed.process();
+            timed.params.lvl1 = 1;
+
+            timed.process();
+
+            expect(timed.outputs.out[bufferSize - 1]).toBeCloseTo(5 * (1 - Math.exp(-1)), 2);
         });
     });
 
@@ -207,15 +247,35 @@ describe('2hp Mix - 4 Channel Mixer', () => {
 
             expect(mix.outputs.out.every(v => !isNaN(v))).toBe(true);
         });
+
+        it('should recover safely from non-finite controls and samples', () => {
+            mix.params.lvl1 = Number.NaN;
+            mix.params.lvl2 = Number.POSITIVE_INFINITY;
+            mix.inputs.in1.fill(Number.NaN);
+            mix.inputs.in2.fill(Number.NEGATIVE_INFINITY);
+
+            mix.process();
+
+            expect(mix.outputs.out.every(Number.isFinite)).toBe(true);
+            expect(Number.isFinite(mix.leds.level)).toBe(true);
+        });
     });
 
     describe('reset', () => {
-        it('should clear output buffer on reset', () => {
+        it('should clear stable input and output buffers on reset', () => {
+            const inputs = { ...mix.inputs };
+            const output = mix.outputs.out;
             mix.inputs.in1.fill(5);
+            mix.inputs.in2.fill(-5);
             mix.process();
             mix.reset();
 
-            expect(mix.outputs.out[0]).toBe(0);
+            for (const key of Object.keys(inputs)) {
+                expect(mix.inputs[key]).toBe(inputs[key]);
+                expect(mix.inputs[key].every(value => value === 0)).toBe(true);
+            }
+            expect(mix.outputs.out).toBe(output);
+            expect(mix.outputs.out.every(value => value === 0)).toBe(true);
         });
 
         it('should clear LED on reset', () => {

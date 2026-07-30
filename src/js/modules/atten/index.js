@@ -29,6 +29,8 @@ export default {
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const in1 = new Float32Array(bufferSize);
+        const in2 = new Float32Array(bufferSize);
         const out1 = new Float32Array(bufferSize);
         const out2 = new Float32Array(bufferSize);
 
@@ -43,8 +45,8 @@ export default {
             },
 
             inputs: {
-                in1: new Float32Array(bufferSize),
-                in2: new Float32Array(bufferSize)
+                in1,
+                in2
             },
 
             outputs: {
@@ -58,26 +60,30 @@ export default {
             },
 
             process() {
-                const in1 = this.inputs.in1;
-                const in2 = this.inputs.in2;
                 const { atten1, atten2, offset1, offset2 } = this.params;
 
                 // Convert knob positions to actual values
                 // Attenuverter: 0->-1, 0.5->0, 1->+1
-                const att1 = (atten1 - 0.5) * 2;
-                const att2 = (atten2 - 0.5) * 2;
+                const safeAtten1 = Number.isFinite(atten1) ? clamp(atten1, 0, 1) : 0.5;
+                const safeAtten2 = Number.isFinite(atten2) ? clamp(atten2, 0, 1) : 0.5;
+                const att1 = (safeAtten1 - 0.5) * 2;
+                const att2 = (safeAtten2 - 0.5) * 2;
 
                 // Offset: 0->-5V, 0.5->0V, 1->+5V
-                const off1 = (offset1 - 0.5) * 10;
-                const off2 = (offset2 - 0.5) * 10;
+                const safeOffset1 = Number.isFinite(offset1) ? clamp(offset1, 0, 1) : 0.5;
+                const safeOffset2 = Number.isFinite(offset2) ? clamp(offset2, 0, 1) : 0.5;
+                const off1 = (safeOffset1 - 0.5) * 10;
+                const off2 = (safeOffset2 - 0.5) * 10;
 
                 let sum1 = 0;
                 let sum2 = 0;
 
                 for (let i = 0; i < bufferSize; i++) {
                     // Apply attenuation/inversion and offset, clamp to ±10V
-                    out1[i] = clamp(in1[i] * att1 + off1, -10, 10);
-                    out2[i] = clamp(in2[i] * att2 + off2, -10, 10);
+                    const sample1 = Number.isFinite(in1[i]) ? in1[i] : 0;
+                    const sample2 = Number.isFinite(in2[i]) ? in2[i] : 0;
+                    out1[i] = clamp(sample1 * att1 + off1, -10, 10);
+                    out2[i] = clamp(sample2 * att2 + off2, -10, 10);
 
                     sum1 += out1[i];
                     sum2 += out2[i];
@@ -92,10 +98,12 @@ export default {
             },
 
             reset() {
+                in1.fill(0);
+                in2.fill(0);
                 out1.fill(0);
                 out2.fill(0);
-                this.leds.ch1 = 0;
-                this.leds.ch2 = 0;
+                this.leds.ch1 = 0.5;
+                this.leds.ch2 = 0.5;
             }
         };
     },
@@ -109,12 +117,12 @@ export default {
             { id: 'offset2', label: 'Off2', param: 'offset2', min: 0, max: 1, default: 0.5 }
         ],
         inputs: [
-            { id: 'in1', label: 'In1', port: 'in1', signal: 'any' },
-            { id: 'in2', label: 'In2', port: 'in2', signal: 'any' }
+            { id: 'in1', label: 'In1', port: 'in1', signal: 'any', voltage: { min: -10, max: 10, normal: 0 } },
+            { id: 'in2', label: 'In2', port: 'in2', signal: 'any', voltage: { min: -10, max: 10, normal: 0 } }
         ],
         outputs: [
-            { id: 'out1', label: 'Out1', port: 'out1', signal: 'any' },
-            { id: 'out2', label: 'Out2', port: 'out2', signal: 'any' }
+            { id: 'out1', label: 'Out1', port: 'out1', signal: 'any', voltage: { min: -10, max: 10 } },
+            { id: 'out2', label: 'Out2', port: 'out2', signal: 'any', voltage: { min: -10, max: 10 } }
         ]
     }
 };

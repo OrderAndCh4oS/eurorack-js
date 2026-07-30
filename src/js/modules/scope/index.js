@@ -144,17 +144,18 @@ export default {
             process() {
                 const input1 = this.inputs.in1;
                 const input2 = this.inputs.in2;
-                const trigLevel = (this.params.trigger - 0.5) * 20; // -10V to +10V
-
-                // Passthrough: copy inputs to outputs (normalled)
-                out1.set(input1);
-                out2.set(input2);
+                const triggerParam = Number.isFinite(this.params.trigger)
+                    ? Math.max(0, Math.min(1, this.params.trigger))
+                    : 0.5;
+                const trigLevel = (triggerParam - 0.5) * 20; // -10V to +10V
 
                 // Copy inputs to circular display buffers
                 for (let i = 0; i < input1.length; i++) {
-                    const sample1 = input1[i];
-                    const sample2 = input2[i];
+                    const sample1 = Number.isFinite(input1[i]) ? input1[i] : 0;
+                    const sample2 = Number.isFinite(input2[i]) ? input2[i] : 0;
 
+                    out1[i] = sample1;
+                    out2[i] = sample2;
                     displayBuffer1[writeIndex] = sample1;
                     displayBuffer2[writeIndex] = sample2;
 
@@ -198,8 +199,8 @@ export default {
                     if (abs1 > max1) max1 = abs1;
                     if (abs2 > max2) max2 = abs2;
                 }
-                this.leds.ch1 = max1 / 10; // ±10V range
-                this.leds.ch2 = max2 / 10;
+                this.leds.ch1 = Math.min(1, max1 / 10); // ±10V range
+                this.leds.ch2 = Math.min(1, max2 / 10);
 
                 // Reset inputs if replaced by routing
             },
@@ -211,7 +212,15 @@ export default {
                 triggered = false;
                 triggerIndex = 0;
                 lastSample = 0;
+                lastZeroCrossing = 0;
+                zeroCrossingCount = 0;
                 detectedFreq = 0;
+                freqAccumulator = 0;
+                freqSampleCount = 0;
+                ownIn1.fill(0);
+                ownIn2.fill(0);
+                out1.fill(0);
+                out2.fill(0);
                 this.leds.ch1 = 0;
                 this.leds.ch2 = 0;
             }

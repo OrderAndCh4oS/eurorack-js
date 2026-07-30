@@ -20,3 +20,16 @@ Real-time FFT analyzer with audio passthrough. The display is diagnostic telemet
 ## Sources
 
 - [Web Audio API, AnalyserNode](https://www.w3.org/TR/webaudio-1.0/#the-analysernode-interface) - W3C Recommendation, accessed 2026-07-11; reference pipeline for windowing, FFT, smoothing, and dB conversion.
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Peak history now initializes at the calibrated -100dBFS floor and releases in
+  dB per second. The previous per-block interpolation changed hold time with
+  render-quantum size; 128- and 512-sample one-second renders now agree.
+- Invalid input samples recover to 0V before passthrough and FFT accumulation;
+  invalid Decay values recover to the panel default. FFT and peak telemetry
+  therefore remain finite without requiring a manual reset.
+- Coherent-tone calibration, frequency helpers, Floor/Scale display controls,
+  peak behavior, exact valid passthrough, LED bounds, and reset are covered.
+- The strict matrix completes seven scenarios with zero voltage flags, stable
+  buffers, and maximum Node diagnostic time below 0.581ms/block.

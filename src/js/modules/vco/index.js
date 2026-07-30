@@ -14,6 +14,10 @@ import { polyBlep, wrapPhase } from '../../utils/oscillator.js';
 import { createSlew } from '../../utils/slew.js';
 import { softLimitVoltage } from '../../utils/voltage.js';
 
+function finite(value, fallback = 0) {
+    return Number.isFinite(value) ? value : fallback;
+}
+
 export default {
     id: 'vco',
     name: 'VCO',
@@ -28,41 +32,48 @@ export default {
         const tri = new Float32Array(bufferSize);
         const saw = new Float32Array(bufferSize);
         const sqr = new Float32Array(bufferSize);
+        const ownVOct = new Float32Array(bufferSize);
+        const ownFM = new Float32Array(bufferSize);
+        const ownPWM = new Float32Array(bufferSize).fill(2.5);
+        const ownSync = new Float32Array(bufferSize);
 
         const pitchSlew = createSlew({ sampleRate, timeMs: 5 });
         const pwmSlew = createSlew({ sampleRate, timeMs: 2 });
+        pwmSlew.reset(0.5);
 
         return {
             params: { coarse: 0.4, fine: 0, glide: 5 },
             inputs: {
-                vOct: new Float32Array(bufferSize),
-                fm: new Float32Array(bufferSize),
-                pwm: new Float32Array(bufferSize).fill(2.5),
-                sync: new Float32Array(bufferSize)
+                vOct: ownVOct,
+                fm: ownFM,
+                pwm: ownPWM,
+                sync: ownSync
             },
             outputs: { triangle: tri, ramp: saw, pulse: sqr },
             leds: {},
 
             process() {
-                const base = expMap(this.params.coarse, coarseHz.min, coarseHz.max);
-                pitchSlew.timeMs = Math.max(0.1, this.params.glide);
+                const base = expMap(finite(this.params.coarse, 0.4), coarseHz.min, coarseHz.max);
+                const fine = finite(this.params.fine);
+                pitchSlew.timeMs = Math.max(0.1, finite(this.params.glide, 5));
 
                 for (let i = 0; i < bufferSize; i++) {
-                    const vOctVal = this.inputs.vOct[i] || 0;
-                    const fmVal = this.inputs.fm[i] || 0;
-                    const pwmVal = this.inputs.pwm[i];
-                    const syncVal = this.inputs.sync[i] || 0;
+                    const vOctVal = clamp(finite(this.inputs.vOct[i]), -8, 8);
+                    const fmVal = finite(this.inputs.fm[i]);
+                    const pwmVal = finite(this.inputs.pwm[i], 2.5);
+                    const syncVal = finite(this.inputs.sync[i]);
 
                     const targetDuty = 0.05 + clamp(pwmVal, 0, 5) / 5 * 0.90;
                     const smoothedVOct = pitchSlew.process(vOctVal);
                     const smoothedDuty = pwmSlew.process(targetDuty);
 
-                    const requestedFreq = base * 2 ** smoothedVOct * 2 ** (this.params.fine / 12) + fmVal * fmVoltsPerHz;
+                    const requestedFreq = base * 2 ** smoothedVOct * 2 ** (fine / 12) + fmVal * fmVoltsPerHz;
                     const freq = clamp(requestedFreq, 0, sampleRate * 0.45);
                     const inc = freq / sampleRate;
 
-                    if (lastSync <= 0 && syncVal > 0) phase = 0;
-                    lastSync = syncVal;
+                    const syncHigh = syncVal >= 1;
+                    if (lastSync < 1 && syncHigh) phase = 0;
+                    lastSync = syncHigh ? 1 : 0;
                     phase = wrapPhase(phase + inc);
                     const t = phase;
 
@@ -85,6 +96,12 @@ export default {
                 tri.fill(0);
                 saw.fill(0);
                 sqr.fill(0);
+                ownVOct.fill(0);
+                ownFM.fill(0);
+                ownPWM.fill(2.5);
+                ownSync.fill(0);
+                pitchSlew.reset(0);
+                pwmSlew.reset(0.5);
             }
         };
     },
@@ -96,10 +113,10 @@ export default {
             { id: 'glide', label: 'Glide', param: 'glide', min: 0, max: 100, default: 5 }
         ],
         inputs: [
-            { id: 'vOct', label: 'V/Oct', port: 'vOct', signal: 'cv' },
-            { id: 'fm', label: 'FM', port: 'fm', signal: 'cv' },
+            { id: 'vOct', label: 'V/Oct', port: 'vOct', signal: 'cv', voltage: { min: -8, max: 8, normal: 0 } },
+            { id: 'fm', label: 'FM', port: 'fm', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
             { id: 'pwm', label: 'PWM', port: 'pwm', signal: 'cv', voltage: { min: 0, max: 5, normal: 2.5 } },
-            { id: 'sync', label: 'Sync', port: 'sync', signal: 'trigger' }
+            { id: 'sync', label: 'Sync', port: 'sync', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } }
         ],
         outputs: [
             { id: 'triangle', label: 'Tri', port: 'triangle', signal: 'audio' },

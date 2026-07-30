@@ -109,6 +109,18 @@ describe('PLUCK (four-voice plucked string)', () => {
             ]);
             expect(pluckModule.ui.outputs.map(output => output.port)).toEqual(['out']);
         });
+
+        it('declares trigger, pitch, and bipolar modulation voltage contracts', () => {
+            const inputs = Object.fromEntries(
+                pluckModule.ui.inputs.map(input => [input.port, input])
+            );
+
+            expect(inputs.trigger.voltage).toEqual({ min: 0, max: 10, normal: 0 });
+            expect(inputs.vOct.voltage).toEqual({ min: -8, max: 8, normal: 0 });
+            for (const port of ['decayCV', 'dampCV', 'positionCV']) {
+                expect(inputs[port].voltage).toEqual({ min: -5, max: 5, normal: 0 });
+            }
+        });
     });
 
     describe('trigger and polyphony behavior', () => {
@@ -278,6 +290,34 @@ describe('PLUCK (four-voice plucked string)', () => {
             expect(meanAbsDiff(bright)).toBeGreaterThan(meanAbsDiff(dark) * 1.35);
         });
 
+        it('keeps damping brightness consistent across sample rates', () => {
+            const derivativeRate = (renderSampleRate) => {
+                const voice = createPluck({ sampleRate: renderSampleRate, bufferSize: 128 });
+                const captured = [];
+                voice.params.pitch = 0.4;
+                voice.params.decay = 0.8;
+                voice.params.damp = 0.9;
+                setTrigger(voice);
+
+                const totalSamples = Math.ceil(renderSampleRate * 0.1);
+                for (let rendered = 0; rendered < totalSamples; rendered += 128) {
+                    if (rendered > 0) voice.inputs.trigger.fill(0);
+                    voice.process();
+                    if (rendered > renderSampleRate * 0.03) {
+                        captured.push(...voice.outputs.out);
+                    }
+                }
+
+                const level = rms(captured);
+                return meanAbsDiff(captured) / level * renderSampleRate;
+            };
+
+            const rate44100 = derivativeRate(44100);
+            const rate96000 = derivativeRate(96000);
+            expect(rate96000 / rate44100).toBeGreaterThan(0.7);
+            expect(rate96000 / rate44100).toBeLessThan(1.4);
+        });
+
         it('scales damp CV as bipolar -5V to +5V modulation', () => {
             const dark = triggeredBuffer({ damp: 0.5 }, pluckInstance => {
                 pluckInstance.inputs.dampCV.fill(-5);
@@ -356,6 +396,17 @@ describe('PLUCK (four-voice plucked string)', () => {
             setTrigger(pluck);
             pluck.process();
             expect(maxAbs(pluck.outputs.out)).toBeGreaterThan(0.01);
+        });
+
+        it('clears every stable input buffer in place on reset', () => {
+            const inputs = { ...pluck.inputs };
+            Object.values(pluck.inputs).forEach(input => input.fill(3));
+            pluck.reset();
+
+            Object.entries(inputs).forEach(([port, input]) => {
+                expect(pluck.inputs[port]).toBe(input);
+                expect(input.every(value => value === 0)).toBe(true);
+            });
         });
     });
 });

@@ -30,7 +30,7 @@ describe('create2hpLFO', () => {
     describe('initialization', () => {
         it('should create an LFO with default params', () => {
             expect(lfo.params.range).toBe(0);
-            expect(lfo.params.rateKnob).toBe(0.75);
+            expect(lfo.params.rateKnob).toBe(0.3);
             expect(lfo.params.waveKnob).toBe(0);
         });
 
@@ -50,6 +50,17 @@ describe('create2hpLFO', () => {
         it('should accept custom buffer size', () => {
             const customLfo = create2hpLFO({ bufferSize: 256 });
             expect(customLfo.outputs.primary.length).toBe(256);
+        });
+
+        it('should declare the documented CV, reset, normalization, and output voltages', () => {
+            expect(lfoModule.ui.inputs).toEqual(expect.arrayContaining([
+                expect.objectContaining({ port: 'rateCV', voltage: { min: 0, max: 5, normal: 0 } }),
+                expect.objectContaining({ port: 'waveCV', voltage: { min: 0, max: 5, normal: 0 } }),
+                expect.objectContaining({ port: 'reset', voltage: { min: 0, max: 10, normal: 0 } })
+            ]));
+            for (const output of lfoModule.ui.outputs) {
+                expect(output.voltage).toEqual({ min: 0, max: 5 });
+            }
         });
     });
 
@@ -149,6 +160,17 @@ describe('create2hpLFO', () => {
             const different = sineOutput.some((v, i) => Math.abs(v - squareOutput[i]) > 0.01);
             expect(different).toBe(true);
         });
+
+        it('should reach the fourth waveform at the maximum Wave setting', () => {
+            const endpoint = create2hpLFO({ sampleRate: 1000, bufferSize: 1 });
+            endpoint.params.rateKnob = 0;
+            endpoint.params.waveKnob = 1;
+
+            endpoint.process();
+
+            expect(endpoint.outputs.primary[0]).toBe(5);
+            expect(endpoint.outputs.secondary[0]).toBe(5);
+        });
     });
 
     describe('CV modulation', () => {
@@ -181,6 +203,40 @@ describe('create2hpLFO', () => {
             const different = output1.some((v, i) => Math.abs(v - output2[i]) > 0.01);
             expect(different).toBe(true);
         });
+
+        it('should apply rate CV at the exact sample where it changes', () => {
+            const baseline = create2hpLFO({ sampleRate: 1000, bufferSize: 128 });
+            baseline.params.range = 1;
+            baseline.params.rateKnob = 0.5;
+            baseline.process();
+
+            const modulated = create2hpLFO({ sampleRate: 1000, bufferSize: 128 });
+            modulated.params.range = 1;
+            modulated.params.rateKnob = 0.5;
+            modulated.inputs.rateCV.fill(5, 64);
+            modulated.process();
+
+            expect(Array.from(modulated.outputs.primary.slice(0, 64)))
+                .toEqual(Array.from(baseline.outputs.primary.slice(0, 64)));
+            expect(Array.from(modulated.outputs.primary.slice(64)))
+                .not.toEqual(Array.from(baseline.outputs.primary.slice(64)));
+        });
+
+        it('should apply waveform CV at the exact sample where it changes', () => {
+            const baseline = create2hpLFO({ sampleRate: 1000, bufferSize: 32 });
+            baseline.params.rateKnob = 0;
+            baseline.process();
+
+            const modulated = create2hpLFO({ sampleRate: 1000, bufferSize: 32 });
+            modulated.params.rateKnob = 0;
+            modulated.inputs.waveCV.fill(5, 16);
+            modulated.process();
+
+            expect(Array.from(modulated.outputs.primary.slice(0, 16)))
+                .toEqual(Array.from(baseline.outputs.primary.slice(0, 16)));
+            expect(Array.from(modulated.outputs.primary.slice(16)))
+                .not.toEqual(Array.from(baseline.outputs.primary.slice(16)));
+        });
     });
 
     describe('reset trigger', () => {
@@ -202,6 +258,19 @@ describe('create2hpLFO', () => {
             // First sample should be near start of waveform
             expect(afterReset[0]).toBeDefined();
         });
+
+        it('should reset at the exact trigger sample and output phase zero there', () => {
+            const exact = create2hpLFO({ sampleRate: 1000, bufferSize: 32 });
+            exact.params.range = 1;
+            exact.params.rateKnob = 0.8;
+            exact.process();
+            exact.inputs.reset.fill(0);
+            exact.inputs.reset[8] = 5;
+
+            exact.process();
+
+            expect(exact.outputs.primary[8]).toBeCloseTo(2.5, 6);
+        });
     });
 
     describe('buffer processing', () => {
@@ -211,6 +280,40 @@ describe('create2hpLFO', () => {
             // Check no NaN or undefined values
             expect(lfo.outputs.primary.every(v => !isNaN(v) && v !== undefined)).toBe(true);
             expect(lfo.outputs.secondary.every(v => !isNaN(v) && v !== undefined)).toBe(true);
+        });
+
+        it('should recover from non-finite controls and inputs within 0-5V', () => {
+            lfo.params.range = Number.NaN;
+            lfo.params.rateKnob = Number.NaN;
+            lfo.params.waveKnob = Number.POSITIVE_INFINITY;
+            lfo.inputs.rateCV.fill(Number.NaN);
+            lfo.inputs.waveCV.fill(Number.NEGATIVE_INFINITY);
+            lfo.inputs.reset.fill(Number.NaN);
+
+            lfo.process();
+
+            for (const output of Object.values(lfo.outputs)) {
+                expect(output.every(Number.isFinite)).toBe(true);
+                expect(Math.min(...output)).toBeGreaterThanOrEqual(0);
+                expect(Math.max(...output)).toBeLessThanOrEqual(5);
+            }
+        });
+
+        it('should reset every stable input and output buffer in place', () => {
+            const inputRefs = { ...lfo.inputs };
+            const outputRefs = { ...lfo.outputs };
+            lfo.inputs.rateCV.fill(5);
+            lfo.inputs.waveCV.fill(5);
+            lfo.inputs.reset.fill(5);
+            lfo.process();
+
+            lfo.reset();
+
+            expect(lfo.inputs).toEqual(inputRefs);
+            expect(lfo.outputs).toEqual(outputRefs);
+            for (const buffer of [...Object.values(lfo.inputs), ...Object.values(lfo.outputs)]) {
+                expect(buffer.every(value => value === 0)).toBe(true);
+            }
         });
     });
 
@@ -405,7 +508,7 @@ describe('create2hpLFO', () => {
 
                 const lfoMorphed = create2hpLFO();
                 lfoMorphed.params.waveKnob = 0;
-                lfoMorphed.inputs.waveCV.fill(2.5); // +2.5V = half morph
+                lfoMorphed.inputs.waveCV.fill(5); // +5V reaches the fourth waveform
                 lfoMorphed.process();
                 const morphedOut = [...lfoMorphed.outputs.primary];
 

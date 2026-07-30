@@ -19,6 +19,7 @@ const HARMONIC_LIMITS = [256, 128, 64, 32, 16, 8, 4, 2, 1];
 const COARSE_HZ = { min: 10, max: 10000 };
 const FM_HZ_PER_VOLT = 200;
 const SYNC_THRESHOLD = 2.5;
+const BANK_SLEW_MS = 4;
 
 let factoryTables = null;
 let harmonicBasis = null;
@@ -251,14 +252,27 @@ function getFactoryTables() {
     return factoryTables;
 }
 
-function selectReplica(frequency, sampleRate) {
+function selectReplicaPosition(frequency, sampleRate) {
     const safeFrequency = Math.max(0.1, frequency);
-    const allowedHarmonics = Math.max(1, Math.floor((sampleRate * 0.45) / safeFrequency));
+    const allowedHarmonics = Math.max(1, (sampleRate * 0.45) / safeFrequency);
+    let replicaIndex = HARMONIC_LIMITS.length - 1;
 
     for (let i = 0; i < HARMONIC_LIMITS.length; i++) {
-        if (HARMONIC_LIMITS[i] <= allowedHarmonics) return i;
+        if (HARMONIC_LIMITS[i] <= allowedHarmonics) {
+            replicaIndex = i;
+            break;
+        }
     }
-    return HARMONIC_LIMITS.length - 1;
+
+    if (replicaIndex >= HARMONIC_LIMITS.length - 1) return replicaIndex;
+
+    // Fade a safe replica toward the next darker one during the octave
+    // before its harmonic limit is reached. At the selection boundary both
+    // sides therefore meet on the same darker table without ever introducing
+    // harmonics above the conservative 0.45 * sampleRate margin.
+    const harmonicLimit = HARMONIC_LIMITS[replicaIndex];
+    const blend = clamp(Math.log2((harmonicLimit * 2) / allowedHarmonics));
+    return replicaIndex + blend;
 }
 
 function readTable(table, phase) {
@@ -311,6 +325,11 @@ export default {
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         const tables = getFactoryTables();
         const out = new Float32Array(bufferSize);
+        const ownVOct = new Float32Array(bufferSize);
+        const ownFM = new Float32Array(bufferSize);
+        const ownPosition = new Float32Array(bufferSize);
+        const ownBankCV = new Float32Array(bufferSize);
+        const ownSync = new Float32Array(bufferSize);
         const leds = { level: 0, sync: 0 };
         const pitchSlew = createSlew({ sampleRate, timeMs: 4 });
         const positionSlew = createSlew({ sampleRate, timeMs: 2 });
@@ -318,8 +337,11 @@ export default {
         const ledDecay = Math.exp(-bufferSize / (sampleRate * 0.08));
         const syncLedDecay = Math.exp(-bufferSize / (sampleRate * 0.05));
         const maxFrequency = Math.min(20000, sampleRate * 0.45);
+        const bankSmoothing = 1 - Math.exp(-1 / (sampleRate * BANK_SLEW_MS / 1000));
+        const bankWeights = new Float64Array(BANK_COUNT);
         let phase = 0;
         let lastSync = 0;
+        let bankInitialized = false;
 
         return {
             params: {
@@ -334,11 +356,11 @@ export default {
             },
 
             inputs: {
-                vOct: new Float32Array(bufferSize),
-                fm: new Float32Array(bufferSize),
-                position: new Float32Array(bufferSize),
-                bankCv: new Float32Array(bufferSize),
-                sync: new Float32Array(bufferSize)
+                vOct: ownVOct,
+                fm: ownFM,
+                position: ownPosition,
+                bankCv: ownBankCV,
+                sync: ownSync
             },
 
             outputs: { out },
@@ -394,13 +416,51 @@ export default {
                     const smoothedPitch = pitchSlew.process(pitchCv);
                     const fmHz = fmCv * fmAmt * FM_HZ_PER_VOLT;
                     const frequency = clamp(baseFrequency * 2 ** smoothedPitch + fmHz, 0.1, maxFrequency);
-                    const replicaIndex = selectReplica(frequency, sampleRate);
-                    const bankIndex = Math.round(clamp(bankParam + bankCv, 0, BANK_COUNT - 1));
+                    const replicaPosition = selectReplicaPosition(frequency, sampleRate);
+                    const replicaIndex = Math.floor(replicaPosition);
+                    const nextReplicaIndex = Math.min(HARMONIC_LIMITS.length - 1, replicaIndex + 1);
+                    const replicaBlend = replicaPosition - replicaIndex;
+                    const targetBankIndex = Math.round(clamp(bankParam + bankCv, 0, BANK_COUNT - 1));
 
                     const targetPosition = clamp(positionParam + (positionCv / 5) * scanAmt);
                     const effectivePosition = interp ? positionSlew.process(targetPosition) : targetPosition;
                     const tablePosition = clamp(effectivePosition) * (WAVE_COUNT - 1);
-                    const sample = readMorphedWave(tables, bankIndex, tablePosition, replicaIndex, phase, interp);
+                    if (!bankInitialized) {
+                        bankWeights.fill(0);
+                        bankWeights[targetBankIndex] = 1;
+                        bankInitialized = true;
+                    } else {
+                        for (let bankIndex = 0; bankIndex < BANK_COUNT; bankIndex++) {
+                            const targetWeight = bankIndex === targetBankIndex ? 1 : 0;
+                            bankWeights[bankIndex] += bankSmoothing
+                                * (targetWeight - bankWeights[bankIndex]);
+                        }
+                    }
+
+                    let sample = 0;
+                    for (let bankIndex = 0; bankIndex < BANK_COUNT; bankIndex++) {
+                        const bankWeight = bankWeights[bankIndex];
+                        if (bankWeight < 1e-6) continue;
+                        const brighter = readMorphedWave(
+                            tables,
+                            bankIndex,
+                            tablePosition,
+                            replicaIndex,
+                            phase,
+                            interp
+                        );
+                        const darker = replicaBlend > 0
+                            ? readMorphedWave(
+                                tables,
+                                bankIndex,
+                                tablePosition,
+                                nextReplicaIndex,
+                                phase,
+                                interp
+                            )
+                            : brighter;
+                        sample += (brighter + (darker - brighter) * replicaBlend) * bankWeight;
+                    }
                     const gain = levelSlew.process(targetLevel);
                     const voltage = clamp(sample * gain * 5, -5, 5);
 
@@ -421,6 +481,14 @@ export default {
                 pitchSlew.reset(0);
                 positionSlew.reset(clamp(paramValue(this.params.position, 0)));
                 levelSlew.reset(0);
+                ownVOct.fill(0);
+                ownFM.fill(0);
+                ownPosition.fill(0);
+                ownBankCV.fill(0);
+                ownSync.fill(0);
+                bankWeights.fill(0);
+                bankWeights[Math.round(clamp(paramValue(this.params.bank, 0), 0, BANK_COUNT - 1))] = 1;
+                bankInitialized = true;
                 out.fill(0);
                 leds.level = 0;
                 leds.sync = 0;
@@ -443,11 +511,11 @@ export default {
             { id: 'interp', label: 'Morph', param: 'interp', positions: ['Step', 'Smooth'], default: 1 }
         ],
         inputs: [
-            { id: 'vOct', label: 'V/Oct', port: 'vOct', signal: 'cv' },
-            { id: 'fm', label: 'FM', port: 'fm', signal: 'cv' },
-            { id: 'position', label: 'Pos', port: 'position', signal: 'cv' },
-            { id: 'bankCv', label: 'Bank', port: 'bankCv', signal: 'cv' },
-            { id: 'sync', label: 'Sync', port: 'sync', signal: 'trigger' }
+            { id: 'vOct', label: 'V/Oct', port: 'vOct', signal: 'cv', voltage: { min: -10, max: 10, normal: 0 } },
+            { id: 'fm', label: 'FM', port: 'fm', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'position', label: 'Pos', port: 'position', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'bankCv', label: 'Bank', port: 'bankCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'sync', label: 'Sync', port: 'sync', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } }
         ],
         outputs: [
             { id: 'out', label: 'Out', port: 'out', signal: 'audio' }

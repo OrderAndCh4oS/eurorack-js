@@ -230,3 +230,22 @@ This document has primary citations, practical secondary sources, demo/context s
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/quad-lfo.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- The existing single-accumulator quadrature model retains exact 0/90/180/270
+  phase relationships and already handled Rate CV, FM, Reset, and Hold per
+  sample. New mid-block fixtures lock each timing boundary explicitly.
+- Range, Rate, CV Amount, and all input samples now use finite fallbacks before
+  exponential mapping. A malformed value can no longer poison phase and all
+  four outputs.
+- Rate CV/FM explicitly declare bipolar -5V to +5V with 0V normals; Reset/Hold
+  declare 0-10V with 0V normals; all phase outputs declare +/-5V.
+- Reset clears phase, Reset edge memory, all four signed LEDs, and every stable
+  input/output buffer in place.
+- Focused and module-contract validation passes 28 assertions across all three
+  ranges, Rate and CV Amount endpoints/polarity, both CV inputs, sample-exact
+  Reset/Hold, phase identities, LEDs, finite recovery, rails, and stable reset.
+- The strict 44.1/48/96kHz by 128/512 matrix completes seven scenarios with
+  finite output, zero voltage flags, stable buffers, exact 5.000V peaks, and a
+  maximum Node diagnostic time below 0.219ms per block.

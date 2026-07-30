@@ -30,6 +30,17 @@ describe('seq-switch DSP', () => {
                 stage3: 0,
                 stage4: 0
             });
+            expect(seqSwitchModule.ui.inputs.map(port => port.voltage)).toEqual([
+                { min: 0, max: 10, normal: 0 },
+                { min: 0, max: 10, normal: 0 },
+                { min: -5, max: 5, normal: 0 },
+                { min: -5, max: 5, normal: 0 },
+                { min: -5, max: 5, normal: 0 },
+                { min: -5, max: 5, normal: 0 },
+                { min: -5, max: 5, normal: 0 }
+            ]);
+            expect(seqSwitchModule.ui.outputs.map(port => port.voltage))
+                .toEqual(Array(5).fill({ min: -5, max: 5 }));
         });
 
         it('accepts custom buffer sizes', () => {
@@ -70,6 +81,27 @@ describe('seq-switch DSP', () => {
 
             expect(seqSwitch.outputs.out1[15]).toBe(0);
             expect(seqSwitch.outputs.out2[15]).toBe(3.5);
+        });
+
+        it('crossfades an audio switch over 1ms without a full-scale discontinuity', () => {
+            const audioSwitch = createSeqSwitch({ sampleRate: 10000, bufferSize: 20 });
+            audioSwitch.inputs.in1.fill(5);
+            audioSwitch.inputs.in2.fill(-5);
+            audioSwitch.process();
+            audioSwitch.inputs.clock[0] = 5;
+
+            audioSwitch.process();
+
+            let maxJump = 0;
+            for (let i = 1; i < 20; i++) {
+                maxJump = Math.max(
+                    maxJump,
+                    Math.abs(audioSwitch.outputs.commonOut[i] - audioSwitch.outputs.commonOut[i - 1])
+                );
+            }
+            expect(audioSwitch.outputs.commonOut[0]).toBe(5);
+            expect(audioSwitch.outputs.commonOut[19]).toBe(-5);
+            expect(maxJump).toBeLessThanOrEqual(1.01);
         });
     });
 
@@ -141,20 +173,34 @@ describe('seq-switch DSP', () => {
             seqSwitch.params.steps = 2.6;
             seqSwitch.process();
             expect(seqSwitch.getActiveSteps()).toBe(3);
+
+            seqSwitch.params.steps = Number.NaN;
+            expect(() => seqSwitch.process()).not.toThrow();
+            expect(seqSwitch.getActiveSteps()).toBe(4);
         });
     });
 
     describe('reset and buffer integrity', () => {
-        it('clears state, outputs, edge memory, and LEDs on reset', () => {
+        it('clears stable inputs, outputs, edge memory, and LEDs on reset', () => {
+            const inputs = { ...seqSwitch.inputs };
+            const outputs = { ...seqSwitch.outputs };
             seqSwitch.inputs.in2.fill(2);
+            seqSwitch.inputs.commonIn.fill(3);
             pulse(seqSwitch.inputs.clock, 0);
             seqSwitch.process();
             expect(seqSwitch.leds.stage2).toBe(1);
+            seqSwitch.inputs.reset.fill(4);
 
             seqSwitch.reset();
 
-            expect(Array.from(seqSwitch.outputs.commonOut)).toEqual(new Array(16).fill(0));
-            expect(Array.from(seqSwitch.outputs.out1)).toEqual(new Array(16).fill(0));
+            Object.entries(inputs).forEach(([key, buffer]) => {
+                expect(seqSwitch.inputs[key]).toBe(buffer);
+                expect(buffer.every(value => value === 0)).toBe(true);
+            });
+            Object.entries(outputs).forEach(([key, buffer]) => {
+                expect(seqSwitch.outputs[key]).toBe(buffer);
+                expect(buffer.every(value => value === 0)).toBe(true);
+            });
             expect(seqSwitch.leds.stage1).toBe(1);
             expect(seqSwitch.leds.stage2).toBe(0);
         });

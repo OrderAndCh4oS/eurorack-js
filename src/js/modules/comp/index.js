@@ -28,13 +28,6 @@ function safeSample(value) {
     return Number.isFinite(value) ? value : 0;
 }
 
-function hasSignal(buffer) {
-    for (let i = 0; i < buffer.length; i++) {
-        if (buffer[i] !== 0) return true;
-    }
-    return false;
-}
-
 function thresholdToDb(norm) {
     return -36 + clamp(norm) * 36;
 }
@@ -87,6 +80,8 @@ export default {
         let lpState = 0;
         let hpState = 0;
         let hpPrevInput = 0;
+        let rightInputConnected = false;
+        let sidechainConnected = false;
 
         function timeCoeff(timeMs) {
             return Math.exp(-1 / Math.max(1, sampleRate * timeMs * 0.001));
@@ -131,8 +126,6 @@ export default {
                 const makeupCV = this.inputs.makeupCV;
                 const filterCV = this.inputs.filterCV;
 
-                const rightPatched = inputR !== ownInR || hasSignal(inputR);
-                const sidechainPatched = sidechain !== ownSidechain || hasSignal(sidechain);
                 const isLimitMode = this.params.mode >= 0.5;
                 const usePeakDetector = isLimitMode || this.params.detector >= 0.5;
                 const filterMode = Math.round(clamp(this.params.filterMode, 0, 2));
@@ -150,7 +143,7 @@ export default {
 
                 for (let i = 0; i < bufferSize; i++) {
                     const dryL = safeSample(inputL[i]);
-                    const dryR = rightPatched ? safeSample(inputR[i]) : dryL;
+                    const dryR = rightInputConnected ? safeSample(inputR[i]) : dryL;
 
                     if (isBypassed) {
                         const clippedL = clampAudio(dryL);
@@ -165,7 +158,7 @@ export default {
                         continue;
                     }
 
-                    let detectorSample = sidechainPatched
+                    let detectorSample = sidechainConnected
                         ? safeSample(sidechain[i])
                         : (Math.abs(dryL) >= Math.abs(dryR) ? dryL : dryR);
 
@@ -228,6 +221,16 @@ export default {
                 leds.gainReduction = isBypassed ? 0 : Math.max(clamp(maxReductionDb / MAX_GR_DB), leds.gainReduction * ledDecay);
                 leds.limit = isLimitMode ? 1 : Math.max(clipped ? 1 : 0, leds.limit * ledDecay);
 
+            },
+
+            onInputConnected(port) {
+                if (port === 'inR') rightInputConnected = true;
+                else if (port === 'sidechain') sidechainConnected = true;
+            },
+
+            onInputDisconnected(port) {
+                if (port === 'inR') rightInputConnected = false;
+                else if (port === 'sidechain') sidechainConnected = false;
             },
 
             reset() {

@@ -35,13 +35,16 @@ export default {
         const out2a = new Float32Array(bufferSize);
         const out2b = new Float32Array(bufferSize);
         const out2c = new Float32Array(bufferSize);
+        const ownIn1 = new Float32Array(bufferSize);
+        const ownIn2 = new Float32Array(bufferSize);
+        let in2Connected = false;
 
         return {
             params: {},
 
             inputs: {
-                in1: new Float32Array(bufferSize),
-                in2: new Float32Array(bufferSize)
+                in1: ownIn1,
+                in2: ownIn2
             },
 
             outputs: {
@@ -55,8 +58,13 @@ export default {
 
             leds: {},
 
+            onInputConnectionChange(port, connected) {
+                if (port === 'in2') in2Connected = Boolean(connected);
+            },
+
             process() {
                 const { in1, in2 } = this.inputs;
+                const channel2 = in2Connected ? in2 : in1;
 
                 for (let i = 0; i < bufferSize; i++) {
                     // Channel 1: copy input to all 3 outputs
@@ -65,9 +73,9 @@ export default {
                     out1c[i] = in1[i];
 
                     // Channel 2: copy input to all 3 outputs
-                    out2a[i] = in2[i];
-                    out2b[i] = in2[i];
-                    out2c[i] = in2[i];
+                    out2a[i] = channel2[i];
+                    out2b[i] = channel2[i];
+                    out2c[i] = channel2[i];
                 }
             },
 
@@ -78,6 +86,8 @@ export default {
                 out2a.fill(0);
                 out2b.fill(0);
                 out2c.fill(0);
+                ownIn1.fill(0);
+                ownIn2.fill(0);
             }
         };
     },

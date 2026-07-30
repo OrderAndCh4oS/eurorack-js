@@ -43,4 +43,20 @@ describe('REC', () => {
         expect(dsp.getRecordingTime()).toBe(0);
         expect(dsp.drainEvents()).toEqual([]);
     });
+
+    it('contains non-finite samples in passthrough and recorded buffers', () => {
+        const dsp = moduleDefinition.createDSP({ sampleRate: 1000, bufferSize: 4 });
+        dsp.params.record = 1;
+        dsp.inputs.L.set([1, NaN, Infinity, -1]);
+        dsp.inputs.R.set([-1, -Infinity, NaN, 1]);
+        dsp.process();
+        dsp.params.record = 0;
+        dsp.process();
+        const [event] = dsp.drainEvents();
+
+        expect(dsp.outputs.outL.every(Number.isFinite)).toBe(true);
+        expect(dsp.outputs.outR.every(Number.isFinite)).toBe(true);
+        expect(event.buffersL[0].slice(0, 4).every(Number.isFinite)).toBe(true);
+        expect(event.buffersR[0].slice(0, 4).every(Number.isFinite)).toBe(true);
+    });
 });

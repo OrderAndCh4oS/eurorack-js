@@ -50,3 +50,18 @@ The output module bridges the modular synthesis engine to the WebAudio API:
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/output.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- The production AudioWorklet sink remains the authoritative output path.
+  Eurorack +/-5V is converted to normalized Web Audio +/-1, Volume is bounded
+  to 0-1, non-finite samples recover to silence, and multiple output instances
+  are finally bounded at the destination rails.
+- The standalone/main-thread DSP path now uses the same voltage normalization
+  and updates finite, capped meters even when no AudioContext is present.
+- Focused tests cover stereo independence, volume scheduling, +/-5V scaling,
+  invalid values, metering, stable buffers, reset, and the real worklet sink.
+- The strict module matrix completes three scenarios with stable buffers and
+  maximum Node diagnostic time below 0.073ms/block; worklet assertions cover
+  the final normalized samples because this role intentionally has no patch
+  output ports.

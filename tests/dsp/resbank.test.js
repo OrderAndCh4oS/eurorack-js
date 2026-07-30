@@ -45,6 +45,13 @@ describe('resbank', () => {
             outputs: ['mix', 'odd', 'even'],
             leds: ['model', 'voice']
         });
+        for (const port of ['vOct', 'structureCv', 'brightnessCv', 'dampingCv', 'positionCv']) {
+            expect(resbankModule.ui.inputs.find(input => input.port === port).voltage).toEqual({
+                min: -5,
+                max: 5,
+                normal: 0
+            });
+        }
     });
 
     it('maps the frequency knob across its declared pitch range', () => {
@@ -135,11 +142,13 @@ describe('resbank', () => {
     it('accepts external excitation and responds to every CV control', () => {
         const dry = create();
         dry.params.model = 0;
+        dry.onInputConnected('audio');
         dry.inputs.audio[0] = 5;
         dry.process();
 
         const modulated = create();
         modulated.params.model = 0;
+        modulated.onInputConnected('audio');
         modulated.inputs.audio[0] = 5;
         modulated.params.structureAmt = 1;
         modulated.params.brightnessAmt = 1;
@@ -218,16 +227,44 @@ describe('resbank', () => {
 
     it('uses the audio input transient threshold as an external exciter', () => {
         const below = create({ bufferSize: 32 });
+        below.onInputConnected('audio');
         below.inputs.audio[0] = 0.5;
         below.process();
         expect(below.getActiveVoiceCount()).toBe(0);
         expect(maxAbs(below.outputs.mix)).toBe(0);
 
         const above = create({ bufferSize: 32 });
+        above.onInputConnected('audio');
         above.inputs.audio[0] = 0.501;
         above.process();
         expect(above.getActiveVoiceCount()).toBe(1);
         expect(maxAbs(above.outputs.mix)).toBeGreaterThan(0);
+    });
+
+    it('does not substitute the internal exciter for a connected silent audio input', () => {
+        const dsp = create({ bufferSize: 64 });
+        dsp.onInputConnected('audio');
+        dsp.inputs.audio.fill(0);
+        dsp.inputs.strum[0] = 10;
+
+        dsp.process();
+
+        expect(dsp.getActiveVoiceCount()).toBe(1);
+        expect(maxAbs(dsp.outputs.mix)).toBe(0);
+    });
+
+    it('uses Strum cable state to disable and restore automatic pitch-step allocation', () => {
+        const dsp = create({ bufferSize: 64 });
+        dsp.process();
+        dsp.onInputConnected('strum');
+        dsp.inputs.vOct.fill(0.5);
+        dsp.process();
+        expect(dsp.getActiveVoiceCount()).toBe(0);
+
+        dsp.onInputDisconnected('strum');
+        dsp.inputs.vOct.fill(1);
+        dsp.process();
+        expect(dsp.getActiveVoiceCount()).toBe(1);
     });
 
     it('auto-strums on a pitch step when strum and audio are unpatched', () => {
@@ -271,8 +308,12 @@ describe('resbank', () => {
         expectFiniteVoltage(dsp.outputs, 5);
         dsp.reset();
         expect(dsp.leds).toEqual({ model: 0, voice: 0 });
-        dsp.inputs.strum.fill(0);
-        dsp.inputs.audio.fill(0);
+        Object.values(dsp.inputs).forEach((input, index) => {
+            if (Object.keys(dsp.inputs)[index] !== 'frequencyCv') {
+                expect(input.every(value => value === 0)).toBe(true);
+            }
+        });
+        expect(dsp.inputs.frequencyCv.every(value => value === Math.fround(1 / 12))).toBe(true);
         dsp.process();
         expect(Math.max(...dsp.outputs.mix.map(Math.abs))).toBe(0);
         expect(dsp.getActiveVoiceCount()).toBe(0);

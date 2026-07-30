@@ -143,6 +143,7 @@ export default {
 
         const maxSamples = Math.max(2, Math.ceil(sampleRate * MAX_LOOP_SECONDS));
         const loopBuffer = new Float32Array(maxSamples);
+        const edgeFadeSamples = Math.max(2, Math.floor(sampleRate * 0.005));
 
         let hasLoop = false;
         let recording = false;
@@ -152,8 +153,42 @@ export default {
         let lastRecordParam = 0;
         let lastRecTrigHigh = false;
         let lastReverseTrigHigh = false;
+        let lastOutput = 0;
+        let transitionFrom = 0;
+        let transitionRemaining = 0;
+
+        function shouldDeclickLoop() {
+            return loopLength >= edgeFadeSamples * 4;
+        }
+
+        function startOutputTransition() {
+            transitionFrom = lastOutput;
+            transitionRemaining = edgeFadeSamples;
+        }
+
+        function emitOutput(index, rawValue) {
+            let value = clamp(rawValue, -AUDIO_LIMIT, AUDIO_LIMIT);
+            if (transitionRemaining > 0) {
+                const oldWeight = transitionRemaining / edgeFadeSamples;
+                value = value * (1 - oldWeight) + transitionFrom * oldWeight;
+                transitionRemaining--;
+            }
+            out[index] = clamp(value, -AUDIO_LIMIT, AUDIO_LIMIT);
+            lastOutput = out[index];
+        }
+
+        function fadeLoopEdges() {
+            if (!shouldDeclickLoop()) return;
+
+            for (let i = 0; i < edgeFadeSamples; i++) {
+                const gain = i / (edgeFadeSamples - 1);
+                loopBuffer[i] *= gain;
+                loopBuffer[loopLength - 1 - i] *= gain;
+            }
+        }
 
         function clearLoop(dsp) {
+            if (shouldDeclickLoop()) startOutputTransition();
             loopBuffer.fill(0);
             out.fill(0);
             hasLoop = false;
@@ -174,6 +209,12 @@ export default {
             lastRecordParam = 0;
             lastRecTrigHigh = false;
             lastReverseTrigHigh = false;
+            lastOutput = 0;
+            transitionFrom = 0;
+            transitionRemaining = 0;
+            ownIn.fill(0);
+            ownRecTrig.fill(0);
+            ownReverseTrig.fill(0);
             dsp.params.record = 0;
             dsp.params.clear = 0;
             dsp.leds.recording = 0;
@@ -205,6 +246,8 @@ export default {
                 loopLength = Math.min(recordHead, maxSamples);
                 hasLoop = true;
                 playHead = 0;
+                fadeLoopEdges();
+                if (shouldDeclickLoop()) startOutputTransition();
             }
             recording = false;
             dsp.params.record = 0;
@@ -227,6 +270,8 @@ export default {
                 if (!hasLoop) {
                     finishFirstRecording(dsp);
                 } else {
+                    fadeLoopEdges();
+                    if (shouldDeclickLoop()) startOutputTransition();
                     recording = false;
                 }
             }
@@ -295,12 +340,12 @@ export default {
                             recordHead = 0;
                             this.params.record = 0;
                             lastRecordParam = 0;
-                            out[i] = 0;
+                            emitOutput(i, 0);
                             continue;
                         }
 
                         loopBuffer[recordHead] = inputSample;
-                        out[i] = inputSample * level;
+                        emitOutput(i, inputSample * level);
                         recordHead++;
                         if (recordHead >= recordingLimit) {
                             finishFirstRecording(this);
@@ -309,12 +354,12 @@ export default {
                     }
 
                     if (!hasLoop || loopLength <= 1) {
-                        out[i] = inputSample * (1 - mix) * level;
+                        emitOutput(i, inputSample * (1 - mix) * level);
                         continue;
                     }
 
                     const loopSample = readInterpolated(loopBuffer, playHead, loopLength);
-                    out[i] = (inputSample * (1 - mix) + loopSample * mix) * level;
+                    emitOutput(i, (inputSample * (1 - mix) + loopSample * mix) * level);
 
                     if (recording) {
                         const writeIndex = Math.floor(wrap(playHead, loopLength));

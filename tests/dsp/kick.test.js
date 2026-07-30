@@ -287,6 +287,16 @@ describe('2hp Kick - Bass Drum Synthesizer', () => {
             kick.process();
             expect(kick.outputs.out.every(v => !isNaN(v))).toBe(true);
         });
+
+        it('keeps extreme and non-finite pitch modulation finite and within the audio rails', () => {
+            kick.inputs.trigger[0] = 10;
+            kick.inputs.pitchCV.fill(Infinity);
+            kick.inputs.toneCV.fill(NaN);
+            kick.process();
+
+            expect(kick.outputs.out.every(Number.isFinite)).toBe(true);
+            expect(Math.max(...kick.outputs.out.map(Math.abs))).toBeLessThanOrEqual(5);
+        });
     });
 
     describe('reset', () => {

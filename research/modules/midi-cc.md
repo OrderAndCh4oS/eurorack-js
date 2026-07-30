@@ -20,3 +20,13 @@ This utility maps four MIDI control-change values to slewed control voltages. Sh
 
 - [Summary of MIDI 1.0 Messages](https://midi.org/summary-of-midi-1-0-messages) - MIDI Association, accessed 2026-07-11; control-change number/value fields.
 - [Expert Sleepers FH-2](https://www.expert-sleepers.co.uk/fh2.html) - Expert Sleepers; configurable MIDI-to-CV precedent.
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Channel, controller assignments, and incoming controller values are bounded
+  to the MIDI 0-15/0-127 contracts. Invalid values recover to defaults or 0V.
+- The existing five-millisecond one-pole slew remains sample-rate based and all
+  four outputs stay finite, monotonic, and within 0-10V.
+- Reset now clears the activity LED as well as slew state and stable outputs.
+- The strict matrix completes eleven scenarios with finite output, zero voltage
+  flags, stable buffers, and maximum Node diagnostic time below 0.127ms/block.

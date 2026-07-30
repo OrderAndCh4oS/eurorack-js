@@ -36,23 +36,37 @@ export default {
             leds,
 
             process(time) {
-                if (!ctx || !gain) return;
-
-                const currentTime = time || ctx.currentTime;
                 const inputL = this.inputs.L;
                 const inputR = this.inputs.R;
+                let peakL = 0;
+                let peakR = 0;
+                for (let index = 0; index < bufferSize; index++) {
+                    const left = Number.isFinite(inputL[index]) ? inputL[index] : 0;
+                    const right = Number.isFinite(inputR[index]) ? inputR[index] : 0;
+                    peakL = Math.max(peakL, Math.abs(left));
+                    peakR = Math.max(peakR, Math.abs(right));
+                }
+                leds.L = Math.min(1, peakL / 5);
+                leds.R = Math.min(1, peakR / 5);
 
+                if (!ctx || !gain) return;
+
+                const currentTime = Number.isFinite(time) ? time : ctx.currentTime;
                 const buf = ctx.createBuffer(2, bufferSize, bufferSampleRate);
-                buf.getChannelData(0).set(inputL);
-                buf.getChannelData(1).set(inputR);
-
-                leds.L = Math.max(...inputL.map(Math.abs)) / 5;
-                leds.R = Math.max(...inputR.map(Math.abs)) / 5;
+                const channelL = buf.getChannelData(0);
+                const channelR = buf.getChannelData(1);
+                for (let index = 0; index < bufferSize; index++) {
+                    channelL[index] = (Number.isFinite(inputL[index]) ? inputL[index] : 0) / 5;
+                    channelR[index] = (Number.isFinite(inputR[index]) ? inputR[index] : 0) / 5;
+                }
 
                 const src = ctx.createBufferSource();
                 src.buffer = buf;
                 src.connect(gain);
-                gain.gain.setValueAtTime(this.params.volume, currentTime);
+                const volume = Number.isFinite(this.params.volume)
+                    ? Math.max(0, Math.min(1, this.params.volume))
+                    : 0.8;
+                gain.gain.setValueAtTime(volume, currentTime);
                 src.start(currentTime);
             },
 

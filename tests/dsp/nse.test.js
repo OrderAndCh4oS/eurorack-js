@@ -25,7 +25,7 @@ describe('createNse', () => {
 
     describe('initialization', () => {
         it('should create with default params', () => {
-            expect(nse.params.rate).toBe(0.5);
+            expect(nse.params.rate).toBe(1);
             expect(nse.params.vcaMode).toBe(0);
         });
 
@@ -46,6 +46,17 @@ describe('createNse', () => {
         it('should accept custom options', () => {
             const custom = createNse({ bufferSize: 256, sampleRate: 48000 });
             expect(custom.outputs.noise.length).toBe(256);
+        });
+
+        it('should declare trigger normalization and bipolar audio rails', () => {
+            expect(nseModule.ui.inputs[0]).toMatchObject({
+                port: 'trigger',
+                voltage: { min: 0, max: 10, normal: 0 }
+            });
+            expect(nseModule.ui.outputs[0]).toMatchObject({
+                port: 'noise',
+                voltage: { min: -5, max: 5 }
+            });
         });
     });
 
@@ -142,6 +153,32 @@ describe('createNse', () => {
 
             expect(repeats).toBeGreaterThan(100);
         });
+
+        it('should preserve the low-rate hold duration across sample rates', () => {
+            const countChanges = currentSampleRate => {
+                let state = 0;
+                const deterministic = createNse({
+                    sampleRate: currentSampleRate,
+                    bufferSize: currentSampleRate,
+                    random: () => {
+                        state = state ? 0 : 1;
+                        return state;
+                    }
+                });
+                deterministic.params.rate = 0;
+                deterministic.process();
+                let changes = 0;
+                for (let i = 1; i < deterministic.outputs.noise.length; i++) {
+                    if (deterministic.outputs.noise[i] !== deterministic.outputs.noise[i - 1]) {
+                        changes++;
+                    }
+                }
+                return changes;
+            };
+
+            expect(Math.abs(countChanges(44100) - countChanges(96000)))
+                .toBeLessThanOrEqual(1);
+        });
     });
 
     describe('VCA mode', () => {
@@ -223,6 +260,20 @@ describe('createNse', () => {
             expect(maxLevel).toBeLessThan(0.1);
         });
 
+        it('should use the exact >=1V threshold', () => {
+            const below = createNse({ sampleRate: 1000, bufferSize: 16, random: () => 1 });
+            below.params.vcaMode = 1;
+            below.inputs.trigger[0] = 0.999;
+            below.process();
+            expect(below.outputs.noise.every(value => value === 0)).toBe(true);
+
+            const exact = createNse({ sampleRate: 1000, bufferSize: 16, random: () => 1 });
+            exact.params.vcaMode = 1;
+            exact.inputs.trigger[0] = 1;
+            exact.process();
+            expect(exact.outputs.noise.some(value => value > 0)).toBe(true);
+        });
+
         it('should control decay time with rate knob in VCA mode', () => {
             // Short decay (rate=0, 10ms = ~441 samples at 44100Hz)
             const nseShort = createNse({ bufferSize: 128 });
@@ -267,6 +318,63 @@ describe('createNse', () => {
             // Long: ~22050 samples / 128 = ~172 buffers
             expect(longBuffers).toBeGreaterThan(shortBuffers * 10);
         });
+
+        it('should preserve the 10ms minimum decay across sample rates', () => {
+            const lastActiveSample = currentSampleRate => {
+                const current = createNse({
+                    sampleRate: currentSampleRate,
+                    bufferSize: Math.round(currentSampleRate * 0.02),
+                    random: () => 1
+                });
+                current.params.vcaMode = 1;
+                current.params.rate = 0;
+                current.inputs.trigger[0] = 10;
+                current.process();
+                return Array.from(current.outputs.noise)
+                    .findLastIndex(value => Math.abs(value) > 0);
+            };
+
+            const at1k = lastActiveSample(1000) / 1000;
+            const at2k = lastActiveSample(2000) / 2000;
+            expect(Math.abs(at1k - at2k)).toBeLessThanOrEqual(0.0011);
+            expect(at1k).toBeCloseTo(0.01, 2);
+            expect(at2k).toBeCloseTo(0.01, 2);
+        });
+
+        it('should retrigger from the current envelope level without dropping to zero', () => {
+            const retriggered = createNse({
+                sampleRate: 1000,
+                bufferSize: 32,
+                random: () => 1
+            });
+            retriggered.params.vcaMode = 1;
+            retriggered.params.rate = 1;
+            retriggered.inputs.trigger[0] = 10;
+            retriggered.inputs.trigger[10] = 10;
+            retriggered.process();
+
+            expect(retriggered.outputs.noise[10])
+                .toBeGreaterThanOrEqual(retriggered.outputs.noise[9]);
+        });
+
+        it('should clear an old envelope when VCA mode is switched off', () => {
+            const switched = createNse({
+                sampleRate: 1000,
+                bufferSize: 32,
+                random: () => 1
+            });
+            switched.params.vcaMode = 1;
+            switched.params.rate = 1;
+            switched.inputs.trigger[0] = 10;
+            switched.process();
+            switched.params.vcaMode = 0;
+            switched.inputs.trigger.fill(0);
+            switched.process();
+            switched.params.vcaMode = 1;
+            switched.process();
+
+            expect(switched.outputs.noise.every(value => value === 0)).toBe(true);
+        });
     });
 
     describe('LED indicator', () => {
@@ -298,12 +406,18 @@ describe('createNse', () => {
 
     describe('reset', () => {
         it('should reset all state', () => {
+            const inputRefs = { ...nse.inputs };
+            const outputRefs = { ...nse.outputs };
             nse.params.vcaMode = 1;
             nse.inputs.trigger.fill(5);
             nse.process();
 
             nse.reset();
 
+            expect(nse.inputs).toEqual(inputRefs);
+            expect(nse.outputs).toEqual(outputRefs);
+            expect(nse.inputs.trigger.every(value => value === 0)).toBe(true);
+            expect(nse.outputs.noise.every(value => value === 0)).toBe(true);
             expect(nse.leds.active).toBe(0);
         });
     });
@@ -312,6 +426,18 @@ describe('createNse', () => {
         it('should fill entire buffer without NaN', () => {
             nse.process();
             expect(nse.outputs.noise.every(v => !isNaN(v))).toBe(true);
+        });
+
+        it('should recover from non-finite params, triggers, and RNG values', () => {
+            const invalid = createNse({ random: () => Number.NaN });
+            invalid.params.rate = Number.NaN;
+            invalid.params.vcaMode = Number.POSITIVE_INFINITY;
+            invalid.inputs.trigger.fill(Number.NaN);
+            invalid.process();
+
+            expect(invalid.outputs.noise.every(Number.isFinite)).toBe(true);
+            expect(Math.min(...invalid.outputs.noise)).toBeGreaterThanOrEqual(-5);
+            expect(Math.max(...invalid.outputs.noise)).toBeLessThanOrEqual(5);
         });
     });
 });

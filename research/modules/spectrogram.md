@@ -19,3 +19,15 @@ Scrolling frequency-over-time analyzer with audio passthrough and bounded histor
 ## Sources
 
 - [Web Audio API FFT windowing and smoothing](https://www.w3.org/TR/webaudio-1.0/#fft-windowing-and-smoothing-over-time) - W3C Recommendation, accessed 2026-07-11; normative browser analyzer reference.
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Valid audio remains sample-identical while invalid samples recover to 0V
+  before passthrough and FFT accumulation. Time and Floor recover to bounded
+  defaults in telemetry/export data.
+- The calibrated shared FFT, 2048-sample snapshot cadence, 300-entry history
+  cap, Freeze ownership, export metadata, LED bounds, and reset are covered.
+- Reset clears the FFT accumulator/output, history, counters, stable buffers,
+  and telemetry LED.
+- The strict matrix completes seven scenarios with zero voltage flags, stable
+  buffers, and maximum Node diagnostic time below 0.203ms/block.

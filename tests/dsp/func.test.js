@@ -45,6 +45,19 @@ describe('FUNC Module', () => {
             dsp.process();
             expect(dsp.outputs.out[0]).toBe(0);
         });
+
+        it('should declare every input normal and output voltage contract', () => {
+            expect(funcModule.ui.inputs).toEqual(expect.arrayContaining([
+                expect.objectContaining({ port: 'in', voltage: { min: 0, max: 10, normal: 0 } }),
+                expect.objectContaining({ port: 'trig', voltage: { min: 0, max: 10, normal: 0 } }),
+                expect.objectContaining({ port: 'riseCV', voltage: { min: -5, max: 5, normal: 0 } }),
+                expect.objectContaining({ port: 'fallCV', voltage: { min: -5, max: 5, normal: 0 } }),
+                expect.objectContaining({ port: 'cycleCV', voltage: { min: 0, max: 10, normal: 0 } })
+            ]));
+            for (const output of funcModule.ui.outputs) {
+                expect(output.voltage).toEqual({ min: 0, max: 10 });
+            }
+        });
     });
 
     describe('Trigger Response', () => {
@@ -103,6 +116,19 @@ describe('FUNC Module', () => {
 
             // Should continue rising, not restart
             expect(level2).toBeGreaterThan(level1);
+        });
+
+        it('should ignore retriggers during Fall without a discontinuous restart', () => {
+            const envelope = funcModule.createDSP({ sampleRate: 1000, bufferSize: 32 });
+            envelope.params.rise = 0;
+            envelope.params.fall = 0.5;
+            envelope.params.curve = 0.5;
+            envelope.inputs.trig[0] = 10;
+            envelope.inputs.trig[10] = 10;
+
+            envelope.process();
+
+            expect(envelope.outputs.out[10]).toBeLessThan(envelope.outputs.out[9]);
         });
     });
 
@@ -408,6 +434,16 @@ describe('FUNC Module', () => {
                 }
             }
         });
+
+        it('should emit an exact 5ms pulse', () => {
+            const exact = funcModule.createDSP({ sampleRate: 1000, bufferSize: 16 });
+            exact.params.rise = 0;
+            exact.params.fall = 1;
+            exact.inputs.trig[0] = 10;
+            exact.process();
+
+            expect(Array.from(exact.outputs.eor).filter(value => value === 10)).toHaveLength(5);
+        });
     });
 
     describe('EOC (End of Cycle) Gate', () => {
@@ -432,6 +468,16 @@ describe('FUNC Module', () => {
             expect(sawEOC).toBe(true);
         });
 
+        it('should emit an exact 5ms pulse', () => {
+            const exact = funcModule.createDSP({ sampleRate: 1000, bufferSize: 16 });
+            exact.params.rise = 0;
+            exact.params.fall = 0;
+            exact.inputs.trig[0] = 10;
+            exact.process();
+
+            expect(Array.from(exact.outputs.eoc).filter(value => value === 10)).toHaveLength(5);
+        });
+
         it('should be 0V or 10V only', () => {
             dsp.params.rise = 0.1;
             dsp.params.fall = 0.1;
@@ -451,6 +497,7 @@ describe('FUNC Module', () => {
         it('should smooth sudden input changes', () => {
             dsp.params.rise = 0.3;
             dsp.params.fall = 0.3;
+            dsp.onInputConnected('in');
 
             // Sudden step from 0 to 5V
             dsp.inputs.in.fill(5);
@@ -464,6 +511,7 @@ describe('FUNC Module', () => {
         it('should eventually reach target', () => {
             dsp.params.rise = 0.1;
             dsp.params.fall = 0.1;
+            dsp.onInputConnected('in');
 
             // Step to 5V
             dsp.inputs.in.fill(5);
@@ -479,6 +527,7 @@ describe('FUNC Module', () => {
         it('should follow input down with fall rate', () => {
             dsp.params.rise = 0.01;
             dsp.params.fall = 0.5; // Slow fall
+            dsp.onInputConnected('in');
 
             // Rise to 5V
             dsp.inputs.in.fill(5);
@@ -494,6 +543,38 @@ describe('FUNC Module', () => {
 
             // Should not instantly drop due to slow fall rate
             expect(dsp.outputs.out[bufferSize - 1]).toBeGreaterThan(2);
+        });
+
+        it('should select slew mode by cable state, including a patched 0V signal', () => {
+            const slewed = funcModule.createDSP({ sampleRate: 1000, bufferSize: 16 });
+            slewed.params.rise = 0;
+            slewed.params.fall = 0.5;
+            slewed.params.cycle = 1;
+            slewed.onInputConnected('in');
+            slewed.inputs.in.fill(0);
+            slewed.inputs.trig[0] = 10;
+
+            slewed.process();
+
+            expect(slewed.outputs.out.every(value => value === 0)).toBe(true);
+
+            slewed.onInputDisconnected('in');
+            slewed.inputs.trig.fill(0);
+            slewed.process();
+            expect(slewed.outputs.out.some(value => value > 0)).toBe(true);
+        });
+
+        it('should clamp a connected slew target to the 0-10V output range', () => {
+            const slewed = funcModule.createDSP({ sampleRate: 1000, bufferSize: 16 });
+            slewed.params.rise = 0;
+            slewed.onInputConnected('in');
+            slewed.inputs.in.fill(-5);
+            slewed.process();
+            expect(slewed.outputs.out.every(value => value === 0)).toBe(true);
+
+            slewed.inputs.in.fill(15);
+            slewed.process();
+            expect(slewed.outputs.out.every(value => value >= 0 && value <= 10)).toBe(true);
         });
     });
 
@@ -537,10 +618,29 @@ describe('FUNC Module', () => {
             expect(dsp.outputs.eor.length).toBe(bufferSize);
             expect(dsp.outputs.eoc.length).toBe(bufferSize);
         });
+
+        it('should recover from non-finite params and samples within 0-10V', () => {
+            dsp.params.rise = Number.NaN;
+            dsp.params.fall = Number.POSITIVE_INFINITY;
+            dsp.params.curve = Number.NaN;
+            dsp.params.cycle = Number.NEGATIVE_INFINITY;
+            for (const input of Object.values(dsp.inputs)) input.fill(Number.NaN);
+            dsp.inputs.trig[0] = 10;
+
+            dsp.process();
+
+            for (const output of Object.values(dsp.outputs)) {
+                expect(output.every(Number.isFinite)).toBe(true);
+                expect(Math.min(...output)).toBeGreaterThanOrEqual(0);
+                expect(Math.max(...output)).toBeLessThanOrEqual(10);
+            }
+        });
     });
 
     describe('Reset', () => {
         it('should clear state on reset', () => {
+            const inputRefs = { ...dsp.inputs };
+            const outputRefs = { ...dsp.outputs };
             dsp.params.cycle = 1;
 
             // Build up state
@@ -549,6 +649,15 @@ describe('FUNC Module', () => {
             }
 
             dsp.reset();
+            expect(dsp.inputs).toEqual(inputRefs);
+            expect(dsp.outputs).toEqual(outputRefs);
+            for (const input of Object.values(dsp.inputs)) {
+                expect(input.every(value => value === 0)).toBe(true);
+            }
+            expect(dsp.outputs.out.every(value => value === 0)).toBe(true);
+            expect(dsp.outputs.inv.every(value => value === 10)).toBe(true);
+            expect(dsp.outputs.eor.every(value => value === 0)).toBe(true);
+            expect(dsp.outputs.eoc.every(value => value === 0)).toBe(true);
             dsp.params.cycle = 0;
             dsp.process();
 

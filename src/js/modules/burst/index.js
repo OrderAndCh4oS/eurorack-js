@@ -23,9 +23,17 @@ function normalizeSwitch(value) {
     return value === 1 || value === true ? 1 : 0;
 }
 
+function finiteClamp(value, min, max, fallback) {
+    return clamp(Number.isFinite(value) ? value : fallback, min, max);
+}
+
 function getTimeRatio(timeFactor, timeCv) {
-    const cvSteps = clamp(timeCv, -5, 5) / 5 * 8;
-    const step = Math.round(clamp((Number.isFinite(timeFactor) ? timeFactor : 1) + cvSteps, -8, 8));
+    const cvSteps = finiteClamp(timeCv, -5, 5, 0) / 5 * 8;
+    const step = Math.round(clamp(
+        (Number.isFinite(timeFactor) ? timeFactor : 1) + cvSteps,
+        -8,
+        8
+    ));
 
     if (step < 0) {
         return 1 / Math.max(1, Math.abs(step));
@@ -51,6 +59,12 @@ export default {
     category: 'clock',
 
     createDSP({ sampleRate = 44100, bufferSize = 512, random = Math.random } = {}) {
+        const trig = new Float32Array(bufferSize);
+        const ping = new Float32Array(bufferSize);
+        const quantityCv = new Float32Array(bufferSize);
+        const distributionCv = new Float32Array(bufferSize);
+        const timeCv = new Float32Array(bufferSize);
+        const probabilityCv = new Float32Array(bufferSize);
         const out = new Float32Array(bufferSize);
         const tempoOut = new Float32Array(bufferSize);
         const eocOut = new Float32Array(bufferSize);
@@ -88,8 +102,9 @@ export default {
         }
 
         function getEffectiveSettings(params, inputs, index) {
-            const quantityCv = clamp(inputs.quantityCv[index], -5, 5);
-            const quantityOffset = quantityCv * clamp(params.quantityCvAmount, 0, 1) * 16 / 5;
+            const quantityCvSample = finiteClamp(inputs.quantityCv[index], -5, 5, 0);
+            const quantityCvAmount = finiteClamp(params.quantityCvAmount, 0, 1, 1);
+            const quantityOffset = quantityCvSample * quantityCvAmount * 16 / 5;
             const quantity = Math.round(clamp(
                 (Number.isFinite(params.quantity) ? params.quantity : 4) + quantityOffset,
                 1,
@@ -97,14 +112,16 @@ export default {
             ));
 
             const distribution = clamp(
-                clamp(params.distribution, -1, 1) + clamp(inputs.distributionCv[index], -5, 5) / 5,
+                finiteClamp(params.distribution, -1, 1, 0) +
+                    finiteClamp(inputs.distributionCv[index], -5, 5, 0) / 5,
                 -1,
                 1
             );
 
             const timeRatio = getTimeRatio(params.timeFactor, inputs.timeCv[index]);
             const probability = clamp(
-                clamp(params.probability, 0, 1) + clamp(inputs.probabilityCv[index], -5, 5) / 5,
+                finiteClamp(params.probability, 0, 1, 1) +
+                    finiteClamp(inputs.probabilityCv[index], -5, 5, 0) / 5,
                 0,
                 1
             );
@@ -211,20 +228,27 @@ export default {
         function outputIsHighForCurrentSample() {
             if (!activeBurst) return false;
 
-            return activeBurst.pulses.some(pulse =>
-                sampleClock >= pulse.start && sampleClock < pulse.start + pulse.width
-            );
+            for (let i = 0; i < activeBurst.pulses.length; i++) {
+                const pulse = activeBurst.pulses[i];
+                if (sampleClock >= pulse.start && sampleClock < pulse.start + pulse.width) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         function activePulseEndForCurrentSample() {
             if (!activeBurst) return sampleClock;
 
-            return activeBurst.pulses.reduce((end, pulse) => {
+            let end = sampleClock;
+            for (let i = 0; i < activeBurst.pulses.length; i++) {
+                const pulse = activeBurst.pulses[i];
                 const pulseEnd = pulse.start + pulse.width;
-                return sampleClock >= pulse.start && sampleClock < pulseEnd
-                    ? Math.max(end, pulseEnd)
-                    : end;
-            }, sampleClock);
+                if (sampleClock >= pulse.start && sampleClock < pulseEnd) {
+                    end = Math.max(end, pulseEnd);
+                }
+            }
+            return end;
         }
 
         function resetOutputsAndLeds(instance) {
@@ -251,12 +275,12 @@ export default {
             },
 
             inputs: {
-                trig: new Float32Array(bufferSize),
-                ping: new Float32Array(bufferSize),
-                quantityCv: new Float32Array(bufferSize),
-                distributionCv: new Float32Array(bufferSize),
-                timeCv: new Float32Array(bufferSize),
-                probabilityCv: new Float32Array(bufferSize)
+                trig,
+                ping,
+                quantityCv,
+                distributionCv,
+                timeCv,
+                probabilityCv
             },
 
             outputs: {
@@ -275,16 +299,17 @@ export default {
             process() {
                 syncInternalTempo(this.params);
 
-                const { trig, ping } = this.inputs;
                 let outActivity = false;
                 let tempoActivity = false;
                 let eocActivity = false;
 
                 for (let i = 0; i < bufferSize; i++) {
                     let forceOutHigh = false;
-                    const pingHigh = ping[i] > CLOCK_THRESHOLD;
+                    const pingHigh = Number.isFinite(ping[i]) &&
+                        ping[i] > CLOCK_THRESHOLD;
                     const pingEdge = pingHigh && !lastPingHigh;
-                    const trigHigh = trig[i] > CLOCK_THRESHOLD;
+                    const trigHigh = Number.isFinite(trig[i]) &&
+                        trig[i] > CLOCK_THRESHOLD;
                     const trigEdge = trigHigh && !lastTrigHigh;
 
                     if (pingEdge) {
@@ -367,6 +392,12 @@ export default {
                 forcedOutUntilSample = 0;
                 sampleClock = 0;
                 activeBurst = null;
+                trig.fill(0);
+                ping.fill(0);
+                quantityCv.fill(0);
+                distributionCv.fill(0);
+                timeCv.fill(0);
+                probabilityCv.fill(0);
                 resetOutputsAndLeds(this);
             }
         };
@@ -388,17 +419,17 @@ export default {
             { id: 'retrigger', label: 'Retrig', param: 'retrigger', default: 1 }
         ],
         inputs: [
-            { id: 'trig', label: 'Trig', port: 'trig', signal: 'trigger' },
-            { id: 'ping', label: 'Ping', port: 'ping', signal: 'trigger' },
-            { id: 'quantityCv', label: 'Qty', port: 'quantityCv', signal: 'cv' },
-            { id: 'distributionCv', label: 'Dist', port: 'distributionCv', signal: 'cv' },
-            { id: 'timeCv', label: 'Time', port: 'timeCv', signal: 'cv' },
-            { id: 'probabilityCv', label: 'Prob', port: 'probabilityCv', signal: 'cv' }
+            { id: 'trig', label: 'Trig', port: 'trig', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'ping', label: 'Ping', port: 'ping', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'quantityCv', label: 'Qty', port: 'quantityCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'distributionCv', label: 'Dist', port: 'distributionCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'timeCv', label: 'Time', port: 'timeCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'probabilityCv', label: 'Prob', port: 'probabilityCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } }
         ],
         outputs: [
-            { id: 'out', label: 'Out', port: 'out', signal: 'trigger' },
-            { id: 'tempo', label: 'Tempo', port: 'tempo', signal: 'trigger' },
-            { id: 'eoc', label: 'EOC', port: 'eoc', signal: 'trigger' }
+            { id: 'out', label: 'Out', port: 'out', signal: 'trigger', voltage: { min: 0, max: 10 } },
+            { id: 'tempo', label: 'Tempo', port: 'tempo', signal: 'trigger', voltage: { min: 0, max: 10 } },
+            { id: 'eoc', label: 'EOC', port: 'eoc', signal: 'trigger', voltage: { min: 0, max: 10 } }
         ]
     }
 };

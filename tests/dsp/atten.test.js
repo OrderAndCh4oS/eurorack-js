@@ -10,7 +10,7 @@ const createAtten = (options = {}) => attenModule.createDSP(options);
  * Based on Mutable Instruments Shades:
  * - Attenuverter: gain from -1 (inverted) through 0 (muted) to +1 (unity)
  * - Offset: add DC voltage to output
- * - Unpatched inputs normalize to +5V reference
+ * - This utility adaptation uses explicit offset controls and 0V input normals
  * - LED indicators show signal level
  *
  * Source: https://pichenettes.github.io/mutable-instruments-documentation/modules/shades_2020/manual/
@@ -43,6 +43,8 @@ describe('createAtten', () => {
         it('should create input buffers', () => {
             expect(atten.inputs.in1).toBeInstanceOf(Float32Array);
             expect(atten.inputs.in2).toBeInstanceOf(Float32Array);
+            expect(attenModule.ui.inputs[0].voltage).toEqual({ min: -10, max: 10, normal: 0 });
+            expect(attenModule.ui.inputs[1].voltage).toEqual({ min: -10, max: 10, normal: 0 });
         });
 
         it('should have LED outputs', () => {
@@ -208,7 +210,7 @@ describe('createAtten', () => {
         });
     });
 
-    describe('DC voltage generation (unpatched input)', () => {
+    describe('DC voltage generation (0V-normalled input)', () => {
         it('should output offset voltage when input is zero', () => {
             atten.params.atten1 = 1;     // Unity (doesn't matter with 0 input)
             atten.params.offset1 = 0.8;  // +3V offset
@@ -285,16 +287,22 @@ describe('createAtten', () => {
 
     describe('reset', () => {
         it('should reset all state', () => {
+            const in1 = atten.inputs.in1;
+            const in2 = atten.inputs.in2;
             atten.inputs.in1.fill(5.0);
             atten.inputs.in2.fill(5.0);
             atten.process();
 
             atten.reset();
 
+            expect(atten.inputs.in1).toBe(in1);
+            expect(atten.inputs.in2).toBe(in2);
+            expect(atten.inputs.in1.every(value => value === 0)).toBe(true);
+            expect(atten.inputs.in2.every(value => value === 0)).toBe(true);
             expect(atten.outputs.out1[0]).toBe(0);
             expect(atten.outputs.out2[0]).toBe(0);
-            expect(atten.leds.ch1).toBe(0);
-            expect(atten.leds.ch2).toBe(0);
+            expect(atten.leds.ch1).toBe(0.5);
+            expect(atten.leds.ch2).toBe(0.5);
         });
     });
 
@@ -306,6 +314,22 @@ describe('createAtten', () => {
 
             expect(atten.outputs.out1.every(v => !isNaN(v))).toBe(true);
             expect(atten.outputs.out2.every(v => !isNaN(v))).toBe(true);
+        });
+
+        it('should recover safely from non-finite control values', () => {
+            atten.params.atten1 = Number.NaN;
+            atten.params.atten2 = Number.POSITIVE_INFINITY;
+            atten.params.offset1 = Number.NEGATIVE_INFINITY;
+            atten.params.offset2 = Number.NaN;
+            atten.inputs.in1.fill(3);
+            atten.inputs.in2.fill(-2);
+
+            atten.process();
+
+            expect(atten.outputs.out1.every(Number.isFinite)).toBe(true);
+            expect(atten.outputs.out2.every(Number.isFinite)).toBe(true);
+            expect(Number.isFinite(atten.leds.ch1)).toBe(true);
+            expect(Number.isFinite(atten.leds.ch2)).toBe(true);
         });
 
         it('should process varying input correctly', () => {

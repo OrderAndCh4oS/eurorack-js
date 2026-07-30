@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import granulitaModule from '../../src/js/modules/granulita/index.js';
+import granulitaModule, {
+    GRANULITA_CHORDS,
+    getGranulitaGrainTiming,
+    getGranulitaVoiceSemitones
+} from '../../src/js/modules/granulita/index.js';
 
 // Helper to create Granulita instance
 const createGranulita = (options = {}) => granulitaModule.createDSP(options);
@@ -85,6 +89,22 @@ describe('GRANULITA (Granular Chord Generator)', () => {
             expect(maxR).toBeLessThanOrEqual(6);
             expect(minR).toBeGreaterThanOrEqual(-6);
         });
+
+        it('should approach the voltage rail without an overload discontinuity', () => {
+            const small = createGranulita({ bufferSize: 4 });
+            small.onInputConnected('inR');
+            small.params.blend = 0;
+            small.inputs.inL.set([4.99, 5, 5.01, 6]);
+            small.inputs.inR.set([4.99, 5, 5.01, 6]);
+
+            small.process();
+
+            expect([...small.outputs.outL]).toEqual(
+                [...small.outputs.outL].sort((a, b) => a - b)
+            );
+            expect(small.outputs.outL[2] - small.outputs.outL[1]).toBeLessThan(0.1);
+            expect(small.outputs.outL.every(sample => sample <= 5)).toBe(true);
+        });
     });
 
     describe('mono normalization', () => {
@@ -105,6 +125,63 @@ describe('GRANULITA (Granular Chord Generator)', () => {
 
             expect(hasOutputL).toBe(true);
             expect(hasOutputR).toBe(true);
+        });
+
+        it('should preserve a connected right channel through zero crossings', () => {
+            granulita.onInputConnected('inR');
+            granulita.params.blend = 0;
+            granulita.inputs.inL.fill(3);
+            for (let i = 0; i < 512; i++) {
+                granulita.inputs.inR[i] = Math.sin(i * 0.1);
+            }
+
+            granulita.process();
+
+            for (let i = 0; i < 512; i++) {
+                expect(granulita.outputs.outR[i]).toBeCloseTo(granulita.inputs.inR[i], 5);
+            }
+        });
+
+        it('should restore mono normalization when the right cable is removed', () => {
+            granulita.onInputConnected('inR');
+            granulita.onInputDisconnected('inR');
+            granulita.params.blend = 0;
+            granulita.inputs.inL.fill(2);
+            granulita.inputs.inR.fill(0);
+
+            granulita.process();
+
+            expect(granulita.outputs.outR.every(sample => sample === 2)).toBe(true);
+        });
+    });
+
+    describe('documented chord and voice behavior', () => {
+        it('uses the official 16-harmony order', () => {
+            expect(GRANULITA_CHORDS).toEqual([
+                [0, 0, 0, 0],
+                [0, 3, 0, 3],
+                [0, 4, 0, 4],
+                [0, 5, 0, 5],
+                [0, 6, 0, 6],
+                [0, 7, 0, 7],
+                [0, 3, 7, 12],
+                [0, 4, 7, 12],
+                [0, 3, 6, 9],
+                [0, 3, 6, 10],
+                [0, 3, 7, 10],
+                [0, 3, 7, 11],
+                [0, 4, 7, 10],
+                [0, 4, 7, 11],
+                [0, 4, 8, 11],
+                [0, 4, 8, 12]
+            ]);
+        });
+
+        it('recenters every harmony so the selected voice tracks the input', () => {
+            expect([0, 1, 2, 3].map(voiceIndex =>
+                getGranulitaVoiceSemitones(10, 1, voiceIndex)
+            )).toEqual([-3, 0, 4, 7]);
+            expect(getGranulitaVoiceSemitones(10, 1, 2, 5)).toBe(9);
         });
     });
 
@@ -260,6 +337,89 @@ describe('GRANULITA (Granular Chord Generator)', () => {
         it('should trigger at hitMode = 2 (TRIG)', () => {
             granulita.params.hitMode = 2;
             expect(granulita.params.hitMode).toBe(2);
+        });
+
+        it('FRZ continuously emits grains without requiring a Hit edge', () => {
+            const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+            const small = createGranulita({ sampleRate: 1000, bufferSize: 64 });
+            small.params.blend = 1;
+            small.params.verb = 0;
+            small.params.count = 1;
+            small.params.length = 0;
+            small.params.direction = 2;
+            small.params.hitMode = 0;
+            small.inputs.inL.fill(2);
+
+            try {
+                for (let block = 0; block < 4; block++) small.process();
+                expect(Math.max(...small.outputs.outL.map(Math.abs))).toBeGreaterThan(0.1);
+            } finally {
+                randomSpy.mockRestore();
+            }
+        });
+
+        it('TRIG remains silent until a Hit edge and then emits a grain burst', () => {
+            const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+            const small = createGranulita({ sampleRate: 1000, bufferSize: 64 });
+            small.params.blend = 1;
+            small.params.verb = 0;
+            small.params.count = 1;
+            small.params.length = 0;
+            small.params.direction = 2;
+            small.params.hitMode = 2;
+            small.inputs.inL.fill(2);
+
+            try {
+                for (let block = 0; block < 4; block++) small.process();
+                expect(Math.max(...small.outputs.outL.map(Math.abs))).toBeLessThan(0.001);
+
+                small.inputs.hit.fill(0);
+                small.inputs.hit[0] = 5;
+                small.process();
+                expect(Math.max(...small.outputs.outL.map(Math.abs))).toBeGreaterThan(0.1);
+            } finally {
+                randomSpy.mockRestore();
+            }
+        });
+
+        it('FRZ holds captured audio while high and resumes capture on release', () => {
+            const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+            const small = createGranulita({ sampleRate: 1000, bufferSize: 64 });
+            small.params.blend = 1;
+            small.params.verb = 0;
+            small.params.count = 1;
+            small.params.length = 0;
+            small.params.direction = 2;
+            small.params.hitMode = 0;
+            small.inputs.inL.fill(2);
+
+            try {
+                for (let block = 0; block < 80; block++) small.process();
+
+                small.inputs.inL.fill(0);
+                small.inputs.hit.fill(5);
+                for (let block = 0; block < 10; block++) small.process();
+                expect(Math.max(...small.outputs.outL.map(Math.abs))).toBeGreaterThan(0.1);
+
+                small.inputs.hit.fill(0);
+                for (let block = 0; block < 80; block++) small.process();
+                expect(Math.max(...small.outputs.outL.map(Math.abs))).toBeLessThan(0.001);
+            } finally {
+                randomSpy.mockRestore();
+            }
+        });
+
+        it('SYNC scales grain length and firing interval from clock period', () => {
+            expect(getGranulitaGrainTiming(4800, 4, null, 48000)).toEqual({
+                lengthSamples: 4800,
+                intervalSamples: 1200,
+                syncScale: 1
+            });
+            expect(getGranulitaGrainTiming(4800, 4, 12000, 48000)).toEqual({
+                lengthSamples: 2400,
+                intervalSamples: 600,
+                syncScale: 0.5
+            });
         });
     });
 
@@ -447,6 +607,17 @@ describe('GRANULITA (Granular Chord Generator)', () => {
     });
 
     describe('buffer integrity', () => {
+        it('does not allocate arrays in the per-sample processing loop', () => {
+            const filterSpy = vi.spyOn(Array.prototype, 'filter');
+            try {
+                filterSpy.mockClear();
+                granulita.process();
+                expect(filterSpy).not.toHaveBeenCalled();
+            } finally {
+                filterSpy.mockRestore();
+            }
+        });
+
         it('should fill entire output buffer without NaN', () => {
             for (let i = 0; i < 512; i++) {
                 granulita.inputs.inL[i] = Math.random() * 10 - 5;

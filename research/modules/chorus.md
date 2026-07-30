@@ -53,3 +53,19 @@ Linear interpolation for fractional delay reads is sufficient for chorus.
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/chorus.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30)
+
+- **Defect found**: a mono source patched only to In L produced no right wet
+  channel, defeating the phase-offset stereo chorus. In R now normals from In L
+  according to cable lifecycle state; connected silence/zero crossings remain
+  authoritative and disconnect restores the normal.
+- **Rail/reset remediation**: both outputs now use the shared continuous +/-5 V
+  soft rail. Reset clears the identity-stable input buffers, both delay lines,
+  write position, LFO, outputs, and LED.
+- **Coverage/result**: focused tests characterize dry/wet endpoints, stereo
+  decorrelation, Rate and Depth response, normalization/connect/disconnect,
+  rail continuity, reset, finite buffers, and LED behavior. The strict
+  44.1/48/96 kHz by 128/512 matrix completed seven scenarios with no errors or
+  voltage flags, stable buffers, and a 4.926 V peak.
+- **Status**: complete for the documented generic stereo-chorus model.

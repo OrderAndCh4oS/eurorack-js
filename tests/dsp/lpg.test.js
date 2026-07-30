@@ -72,6 +72,16 @@ describe('LPG module', () => {
             ]);
             expect(lpgModule.ui.outputs.map(output => output.port)).toEqual(['out']);
         });
+
+        it('declares the documented CV and trigger voltage contracts', () => {
+            const inputs = Object.fromEntries(
+                lpgModule.ui.inputs.map(input => [input.port, input])
+            );
+
+            expect(inputs.cv.voltage).toEqual({ min: 0, max: 10, normal: 0 });
+            expect(inputs.strike.voltage).toEqual({ min: 0, max: 10, normal: 0 });
+            expect(inputs.dampCV.voltage).toEqual({ min: 0, max: 5, normal: 0 });
+        });
     });
 
     describe('output ranges and integrity', () => {
@@ -312,6 +322,35 @@ describe('LPG module', () => {
             expect(lpg.outputs.out[511]).toBeGreaterThan(1.8);
             expect(lpg.outputs.out[511]).toBeLessThanOrEqual(2.1);
         });
+
+        it('crossfades mode changes without a boundary click', () => {
+            const transitionDSP = createLPG({ sampleRate: 44100, bufferSize: 128 });
+            const frequency = 440;
+            let cursor = 0;
+            const fillContinuousSine = () => {
+                for (let i = 0; i < transitionDSP.inputs.audio.length; i++) {
+                    transitionDSP.inputs.audio[i] = Math.sin(
+                        2 * Math.PI * frequency * (cursor + i) / 44100
+                    ) * 3;
+                }
+                cursor += transitionDSP.inputs.audio.length;
+            };
+
+            transitionDSP.params.level = 1;
+            transitionDSP.params.tone = 0.05;
+            transitionDSP.params.mode = 0;
+            for (let block = 0; block < 20; block++) {
+                fillContinuousSine();
+                transitionDSP.process();
+            }
+
+            const before = transitionDSP.outputs.out.at(-1);
+            transitionDSP.params.mode = 1;
+            fillContinuousSine();
+            transitionDSP.process();
+
+            expect(Math.abs(transitionDSP.outputs.out[0] - before)).toBeLessThan(0.5);
+        });
     });
 
     describe('LED, reset, and input clearing', () => {
@@ -363,7 +402,10 @@ describe('LPG module', () => {
             Object.entries(inputs).forEach(([name, buffer]) => expect(lpg.inputs[name]).toBe(buffer));
 
             lpg.reset();
-            Object.entries(inputs).forEach(([name, buffer]) => expect(lpg.inputs[name]).toBe(buffer));
+            Object.entries(inputs).forEach(([name, buffer]) => {
+                expect(lpg.inputs[name]).toBe(buffer);
+                expect(buffer.every(value => value === 0)).toBe(true);
+            });
         });
     });
 });

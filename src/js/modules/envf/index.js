@@ -29,6 +29,7 @@ export default {
     category: 'utility',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
+        const audio = new Float32Array(bufferSize);
         const env = new Float32Array(bufferSize);
         const inv = new Float32Array(bufferSize);
 
@@ -55,7 +56,7 @@ export default {
             },
 
             inputs: {
-                audio: new Float32Array(bufferSize)
+                audio
             },
 
             outputs: { env, inv },
@@ -63,8 +64,15 @@ export default {
             leds: { active: 0 },
 
             process() {
-                const { threshold, gain, slope } = this.params;
-                const { audio } = this.inputs;
+                const threshold = Number.isFinite(this.params.threshold)
+                    ? Math.min(1, Math.max(0, this.params.threshold))
+                    : 0.1;
+                const gain = Number.isFinite(this.params.gain)
+                    ? Math.min(1, Math.max(0, this.params.gain))
+                    : 0.5;
+                const slope = Number.isFinite(this.params.slope)
+                    ? this.params.slope
+                    : 0;
 
                 // Calculate threshold voltage (0-5V range)
                 const thresholdV = threshold * 5;
@@ -81,7 +89,8 @@ export default {
 
                 for (let i = 0; i < bufferSize; i++) {
                     // Rectify input
-                    const rectified = Math.abs(audio[i]);
+                    const inputSample = Number.isFinite(audio[i]) ? audio[i] : 0;
+                    const rectified = Math.abs(inputSample);
 
                     // Check threshold
                     if (rectified >= thresholdV) {
@@ -103,7 +112,7 @@ export default {
                     // Scale envelope to 0-10V range with gain
                     // Input audio is ±5V, so max rectified is 5V
                     // Scale to 0-10V output (standard CV range)
-                    const scaledEnv = Math.min(10, envelope * 2 * gain);
+                    const scaledEnv = Math.min(10, Math.max(0, envelope * 2 * gain));
 
                     env[i] = scaledEnv;
                     inv[i] = 10 - scaledEnv;
@@ -114,6 +123,7 @@ export default {
             },
 
             reset() {
+                audio.fill(0);
                 env.fill(0);
                 inv.fill(10);
                 envelope = 0;
@@ -132,7 +142,7 @@ export default {
             { id: 'slope', label: 'Slope', param: 'slope', positions: ['Fast', 'Slow'], default: 0 }
         ],
         inputs: [
-            { id: 'audio', label: 'In', port: 'audio', signal: 'audio' }
+            { id: 'audio', label: 'In', port: 'audio', signal: 'audio', voltage: { min: -5, max: 5, normal: 0 } }
         ],
         outputs: [
             { id: 'env', label: 'Env', port: 'env', signal: 'cv', voltage: { min: 0, max: 10 } },

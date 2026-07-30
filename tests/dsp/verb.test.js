@@ -68,6 +68,22 @@ describe('VERB (Reverb)', () => {
             expect(maxR).toBeLessThanOrEqual(5.5);
             expect(minR).toBeGreaterThanOrEqual(-5.5);
         });
+
+        it('should approach the voltage rail without an overload discontinuity', () => {
+            const smallVerb = createVerb({ bufferSize: 4 });
+            smallVerb.onInputConnected('audioR');
+            smallVerb.params.mix = 0;
+            smallVerb.inputs.audioL.set([4.99, 5, 5.01, 6]);
+            smallVerb.inputs.audioR.set([4.99, 5, 5.01, 6]);
+
+            smallVerb.process();
+
+            expect([...smallVerb.outputs.outL]).toEqual(
+                [...smallVerb.outputs.outL].sort((a, b) => a - b)
+            );
+            expect(smallVerb.outputs.outL[2] - smallVerb.outputs.outL[1]).toBeLessThan(0.1);
+            expect(smallVerb.outputs.outL.every(sample => sample <= 5)).toBe(true);
+        });
     });
 
     describe('mono normalization', () => {
@@ -87,6 +103,33 @@ describe('VERB (Reverb)', () => {
 
             expect(hasOutputL).toBe(true);
             expect(hasOutputR).toBe(true);
+        });
+
+        it('should preserve a connected right channel through zero crossings', () => {
+            verb.onInputConnected('audioR');
+            verb.params.mix = 0;
+            verb.inputs.audioL.fill(3);
+            for (let i = 0; i < 512; i++) {
+                verb.inputs.audioR[i] = Math.sin(i * 0.1);
+            }
+
+            verb.process();
+
+            for (let i = 0; i < 512; i++) {
+                expect(verb.outputs.outR[i]).toBeCloseTo(verb.inputs.audioR[i], 5);
+            }
+        });
+
+        it('should restore mono normalization when the right cable is removed', () => {
+            verb.onInputConnected('audioR');
+            verb.onInputDisconnected('audioR');
+            verb.params.mix = 0;
+            verb.inputs.audioL.fill(2);
+            verb.inputs.audioR.fill(0);
+
+            verb.process();
+
+            expect(verb.outputs.outR.every(sample => sample === 2)).toBe(true);
         });
     });
 

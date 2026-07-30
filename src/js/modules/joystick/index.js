@@ -13,6 +13,7 @@ const TRIGGER_THRESHOLD = 2.5;
 const GATE_HIGH = 10;
 const TRIGGER_MS = 8;
 const SMOOTH_TIME_MS = 0.5;
+const RANGE_SMOOTH_TIME_MS = 5;
 const GESTURE_RATE_HZ = 500;
 const MAX_RECORD_SECONDS = 64;
 const MOVEMENT_EPSILON = 0.0025;
@@ -185,6 +186,14 @@ export default {
 
         const triggerSamples = Math.max(1, Math.round(sampleRate * (TRIGGER_MS / 1000)));
         const movementHoldLimit = Math.max(bufferSize, Math.round(sampleRate * 0.005));
+        const cv1In = new Float32Array(bufferSize);
+        const cv2In = new Float32Array(bufferSize);
+        const triggerIn = new Float32Array(bufferSize);
+        const resetIn = new Float32Array(bufferSize);
+        const rangeSlew = createSlew({ sampleRate, timeMs: RANGE_SMOOTH_TIME_MS });
+        const playbackFrame = { x: 0, y: 0, gate: 0 };
+        const scanFrame = { x: 0, y: 0, gate: 0 };
+        const automatedPosition = { x: 0, y: 0, gate: null };
 
         let gestureLength = 0;
         let recording = false;
@@ -198,13 +207,19 @@ export default {
         let lastOutputGateHigh = false;
         let lastTriggerHigh = false;
         let lastResetHigh = false;
+        let rangeInitialized = false;
 
         function hasGesture() {
             return gestureLength > 1;
         }
 
-        function readGesture(position, loop = false) {
-            if (!hasGesture()) return { x: 0, y: 0, gate: 0 };
+        function readGesture(position, loop = false, target = playbackFrame) {
+            if (!hasGesture()) {
+                target.x = 0;
+                target.y = 0;
+                target.gate = 0;
+                return target;
+            }
 
             const length = gestureLength;
             const readPosition = loop ? wrapPosition(position, length) : clamp(position, 0, length - 1);
@@ -212,11 +227,10 @@ export default {
             const frac = readPosition - i0;
             const i1 = loop ? (i0 + 1) % length : Math.min(i0 + 1, length - 1);
 
-            return {
-                x: gestureX[i0] + (gestureX[i1] - gestureX[i0]) * frac,
-                y: gestureY[i0] + (gestureY[i1] - gestureY[i0]) * frac,
-                gate: frac < 0.5 ? gestureGate[i0] : gestureGate[i1]
-            };
+            target.x = gestureX[i0] + (gestureX[i1] - gestureX[i0]) * frac;
+            target.y = gestureY[i0] + (gestureY[i1] - gestureY[i0]) * frac;
+            target.gate = frac < 0.5 ? gestureGate[i0] : gestureGate[i1];
+            return target;
         }
 
         function stopPlayback(dsp) {
@@ -297,37 +311,34 @@ export default {
             }
         }
 
-        function applyCvAutomation(baseX, baseY, cv1, cv2, params) {
+        function applyCvAutomation(baseX, baseY, cv1, cv2, params, target) {
             const amount1 = (params.cv1Amt - 0.5) * 2;
             const amount2 = (params.cv2Amt - 0.5) * 2;
 
             if (params.cvMode === 1) {
                 const angle = (cv1 / 5) * amount1 * TAU;
                 const radius = clamp((cv2 / 5) * amount2, -1, 1);
-                return {
-                    x: clamp(baseX + Math.cos(angle) * radius, -1, 1),
-                    y: clamp(baseY + Math.sin(angle) * radius, -1, 1),
-                    gate: null
-                };
+                target.x = clamp(baseX + Math.cos(angle) * radius, -1, 1);
+                target.y = clamp(baseY + Math.sin(angle) * radius, -1, 1);
+                target.gate = null;
+                return target;
             }
 
             if (params.cvMode === 2 && hasGesture()) {
                 const scan = clamp(0.5 + (cv1 / 10) * amount1, 0, 1);
                 const curve = clamp(0.5 + (cv2 / 10) * amount2, 0, 1);
                 const curved = applyScanCurve(scan, curve);
-                const frame = readGesture(curved * (gestureLength - 1), false);
-                return {
-                    x: clamp(frame.x, -1, 1),
-                    y: clamp(frame.y, -1, 1),
-                    gate: frame.gate ? 1 : 0
-                };
+                const frame = readGesture(curved * (gestureLength - 1), false, scanFrame);
+                target.x = clamp(frame.x, -1, 1);
+                target.y = clamp(frame.y, -1, 1);
+                target.gate = frame.gate ? 1 : 0;
+                return target;
             }
 
-            return {
-                x: clamp(baseX + (cv1 / 5) * amount1, -1, 1),
-                y: clamp(baseY + (cv2 / 5) * amount2, -1, 1),
-                gate: null
-            };
+            target.x = clamp(baseX + (cv1 / 5) * amount1, -1, 1);
+            target.y = clamp(baseY + (cv2 / 5) * amount2, -1, 1);
+            target.gate = null;
+            return target;
         }
 
         return {
@@ -346,10 +357,10 @@ export default {
             },
 
             inputs: {
-                cv1: new Float32Array(bufferSize),
-                cv2: new Float32Array(bufferSize),
-                trigger: new Float32Array(bufferSize),
-                reset: new Float32Array(bufferSize)
+                cv1: cv1In,
+                cv2: cv2In,
+                trigger: triggerIn,
+                reset: resetIn
             },
 
             outputs: {
@@ -381,6 +392,10 @@ export default {
             process() {
                 sanitizeParams(this.params);
                 syncTransportParams(this);
+                if (!rangeInitialized) {
+                    rangeSlew.reset(this.params.range);
+                    rangeInitialized = true;
+                }
 
                 let triggerActivity = false;
                 let lastX = previousSmoothedX;
@@ -388,16 +403,14 @@ export default {
                 let lastGate = false;
 
                 for (let i = 0; i < bufferSize; i++) {
-                    const resetHigh = this.inputs.reset[i] > TRIGGER_THRESHOLD;
+                    const resetHigh = finite(resetIn[i]) > TRIGGER_THRESHOLD;
                     const resetEdge = resetHigh && !lastResetHigh;
-                    const inputTriggerHigh = this.inputs.trigger[i] > TRIGGER_THRESHOLD;
+                    const inputTriggerHigh = finite(triggerIn[i]) > TRIGGER_THRESHOLD;
                     const inputTriggerEdge = inputTriggerHigh && !lastTriggerHigh;
 
                     if (resetEdge) {
                         resetTransport(this);
-                    }
-
-                    if (inputTriggerEdge) {
+                    } else if (inputTriggerEdge) {
                         triggerActivity = true;
                         if (this.params.record) {
                             beginRecording(this);
@@ -411,7 +424,7 @@ export default {
                     let gestureGateHigh = false;
 
                     if (playing && hasGesture()) {
-                        const frame = readGesture(playHead, this.params.loopMode === 1);
+                        const frame = readGesture(playHead, this.params.loopMode === 1, playbackFrame);
                         baseX = frame.x;
                         baseY = frame.y;
                         gestureGateHigh = frame.gate > 0;
@@ -429,9 +442,10 @@ export default {
                     const automated = applyCvAutomation(
                         baseX,
                         baseY,
-                        this.inputs.cv1[i] || 0,
-                        this.inputs.cv2[i] || 0,
-                        this.params
+                        finite(cv1In[i]),
+                        finite(cv2In[i]),
+                        this.params,
+                        automatedPosition
                     );
                     if (automated.gate !== null) {
                         gestureGateHigh = automated.gate > 0;
@@ -470,12 +484,9 @@ export default {
 
                     const nx = (smoothedX + 1) * 0.5;
                     const ny = (smoothedY + 1) * 0.5;
-                    xOut[i] = this.params.range
-                        ? clamp((smoothedX + 1) * 5, 0, 10)
-                        : clamp(smoothedX * 5, -5, 5);
-                    yOut[i] = this.params.range
-                        ? clamp((smoothedY + 1) * 5, 0, 10)
-                        : clamp(smoothedY * 5, -5, 5);
+                    const rangeMix = rangeSlew.process(this.params.range);
+                    xOut[i] = clamp(smoothedX * 5 + rangeMix * 5, -5, 10);
+                    yOut[i] = clamp(smoothedY * 5 + rangeMix * 5, -5, 10);
                     aOut[i] = clamp((1 - nx) * ny * 10, 0, 10);
                     bOut[i] = clamp(nx * ny * 10, 0, 10);
                     cOut[i] = clamp(nx * (1 - ny) * 10, 0, 10);
@@ -516,6 +527,10 @@ export default {
             },
 
             reset() {
+                cv1In.fill(0);
+                cv2In.fill(0);
+                triggerIn.fill(0);
+                resetIn.fill(0);
                 xOut.fill(0);
                 yOut.fill(0);
                 aOut.fill(0);
@@ -527,6 +542,8 @@ export default {
                 resetTransport(this);
                 xSlew.reset(0);
                 ySlew.reset(0);
+                rangeSlew.reset(0);
+                rangeInitialized = false;
                 previousSmoothedX = 0;
                 previousSmoothedY = 0;
                 lastTriggerHigh = false;
@@ -847,20 +864,20 @@ export default {
             { id: 'play', label: 'Play', param: 'play', mode: 'toggle', default: 0 }
         ],
         inputs: [
-            { id: 'cv1', label: 'CV1', port: 'cv1', signal: 'cv' },
-            { id: 'cv2', label: 'CV2', port: 'cv2', signal: 'cv' },
-            { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger' },
-            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger' }
+            { id: 'cv1', label: 'CV1', port: 'cv1', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'cv2', label: 'CV2', port: 'cv2', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+            { id: 'reset', label: 'Rst', port: 'reset', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } }
         ],
         outputs: [
-            { id: 'x', label: 'X', port: 'x', signal: 'cv' },
-            { id: 'y', label: 'Y', port: 'y', signal: 'cv' },
-            { id: 'a', label: 'A', port: 'a', signal: 'cv' },
-            { id: 'b', label: 'B', port: 'b', signal: 'cv' },
-            { id: 'c', label: 'C', port: 'c', signal: 'cv' },
-            { id: 'd', label: 'D', port: 'd', signal: 'cv' },
-            { id: 'gate', label: 'Gate', port: 'gate', signal: 'gate' },
-            { id: 'trig', label: 'Trig', port: 'trig', signal: 'trigger' }
+            { id: 'x', label: 'X', port: 'x', signal: 'cv', voltage: { min: -5, max: 10 } },
+            { id: 'y', label: 'Y', port: 'y', signal: 'cv', voltage: { min: -5, max: 10 } },
+            { id: 'a', label: 'A', port: 'a', signal: 'cv', voltage: { min: 0, max: 10 } },
+            { id: 'b', label: 'B', port: 'b', signal: 'cv', voltage: { min: 0, max: 10 } },
+            { id: 'c', label: 'C', port: 'c', signal: 'cv', voltage: { min: 0, max: 10 } },
+            { id: 'd', label: 'D', port: 'd', signal: 'cv', voltage: { min: 0, max: 10 } },
+            { id: 'gate', label: 'Gate', port: 'gate', signal: 'gate', voltage: { min: 0, max: 10 } },
+            { id: 'trig', label: 'Trig', port: 'trig', signal: 'trigger', voltage: { min: 0, max: 10 } }
         ]
     }
 };

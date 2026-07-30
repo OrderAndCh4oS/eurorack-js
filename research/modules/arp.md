@@ -165,3 +165,29 @@ output = (rootNote + sequenceNote) / 12;
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/arp.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.
+
+## Feedback Remediation (2026-07-30)
+
+- The official 2017 manual states that Chord CV accepts 0-5 V, is added to the
+  chord knob position, and spans Major at the far-left endpoint through Sus 4
+  Min 7 at the far-right endpoint. The app therefore maps 0-5 V linearly across
+  the 13 chord indices, adds that index offset to the discrete knob value, and
+  clamps at the final chord rather than wrapping.
+- Chord selection is evaluated per sample so an LFO routed to `chordCV` changes
+  the active chord without waiting for a main-thread parameter update.
+- The manuals specify a 0.4 V reset threshold and describe reset as returning
+  the arpeggio to its root. When reset and clock rise on the same sample, reset
+  wins so the simultaneous clock cannot immediately move the sequence away
+  from the root.
+- Focused regression targets: full-scale Chord CV selects the thirteenth chord,
+  CV adds to and saturates the knob selection, and simultaneous reset/trigger
+  leaves the current step and pitch at the root.
+
+### Sources added
+
+- [2hp Arp Manual (2017)](https://static1.squarespace.com/static/573b5370b09f9524489340f2/t/59f34fdd24a694ad626f2db4/1509117929411/2hp_Arp.pdf)
+  - 2hp, 2017, accessed 2026-07-30. Primary source for additive 0-5 V
+    Root/Chord CV behavior, chord endpoints, reset behavior, and the chord list.
+- [2hp Arp Manual (2023)](https://static1.squarespace.com/static/573b5370b09f9524489340f2/t/65ef359fff75066fbf454858/1710175647589/2hp_Arp_Manual_2023.pdf)
+  - 2hp, 2023, accessed 2026-07-30. Primary cross-check for the 0-5 V Chord CV
+    range and 0.4 V trigger/reset thresholds.

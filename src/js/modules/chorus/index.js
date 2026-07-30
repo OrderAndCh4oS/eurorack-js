@@ -13,6 +13,7 @@
  */
 
 import { createLinearCircularReader } from '../../utils/interpolation.js';
+import { softLimitVoltage } from '../../utils/voltage.js';
 
 // Delay line parameters
 const BASE_DELAY_MS = 20;   // Base delay time in ms
@@ -29,6 +30,9 @@ export default {
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         const outL = new Float32Array(bufferSize);
         const outR = new Float32Array(bufferSize);
+        const ownInL = new Float32Array(bufferSize);
+        const ownInR = new Float32Array(bufferSize);
+        let rightInputConnected = false;
 
         // Delay buffers - sized for max delay
         const delayBufferSize = Math.ceil(sampleRate * MAX_DELAY_MS / 1000) + bufferSize;
@@ -50,8 +54,8 @@ export default {
             },
 
             inputs: {
-                inL: new Float32Array(bufferSize),
-                inR: new Float32Array(bufferSize)
+                inL: ownInL,
+                inR: ownInR
             },
 
             outputs: {
@@ -78,6 +82,9 @@ export default {
                 const modDepthSamples = (MOD_DEPTH_MS / 1000) * sampleRate * depth;
 
                 for (let i = 0; i < bufferSize; i++) {
+                    const inputL = inL[i];
+                    const inputR = rightInputConnected ? inR[i] : inputL;
+
                     // Calculate LFO values with stereo offset
                     const lfoL = Math.sin(lfoPhase);
                     const lfoR = Math.sin(lfoPhase + STEREO_PHASE_OFFSET);
@@ -91,12 +98,12 @@ export default {
                     const delayedR = readDelayR(writeIndex - delayR);
 
                     // Write input to delay buffers
-                    delayBufferL[writeIndex] = inL[i];
-                    delayBufferR[writeIndex] = inR[i];
+                    delayBufferL[writeIndex] = inputL;
+                    delayBufferR[writeIndex] = inputR;
 
                     // Mix dry and wet
-                    outL[i] = inL[i] * (1 - mix) + delayedL * mix;
-                    outR[i] = inR[i] * (1 - mix) + delayedR * mix;
+                    outL[i] = softLimitVoltage(inputL * (1 - mix) + delayedL * mix, 5);
+                    outR[i] = softLimitVoltage(inputR * (1 - mix) + delayedR * mix, 5);
 
                     // Advance write index
                     writeIndex = (writeIndex + 1) % delayBufferSize;
@@ -112,11 +119,21 @@ export default {
                 this.leds.lfo = (Math.sin(lfoPhase) + 1) / 2;
             },
 
+            onInputConnected(port) {
+                if (port === 'inR') rightInputConnected = true;
+            },
+
+            onInputDisconnected(port) {
+                if (port === 'inR') rightInputConnected = false;
+            },
+
             reset() {
                 delayBufferL.fill(0);
                 delayBufferR.fill(0);
                 writeIndex = 0;
                 lfoPhase = 0;
+                ownInL.fill(0);
+                ownInR.fill(0);
                 outL.fill(0);
                 outR.fill(0);
                 this.leds.lfo = 0;

@@ -203,6 +203,29 @@ describe('Ring Module', () => {
 
             expect(dsp.outputs.out.every(v => v === 0)).toBe(true);
         });
+
+        it('clears stable inputs without replacing their buffers', () => {
+            const inputs = { ...dsp.inputs };
+            dsp.inputs.x.fill(3);
+            dsp.inputs.y.fill(4);
+            dsp.reset();
+
+            Object.entries(inputs).forEach(([port, input]) => {
+                expect(dsp.inputs[port]).toBe(input);
+                expect(input.every(value => value === 0)).toBe(true);
+            });
+        });
+
+        it('uses a continuous output rail for over-range multiplication', () => {
+            const rail = ringModule.createDSP({ bufferSize: 4 });
+            rail.params.mix = 0;
+            rail.inputs.x.set([4.99, 5, 5.01, 6]);
+            rail.process();
+
+            expect([...rail.outputs.out]).toEqual([...rail.outputs.out].sort((a, b) => a - b));
+            expect(rail.outputs.out[2] - rail.outputs.out[1]).toBeLessThan(0.1);
+            expect(rail.outputs.out.every(value => value <= 5)).toBe(true);
+        });
     });
 
     describe('Module Metadata', () => {

@@ -64,9 +64,15 @@ export default {
             },
 
             process() {
-                const channel = Math.floor(this.params.channel);
-                const transpose = Math.floor(this.params.transpose);
-                const bendRange = this.params.bendRange;
+                const channel = Number.isFinite(this.params.channel)
+                    ? Math.max(0, Math.min(15, Math.floor(this.params.channel)))
+                    : 0;
+                const transpose = Number.isFinite(this.params.transpose)
+                    ? Math.max(-24, Math.min(24, Math.floor(this.params.transpose)))
+                    : 0;
+                const bendRange = Number.isFinite(this.params.bendRange)
+                    ? Math.max(0, Math.min(12, this.params.bendRange))
+                    : 2;
                 const legato = this.params.legato > 0.5;
 
                 if (!midi) {
@@ -83,8 +89,14 @@ export default {
                 let eventIndex = 0;
 
                 // Get pitch bend and mod wheel
-                const pitchBend = midi.getPitchBend(channel);
-                const modWheel = midi.getModWheel(channel);
+                const rawPitchBend = midi.getPitchBend(channel);
+                const rawModWheel = midi.getModWheel(channel);
+                const pitchBend = Number.isFinite(rawPitchBend)
+                    ? Math.max(-8192, Math.min(8192, rawPitchBend))
+                    : 0;
+                const modWheel = Number.isFinite(rawModWheel)
+                    ? Math.max(0, Math.min(127, rawModWheel))
+                    : 0;
 
                 const bendSemitones = (pitchBend / 8192) * bendRange;
                 const modCV = (modWheel / 127) * 10;
@@ -93,10 +105,16 @@ export default {
                     while (eventIndex < events.length && events[eventIndex].sampleOffset <= i) {
                         const event = events[eventIndex++];
                         if (event.type === 'noteOn') {
-                            heldNotes.push({ note: event.note, velocity: event.velocity });
+                            const note = Number.isFinite(event.note)
+                                ? Math.max(0, Math.min(127, Math.floor(event.note)))
+                                : 60;
+                            const velocity = Number.isFinite(event.velocity)
+                                ? Math.max(0, Math.min(127, event.velocity))
+                                : 0;
+                            heldNotes.push({ note, velocity });
                             const wasPlaying = currentNote >= 0;
-                            currentNote = event.note;
-                            currentVelocity = event.velocity;
+                            currentNote = note;
+                            currentVelocity = velocity;
                             if (!legato || !wasPlaying) retriggerSamples = retriggerLength;
                             gateHigh = true;
                         } else if (event.type === 'noteOff') {
@@ -141,6 +159,7 @@ export default {
                 gateOut.fill(0);
                 velocityOut.fill(0);
                 modOut.fill(0);
+                this.leds.gate = 0;
             }
         };
     },

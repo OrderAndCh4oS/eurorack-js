@@ -34,7 +34,7 @@ The Euclidean rhythm was discovered by Godfried Toussaint in 2004. The algorithm
 
 ### Controls
 - **Length**: Pattern length (1-16 steps)
-- **Hits**: Number of active steps (1 to Length)
+- **Hits**: Number of active steps (0 to Length)
 - **Rotate**: Shifts pattern start point (0 to Length-1)
 
 ### Inputs
@@ -53,7 +53,7 @@ The Euclidean rhythm was discovered by Godfried Toussaint in 2004. The algorithm
 ## DSP Implementation
 
 ### Euclidean Algorithm (Bucket/Accumulator Method)
-The simplest approach - uses integer math, no arrays needed:
+The implementation uses integer math directly and allocates no pattern array:
 
 ```javascript
 function isHit(step, hits, length) {
@@ -102,19 +102,21 @@ if (clockHigh && !lastClock) {
 lastClock = clockHigh;
 ```
 
-When the clock input cable is removed, the engine notifies the module and any
-pending trigger pulse is cleared immediately. This does not change normal
-clock-edge sequencing; it prevents a just-fired trigger buffer from holding a
-downstream gate open after disconnect.
+Unpatched clock/reset inputs are restored to their 0V normals by the compiled
+graph. Trigger pulses are bounded to 8ms, so no cable-specific cleanup hook is
+required.
 
 ### Reset Handling
 ```javascript
 const resetHigh = reset >= 1;
 if (resetHigh && !lastReset) {
-    currentStep = 0;
+    currentStep = -1;
+    triggerCounter = 0;
 }
 lastReset = resetHigh;
 ```
+
+Reset suppresses a simultaneous clock edge; the next clock advances to step 0.
 
 ## Common Uses
 
@@ -168,3 +170,25 @@ lastReset = resetHigh;
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/euclid.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Removed a test-driven pulse extension that made a nominal 10ms trigger last
+  at least four whole blocks (about 46ms at 44.1 kHz/512). Hits now emit exact
+  8ms, 10V trigger pulses, while a separate 50ms LED hold keeps activity
+  visible even when a render block is longer than the pulse.
+- Length and Hits CV are now evaluated per sample. Previously only sample zero
+  modulated the whole block, so in-block and audio-rate modulation was ignored.
+- Reset clears a pending pulse and wins same-sample Clock coincidence; the next
+  clock begins at step 0.
+- Euclidean hit calculation now uses direct accumulator arithmetic without
+  allocating a pattern array in every block. The obsolete cable-disconnection
+  callback was removed in favor of stable 0V-normalled inputs.
+- Clock/Reset declare 0-10V, CV inputs -5V to +5V, and Trigger 0-10V. Reset
+  clears all stable buffers and timing/edge/LED state; non-finite params and CV
+  recover safely.
+- Focused coverage verifies classic hit counts, rotation, looping, per-sample
+  CV, thresholds, reset priority, exact voltage, reset, and finite integrity.
+  The strict six-configuration matrix completes seven scenarios with zero
+  errors/voltage flags and stable buffers; its generic stimulus does not clock
+  a hit, while focused fixtures verify the exact 10V pulse.

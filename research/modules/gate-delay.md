@@ -96,3 +96,22 @@ Maintain `lastHigh`, `pendingSamples`, and `remainingSamples` for each channel. 
 - **Focused coverage**: initialization, thresholds, held gates, exact timing, retriggering, channel independence, reset, finite buffers, and 0/10 V bounds are covered by `tests/dsp/gate-delay.test.js`.
 - **Measured status**: the 44.1/48/96 kHz by 128/512-sample matrix completed 9 scenarios per configuration with zero errors or voltage flags, finite/stable buffers, and a measured maximum of 92.9 us/block.
 - **Next action**: retain sample-count timing tests when timing ranges or trigger thresholds change.
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Both retriggerable monostables retain exact zero-delay/zero-length endpoints,
+  exponential 2ms-10s positive timing, a >=1V rising-edge threshold, 0V normals,
+  and exact 0V/10V gate outputs.
+- Electrical gates and visual indication are now separate: a 2ms gate remains
+  exactly two samples at 1kHz, while a 50ms LED timer makes it visible after it
+  ends inside a render block.
+- Non-finite timing controls fall back to the safe exact-zero endpoint and
+  non-finite input samples remain low; outputs remain finite gate levels.
+- Reset clears both edge detectors, pending/active timers, new LED timers, and
+  stable input/output buffers in place.
+- Focused and module-contract validation passes 25 assertions across both
+  channels, every timing knob, threshold/hold/retrigger behavior, cross-block
+  deadlines, zero length, finite recovery, LEDs, rails, and stable reset.
+- The strict 44.1/48/96kHz by 128/512 matrix completes nine scenarios with
+  finite output, zero voltage flags, stable buffers, exact 10.000V peaks, and a
+  maximum Node diagnostic time below 0.091ms per block.

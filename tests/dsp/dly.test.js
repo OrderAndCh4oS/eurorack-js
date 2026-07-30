@@ -214,26 +214,56 @@ describe('DLY (Delay)', () => {
     });
 
     describe('CV modulation', () => {
-        it('should respond to time CV', () => {
-            dly.inputs.timeCV.fill(2); // +2V should increase delay time
-            dly.process();
+        it('maps the documented 0-5V Time CV across the full knob range', () => {
+            const cvDelay = createDLY({ sampleRate: 1000, bufferSize: 1100 });
+            cvDelay.params.time = 0;
+            cvDelay.params.feedback = 0;
+            cvDelay.params.mix = 1;
+            cvDelay.inputs.timeCV.fill(5);
+            cvDelay.inputs.audio[0] = 5;
 
-            // Time CV should modulate the delay time
-            expect(dly.inputs.timeCV[0]).toBe(2);
+            cvDelay.process();
+
+            expect(Math.abs(cvDelay.outputs.out[500])).toBeLessThan(0.01);
+            expect(Math.abs(cvDelay.outputs.out[1000])).toBeGreaterThan(4);
         });
 
-        it('should respond to feedback CV', () => {
-            dly.inputs.feedbackCV.fill(3); // +3V
-            dly.process();
+        it('maps 5V Feedback CV from zero knob position to maximum repeats', () => {
+            const cvDelay = createDLY({ sampleRate: 1000, bufferSize: 180 });
+            cvDelay.params.time = 0.05;
+            cvDelay.params.feedback = 0;
+            cvDelay.params.mix = 1;
+            cvDelay.inputs.feedbackCV.fill(5);
+            cvDelay.inputs.audio[0] = 5;
 
-            expect(dly.inputs.feedbackCV[0]).toBe(3);
+            cvDelay.process();
+
+            expect(Math.abs(cvDelay.outputs.out[50])).toBeGreaterThan(4);
+            expect(Math.abs(cvDelay.outputs.out[100])).toBeGreaterThan(3);
         });
 
-        it('should respond to mix CV', () => {
-            dly.inputs.mixCV.fill(2);
-            dly.process();
+        it('maps 5V Mix CV from a dry knob position to fully wet', () => {
+            const cvDelay = createDLY({ sampleRate: 1000, bufferSize: 80 });
+            cvDelay.params.time = 0.05;
+            cvDelay.params.feedback = 0;
+            cvDelay.params.mix = 0;
+            cvDelay.inputs.mixCV.fill(5);
+            cvDelay.inputs.audio.fill(2);
 
-            expect(dly.inputs.mixCV[0]).toBe(2);
+            cvDelay.process();
+
+            expect(Math.abs(cvDelay.outputs.out[0])).toBeLessThan(0.01);
+            expect(cvDelay.outputs.out[50]).toBeCloseTo(2, 5);
+        });
+
+        it('declares the official unipolar CV input range', () => {
+            for (const port of ['timeCV', 'feedbackCV', 'mixCV']) {
+                expect(dlyModule.ui.inputs.find(input => input.port === port).voltage).toEqual({
+                    min: 0,
+                    max: 5,
+                    normal: 0
+                });
+            }
         });
     });
 
@@ -271,6 +301,18 @@ describe('DLY (Delay)', () => {
             const maxOutput = Math.max(...dly.outputs.out.map(Math.abs));
             expect(maxOutput).toBeLessThan(0.01);
         });
+
+        it('clears inputs on reset without replacing their buffers', () => {
+            const inputs = { ...dly.inputs };
+            Object.values(dly.inputs).forEach(input => input.fill(3));
+
+            dly.reset();
+
+            for (const [port, input] of Object.entries(inputs)) {
+                expect(dly.inputs[port]).toBe(input);
+                expect(input.every(value => value === 0)).toBe(true);
+            }
+        });
     });
 
     describe('buffer integrity', () => {
@@ -302,6 +344,18 @@ describe('DLY (Delay)', () => {
             dly.process();
 
             expect(dly.outputs.out.every(v => !isNaN(v))).toBe(true);
+        });
+
+        it('uses a continuous transfer through the positive output rail', () => {
+            const rail = createDLY({ bufferSize: 4 });
+            rail.params.mix = 0;
+            rail.inputs.audio.set([4.99, 5, 5.01, 6]);
+
+            rail.process();
+
+            expect([...rail.outputs.out]).toEqual([...rail.outputs.out].sort((a, b) => a - b));
+            expect(rail.outputs.out[2] - rail.outputs.out[1]).toBeLessThan(0.1);
+            expect(rail.outputs.out.every(value => value <= 5)).toBe(true);
         });
     });
 });

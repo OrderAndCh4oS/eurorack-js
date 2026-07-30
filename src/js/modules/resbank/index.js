@@ -196,6 +196,8 @@ export default {
         let noiseState = 0x13579bdf;
         let excitationSamples = 0;
         let excitationVoice = 0;
+        let audioConnected = false;
+        let strumConnected = false;
 
         function random() {
             noiseState = (Math.imul(noiseState, 1664525) + 1013904223) >>> 0;
@@ -246,9 +248,6 @@ export default {
                     finite(this.inputs.positionCv[0]) / 5 * clamp(finite(this.params.positionAmt), -1, 1));
 
                 const base = expMap(clamp(finite(this.params.frequency, 0.45)), 16.35, 523.25);
-                const inputHasAudio = this.inputs.audio.some(value => Math.abs(finite(value)) > 1e-6);
-                const explicitStrum = this.inputs.strum.some(value => finite(value) >= TRIGGER_THRESHOLD);
-
                 if (model === 0) {
                     for (let voiceIndex = 0; voiceIndex < polyphony; voiceIndex++) {
                         const voice = voices[voiceIndex];
@@ -265,9 +264,11 @@ export default {
                     const frequency = clamp(base * 2 ** clamp(pitchCv + fineCv, -8, 8), MIN_FREQUENCY, sampleRate * 0.4);
                     const strumValue = finite(this.inputs.strum[i]);
                     const rising = strumValue >= TRIGGER_THRESHOLD && lastStrum < TRIGGER_THRESHOLD;
-                    const pitchStep = pitchInitialized && !explicitStrum && Math.abs(pitchCv - lastPitch) >= 1 / 24;
-                    const input = finite(this.inputs.audio[i]);
-                    const audioTransient = !explicitStrum && Math.abs(input) > 0.5 && Math.abs(lastAudio) <= 0.5;
+                    const pitchStep = pitchInitialized && !strumConnected &&
+                        Math.abs(pitchCv - lastPitch) >= 1 / 24;
+                    const input = audioConnected ? finite(this.inputs.audio[i]) : 0;
+                    const audioTransient = !strumConnected && audioConnected &&
+                        Math.abs(input) > 0.5 && Math.abs(lastAudio) <= 0.5;
                     if (rising || pitchStep || audioTransient) {
                         allocate(frequency, polyphony);
                         if (model === 0) {
@@ -283,7 +284,7 @@ export default {
                     lastAudio = input;
 
                     let excitation = input;
-                    if (!inputHasAudio && excitationSamples > 0) {
+                    if (!audioConnected && excitationSamples > 0) {
                         const envelope = excitationSamples / Math.max(1, Math.round(sampleRate * 0.004));
                         excitation = model === 0 ? envelope * 1.5 : random() * envelope * 1.2;
                         excitationSamples--;
@@ -316,6 +317,16 @@ export default {
                 this.leds.voice = activeVoice < 0 ? 0 : (activeVoice + 1) / polyphony;
             },
 
+            onInputConnected(port) {
+                if (port === 'audio') audioConnected = true;
+                else if (port === 'strum') strumConnected = true;
+            },
+
+            onInputDisconnected(port) {
+                if (port === 'audio') audioConnected = false;
+                else if (port === 'strum') strumConnected = false;
+            },
+
             getVoiceFrequencies() {
                 return voices.map(voice => voice.frequency);
             },
@@ -334,6 +345,14 @@ export default {
                 noiseState = 0x13579bdf;
                 excitationSamples = 0;
                 excitationVoice = 0;
+                vOct.fill(0);
+                frequencyCv.fill(frequencyNormal);
+                structureCv.fill(0);
+                brightnessCv.fill(0);
+                dampingCv.fill(0);
+                positionCv.fill(0);
+                strum.fill(0);
+                audio.fill(0);
                 mix.fill(0);
                 odd.fill(0);
                 even.fill(0);
@@ -362,12 +381,12 @@ export default {
             { id: 'polyphony', label: 'Poly', param: 'polyphony', values: [0, 1, 2], default: 0 }
         ],
         inputs: [
-            { id: 'vOct', label: 'V/Oct', port: 'vOct', signal: 'cv' },
+            { id: 'vOct', label: 'V/Oct', port: 'vOct', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
             { id: 'frequencyCv', label: 'Freq', port: 'frequencyCv', signal: 'cv', voltage: { min: -5, max: 5, normal: Math.fround(1 / 12) } },
-            { id: 'structureCv', label: 'Struct', port: 'structureCv', signal: 'cv' },
-            { id: 'brightnessCv', label: 'Bright', port: 'brightnessCv', signal: 'cv' },
-            { id: 'dampingCv', label: 'Damp', port: 'dampingCv', signal: 'cv' },
-            { id: 'positionCv', label: 'Pos', port: 'positionCv', signal: 'cv' },
+            { id: 'structureCv', label: 'Struct', port: 'structureCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'brightnessCv', label: 'Bright', port: 'brightnessCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'dampingCv', label: 'Damp', port: 'dampingCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
+            { id: 'positionCv', label: 'Pos', port: 'positionCv', signal: 'cv', voltage: { min: -5, max: 5, normal: 0 } },
             { id: 'strum', label: 'Strum', port: 'strum', signal: 'trigger' },
             { id: 'audio', label: 'In', port: 'audio', signal: 'audio' }
         ],

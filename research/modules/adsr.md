@@ -54,6 +54,8 @@ function calcCoeff(timeSeconds, targetRatio = 0.001) {
 }
 
 // Attack: Approach 5.5V (overshoot for punchy attack)
+// ln(11) places the 5V crossing at the selected Attack time.
+attackCoeff = 1 - exp(-ln(11) / samples);
 level += attackCoeff * (5.5 - level);
 
 // Decay/Release: Approach target
@@ -115,3 +117,27 @@ time = 0.002 * Math.pow(5000, knobValue)  // 2ms to 10s
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/adsr.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Attack retains the 5.5V RC target/5V stage threshold, but its coefficient now
+  uses `ln(11)` so the threshold is crossed at the selected time. Previously the
+  generic 0.1% coefficient made the documented 2ms minimum reach 5V on the first
+  1kHz sample instead of after two samples. Fixtures verify 2ms at 1k/2kHz.
+- Gate is correctly typed as a gate rather than a trigger. Gate/ Retrig declare
+  0-10V with 0V normals; all three time CVs declare +/-5V; Env is 0-5V, Inv is
+  -5-0V, and EOC is 0-10V.
+- EOC now emits a real exact 5ms/10V trigger. It was previously a single-sample
+  5V marker, which did not satisfy the app trigger contract.
+- Gate fall wins a coincident Retrig and enters Release; Retrig while Gate is
+  held re-enters Attack from the current level without a voltage discontinuity.
+  Mid-block fixtures lock both priorities and time-CV sample accuracy.
+- Non-finite controls and input samples recover to defaults instead of poisoning
+  edge memory, coefficients, or the persistent level. Reset clears all stages,
+  edge/pulse state, LEDs, and stable buffers in place.
+- Focused and module-contract validation passes 50 assertions across all four
+  stages/knobs, every CV/input, timing range/RC shape, sustain linearity,
+  gate/retrigger coincidence, exact EOC, rails, finite recovery, and reset.
+- The strict 44.1/48/96kHz by 128/512 matrix completes nine scenarios with
+  finite output, zero voltage flags, stable buffers, exact 10.000V peaks, and a
+  maximum Node diagnostic time below 0.373ms per block.

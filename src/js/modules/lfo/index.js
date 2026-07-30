@@ -44,20 +44,23 @@ export default {
 
         let phase = 0;
         let lastResetGate = 0;
+        const rateCV = new Float32Array(bufferSize);
+        const waveCV = new Float32Array(bufferSize);
+        const resetInput = new Float32Array(bufferSize);
         const outA = new Float32Array(bufferSize);
         const outB = new Float32Array(bufferSize);
 
         return {
             params: {
                 range: 0,
-                rateKnob: 0.75,
+                rateKnob: 0.3,
                 waveKnob: 0
             },
 
             inputs: {
-                rateCV: new Float32Array(bufferSize),
-                waveCV: new Float32Array(bufferSize),
-                reset: new Float32Array(bufferSize)
+                rateCV,
+                waveCV,
+                reset: resetInput
             },
 
             outputs: {
@@ -68,41 +71,51 @@ export default {
             leds: {},
 
             process() {
-                const rng = this.params.range ? fast : slow;
-                const fBase = expMap(this.params.rateKnob, rng.min, rng.max);
-
-                // Use first sample of CV for simplicity (per-sample would be more accurate)
-                const cvOct = clamp(this.inputs.rateCV[0] || 0, 0, 5);
-                const freq = fBase * 2 ** cvOct;
-                const inc = freq / sampleRate;
-
-                const waveCVVal = this.inputs.waveCV[0] || 0;
-                const wNorm = clamp(this.params.waveKnob + waveCVVal / 5);
-                const pos = wNorm * 4;
-                const idx = Math.floor(pos) & 3;
-                const frac = pos - Math.floor(pos);
-                const next = (idx + 1) & 3;
-                const a1 = primary[idx], a2 = primary[next];
-                const b1 = secondary[idx], b2 = secondary[next];
-
-                // Reset on rising edge
-                const resetVal = this.inputs.reset[0] || 0;
-                if (resetVal >= 1 && lastResetGate < 1) phase = 0;
-                lastResetGate = resetVal;
+                const rangeFast = this.params.range === 1 || this.params.range === true;
+                const rng = rangeFast ? fast : slow;
+                const rateKnob = Number.isFinite(this.params.rateKnob)
+                    ? clamp(this.params.rateKnob, 0, 1)
+                    : 0.3;
+                const waveKnob = Number.isFinite(this.params.waveKnob)
+                    ? clamp(this.params.waveKnob, 0, 1)
+                    : 0;
+                const fBase = expMap(rateKnob, rng.min, rng.max);
 
                 for (let i = 0; i < bufferSize; i++) {
-                    phase = wrapPhase(phase + inc);
+                    const resetVal = Number.isFinite(resetInput[i]) ? resetInput[i] : 0;
+                    if (resetVal >= 1 && lastResetGate < 1) phase = 0;
+                    lastResetGate = resetVal;
+
+                    const waveCVVal = Number.isFinite(waveCV[i]) ? waveCV[i] : 0;
+                    const wNorm = clamp(waveKnob + clamp(waveCVVal, 0, 5) / 5, 0, 1);
+                    const pos = wNorm * (primary.length - 1);
+                    const idx = Math.floor(pos);
+                    const frac = pos - idx;
+                    const next = Math.min(idx + 1, primary.length - 1);
+                    const a1 = primary[idx];
+                    const a2 = primary[next];
+                    const b1 = secondary[idx];
+                    const b2 = secondary[next];
+
                     const t = phase;
                     const prim = (1 - frac) * a1(t) + frac * a2(t);
                     const sec = (1 - frac) * b1(t) + frac * b2(t);
                     outA[i] = (prim + 1) * 2.5;
                     outB[i] = (sec + 1) * 2.5;
+
+                    const cvOct = Number.isFinite(rateCV[i])
+                        ? clamp(rateCV[i], 0, 5)
+                        : 0;
+                    phase = wrapPhase(phase + fBase * 2 ** cvOct / sampleRate);
                 }
             },
 
             reset() {
                 phase = 0;
                 lastResetGate = 0;
+                rateCV.fill(0);
+                waveCV.fill(0);
+                resetInput.fill(0);
                 outA.fill(0);
                 outB.fill(0);
             }
@@ -118,13 +131,13 @@ export default {
             { id: 'range', label: 'Fast', param: 'range', default: 0 }
         ],
         inputs: [
-            { id: 'rateCV', label: 'Rate', port: 'rateCV', signal: 'cv' },
-            { id: 'waveCV', label: 'Wave', port: 'waveCV', signal: 'cv' },
-            { id: 'reset', label: 'Reset', port: 'reset', signal: 'trigger' }
+            { id: 'rateCV', label: 'Rate', port: 'rateCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } },
+            { id: 'waveCV', label: 'Wave', port: 'waveCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } },
+            { id: 'reset', label: 'Reset', port: 'reset', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } }
         ],
         outputs: [
-            { id: 'primary', label: 'Pri', port: 'primary', signal: 'cv' },
-            { id: 'secondary', label: 'Sec', port: 'secondary', signal: 'cv' }
+            { id: 'primary', label: 'Pri', port: 'primary', signal: 'cv', voltage: { min: 0, max: 5 } },
+            { id: 'secondary', label: 'Sec', port: 'secondary', signal: 'cv', voltage: { min: 0, max: 5 } }
         ]
     }
 };

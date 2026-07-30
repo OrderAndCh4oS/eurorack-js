@@ -34,26 +34,31 @@ export const SCALE_NAMES = Object.keys(SCALES);
  * @returns {number} Quantized voltage
  */
 export function quantizeVoltage(voltage, scale, octaveOffset = 0, semitoneOffset = 0) {
-    const semitones = voltage * 12;
-    const octave = Math.floor(semitones / 12);
-    const noteInOctave = semitones - (octave * 12);
+    const safeVoltage = Number.isFinite(voltage) ? voltage : 0;
+    const safeScale = Array.isArray(scale) && scale.length > 0 ? scale : SCALES.chromatic;
+    const safeOctaveOffset = Number.isFinite(octaveOffset) ? octaveOffset : 0;
+    const safeSemitoneOffset = Number.isFinite(semitoneOffset) ? semitoneOffset : 0;
+    const semitones = safeVoltage * 12;
+    const baseOctave = Math.floor(semitones / 12);
 
-    let nearestNote = scale[0];
-    let minDistance = Math.abs(noteInOctave - scale[0]);
+    let nearestSemitone = baseOctave * 12 + safeScale[0];
+    let minDistance = Infinity;
 
-    for (const scaleNote of scale) {
-        const distance = Math.abs(noteInOctave - scaleNote);
-        if (distance < minDistance) {
-            minDistance = distance;
-            nearestNote = scaleNote;
-        }
-        const wrapDistance = Math.abs(noteInOctave - (scaleNote - 12));
-        if (wrapDistance < minDistance) {
-            minDistance = wrapDistance;
-            nearestNote = scaleNote - 12;
+    // Search the adjacent octaves as well as the containing octave. This is
+    // necessary around 0V and every negative octave boundary.
+    for (let octaveDelta = -1; octaveDelta <= 1; octaveDelta++) {
+        const octaveSemitones = (baseOctave + octaveDelta) * 12;
+        for (const scaleNote of safeScale) {
+            const candidate = octaveSemitones + scaleNote;
+            const distance = Math.abs(semitones - candidate);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestSemitone = candidate;
+            }
         }
     }
 
-    const quantizedSemitones = (octave * 12) + nearestNote + semitoneOffset + (octaveOffset * 12);
+    const quantizedSemitones =
+        nearestSemitone + safeSemitoneOffset + (safeOctaveOffset * 12);
     return quantizedSemitones / 12;
 }

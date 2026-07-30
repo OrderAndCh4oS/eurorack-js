@@ -372,3 +372,20 @@ strike tails, mode switching, and safe rack-level output.
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/lpg.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- The main CV and Strike inputs now explicitly declare 0-10 V with a 0 V
+  normal; Damp CV declares its documented 0-5 V range and 0 V normal.
+- Reset now clears Audio, CV, Strike, and Damp CV in place as well as the
+  vactrol, strike/memory, filter, LED, output, and edge-detector state.
+- VCA, Combo, and LP changes use a 4 ms allocation-free crossfade. On the
+  coherent 440 Hz boundary fixture, the VCA-to-Combo sample jump falls from
+  1.997 V to 0.171 V while the input's natural adjacent-sample change is
+  approximately 0.183 V.
+- Focused coverage exercises all knobs, both CV paths, Strike edge/retrigger
+  behavior, all three modes, resonance stability, LED decay, soft rails, reset,
+  and buffer identities.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes all 11 scenarios with
+  finite output, zero voltage flags, stable buffers, and a maximum observed
+  4.969 V peak. `process()` performs no dynamic allocation.

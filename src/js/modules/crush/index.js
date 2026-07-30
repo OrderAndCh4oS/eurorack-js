@@ -12,6 +12,8 @@
  * - Active LED indicator
  */
 
+import { softLimitVoltage } from '../../utils/voltage.js';
+
 export default {
     id: 'crush',
     name: 'CRUSH',
@@ -22,6 +24,9 @@ export default {
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         const outL = new Float32Array(bufferSize);
         const outR = new Float32Array(bufferSize);
+        const ownInL = new Float32Array(bufferSize);
+        const ownInR = new Float32Array(bufferSize);
+        let rightInputConnected = false;
 
         // Sample-and-hold state for rate reduction
         let heldSampleL = 0;
@@ -36,8 +41,8 @@ export default {
             },
 
             inputs: {
-                inL: new Float32Array(bufferSize),
-                inR: new Float32Array(bufferSize)
+                inL: ownInL,
+                inR: ownInR
             },
 
             outputs: {
@@ -67,11 +72,14 @@ export default {
                 let peakLevel = 0;
 
                 for (let i = 0; i < bufferSize; i++) {
+                    const inputL = inL[i];
+                    const inputR = rightInputConnected ? inR[i] : inputL;
+
                     // Sample rate reduction (sample-and-hold)
                     sampleCounter++;
                     if (sampleCounter >= rateReduction) {
-                        heldSampleL = inL[i];
-                        heldSampleR = inR[i];
+                        heldSampleL = inputL;
+                        heldSampleR = inputR;
                         sampleCounter = 0;
                     }
 
@@ -85,8 +93,8 @@ export default {
                     const crushedR = Math.round(normalizedR * halfLevels) / halfLevels * 5;
 
                     // Mix dry and wet
-                    outL[i] = inL[i] * (1 - mix) + crushedL * mix;
-                    outR[i] = inR[i] * (1 - mix) + crushedR * mix;
+                    outL[i] = softLimitVoltage(inputL * (1 - mix) + crushedL * mix, 5);
+                    outR[i] = softLimitVoltage(inputR * (1 - mix) + crushedR * mix, 5);
 
                     // Track peak for LED
                     peakLevel = Math.max(peakLevel, Math.abs(outL[i]), Math.abs(outR[i]));
@@ -96,10 +104,20 @@ export default {
                 this.leds.active = Math.min(1, peakLevel / 5);
             },
 
+            onInputConnected(port) {
+                if (port === 'inR') rightInputConnected = true;
+            },
+
+            onInputDisconnected(port) {
+                if (port === 'inR') rightInputConnected = false;
+            },
+
             reset() {
                 heldSampleL = 0;
                 heldSampleR = 0;
                 sampleCounter = 0;
+                ownInL.fill(0);
+                ownInR.fill(0);
                 outL.fill(0);
                 outR.fill(0);
                 this.leds.active = 0;

@@ -22,18 +22,21 @@ export default {
         const hpf = new Float32Array(bufferSize);
 
         const ownAudio = new Float32Array(bufferSize);
+        const ownCutoffCV = new Float32Array(bufferSize);
+        const ownResCV = new Float32Array(bufferSize);
 
         let stage = [0, 0, 0, 0];
         let delay = [0, 0, 0, 0];
 
         const cutoffSlew = createSlew({ sampleRate, timeMs: 2 });
+        let selfOscillationSeeded = false;
 
         return {
             params: { cutoff: 0.5, resonance: 0.3 },
             inputs: {
                 audio: ownAudio,
-                cutoffCV: new Float32Array(bufferSize),
-                resCV: new Float32Array(bufferSize)
+                cutoffCV: ownCutoffCV,
+                resCV: ownResCV
             },
             outputs: { lpf, bpf, hpf },
             leds: { cutoff: 0 },
@@ -65,7 +68,13 @@ export default {
 
                     // Resonance gain compensation - boost input to maintain level at high resonance
                     const compensation = 1 + k * 0.5;
-                    const input = (audioIn[i] / 5) * compensation;
+                    let input = (audioIn[i] / 5) * compensation;
+                    if (res >= 0.98 && !selfOscillationSeeded) {
+                        input += 1e-9;
+                        selfOscillationSeeded = true;
+                    } else if (res < 0.9) {
+                        selfOscillationSeeded = false;
+                    }
                     const feedback = delay[3];
 
                     const clipFeedback = Math.tanh(feedback * k);
@@ -89,6 +98,11 @@ export default {
             reset() {
                 stage = [0, 0, 0, 0];
                 delay = [0, 0, 0, 0];
+                cutoffSlew.reset(0);
+                selfOscillationSeeded = false;
+                ownAudio.fill(0);
+                ownCutoffCV.fill(0);
+                ownResCV.fill(0);
                 lpf.fill(0);
                 bpf.fill(0);
                 hpf.fill(0);
@@ -105,8 +119,8 @@ export default {
         ],
         inputs: [
             { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
-            { id: 'cutoffCV', label: 'Freq', port: 'cutoffCV', signal: 'cv' },
-            { id: 'resCV', label: 'Res', port: 'resCV', signal: 'cv' }
+            { id: 'cutoffCV', label: 'Freq', port: 'cutoffCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } },
+            { id: 'resCV', label: 'Res', port: 'resCV', signal: 'cv', voltage: { min: 0, max: 10, normal: 0 } }
         ],
         outputs: [
             { id: 'lpf', label: 'LP', port: 'lpf', signal: 'audio' },

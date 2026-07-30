@@ -28,9 +28,9 @@ const LPG_UI = {
     ],
     inputs: [
         { id: 'audio', label: 'In', port: 'audio', signal: 'audio' },
-        { id: 'cv', label: 'CV', port: 'cv', signal: 'cv' },
-        { id: 'strike', label: 'Strike', port: 'strike', signal: 'trigger' },
-        { id: 'dampCV', label: 'Damp', port: 'dampCV', signal: 'cv' }
+        { id: 'cv', label: 'CV', port: 'cv', signal: 'cv', voltage: { min: 0, max: 10, normal: 0 } },
+        { id: 'strike', label: 'Strike', port: 'strike', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } },
+        { id: 'dampCV', label: 'Damp', port: 'dampCV', signal: 'cv', voltage: { min: 0, max: 5, normal: 0 } }
     ],
     outputs: [
         { id: 'out', label: 'Out', port: 'out', signal: 'audio' }
@@ -146,6 +146,7 @@ export default {
         const leds = { open: 0 };
 
         const controlSmoothing = smoothingCoeff(sampleRate, 4);
+        const modeSmoothing = smoothingCoeff(sampleRate, 4);
 
         let strikeEnvelope = 0;
         let vactrol = 0;
@@ -155,6 +156,7 @@ export default {
         let lastStrikeHigh = false;
         let ic1eq = 0;
         let ic2eq = 0;
+        const modeWeights = new Float64Array([0, 1, 0]);
 
         function clearFilterState() {
             ic1eq = 0;
@@ -247,15 +249,14 @@ export default {
                     const resonanceAmount = mode === 2 ? resonance * 0.85 : mode === 1 ? resonance * 0.42 : 0;
                     const sample = finite(audio[i]);
                     const filtered = processLowpass(sample, cutoffHz, resonanceAmount);
-
-                    let output;
-                    if (mode === 0) {
-                        output = sample * gain;
-                    } else if (mode === 1) {
-                        output = filtered * gain;
-                    } else {
-                        output = filtered;
+                    for (let modeIndex = 0; modeIndex < modeWeights.length; modeIndex++) {
+                        const targetWeight = modeIndex === mode ? 1 : 0;
+                        modeWeights[modeIndex] += modeSmoothing
+                            * (targetWeight - modeWeights[modeIndex]);
                     }
+                    const output = sample * gain * modeWeights[0]
+                        + filtered * gain * modeWeights[1]
+                        + filtered * modeWeights[2];
 
                     out[i] = softLimit(output);
                 }
@@ -272,6 +273,10 @@ export default {
                 toneState = 0.65;
                 lastStrikeHigh = false;
                 clearFilterState();
+                modeWeights[0] = 0;
+                modeWeights[1] = 1;
+                modeWeights[2] = 0;
+                restoreInputBuffers();
                 out.fill(0);
                 leds.open = 0;
             }

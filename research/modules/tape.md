@@ -328,3 +328,28 @@ Focused tests should be written before implementation in `tests/dsp/tape.test.js
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/tape.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30)
+
+- **Discontinuities found**: block-step Time changes immediately replaced the
+  delay read position, and the Heads selector immediately replaced one wet
+  multi-head sum with another. Both could create full-band clicks unrelated to
+  the modeled tape signal.
+- **Remediation**: knob/Time-CV delay changes now slew with a 20 ms time
+  constant; head-layout changes crossfade over 10 ms. The first process call
+  initializes directly to the selected settings so impulse timing is unchanged.
+- **Tap trade-off**: accepted tap edges still update immediately. This preserves
+  the measured interval and a transient located exactly one tapped period in
+  the past; slewing through the buffer can skip that transient. Tests lock both
+  exact tap timing and smooth ordinary Time-control transitions.
+- **Voltage contract**: Time, Speed, Feedback, and Mix CV now explicitly declare
+  the documented app adaptation of -5..+5 V with a 0 V normal. Speed remains
+  1 V/oct and is bounded internally to +/-3 octaves.
+- **Coverage**: focused tests characterize single/even/triplet impulse timing,
+  record saturation, feedback decay, age/low-cut spectra, wow, deterministic
+  crinkle/dropouts, all CVs, tap threshold/debounce, clock pulse width, freeze,
+  Time and Heads transitions, output rails, reset, and buffer identity.
+- **Runtime/voltage result**: the strict 44.1/48/96 kHz by 128/512-sample matrix
+  completed all 21 scenarios with finite samples, stable buffers, no voltage
+  flags, 5 V audio peaks, and documented 10 V clock peaks.
+- **Status**: complete for the researched mono tape-delay adaptation.

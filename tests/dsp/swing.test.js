@@ -99,6 +99,19 @@ describe('createSwing', () => {
             expect(custom.inputs.clock.length).toBe(64);
             expect(custom.outputs.swung.length).toBe(64);
         });
+
+        it('declares clock, modulation, normalization, and output voltage contracts', () => {
+            expect(swingModule.ui.inputs).toEqual(expect.arrayContaining([
+                expect.objectContaining({ port: 'clock', voltage: { min: 0, max: 10, normal: 0 } }),
+                expect.objectContaining({ port: 'reset', voltage: { min: 0, max: 10, normal: 0 } }),
+                expect.objectContaining({ port: 'swingCV', voltage: { min: 0, max: 5, normal: 0 } }),
+                expect.objectContaining({ port: 'humanCV', voltage: { min: 0, max: 5, normal: 0 } })
+            ]));
+            expect(swingModule.ui.outputs).toEqual(expect.arrayContaining([
+                expect.objectContaining({ port: 'swung', voltage: { min: 0, max: 10 } }),
+                expect.objectContaining({ port: 'straight', voltage: { min: 0, max: 10 } })
+            ]));
+        });
     });
 
     describe('voltage and buffer integrity', () => {
@@ -119,6 +132,25 @@ describe('createSwing', () => {
                 expect(Number.isFinite(value)).toBe(true);
                 expect([0, 10]).toContain(value);
             });
+        });
+
+        it('recovers from non-finite controls and input samples', () => {
+            swing.params.swing = Number.NaN;
+            swing.params.human = Number.POSITIVE_INFINITY;
+            swing.params.width = Number.NEGATIVE_INFINITY;
+            swing.params.template = Number.NaN;
+            swing.inputs.clock.fill(Number.NaN);
+            swing.inputs.reset.fill(Number.NaN);
+            swing.inputs.swingCV.fill(Number.NaN);
+            swing.inputs.humanCV.fill(Number.POSITIVE_INFINITY);
+            swing.inputs.clock[4] = 10;
+
+            swing.process();
+
+            for (const output of Object.values(swing.outputs)) {
+                expect(output.every(Number.isFinite)).toBe(true);
+                expect(output.every(value => value === 0 || value === 10)).toBe(true);
+            }
         });
     });
 
@@ -354,6 +386,24 @@ describe('createSwing', () => {
             expect(risingEdges(result.clock)).toEqual([10, 160]);
             expect(risingEdges(result.straight)).toEqual([10, 110]);
         });
+
+        it('lets an already scheduled pulse finish after Clock returns to its 0V normal', () => {
+            const disconnected = createSwing({ bufferSize: 64 });
+            disconnected.params.swing = 1;
+            disconnected.params.width = 0;
+
+            const result = collect(disconnected, {
+                totalSamples: 200,
+                clockEdges: [10, 110]
+            });
+
+            expect(risingEdges(result.clock)).toEqual([10, 160]);
+            expect(disconnected.onInputDisconnected).toBeUndefined();
+
+            const silent = collect(disconnected, { totalSamples: 300 });
+            expect(silent.clock.every(value => value === 0)).toBe(true);
+            expect(silent.straight.every(value => value === 0)).toBe(true);
+        });
     });
 
     describe('LEDs', () => {
@@ -402,14 +452,25 @@ describe('createSwing', () => {
         });
 
         it('has a reset method that clears output buffers and LEDs', () => {
+            const inputRefs = { ...swing.inputs };
+            const outputRefs = { ...swing.outputs };
             swing.params.swing = 1;
             collect(swing, {
                 totalSamples: 180,
                 clockEdges: [10, 110]
             });
+            swing.inputs.clock.fill(10);
+            swing.inputs.reset.fill(10);
+            swing.inputs.swingCV.fill(5);
+            swing.inputs.humanCV.fill(5);
 
             swing.reset();
 
+            expect(swing.inputs).toEqual(inputRefs);
+            expect(swing.outputs).toEqual(outputRefs);
+            for (const input of Object.values(swing.inputs)) {
+                expect(input.every(value => value === 0)).toBe(true);
+            }
             expect(swing.outputs.swung.every(value => value === 0)).toBe(true);
             expect(swing.outputs.straight.every(value => value === 0)).toBe(true);
             expect(swing.leds.in).toBe(0);

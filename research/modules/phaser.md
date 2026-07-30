@@ -63,3 +63,18 @@ feedbackSample = wet * feedback;
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/phaser.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.
+
+## Individual Contract Audit (2026-07-30)
+
+- **Defect found**: In R lacked the practical mono-to-stereo normal, leaving the
+  right allpass chain silent for one-cable sources. Cable lifecycle state now
+  distinguishes an unpatched input from connected silence and restores the
+  normal on disconnect.
+- **Reset/coverage**: reset now also clears both stable input buffers. Focused
+  coverage exercises Rate, Depth, Feedback, Mix, six-stage allpass response,
+  long high-feedback stability, stereo normalization transitions, continuous
+  rails, LEDs, reset, and finite output.
+- **Runtime/voltage result**: the strict 44.1/48/96 kHz by 128/512 matrix
+  completed nine scenarios with no errors or voltage flags, stable buffers, and
+  a 4.986 V peak.
+- **Status**: complete for the documented six-stage stereo phaser model.

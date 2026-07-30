@@ -28,6 +28,9 @@ export default {
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
         const outL = new Float32Array(bufferSize);
         const outR = new Float32Array(bufferSize);
+        const ownInL = new Float32Array(bufferSize);
+        const ownInR = new Float32Array(bufferSize);
+        let rightInputConnected = false;
 
         // Allpass filter states for L and R channels
         const allpassStatesL = [];
@@ -57,8 +60,8 @@ export default {
             },
 
             inputs: {
-                inL: new Float32Array(bufferSize),
-                inR: new Float32Array(bufferSize)
+                inL: ownInL,
+                inR: ownInR
             },
 
             outputs: {
@@ -83,6 +86,9 @@ export default {
                 const fb = feedback * 0.9;
 
                 for (let i = 0; i < bufferSize; i++) {
+                    const inputL = inL[i];
+                    const inputR = rightInputConnected ? inR[i] : inputL;
+
                     // Calculate LFO (0 to 1 range)
                     const lfoValue = (Math.sin(lfoPhase) + 1) / 2;
 
@@ -96,8 +102,8 @@ export default {
                     const coef = (tanVal - 1) / (tanVal + 1);
 
                     // Input with feedback
-                    let wetL = inL[i] + feedbackL * fb;
-                    let wetR = inR[i] + feedbackR * fb;
+                    let wetL = inputL + feedbackL * fb;
+                    let wetR = inputR + feedbackR * fb;
 
                     // Process through allpass chain
                     for (let s = 0; s < NUM_STAGES; s++) {
@@ -110,8 +116,8 @@ export default {
                     feedbackR = softLimitVoltage(wetR, 5);
 
                     // Mix dry and wet
-                    outL[i] = softLimitVoltage(inL[i] * (1 - mix) + wetL * mix, 5);
-                    outR[i] = softLimitVoltage(inR[i] * (1 - mix) + wetR * mix, 5);
+                    outL[i] = softLimitVoltage(inputL * (1 - mix) + wetL * mix, 5);
+                    outR[i] = softLimitVoltage(inputR * (1 - mix) + wetR * mix, 5);
 
                     // Advance LFO phase
                     lfoPhase += phaseIncrement;
@@ -124,6 +130,14 @@ export default {
                 this.leds.lfo = (Math.sin(lfoPhase) + 1) / 2;
             },
 
+            onInputConnected(port) {
+                if (port === 'inR') rightInputConnected = true;
+            },
+
+            onInputDisconnected(port) {
+                if (port === 'inR') rightInputConnected = false;
+            },
+
             reset() {
                 for (let i = 0; i < NUM_STAGES; i++) {
                     allpassStatesL[i].x1 = 0;
@@ -134,6 +148,8 @@ export default {
                 feedbackL = 0;
                 feedbackR = 0;
                 lfoPhase = 0;
+                ownInL.fill(0);
+                ownInR.fill(0);
                 outL.fill(0);
                 outR.fill(0);
                 this.leds.lfo = 0;

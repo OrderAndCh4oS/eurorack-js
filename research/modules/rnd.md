@@ -55,11 +55,13 @@ Random voltage generator with stepped and smooth outputs, internal clock, and ra
 ```javascript
 // Stepped: sample & hold random on clock
 if (clockRising) {
-    steppedValue = Math.random() * 10 * amplitude;
+    heldUnitValue = random();
 }
 
-// Smooth: slew the stepped value
-smoothValue += (steppedValue - smoothValue) * slewRate;
+steppedValue = heldUnitValue * 10 * amplitude;
+
+// Smooth: sample-rate-invariant one-pole slew toward the scaled held value
+smoothValue += (steppedValue - smoothValue) * (1 - exp(-1 / (tau * sampleRate)));
 
 // Gate: output clock (internal) or probabilistic gate (external)
 ```
@@ -84,3 +86,28 @@ smoothValue += (steppedValue - smoothValue) * slewRate;
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/rnd.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Status**: confirmed contract and range findings are resolved; broader listening and characterization work remains tracked centrally.
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- External mode now follows actual cable state. Previously the internal clock
+  advanced during every low sample between external pulses, so a patched clock
+  did not override it and could produce unintended extra random changes.
+- With Clock connected, every >=1V rising edge samples a new Step target and Rate
+  controls Gate probability from 0% to 100%, matching the documented external
+  mode. With Clock unpatched, Rate controls the 0.1-20Hz internal clock and every
+  internal tick emits Gate.
+- Amp now scales the held unit-random value continuously instead of being baked
+  into the value only at trigger time. Step therefore responds immediately to
+  Amp, and Smooth follows the same scaled target.
+- Smooth uses a physical-time one-pole from 250ms at minimum Rate to 5ms at
+  maximum. A 250ms/63.2% fixture agrees at 1kHz and 2kHz, replacing the previous
+  sample-rate-dependent per-sample coefficient.
+- Random generation is injectable for deterministic coverage and clamps invalid
+  RNG results; params and Clock samples have finite fallbacks. Clock declares
+  0-10V/0V normal and all outputs declare their 0-10V rails.
+- Reset preserves connection ownership while clearing phase, held/smooth values,
+  gate/LED timers, edge state, and stable buffers in place.
+- Focused and module-contract validation passes 37 assertions. The strict
+  44.1/48/96kHz by 128/512 matrix completes five scenarios with finite output,
+  zero voltage flags, stable buffers, exact 10.000V peaks, and a maximum Node
+  diagnostic time below 0.083ms per block.

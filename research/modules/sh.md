@@ -61,6 +61,7 @@ Optional glide between held values:
 if (slewEnabled) {
     output = slew.process(heldValue)  // One-pole lowpass
 } else {
+    slew.reset(heldValue)             // keep the filter aligned while bypassed
     output = heldValue
 }
 ```
@@ -112,3 +113,22 @@ Slew time: 0 to 50ms (controlled by knob)
 - **Coverage**: Focused DSP coverage exists in `tests/dsp/sh.test.js`; the audit harness supplements rather than replaces its behavioral assertions.
 - **Interpretation**: this baseline detects runtime, range, reset, and broad spectral regressions. It does not establish hardware fidelity or replace listening tests and module-specific assertions.
 - **Next action**: follow the priority and acceptance criteria in [the central sound engineering audit](../sound-engineering-review.md).
+
+## Individual Contract Audit (2026-07-30, complete)
+
+- Removed a hidden 0-0.5ms dead zone: exact zero remains a sample-exact bypass,
+  while every positive knob value now applies the requested 0-50ms RC slew.
+- The internal slew state tracks the held voltage while bypassed. Enabling slew
+  after holding 5V therefore stays at 5V instead of falling toward 0V and
+  climbing back.
+- A 50ms one-time-constant fixture matches `1 - exp(-1)` at 44.1, 48, and 96
+  kHz. Same-sample edge capture, the >=1V threshold, sustained-high behavior,
+  both independent channels, and audio-rate clocks remain covered.
+- Signal inputs and outputs explicitly support -12V to +12V; trigger inputs
+  declare 0-10V with 0V normals. Non-finite signals, triggers, and controls
+  cannot poison held or filter state.
+- Reset clears all four stable input buffers and both outputs, held values,
+  edge history, filters, and LEDs in place.
+- The strict 44.1/48/96 kHz by 128/512 matrix completes five scenarios with
+  finite output, zero voltage flags, stable buffers, and a maximum diagnostic
+  time below 0.194ms per block.

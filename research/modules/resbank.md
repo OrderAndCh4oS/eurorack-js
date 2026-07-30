@@ -106,7 +106,9 @@ All arrays and delay lines are allocated in `createDSP()`. Per-sample coefficien
 
 - Module ID/category: `resbank` / `filter`.
 - DSP: independent JS modal filters and fractional-delay strings informed by the cited MIT source and physical-model literature.
-- Factory patch: `Test: Resonator Bank`, sequenced via internal exciter into stereo output.
+- Factory patch: `Test - Resonator Bank`, sequenced via internal exciter into stereo output.
+- Panel validation: the six CV sockets use a three-column, two-row grid so
+  jack bodies and labels remain distinct at the module's 14 HP width.
 - Focused validation: `npm test -- tests/dsp/resbank.test.js tests/rack/module-contracts.test.js tests/research/module-queue.test.js`.
 - Full validation must retain the current DSP-audit timeout.
 

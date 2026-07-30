@@ -1,5 +1,5 @@
 export default {
-    name: 'Test: Gate Delay',
+    name: 'Test - Gate Delay',
     factory: true,
     state: {
         version: 3,

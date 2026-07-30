@@ -403,7 +403,7 @@ export default {
                 {
                     label: 'CV',
                     ports: ['vOct', 'frequencyCv', 'structureCv', 'brightnessCv', 'dampingCv', 'positionCv'],
-                    columns: 6
+                    columns: 3
                 },
                 { label: 'Excite', ports: ['strum', 'audio'], columns: 2 }
             ]

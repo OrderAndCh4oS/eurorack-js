@@ -5,7 +5,7 @@
  * VCO through VCA with LFO modulation, monitored by dB meter.
  */
 export default {
-    "name": "Test: dB Meter",
+    "name": "Test - dB Meter",
     "factory": true,
     "state": {
         "version": 3,

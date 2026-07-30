@@ -7,7 +7,7 @@
  * Asymmetric windows (shift1=-1, shift2=+1) create interesting rhythms.
  */
 export default {
-    "name": "Test: CMP2",
+    "name": "Test - CMP2",
     "factory": true,
     "state": {
         "version": 3,

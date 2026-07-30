@@ -5,7 +5,7 @@
  * Creates a lush, widened sound with stereo modulation.
  */
 export default {
-    "name": "Test: Chorus",
+    "name": "Test - Chorus",
     "factory": true,
     "state": {
         "version": 3,

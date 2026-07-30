@@ -7,7 +7,7 @@
  * 3. The sequencer will sync to your DAW's tempo
  */
 export default {
-    "name": "Test: MIDI-CLK",
+    "name": "Test - MIDI-CLK",
     "factory": true,
     "state": {
         "version": 3,

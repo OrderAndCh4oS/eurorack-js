@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('connected cable ends can be preserved, moved, and extended with Shift', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test: Chorus');
+    await page.locator('#patchSelect').selectOption('Test - Chorus');
     await page.locator('#loadPatch').click();
     await page.waitForFunction(() => window.eurorackApp.state.getModule('chorus'));
 
@@ -43,7 +43,7 @@ test('connected cable ends can be preserved, moved, and extended with Shift', as
         cable.fromModule === 'vco' && cable.toModule === 'chorus' && cable.toPort === 'inL'
     )))).toBe(false);
 
-    await page.locator('#patchSelect').selectOption('Test: Chorus');
+    await page.locator('#patchSelect').selectOption('Test - Chorus');
     await page.locator('#loadPatch').click();
     await expect.poll(() => page.evaluate(() => window.eurorackApp.state.cables.some(cable => (
         cable.fromModule === 'vco' && cable.toModule === 'chorus' && cable.toPort === 'inL'
@@ -83,7 +83,7 @@ test('connected cable ends can be preserved, moved, and extended with Shift', as
     await page.locator('#startButton').click();
     await expect(page.locator('#startButton')).not.toHaveClass(/active/);
 
-    await page.locator('#patchSelect').selectOption('Test: Chorus');
+    await page.locator('#patchSelect').selectOption('Test - Chorus');
     await page.locator('#loadPatch').click();
     await expect.poll(() => page.evaluate(() => window.eurorackApp.state.cables.some(cable => (
         cable.fromModule === 'vco' && cable.toModule === 'chorus' && cable.toPort === 'inL'

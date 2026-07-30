@@ -1,5 +1,5 @@
 export default {
-    name: 'Test: Complex VCO',
+    name: 'Test - Complex VCO',
     factory: true,
     state: {
         version: 3,

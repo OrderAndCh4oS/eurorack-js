@@ -5,7 +5,7 @@
  * Creates jet-like sweeping comb filter effect.
  */
 export default {
-    "name": "Test: Flanger",
+    "name": "Test - Flanger",
     "factory": true,
     "state": {
         "version": 3,

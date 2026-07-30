@@ -6,7 +6,7 @@
  * Adjust Lock knob to control randomness vs locked patterns.
  */
 export default {
-    "name": "Test: Turing",
+    "name": "Test - Turing",
     "factory": true,
     "state": {
         "version": 3,

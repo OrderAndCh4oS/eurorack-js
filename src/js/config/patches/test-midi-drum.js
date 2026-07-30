@@ -13,7 +13,7 @@
  * - Pad 4 (A#1/46): Open Hat
  */
 export default {
-    "name": "Test: MIDI-DRUM",
+    "name": "Test - MIDI-DRUM",
     "factory": true,
     "state": {
         "version": 3,

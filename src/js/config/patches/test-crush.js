@@ -5,7 +5,7 @@
  * Creates lo-fi digital distortion and aliasing artifacts.
  */
 export default {
-    "name": "Test: Bitcrusher",
+    "name": "Test - Bitcrusher",
     "factory": true,
     "state": {
         "version": 3,

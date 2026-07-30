@@ -1,5 +1,5 @@
 export default {
-    name: 'Test: Ensemble VCO',
+    name: 'Test - Ensemble VCO',
     factory: true,
     state: {
         version: 3,

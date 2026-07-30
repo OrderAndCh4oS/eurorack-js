@@ -21,7 +21,7 @@ test('runs the custom-module patch and switches topology while audio is active',
     });
 
     const revision = await page.evaluate(() => window.eurorackApp.host.engine.revision);
-    await page.locator('#patchSelect').selectOption('Test: Chorus');
+    await page.locator('#patchSelect').selectOption('Test - Chorus');
     await page.locator('#loadPatch').click();
     await page.waitForFunction(previousRevision => (
         window.eurorackApp.state.getModule('chorus') &&
@@ -33,10 +33,100 @@ test('runs the custom-module patch and switches topology while audio is active',
     expect(pageErrors).toEqual([]);
 });
 
+test('themes Reset, Mutate, and Recall actions in every rack theme and mode', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.host);
+    await page.locator('#patchSelect').selectOption('Test - Refrain');
+    await page.locator('#loadPatch').click();
+    await page.waitForFunction(() => (
+        window.eurorackApp.state.getModule('refrain') &&
+        window.eurorackApp.state.getModule('changes') &&
+        window.eurorackApp.state.getModule('cascade')
+    ));
+
+    const selectors = [
+        '#module-changes .action-btn[data-param="resetAction"]',
+        '#module-cascade .action-btn[data-param="resetAction"]',
+        '#module-refrain .action-btn[data-param="mutate"]',
+        '#module-refrain .action-btn[data-param="recall"]'
+    ];
+    const snapshots = {};
+
+    for (const theme of ['industrial', 'classic']) {
+        for (const mode of ['light', 'dark']) {
+            await page.evaluate(({ theme, mode }) => {
+                window.eurorackApp.setTheme(theme);
+                window.eurorackApp.setThemeMode(mode);
+            }, { theme, mode });
+            await page.waitForTimeout(120);
+
+            snapshots[`${theme}-${mode}`] = await page.evaluate(async selectors => {
+                const buttons = selectors.map(selector => document.querySelector(selector));
+                const readStyle = button => {
+                    const style = getComputedStyle(button);
+                    return {
+                        backgroundColor: style.backgroundColor,
+                        backgroundImage: style.backgroundImage,
+                        borderColor: style.borderTopColor,
+                        borderRadius: style.borderTopLeftRadius,
+                        boxShadow: style.boxShadow,
+                        color: style.color,
+                        fontFamily: style.fontFamily,
+                        fontSize: style.fontSize,
+                        fontWeight: style.fontWeight,
+                        height: style.height,
+                        textTransform: style.textTransform
+                    };
+                };
+                const idle = buttons.map(readStyle);
+                buttons.forEach(button => button.classList.add('active'));
+                await new Promise(resolve => setTimeout(resolve, 120));
+                const active = buttons.map(readStyle);
+                buttons.forEach(button => button.classList.remove('active'));
+                await new Promise(resolve => setTimeout(resolve, 120));
+                return {
+                    labels: buttons.map(button => button.textContent),
+                    idle,
+                    active
+                };
+            }, selectors);
+        }
+    }
+
+    Object.values(snapshots).forEach(snapshot => {
+        expect(snapshot.labels).toEqual(['Reset', 'Reset', 'Mutate', 'Recall']);
+        expect(new Set(snapshot.idle.map(style => JSON.stringify(style))).size).toBe(1);
+        snapshot.idle.forEach((style, index) => {
+            expect(style.fontSize).toBe('7px');
+            expect(style.textTransform).toBe('uppercase');
+            expect(snapshot.active[index].backgroundColor).not.toBe(style.backgroundColor);
+        });
+    });
+
+    expect(snapshots['industrial-light'].idle[0].borderRadius).toBe('0px');
+    expect(snapshots['industrial-dark'].idle[0].borderRadius).toBe('0px');
+    expect(snapshots['classic-light'].idle[0].borderRadius).toBe('3px');
+    expect(snapshots['classic-dark'].idle[0].borderRadius).toBe('3px');
+    expect(snapshots['industrial-light'].idle[0].height).toBe('18px');
+    expect(snapshots['classic-light'].idle[0].height).toBe('20px');
+
+    for (const theme of ['industrial', 'classic']) {
+        expect(
+            JSON.stringify(snapshots[`${theme}-light`].idle[0])
+        ).not.toBe(
+            JSON.stringify(snapshots[`${theme}-dark`].idle[0])
+        );
+    }
+    expect(pageErrors).toEqual([]);
+});
+
 test('collects opt-in AudioWorklet profiling without module failures', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test: Chorus');
+    await page.locator('#patchSelect').selectOption('Test - Chorus');
     await page.locator('#loadPatch').click();
     await page.waitForFunction(() => window.eurorackApp.state.getModule('chorus'));
     await page.locator('#startButton').click();
@@ -132,7 +222,7 @@ test('fits the ensemble oscillator inside one module and runs its worklet DSP', 
 
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test: Ensemble VCO');
+    await page.locator('#patchSelect').selectOption('Test - Ensemble VCO');
     await page.locator('#loadPatch').click();
     await page.waitForFunction(() => window.eurorackApp.state.getModule('ensemble'));
 
@@ -163,27 +253,51 @@ test('fits every resonator bank socket inside its module and runs its worklet DS
 
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test: Resonator Bank');
+    await page.locator('#patchSelect').selectOption('Test - Resonator Bank');
     await page.locator('#loadPatch').click();
     await page.waitForFunction(() => window.eurorackApp.state.getModule('resbank'));
 
     const bounds = await page.locator('#module-resbank').evaluate(panel => {
         const content = panel.querySelector('.module-content');
         const audioInput = panel.querySelector('#jack-resbank-audio');
+        const cvJacks = [...panel.querySelectorAll(
+            '#jack-resbank-vOct, #jack-resbank-frequencyCv, #jack-resbank-structureCv, ' +
+            '#jack-resbank-brightnessCv, #jack-resbank-dampingCv, #jack-resbank-positionCv'
+        )];
         const panelRect = panel.getBoundingClientRect();
         const contentRect = content.getBoundingClientRect();
         const audioInputRect = audioInput.getBoundingClientRect();
+        const cvRects = cvJacks.map(jack => {
+            const rect = jack.closest('.jack-container').getBoundingClientRect();
+            return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+        });
+        const cvOverlaps = cvRects.some((rect, index) => (
+            cvRects.slice(index + 1).some(other => (
+                rect.left < other.right &&
+                rect.right > other.left &&
+                rect.top < other.bottom &&
+                rect.bottom > other.top
+            ))
+        ));
         return {
             panelBottom: panelRect.bottom,
             contentBottom: contentRect.bottom,
             audioInputBottom: audioInputRect.bottom,
             scrollHeight: content.scrollHeight,
-            clientHeight: content.clientHeight
+            clientHeight: content.clientHeight,
+            cvColumns: getComputedStyle(
+                panel.querySelector('.resbank-sockets .socket-column:nth-child(2) .socket-grid')
+            ).gridTemplateColumns.split(' ').length,
+            cvRows: new Set(cvRects.map(rect => Math.round(rect.top))).size,
+            cvOverlaps
         };
     });
     expect(bounds.contentBottom).toBeLessThanOrEqual(bounds.panelBottom + 1);
     expect(bounds.audioInputBottom).toBeLessThanOrEqual(bounds.panelBottom + 1);
     expect(bounds.scrollHeight).toBeLessThanOrEqual(bounds.clientHeight + 1);
+    expect(bounds.cvColumns).toBe(3);
+    expect(bounds.cvRows).toBe(2);
+    expect(bounds.cvOverlaps).toBe(false);
 
     await page.locator('#startButton').click();
     await expect(page.locator('#startButton')).toHaveClass(/active/);

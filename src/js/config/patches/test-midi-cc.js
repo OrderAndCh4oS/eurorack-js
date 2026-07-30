@@ -11,7 +11,7 @@
  * Use with the midi-controller.html dashboard or a hardware controller.
  */
 export default {
-    "name": "Test: MIDI-CC",
+    "name": "Test - MIDI-CC",
     "factory": true,
     "state": {
         "version": 3,

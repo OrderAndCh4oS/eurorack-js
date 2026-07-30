@@ -1,5 +1,5 @@
 export default {
-    name: 'Test: Resonator Bank',
+    name: 'Test - Resonator Bank',
     factory: true,
     state: {
         version: 3,

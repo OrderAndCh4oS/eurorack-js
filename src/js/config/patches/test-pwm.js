@@ -6,7 +6,7 @@
  * Dual scopes show before (triangle + LFO) and after (modulated pulse).
  */
 export default {
-    "name": "Test: PWM",
+    "name": "Test - PWM",
     "factory": true,
     "state": {
         "version": 3,

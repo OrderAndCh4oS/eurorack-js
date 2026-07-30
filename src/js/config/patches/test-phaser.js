@@ -5,7 +5,7 @@
  * Creates sweeping notches for classic phaser sound.
  */
 export default {
-    "name": "Test: Phaser",
+    "name": "Test - Phaser",
     "factory": true,
     "state": {
         "version": 3,

@@ -6,7 +6,7 @@
  * Mod wheel controls filter cutoff.
  */
 export default {
-    "name": "Test: MIDI-CV",
+    "name": "Test - MIDI-CV",
     "factory": true,
     "state": {
         "version": 3,

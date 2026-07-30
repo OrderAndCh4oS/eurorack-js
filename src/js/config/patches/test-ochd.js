@@ -7,7 +7,7 @@
  * - Out1 (fast) modulates filter resonance
  */
 export default {
-    "name": "Test: OCHD",
+    "name": "Test - OCHD",
     "factory": true,
     "state": {
         "version": 3,

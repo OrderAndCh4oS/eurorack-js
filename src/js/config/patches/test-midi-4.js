@@ -5,7 +5,7 @@
  * Play chords on a MIDI keyboard to hear 4-voice polyphony.
  */
 export default {
-    "name": "Test: MIDI-4 Poly",
+    "name": "Test - MIDI-4 Poly",
     "factory": true,
     "state": {
         "version": 3,

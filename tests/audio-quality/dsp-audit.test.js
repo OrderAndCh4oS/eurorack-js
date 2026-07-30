@@ -103,7 +103,7 @@ describe('DSP audit measurements', () => {
         expect(documented).toEqual(registered);
         documented.forEach(id => {
             const content = fs.readFileSync(`research/modules/${id}.md`, 'utf8');
-            expect(content, id).toContain('## DSP Audit (2026-07-11)');
+            expect(content, id).toMatch(/^## DSP Audit \(\d{4}-\d{2}-\d{2}\)$/m);
         });
     });
 

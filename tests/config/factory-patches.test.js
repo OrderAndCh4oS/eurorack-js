@@ -237,6 +237,63 @@ describe('factory-patches', () => {
             ]));
         });
 
+        it('Test - Vocoder supplies clocked high-frequency energy to Sibilance', () => {
+            const patch = FACTORY_PATCHES['Test - Vocoder'];
+
+            expect(patch.state.params.noise).toEqual({ rate: 0.65, vcaMode: 1 });
+            expect(patch.state.params.modMix).toEqual({ lvl1: 0.65, lvl2: 0.35, lvl3: 0, lvl4: 0 });
+            expect(patch.state.cables).toEqual(expect.arrayContaining([
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'kick', toPort: 'trigger' },
+                { fromModule: 'clk', fromPort: 'clock', toModule: 'noise', toPort: 'trigger' },
+                { fromModule: 'kick', fromPort: 'out', toModule: 'modMix', toPort: 'in1' },
+                { fromModule: 'noise', fromPort: 'noise', toModule: 'modMix', toPort: 'in2' },
+                { fromModule: 'modMix', fromPort: 'out', toModule: 'vocoder', toPort: 'modulator' }
+            ]));
+        });
+
+        it('Test - CMP2 preserves the OCHD window-gate voice audition', () => {
+            const patch = FACTORY_PATCHES['Test - CMP2'];
+
+            expect(patch.state.params.ochd).toEqual({ rate: 0.45, rateCvAmt: 1 });
+            expect(patch.state.params.cmp2).toEqual({
+                shift1: -0.3333333333333339,
+                size1: 2.7299999999999986,
+                shift2: -1.2666666666666657,
+                size2: 3.2700000000000014
+            });
+            expect(patch.state.params.adsr).toEqual({
+                attack: 0,
+                decay: 0.5866666666666668,
+                sustain: 0.05333333333333334,
+                release: 0.7266666666666666
+            });
+            expect(patch.state.cables).toEqual(expect.arrayContaining([
+                { fromModule: 'ochd', fromPort: 'out1', toModule: 'cmp2', toPort: 'in1' },
+                { fromModule: 'ochd', fromPort: 'out3', toModule: 'cmp2', toPort: 'in2' },
+                { fromModule: 'cmp2', fromPort: 'or', toModule: 'adsr', toPort: 'gate' },
+                { fromModule: 'adsr', fromPort: 'env', toModule: 'vca', toPort: 'ch1CV' },
+                { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'L' },
+                { fromModule: 'vca', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
+            ]));
+        });
+
+        it('Test - Probability Sequencer uses a ringing polyphonic voice', () => {
+            const patch = FACTORY_PATCHES['Test - Probability Sequencer'];
+
+            expect(patch.state.modules.some(module => module.id === 'hat')).toBe(false);
+            expect(patch.state.params.pluck).toEqual({
+                pitch: 0.46,
+                decay: 0.52,
+                damp: 0.68,
+                position: 0.38
+            });
+            expect(patch.state.cables).toEqual(expect.arrayContaining([
+                { fromModule: 'probSeq', fromPort: 'gate', toModule: 'pluck', toPort: 'trigger' },
+                { fromModule: 'pluck', fromPort: 'out', toModule: 'out', toPort: 'L' },
+                { fromModule: 'pluck', fromPort: 'out', toModule: 'out', toPort: 'R' }
+            ]));
+        });
+
         it('Test - Changes + Cascade locks the intended shared-clock pitch and articulation wiring', () => {
             const patch = FACTORY_PATCHES['Test - Changes + Cascade'];
             const moduleIds = new Set(['changes', 'cascade']);

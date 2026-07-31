@@ -1,6 +1,7 @@
 /**
  * Test - Probability Sequencer
- * Probability, conditional steps, and ratchets driving a closed hi-hat.
+ * Probability, conditional steps, and ratchets excite a polyphonic plucked
+ * string so each accepted trigger has an audible tail.
  */
 export default {
     name: 'Test - Probability Sequencer',
@@ -11,7 +12,7 @@ export default {
         modules: [
             { id: 'clk', type: 'clk', row: 1, index: 0 },
             { id: 'probSeq', type: 'prob-seq', row: 1, index: 1 },
-            { id: 'hat', type: 'hat', row: 1, index: 2 },
+            { id: 'pluck', type: 'pluck', row: 1, index: 2 },
             { id: 'scope', type: 'scope', row: 1, index: 3 },
             { id: 'out', type: 'out', row: 1, index: 4 }
         ],
@@ -35,10 +36,11 @@ export default {
                     { enabled: 1, probability: 92, ratchets: 6, condition: 10 }
                 ]
             },
-            hat: {
-                decay: 0.26,
-                sizzle: 0.72,
-                blend: 0.64
+            pluck: {
+                pitch: 0.46,
+                decay: 0.52,
+                damp: 0.68,
+                position: 0.38
             },
             scope: {
                 time: 0.24,
@@ -50,16 +52,16 @@ export default {
                 mode: 0
             },
             out: {
-                volume: 0.55
+                volume: 0.68
             }
         },
         cables: [
             { fromModule: 'clk', fromPort: 'clock', toModule: 'probSeq', toPort: 'clock' },
-            { fromModule: 'probSeq', fromPort: 'gate', toModule: 'hat', toPort: 'trigClosed' },
+            { fromModule: 'probSeq', fromPort: 'gate', toModule: 'pluck', toPort: 'trigger' },
             { fromModule: 'probSeq', fromPort: 'gate', toModule: 'scope', toPort: 'in1' },
             { fromModule: 'probSeq', fromPort: 'eoc', toModule: 'scope', toPort: 'in2' },
-            { fromModule: 'hat', fromPort: 'out', toModule: 'out', toPort: 'L' },
-            { fromModule: 'hat', fromPort: 'out', toModule: 'out', toPort: 'R' }
+            { fromModule: 'pluck', fromPort: 'out', toModule: 'out', toPort: 'L' },
+            { fromModule: 'pluck', fromPort: 'out', toModule: 'out', toPort: 'R' }
         ],
         midiMappings: {}
     }

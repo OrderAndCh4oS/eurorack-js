@@ -835,13 +835,16 @@ boundaries.
   `src/js/rack/core-definitions.js`; preserve uninterrupted aliases and bump
   the shared graph revision in `audio/worklet-engine.js`,
   `audio/worklet/processor.js`, and `audio/worklet/core-plugin.js`.
-- **Factory patch:** “Test Probability Sequencer”: `clk.clock` fans out to
-  `prob-seq.clock`; `prob-seq.gate` fans out to `hat.trigClosed` and
-  `scope.in1`; `prob-seq.eoc` goes to `scope.in2`; `hat.out` fans out to
-  `out.L` and `out.R`. Reinspect these exact source-defined ports during
-  implementation before committing the patch. Use varied persisted step
-  probabilities, ratchets, and A:B/PRE conditions so the patch demonstrates
-  the module rather than an all-100% clock copy.
+- **Factory patch:** “Test Probability Sequencer”: `clk.clock` feeds
+  `prob-seq.clock`; `prob-seq.gate` fans out to `pluck.trigger` and `scope.in1`;
+  `prob-seq.eoc` goes to `scope.in2`; `pluck.out` fans out to `out.L` and
+  `out.R`. The four-voice Karplus-Strong source lets accepted triggers and
+  ratchets ring beyond the sequencer's short trigger pulse without the jarring
+  closed-hi-hat transient used by the first audition patch. Reinspect these
+  exact source-defined ports during implementation before committing the
+  patch. Use varied persisted step probabilities, ratchets, and A:B/PRE
+  conditions so the patch demonstrates the module rather than an all-100%
+  clock copy.
 - **Documentation:** add `prob-seq` to AGENTS.md's available modules and the
   README module table. Update `docs/creating-modules.md` only if implementation
   exposes a genuinely reusable structured-step/transaction pattern not already

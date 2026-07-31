@@ -176,6 +176,81 @@ test('runs both Shimmer comparison routes with active wet and pitched tails', as
     expect(pageErrors).toEqual([]);
 });
 
+test('runs the Vocoder broadband patch and exposes its direct Sibilance path', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.host);
+    await page.locator('#patchSelect').selectOption('Test - Vocoder');
+    await page.locator('#loadPatch').click();
+    await page.waitForFunction(() => window.eurorackApp.state.getModule('modMix'));
+    await page.locator('#startButton').click();
+
+    await expect.poll(() => page.evaluate(() => {
+        const state = window.eurorackApp.state;
+        return {
+            noise: state.getModule('noise')?.instance?.leds?.active > 0.01,
+            modulator: state.getModule('modMix')?.instance?.leds?.level > 0.01,
+            analysis: state.getModule('vocoder')?.instance?.leds?.analysis > 0.01,
+            carrier: state.getModule('vocoder')?.instance?.leds?.carrier > 0.01,
+            output: state.getModule('vocoder')?.instance?.leds?.output > 0.01
+        };
+    }), { timeout: 10_000 }).toEqual({
+        noise: true,
+        modulator: true,
+        analysis: true,
+        carrier: true,
+        output: true
+    });
+
+    await page.evaluate(() => {
+        window.eurorackApp.setParam('vocoder', 'carrierGain', 0);
+        window.eurorackApp.setParam('vocoder', 'sibilance', 0);
+    });
+    await expect.poll(() => (
+        page.evaluate(() => window.eurorackApp.state.getModule('vocoder')?.instance?.leds?.output)
+    ), { timeout: 10_000 }).toBeLessThan(0.001);
+
+    await page.evaluate(() => window.eurorackApp.setParam('vocoder', 'sibilance', 1));
+    await expect.poll(() => (
+        page.evaluate(() => window.eurorackApp.state.getModule('vocoder')?.instance?.leds?.output)
+    ), { timeout: 10_000 }).toBeGreaterThan(0.01);
+
+    await page.locator('#startButton').click();
+    expect(pageErrors).toEqual([]);
+});
+
+test('runs Probability Sequencer with a Pluck tail beyond its trigger', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.host);
+    await page.locator('#patchSelect').selectOption('Test - Probability Sequencer');
+    await page.locator('#loadPatch').click();
+    await page.waitForFunction(() => window.eurorackApp.state.getModule('pluck'));
+    await page.locator('#startButton').click();
+
+    await expect.poll(() => page.evaluate(() => ({
+        pluck: window.eurorackApp.state.getModule('pluck')?.instance?.leds?.active > 0.01,
+        left: window.eurorackApp.state.getModule('out')?.instance?.leds?.L > 0.001,
+        right: window.eurorackApp.state.getModule('out')?.instance?.leds?.R > 0.001
+    })), { timeout: 10_000 }).toEqual({ pluck: true, left: true, right: true });
+
+    await page.evaluate(() => window.eurorackApp.setParam('clk', 'pause', 1));
+    await page.waitForTimeout(100);
+    const tail = await page.evaluate(() => ({
+        left: window.eurorackApp.state.getModule('out')?.instance?.leds?.L,
+        right: window.eurorackApp.state.getModule('out')?.instance?.leds?.R
+    }));
+    expect(tail.left).toBeGreaterThan(0.0001);
+    expect(tail.right).toBeGreaterThan(0.0001);
+
+    await page.locator('#startButton').click();
+    expect(pageErrors).toEqual([]);
+});
+
 test('themes Reset, Mutate, and Recall actions in every rack theme and mode', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));

@@ -741,18 +741,36 @@ IIR/follower settling; do not mistake follower attack for routing latency.
   `src/js/config/patches/test-vocoder.js`, import/export it in the patch index,
   and use verified ports:
   `clk.clock -> kick.trigger`,
-  `kick.out -> vocoder.modulator`,
+  `clk.clock -> noise.trigger`,
+  `kick.out + noise.noise -> modMix -> vocoder.modulator`,
   `vco.ramp -> vocoder.carrier`,
   `vocoder.out -> spectrum.audio`,
   `spectrum.out -> out.L`, and
   `vocoder.out -> out.R`.
   This makes the clocked kick envelope a clearly audible/visible modulation of
-  a rich ramp carrier.
+  a rich ramp carrier while clocked, enveloped wide-band noise supplies the
+  high-frequency modulator energy required to audition SIBILANCE.
 - **Factory-patch validation**:
   `npm test -- tests/config/factory-patches.test.js tests/app/patch-format.test.js`.
 - **DSP audit**:
   `npm run audit:dsp -- --module vocoder --matrix --strict-voltage`.
 - **Full validation command before merge**: `npm test`.
+
+### Factory-patch Sibilance audit (2026-07-31)
+
+SIBILANCE is not a broadband brightness control: it directly adds the
+modulator above a 5 kHz high-pass to the wet output. A 48 kHz,
+128-sample-block, 10-second render confirmed that the original kick-only
+modulator had insufficient energy in that range. Moving SIBILANCE from 0 to 1
+added only 0.002 V RMS, 51.2 dB below the 0.725 V RMS vocoder output and
+therefore effectively inaudible despite correct DSP behavior.
+
+The revised factory patch mixes a clock-triggered NSE burst with the kick. At
+65% kick and 35% noise mixer levels, the modulator measures 0.938 V RMS and the
+carrier 2.873 V RMS. SIBILANCE 0 produces 0.735 V RMS; its 0-to-1 contribution
+is 0.209 V RMS, only 10.9 dB below the main wet output, while the combined
+result remains inside the +/-5 V output contract. This makes the named control
+audible without changing its researched 5 kHz path or gain law.
 - **Documentation**: add `vocoder` to the available-module lists/table in
   `AGENTS.md` and `README.md`. Update `docs/creating-modules.md` only if
   implementation discovers a genuinely reusable pattern.

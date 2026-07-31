@@ -4,7 +4,7 @@
  * Demonstrates the dual window comparator extracting gates from LFOs.
  * øchd provides organic modulation, CMP2 converts to rhythmic gates.
  * OR output gives longer sustained gates for smoother sound.
- * Asymmetric windows (shift1=-1, shift2=+1) create interesting rhythms.
+ * Asymmetric negative-centered windows create overlapping rhythmic gates.
  */
 export default {
     "name": "Test - CMP2",
@@ -58,7 +58,8 @@ export default {
         ],
         "params": {
             "ochd": {
-                "rate": 0.67
+                "rate": 0.45,
+                "rateCvAmt": 1
             },
             "cmp2": {
                 "shift1": -0.3333333333333339,
@@ -77,9 +78,9 @@ export default {
             },
             "adsr": {
                 "attack": 0,
-                "decay": 0.31333333333333335,
-                "sustain": 0.04666666666666667,
-                "release": 0.29333333333333333
+                "decay": 0.5866666666666668,
+                "sustain": 0.05333333333333334,
+                "release": 0.7266666666666666
             },
             "vca": {
                 "ch1Gain": 0.7533333333333334,

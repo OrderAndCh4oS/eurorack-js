@@ -205,6 +205,16 @@ When Size is negative (or CV pushes it negative), the window is "inverted" - the
 5. **Voltage-controlled swing**: Modulate Shift with slow LFO to vary when gates fire
 6. **Audio-rate digital ring mod**: Feed two audio signals, use XOR output
 
+## Factory Patch
+
+`Test - CMP2` uses OCHD outputs 1 and 3 as independent bipolar inputs for the
+two windows, then sends CMP2 OR to an ADSR controlling a filtered triangle
+voice. The audition settings use OCHD Rate 0.45 with unity Rate CV amount and a
+longer 0.587 decay / 0.727 release envelope so the comparator's changing gate
+durations remain audible rather than producing isolated clicks. CMP2 windows
+remain centered at approximately -0.333 V and -1.267 V with widths 2.73 V and
+3.27 V respectively. The VCA fans out legally to both OUT channels.
+
 ## DSP Audit (2026-07-11)
 
 - **Runtime matrix**: deterministic stimulus completed at 44.1, 48, and 96 kHz with 128- and 512-sample blocks; outputs were finite and input/output buffer identities remained stable.

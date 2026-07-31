@@ -39,11 +39,13 @@ describe('cable endpoint dragging', () => {
 
         app.startCableDrag(toEl, { clientX: 130, clientY: 30, shiftKey: false, ctrlKey: false, metaKey: false });
         expect(cable.pathEl.classList.contains('cable-detached')).toBe(true);
+        expect(document.body.classList.contains('cable-drag-active')).toBe(true);
         app.endCableDrag(toEl);
 
         expect(remove).not.toHaveBeenCalled();
         expect(cable.pathEl.classList.contains('cable-detached')).toBe(false);
         expect(app.dragState).toBeNull();
+        expect(document.body.classList.contains('cable-drag-active')).toBe(false);
     });
 
     it('commits an endpoint move only after a valid drag', () => {
@@ -121,6 +123,7 @@ describe('cable endpoint dragging', () => {
         expect(cable.pathEl.classList.contains('cable-detached')).toBe(false);
         expect(app.dragState).toBeNull();
         expect(app.previewPath).toBeNull();
+        expect(document.body.classList.contains('cable-drag-active')).toBe(false);
     });
 
     it('moves a source end when its connected output is dragged', () => {

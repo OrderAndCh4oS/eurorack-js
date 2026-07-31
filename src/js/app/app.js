@@ -26,6 +26,7 @@ export const PATCH_EXPORT_SCHEMA = 'eurorack-js/patch-export';
 export const PATCH_EXPORT_VERSION = 1;
 export const THEME_STORAGE_KEY = 'eurorack-theme';
 export const THEME_MODE_STORAGE_KEY = 'eurorack-theme-mode';
+export const CABLE_OPACITY_STORAGE_KEY = 'eurorack-cables-full-opacity';
 const CABLE_DRAG_THRESHOLD_PX = 4;
 
 function isPlainObject(value) {
@@ -196,6 +197,7 @@ export class EurorackApp {
         this.ctrlClickCycleIndex = 0;
         this.theme = 'industrial';
         this.themeMode = 'light';
+        this.cablesFullOpacity = true;
         this.patchWorkbench = null;
     }
 
@@ -203,6 +205,7 @@ export class EurorackApp {
         await this.host.init();
         this.cacheElements();
         this.applySavedSkin();
+        this.applySavedCableOpacity();
         this.populateSidebar();
         this.host.subscribe(event => {
             if (event.type === 'registry') this.populateSidebar();
@@ -228,6 +231,7 @@ export class EurorackApp {
         this.startButton = this.document.getElementById('startButton');
         this.themeSelect = this.document.getElementById('themeSelect');
         this.themeModeToggle = this.document.getElementById('themeModeToggle');
+        this.cableOpacityToggle = this.document.getElementById('cableOpacityToggle');
         this.syncRowElements();
     }
 
@@ -389,6 +393,7 @@ export class EurorackApp {
         this.document.getElementById('midiDrumControllerBtn').addEventListener('click', () => this.openMidiTool('midi-drum-controller.html'));
         this.themeSelect?.addEventListener('change', event => this.setTheme(event.target.value));
         this.themeModeToggle?.addEventListener('click', () => this.toggleThemeMode());
+        this.cableOpacityToggle?.addEventListener('click', () => this.toggleCableOpacity());
         this.document.getElementById('addRackRow')?.addEventListener('click', () => this.addRackRow());
         this.document.getElementById('removeRackRow')?.addEventListener('click', () => this.removeRackRow());
     }
@@ -408,6 +413,37 @@ export class EurorackApp {
         }
         this.setTheme(savedTheme, { persist: false, render: false });
         this.setThemeMode(savedMode, { persist: false });
+    }
+
+    applySavedCableOpacity() {
+        let fullOpacity = true;
+        try {
+            fullOpacity = localStorage.getItem(CABLE_OPACITY_STORAGE_KEY) !== 'false';
+        } catch {
+            fullOpacity = true;
+        }
+        this.setCableOpacity(fullOpacity, { persist: false });
+    }
+
+    setCableOpacity(fullOpacity, { persist = true } = {}) {
+        this.cablesFullOpacity = fullOpacity !== false;
+        this.document.body.classList.toggle('cables-dimmed', !this.cablesFullOpacity);
+        if (this.cableOpacityToggle) {
+            this.cableOpacityToggle.classList.toggle('active', this.cablesFullOpacity);
+            this.cableOpacityToggle.textContent = this.cablesFullOpacity ? 'Cables: Full' : 'Cables: Dim';
+            this.cableOpacityToggle.setAttribute('aria-pressed', this.cablesFullOpacity ? 'true' : 'false');
+        }
+        if (persist) {
+            try {
+                localStorage.setItem(CABLE_OPACITY_STORAGE_KEY, String(this.cablesFullOpacity));
+            } catch {
+                // Ignore storage failures; opacity still applies for this session.
+            }
+        }
+    }
+
+    toggleCableOpacity() {
+        this.setCableOpacity(!this.cablesFullOpacity);
     }
 
     setTheme(theme, { persist = true, render = true } = {}) {
@@ -784,6 +820,7 @@ export class EurorackApp {
             };
             this.createCablePreview(color);
         }
+        this.document.body.classList.add('cable-drag-active');
         this.updateCablePreview(event);
     }
 
@@ -841,6 +878,7 @@ export class EurorackApp {
         }
 
         this.dragState = null;
+        this.document.body.classList.remove('cable-drag-active');
     }
 
     cancelCableDrag() {
@@ -848,6 +886,7 @@ export class EurorackApp {
         this.previewPath = null;
         this.dragState?.detachedCable?.pathEl?.classList.remove('cable-detached');
         this.dragState = null;
+        this.document.body.classList.remove('cable-drag-active');
     }
 
     addCable(fromJack, toJack, { color = null, updateState = true, cableState = null } = {}) {

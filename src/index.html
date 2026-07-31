@@ -495,10 +495,19 @@
             stroke-width: 4;
             stroke-linecap: round;
             filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+            transition: opacity 120ms ease;
+        }
+
+        body.cables-dimmed .cable:not(.cable-preview) {
+            opacity: 0.25;
+        }
+
+        body.cable-drag-active .cable:not(.cable-preview) {
+            opacity: 0.25;
         }
 
         .cable-preview {
-            opacity: 0.6;
+            opacity: 1;
             stroke-dasharray: 8 4;
         }
 
@@ -789,14 +798,24 @@
             font-size: 11px;
             color: #666;
             display: flex;
+            flex-direction: column;
             flex: 0 1 auto;
-            flex-wrap: wrap;
-            align-items: center;
+            align-items: flex-end;
             gap: 8px;
             justify-content: flex-end;
             min-width: 0;
             padding: 0;
             z-index: 1;
+        }
+
+        .footer-cable-row,
+        .footer-theme-row {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-end;
+            min-width: 0;
         }
 
         .app-footer .footer-control {
@@ -2023,14 +2042,26 @@
                 Right-click or drop cable on empty space to remove
             </div>
             <footer class="app-footer">
-                <label class="footer-control" for="themeSelect">Theme</label>
-                <select id="themeSelect" title="Select app theme">
-                    <option value="industrial" selected>Industrial</option>
-                    <option value="classic">Classic</option>
-                </select>
-                <button id="themeModeToggle" type="button" title="Toggle dark mode" aria-pressed="false">Dark: Off</button>
-                <a href="./system-architecture.html" target="_blank" rel="noopener noreferrer">Architecture</a>
-                <a href="https://github.com/OrderAndCh4oS/eurorack-js" target="_blank" rel="noopener noreferrer">GitHub repo</a>
+                <div class="footer-cable-row">
+                    <button
+                        id="cableOpacityToggle"
+                        class="active"
+                        type="button"
+                        title="Dim or restore patch cables without changing connections"
+                        aria-controls="cable-svg"
+                        aria-pressed="true"
+                    >Cables: Full</button>
+                </div>
+                <div class="footer-theme-row">
+                    <label class="footer-control" for="themeSelect">Theme</label>
+                    <select id="themeSelect" title="Select app theme">
+                        <option value="industrial" selected>Industrial</option>
+                        <option value="classic">Classic</option>
+                    </select>
+                    <button id="themeModeToggle" type="button" title="Toggle dark mode" aria-pressed="false">Dark: Off</button>
+                    <a href="./system-architecture.html" target="_blank" rel="noopener noreferrer">Architecture</a>
+                    <a href="https://github.com/OrderAndCh4oS/eurorack-js" target="_blank" rel="noopener noreferrer">GitHub repo</a>
+                </div>
             </footer>
         </div>
     </div>

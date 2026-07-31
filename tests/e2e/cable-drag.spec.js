@@ -1,5 +1,74 @@
 import { expect, test } from '@playwright/test';
 
+test('toggles cable opacity above the theme controls without changing connections', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.host);
+    await page.locator('#patchSelect').selectOption('Test - Chorus');
+    await page.locator('#loadPatch').click();
+    await page.waitForFunction(() => window.eurorackApp.state.getModule('chorus'));
+
+    const toggle = page.locator('#cableOpacityToggle');
+    const themeRow = page.locator('.footer-theme-row');
+    const cables = page.locator('#cable-svg .cable');
+    const before = await page.evaluate(() => structuredClone(window.eurorackApp.state.cables));
+    const toggleBox = await toggle.boundingBox();
+    const themeBox = await themeRow.boundingBox();
+
+    expect(toggleBox.y + toggleBox.height).toBeLessThanOrEqual(themeBox.y);
+    await expect(toggle).toHaveText('Cables: Full');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(cables.first()).toHaveCSS('opacity', '1');
+
+    const dragSource = page.locator('.jack.output[data-module="vco"][data-port="triangle"]');
+    const dragSourceBox = await dragSource.boundingBox();
+    await page.mouse.move(
+        dragSourceBox.x + dragSourceBox.width / 2,
+        dragSourceBox.y + dragSourceBox.height / 2
+    );
+    await page.mouse.down();
+
+    await expect(page.locator('body')).toHaveClass(/cable-drag-active/);
+    await expect(page.locator('#cable-svg .cable-preview')).toHaveCSS('opacity', '1');
+    await expect(
+        page.locator('#cable-svg .cable:not(.cable-preview):not(.cable-detached)').first()
+    ).toHaveCSS('opacity', '0.25');
+
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    await expect(page.locator('body')).not.toHaveClass(/cable-drag-active/);
+    await expect(cables.first()).toHaveCSS('opacity', '1');
+
+    await toggle.click();
+
+    await expect(toggle).toHaveText('Cables: Dim');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('body')).toHaveClass(/cables-dimmed/);
+    await expect(cables.first()).toHaveCSS('opacity', '0.25');
+    expect(await page.evaluate(() => window.eurorackApp.state.cables)).toEqual(before);
+
+    await dragSource.scrollIntoViewIfNeeded();
+    const dimDragSourceBox = await dragSource.boundingBox();
+    await page.mouse.move(
+        dimDragSourceBox.x + dimDragSourceBox.width / 2,
+        dimDragSourceBox.y + dimDragSourceBox.height / 2
+    );
+    await page.mouse.down();
+    await expect(page.locator('#cable-svg .cable-preview')).toHaveCSS('opacity', '1');
+    await expect(
+        page.locator('#cable-svg .cable:not(.cable-preview):not(.cable-detached)').first()
+    ).toHaveCSS('opacity', '0.25');
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(cables.first()).toHaveCSS('opacity', '0.25');
+
+    await toggle.click();
+
+    await expect(toggle).toHaveText('Cables: Full');
+    await expect(cables.first()).toHaveCSS('opacity', '1');
+    expect(await page.evaluate(() => window.eurorackApp.state.cables)).toEqual(before);
+});
+
 test('connected cable ends can be preserved, moved, and extended with Shift', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);

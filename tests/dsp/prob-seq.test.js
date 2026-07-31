@@ -175,21 +175,26 @@ describe('prob-seq', () => {
             expect(dsp.leds.pending).toBe(0);
         });
 
-        it('normalizes malformed restored params and structured steps during hydration', () => {
-            const dsp = createProbSeq({
-                params: {
-                    seed: Number.NaN,
-                    length: Number.POSITIVE_INFINITY,
-                    fallbackBpm: Number.NEGATIVE_INFINITY,
-                    steps: [
-                        { enabled: 0, probability: 42.6, ratchets: 99, condition: 3 },
-                        null
-                    ]
-                }
+        it('normalizes hydration into one preallocated structured-step buffer', () => {
+            const dsp = probSeqModule.createDSP({ sampleRate: 1000, bufferSize: 64 });
+            const stepBuffer = dsp.params.steps;
+            const stepRecords = [...stepBuffer];
+            Object.assign(dsp.params, {
+                seed: Number.NaN,
+                length: Number.POSITIVE_INFINITY,
+                fallbackBpm: Number.NEGATIVE_INFINITY,
+                steps: [
+                    { enabled: 0, probability: 42.6, ratchets: 99, condition: 3 },
+                    null
+                ]
             });
 
             processBlock(dsp);
 
+            expect(dsp.params.steps).toBe(stepBuffer);
+            stepRecords.forEach((record, index) => {
+                expect(dsp.params.steps[index]).toBe(record);
+            });
             expect(dsp.params).toEqual({
                 seed: 0,
                 length: 8,
@@ -198,6 +203,15 @@ describe('prob-seq', () => {
                     0: { enabled: 0, probability: 43, ratchets: 8, condition: 3 }
                 })
             });
+
+            dsp.reset();
+            dsp.params.steps = steps({ 0: { probability: 21 } });
+            processBlock(dsp);
+            expect(dsp.params.steps).toBe(stepBuffer);
+            stepRecords.forEach((record, index) => {
+                expect(dsp.params.steps[index]).toBe(record);
+            });
+            expect(dsp.params.steps[0].probability).toBe(21);
         });
     });
 

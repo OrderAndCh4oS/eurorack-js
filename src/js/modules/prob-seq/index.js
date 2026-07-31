@@ -9,6 +9,10 @@ const DEFAULT_BPM = 120;
 const DEFAULT_PROBABILITY = 100;
 const DEFAULT_RATCHETS = 1;
 const DEFAULT_CONDITION = 0;
+const STEP_LED_NAMES = Object.freeze([
+    'step1', 'step2', 'step3', 'step4',
+    'step5', 'step6', 'step7', 'step8'
+]);
 
 const CONDITION_LABELS = Object.freeze([
     'ALWAYS', 'PRE', 'NOT PRE', 'FILL', 'NOT FILL',
@@ -63,18 +67,24 @@ function sanitizedStepField(record, field) {
     return finiteInteger(record.condition, DEFAULT_CONDITION, 0, 10);
 }
 
-function sanitizeSteps(value) {
-    const sanitized = new Array(STEP_COUNT);
+function sanitizeStepsInto(value, target) {
     for (let index = 0; index < STEP_COUNT; index++) {
         const record = stepRecordAt(value, index);
-        sanitized[index] = {
-            enabled: sanitizedStepField(record, 'enabled'),
-            probability: sanitizedStepField(record, 'probability'),
-            ratchets: sanitizedStepField(record, 'ratchets'),
-            condition: sanitizedStepField(record, 'condition')
-        };
+        const enabled = sanitizedStepField(record, 'enabled');
+        const probability = sanitizedStepField(record, 'probability');
+        const ratchets = sanitizedStepField(record, 'ratchets');
+        const condition = sanitizedStepField(record, 'condition');
+        const targetRecord = target[index];
+        targetRecord.enabled = enabled;
+        targetRecord.probability = probability;
+        targetRecord.ratchets = ratchets;
+        targetRecord.condition = condition;
     }
-    return sanitized;
+    return target;
+}
+
+function sanitizeSteps(value) {
+    return sanitizeStepsInto(value, createDefaultSteps());
 }
 
 function conditionPasses(condition, priorBaseResult, fillHigh, cycleNumber) {
@@ -95,8 +105,7 @@ function conditionPasses(condition, priorBaseResult, fillHigh, cycleNumber) {
 
 const PROB_SEQ_UI = {
     leds: [
-        'step1', 'step2', 'step3', 'step4',
-        'step5', 'step6', 'step7', 'step8',
+        ...STEP_LED_NAMES,
         'hit', 'miss', 'eoc', 'pending'
     ],
     knobs: [
@@ -374,6 +383,7 @@ export default {
         };
         const prng = createPcg32(DEFAULT_SEED);
         const ratchetStarts = new Float64Array(STEP_COUNT);
+        const sanitizedSteps = createDefaultSteps();
 
         let hydrated = false;
         let sampleCursor = 0;
@@ -408,7 +418,7 @@ export default {
                 seed: DEFAULT_SEED,
                 length: DEFAULT_LENGTH,
                 fallbackBpm: DEFAULT_BPM,
-                steps: createDefaultSteps()
+                steps: sanitizedSteps
             },
             inputs,
             outputs,
@@ -427,7 +437,8 @@ export default {
                     this.params.seed = requestedSeed;
                     this.params.length = requestedLength;
                     this.params.fallbackBpm = fallbackBpm;
-                    this.params.steps = sanitizeSteps(this.params.steps);
+                    sanitizeStepsInto(this.params.steps, sanitizedSteps);
+                    this.params.steps = sanitizedSteps;
                     activeSeedValue = requestedSeed;
                     activeLengthValue = requestedLength;
                     prng.reseed(activeSeedValue);
@@ -597,7 +608,7 @@ export default {
                 }
 
                 for (let index = 0; index < STEP_COUNT; index++) {
-                    leds[`step${index + 1}`] = index === currentStep && index < activeLengthValue ? 1 : 0;
+                    leds[STEP_LED_NAMES[index]] = index === currentStep && index < activeLengthValue ? 1 : 0;
                 }
                 leds.hit = hitHoldRemaining > 0 ? 1 : 0;
                 leds.miss = missHoldRemaining > 0 ? 1 : 0;

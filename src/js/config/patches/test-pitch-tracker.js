@@ -4,6 +4,8 @@
  * A sequenced source voice is converted back to held 1 V/oct pitch and a
  * validity gate. The original voice is heard on the left, the resynthesized
  * tracked voice on the right, and SCOPE displays Pitch CV beside the lock gate.
+ * SOURCE LEVEL deliberately attenuates the continuous analysis signal so the
+ * tracker's MIN LEVEL threshold has an obvious lock/unlock range.
  */
 export default {
     name: 'Test - Pitch Tracker',
@@ -15,7 +17,8 @@ export default {
             { id: 'clock', type: 'clk', row: 1, index: 0 },
             { id: 'sequencer', type: 'seq', row: 1, index: 1 },
             { id: 'sourceOscillator', type: 'vco', row: 1, index: 2 },
-            { id: 'tracker', type: 'pitch-track', row: 1, index: 3 },
+            { id: 'sourceLevel', type: 'vca', row: 1, index: 3 },
+            { id: 'tracker', type: 'pitch-track', row: 1, index: 4 },
             { id: 'trackedOscillator', type: 'vco', row: 2, index: 0 },
             { id: 'trackedAmplifier', type: 'vca', row: 2, index: 1 },
             { id: 'scope', type: 'scope', row: 2, index: 2 },
@@ -49,6 +52,7 @@ export default {
                 fine: 0,
                 glide: 0
             },
+            sourceLevel: { ch1Gain: 0.04, ch2Gain: 0 },
             tracker: { level: 0.5, smooth: 15, range: 0 },
             trackedOscillator: {
                 coarse: 0.48105520203391067,
@@ -70,7 +74,8 @@ export default {
         cables: [
             { fromModule: 'clock', fromPort: 'clock', toModule: 'sequencer', toPort: 'clock' },
             { fromModule: 'sequencer', fromPort: 'cv', toModule: 'sourceOscillator', toPort: 'vOct' },
-            { fromModule: 'sourceOscillator', fromPort: 'triangle', toModule: 'tracker', toPort: 'audio' },
+            { fromModule: 'sourceOscillator', fromPort: 'triangle', toModule: 'sourceLevel', toPort: 'ch1In' },
+            { fromModule: 'sourceLevel', fromPort: 'ch1Out', toModule: 'tracker', toPort: 'audio' },
             { fromModule: 'sourceOscillator', fromPort: 'triangle', toModule: 'out', toPort: 'L' },
             { fromModule: 'tracker', fromPort: 'pitch', toModule: 'trackedOscillator', toPort: 'vOct' },
             { fromModule: 'tracker', fromPort: 'gate', toModule: 'trackedAmplifier', toPort: 'ch1CV' },

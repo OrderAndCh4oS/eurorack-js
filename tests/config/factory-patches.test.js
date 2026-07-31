@@ -201,9 +201,10 @@ describe('factory-patches', () => {
         it('Test - Pitch Tracker keeps analysis continuous and exposes pitch plus lock', () => {
             const patch = FACTORY_PATCHES['Test - Pitch Tracker'];
 
-            expect(patch.state.modules.some(module => module.id === 'sourceAmplifier')).toBe(false);
+            expect(patch.state.params.sourceLevel).toEqual({ ch1Gain: 0.04, ch2Gain: 0 });
             expect(patch.state.cables).toEqual(expect.arrayContaining([
-                { fromModule: 'sourceOscillator', fromPort: 'triangle', toModule: 'tracker', toPort: 'audio' },
+                { fromModule: 'sourceOscillator', fromPort: 'triangle', toModule: 'sourceLevel', toPort: 'ch1In' },
+                { fromModule: 'sourceLevel', fromPort: 'ch1Out', toModule: 'tracker', toPort: 'audio' },
                 { fromModule: 'sourceOscillator', fromPort: 'triangle', toModule: 'out', toPort: 'L' },
                 { fromModule: 'tracker', fromPort: 'pitch', toModule: 'scope', toPort: 'in1' },
                 { fromModule: 'tracker', fromPort: 'gate', toModule: 'scope', toPort: 'in2' },
@@ -211,14 +212,20 @@ describe('factory-patches', () => {
             ]));
         });
 
-        it('Test - Shimmer makes both routing modes audible for direct comparison', () => {
+        it('Test - Shimmer mixes both complete stereo routing modes to output', () => {
             const patch = FACTORY_PATCHES['Test - Shimmer'];
 
             expect(patch.state.params.inputShimmer).toMatchObject({ route: 0, mix: 0.72 });
             expect(patch.state.params.regenShimmer).toMatchObject({ route: 1, mix: 0.72 });
+            expect(patch.state.params.leftMix).toEqual({ lvl1: 0.5, lvl2: 0.5, lvl3: 0, lvl4: 0 });
+            expect(patch.state.params.rightMix).toEqual({ lvl1: 0.5, lvl2: 0.5, lvl3: 0, lvl4: 0 });
             expect(patch.state.cables).toEqual(expect.arrayContaining([
-                { fromModule: 'inputShimmer', fromPort: 'outL', toModule: 'out', toPort: 'L' },
-                { fromModule: 'regenShimmer', fromPort: 'outR', toModule: 'out', toPort: 'R' }
+                { fromModule: 'inputShimmer', fromPort: 'outL', toModule: 'leftMix', toPort: 'in1' },
+                { fromModule: 'regenShimmer', fromPort: 'outL', toModule: 'leftMix', toPort: 'in2' },
+                { fromModule: 'inputShimmer', fromPort: 'outR', toModule: 'rightMix', toPort: 'in1' },
+                { fromModule: 'regenShimmer', fromPort: 'outR', toModule: 'rightMix', toPort: 'in2' },
+                { fromModule: 'leftMix', fromPort: 'out', toModule: 'out', toPort: 'L' },
+                { fromModule: 'rightMix', fromPort: 'out', toModule: 'out', toPort: 'R' }
             ]));
         });
 

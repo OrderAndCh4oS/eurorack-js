@@ -153,7 +153,7 @@ describe('pitch-track', () => {
             expect(pitchTrackModule.handleWorkletEvent).toBeUndefined();
             expect(pitchTrackModule.ui.state).toBeUndefined();
             expect(pitchTrackModule.ui.knobs).toEqual([
-                { id: 'level', label: 'LEVEL', param: 'level', min: 0, max: 1, default: 0.5 },
+                { id: 'level', label: 'MIN LEVEL', param: 'level', min: 0, max: 1, default: 0.5 },
                 { id: 'smooth', label: 'SMOOTH', param: 'smooth', min: 0, max: 250, default: 15 }
             ]);
             expect(pitchTrackModule.ui.switches).toEqual([

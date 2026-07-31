@@ -124,6 +124,16 @@ test('runs the Pitch Tracker audition and exposes valid pitch and gate activity'
             && scope?.displayBuffer2?.some(sample => sample >= 9);
     }, null, { timeout: 10_000 });
 
+    await page.evaluate(() => window.eurorackApp.setParam('tracker', 'level', 1));
+    await expect.poll(() => (
+        page.evaluate(() => window.eurorackApp.state.getModule('tracker')?.instance?.leds?.lock)
+    ), { timeout: 10_000 }).toBe(0);
+
+    await page.evaluate(() => window.eurorackApp.setParam('tracker', 'level', 0.5));
+    await expect.poll(() => (
+        page.evaluate(() => window.eurorackApp.state.getModule('tracker')?.instance?.leds?.lock)
+    ), { timeout: 10_000 }).toBe(1);
+
     await page.locator('#startButton').click();
     expect(pageErrors).toEqual([]);
 });
@@ -143,17 +153,23 @@ test('runs both Shimmer comparison routes with active wet and pitched tails', as
         const state = window.eurorackApp.state;
         const input = state.getModule('inputShimmer')?.instance;
         const regen = state.getModule('regenShimmer')?.instance;
+        const leftMix = state.getModule('leftMix')?.instance;
+        const rightMix = state.getModule('rightMix')?.instance;
         return {
             inputTail: input?.leds?.tail > 0.0001,
             inputPitched: input?.leds?.pitched > 0.0001,
             regenTail: regen?.leds?.tail > 0.0001,
-            regenPitched: regen?.leds?.pitched > 0.0001
+            regenPitched: regen?.leds?.pitched > 0.0001,
+            leftMix: leftMix?.leds?.level > 0.0001,
+            rightMix: rightMix?.leds?.level > 0.0001
         };
     }), { timeout: 10_000 }).toEqual({
         inputTail: true,
         inputPitched: true,
         regenTail: true,
-        regenPitched: true
+        regenPitched: true,
+        leftMix: true,
+        rightMix: true
     });
 
     await page.locator('#startButton').click();

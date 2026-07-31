@@ -858,11 +858,13 @@ are recorded here before merge.
   `src/js/config/patches/test-shimmer.js`. Use a simple external melodic or
   percussive stereo-capable source, route Shimmer to OUT and a visual analyzer,
   and set a clear REGEN octave default. The implemented comparison uses matched
-  INPUT and REGEN instances, sends INPUT to the left output and REGEN to the
-  right, and keeps a spectrum on each instance. A partly dry equal-power mix
-  and practical OUT gain make both paths immediately audible without hiding
-  their different tails. Inspect all actual source/analyzer/out port
-  definitions during implementation rather than guessing cable names.
+  INPUT and REGEN instances and keeps a spectrum on each instance. Two MIX
+  modules preserve the full stereo returns while respecting the rack's single-
+  cable-per-input rule: MIX channel 1 is INPUT and channel 2 is REGEN on both
+  sides, then the left and right sums feed OUT. A partly dry equal-power mix and
+  practical OUT gain make both paths immediately audible without hiding their
+  different tails. Inspect all actual source/analyzer/out port definitions
+  during implementation rather than guessing cable names.
 - **Registration:** add matching manifest and static core-definition entries,
   preserve sequential aliases/order, and bump the same core graph revision in
   `worklet-engine.js`, `processor.js`, and `core-plugin.js`.

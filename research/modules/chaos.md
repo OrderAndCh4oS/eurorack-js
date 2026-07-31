@@ -160,8 +160,9 @@ Output buffers are allocated once and completely filled in place on every
   with Rate at minimum plus `-5 V` CV. Later dwell times are intentionally
   unequal.
 - `reset()` (the lifecycle method) restores the same internal state and reset
-  edge detector, clears every output buffer to `0`, sets axis LEDs to `0.5`, and
-  sets `lobeLed` to `0`. It does not replace or clear routed input identities.
+  edge detector, fills all three stable input arrays with their declared `0 V`
+  normals in place, clears every output buffer to `0`, sets axis LEDs to `0.5`,
+  and sets `lobeLed` to `0`. It never replaces input or output identities.
 - A Reset input edge is sample-accurate: restore state before the RK4 advance for
   that sample, then emit the newly advanced coordinates and Lobe state.
 
@@ -298,8 +299,9 @@ below.
    `color: 'module-color-ten'`, and `category: 'modulation'`.
 2. DSP defaults exactly match UI defaults: `rate=0.5`, `character=1/3`,
    `depth=1`.
-3. Inputs are stable `Float32Array`s of `bufferSize`, initialized to `0 V`.
-   Outputs are separate stable `Float32Array`s of the same length.
+3. Inputs are stable `Float32Array`s of `bufferSize`, initialized to `0 V` and
+   restored to that normal in place by lifecycle reset. Outputs are separate
+   stable `Float32Array`s of the same length.
 4. No switch, button, action, `ui.state`, telemetry, runtime-state hook, event,
    PRNG, or custom renderer is declared.
 

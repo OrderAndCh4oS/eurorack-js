@@ -339,10 +339,11 @@ repeat draw = pcg32() until draw >= threshold
 return draw mod n
 ```
 
-The production implementation should use two unsigned 32-bit halves plus
-`Math.imul`, following the existing Refrain implementation, rather than
-allocating BigInts in the sample loop. Golden tests must lock the official
-PCG seed vectors, the first probability rolls for seeds 0 and 65535, bounded
+The production implementation must import the existing shared
+`createPcg32()` utility from `src/js/utils/pcg32.js`, which uses two unsigned
+32-bit halves plus `Math.imul`, rather than duplicating the generator or
+allocating BigInts in the sample loop. Golden tests must lock the official PCG
+seed vectors, the first probability rolls for seeds 0 and 65535, bounded
 rejection, and reset replay. This exact local contract wins over alternative
 PCG stream or seeding conventions.
 
@@ -388,6 +389,17 @@ PCG stream or seeding conventions.
   step and terminates its active gate pulse, then evaluates and schedules the
   newly entered step. Ratchets therefore cannot spill across a changed or
   unexpectedly early clock edge.
+- Ordinarily the preceding pulse is already low and a successful new step
+  starts on the clock sample. If an unexpectedly early clock arrives while
+  Gate is still high, that clock sample is forced low and the new initial
+  pulse starts one sample later. This preserves an observable rising edge for
+  downstream trigger detectors instead of merging two logical triggers into
+  one continuous high gate. Any ratchet rounded onto that delayed start
+  collapses into the same pulse.
+- A scheduled ratchet start is representable only when at least one low output
+  sample separates it from the preceding pulse. Starts on an already-high or
+  immediately adjacent sample collapse into that logical pulse; the scheduler
+  never extends a pulse merely to pretend an unobservable edge occurred.
 - A failed, disabled, or conditionally false step emits no initial or later
   ratchet.
 - Scheduling uses preallocated fixed-size arrays or scalar slots for at most
@@ -429,10 +441,11 @@ PCG stream or seeding conventions.
   clock immediately evaluates step 1 with the first post-seed result.
 - If Reset and Fill change on the same sample as Clock, the clock decision sees
   the new Fill level after reset handling.
-- `reset()` clears transport, edge histories, output buffers, LEDs, timers,
-  measured intervals, telemetry transients, and PRNG continuation while
+- `reset()` fills all four stable input arrays with their declared `0 V`
+  normals in place, clears transport, edge histories, output buffers, LEDs,
+  timers, measured intervals, telemetry transients, and PRNG continuation while
   preserving assigned params. It requests the same hydration transaction as a
-  newly created DSP instance.
+  newly created DSP instance and never replaces buffer identities.
 - First-process hydration is required because the worklet assigns persisted
   params after `createDSP()`:
 
@@ -511,7 +524,10 @@ Sanitization is field-local and finite:
 - non-finite length -> 8; otherwise round and clamp 1..8;
 - non-finite BPM -> 120; otherwise round and clamp 30..300;
 - missing/non-array steps -> the full default array;
-- invalid record -> default only that record;
+- a missing, array-valued, or non-object record -> default that whole record;
+- within an object record, an invalid field defaults only that field while
+  valid sibling fields survive;
+- records after index 7 are ignored; missing indexes through 7 are defaulted;
 - enable -> exactly 0 or 1 (`>=0.5` means 1);
 - probability -> round/clamp 0..100, default 100;
 - ratchets -> round/clamp 1..8, default 1;
@@ -549,7 +565,7 @@ expires. Every sample of every output buffer is overwritten in each
 | `hit` | 1 for 50 ms after a decision that emitted a gate. |
 | `miss` | 1 for 50 ms after a disabled, condition-false, or probability-false decision. |
 | `eoc` | Mirrors the EOC output pulse. |
-| `seedPending` | 1 while requested seed differs from active seed. |
+| `pending` | 1 while requested seed or requested length differs from its active value. |
 
 The custom renderer requires bounded telemetry:
 
@@ -599,7 +615,8 @@ transfer unbounded event data.
 4. If Clock rises, cancel stale Gate ratchets/pulse, determine startup,
    ordinary advance, or natural wrap, run any wrap transaction, choose the
    entered step, consume its fixed probability result, evaluate conditions,
-   update history/LED telemetry, and schedule a ratchet if it fires.
+   update history/LED telemetry, and schedule a ratchet if it fires. Preserve
+   one low sample before the new pulse only when the prior Gate was still high.
 5. Start any scheduled ratchet whose deadline is this sample.
 6. Render Gate and EOC from their integer remaining-sample counters.
 7. Update LED decay counters and overwrite every output sample.
@@ -704,10 +721,11 @@ boundaries.
 
 ### 5. PCG32
 
-- Official reference seeding/output vectors pass with two-half arithmetic.
-- Seeds 0 and 65535 produce locked first-roll sequences.
-- `bounded(100)` rejects words below threshold and remains unbiased by raw
-  modulo shortcut.
+- The shared PCG utility's own tests remain the single source for official
+  seeding/output vectors and bounded-rejection arithmetic; module tests do not
+  duplicate those implementation-unit assertions.
+- Seeds 0 and 65535 produce locked first-roll decision sequences through the
+  module contract.
 - Reset at the same seed replays the same logical decisions.
 - A natural seed commit makes step 1 consume the first post-seed roll.
 
@@ -730,9 +748,12 @@ boundaries.
 - First post-reset decision uses the exact 30/120/300 BPM fallback periods.
 - Second and later decisions use the latest valid external interval.
 - A new early Clock cancels unsent prior ratchets and truncates the prior Gate
-  pulse before deciding the new step.
+  pulse before deciding the new step. If the prior output was high, the clock
+  sample is low and a successful replacement pulse begins on the following
+  sample, creating a detectable new edge.
 - Dense ratchets shorten to half subdivision but remain at least one sample;
-  duplicate rounded offsets collapse safely.
+  duplicate, already-high, and adjacent-without-a-low-sample starts collapse
+  safely. Every emitted extra ratchet has an observable low-to-high edge.
 - Failed steps schedule zero pulses.
 
 ### 8. Seed/length transactions
@@ -762,8 +783,8 @@ boundaries.
 - Hit and Miss remain high for 50 ms after their respective decisions and then
   clear at every supported sample rate.
 - EOC LED mirrors EOC output.
-- Pending reflects requested vs active seed; active seed/length and cycle
-  telemetry stay within bounds.
+- Pending reflects requested vs active seed or length; active seed/length and
+  cycle telemetry stay within bounds.
 - Last-decision codes distinguish hit, disabled, condition miss, and
   probability miss without history allocation.
 
@@ -802,7 +823,7 @@ boundaries.
 - **Inputs:** `clock`, `reset`, `fill`, `probabilityCv` with the exact signal
   types, voltage declarations, normals, and thresholds above.
 - **Outputs:** `gate` and `eoc`, both exact 0/10 V triggers.
-- **LEDs:** `step1`..`step8`, `hit`, `miss`, `eoc`, `seedPending`.
+- **LEDs:** `step1`..`step8`, `hit`, `miss`, `eoc`, `pending`.
 - **Telemetry:** `activeSeed`, `activeLength`, `cycleNumber`,
   `lastDecisionCode`; no methods/history.
 - **New implementation files:**
@@ -826,8 +847,8 @@ boundaries.
   exposes a genuinely reusable structured-step/transaction pattern not already
   covered.
 - **Shared framework changes:** none beyond normal core registration, alias
-  renumbering, and the required synchronized graph-revision bump. PCG and
-  scheduling stay module-local.
+  renumbering, and the required synchronized graph-revision bump. Import the
+  existing shared PCG32 utility; scheduling stays module-local.
 - **Focused test command:**
 
   ```bash

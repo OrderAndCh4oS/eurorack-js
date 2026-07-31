@@ -486,14 +486,28 @@ page persistence.
   96 kHz into different long-term control rates.
 - Frame zero samples both CV/gate pairs on the exact accepted record-start
   sample.
-- Subsequent CV frames store the arithmetic mean of finite, clamped input
-  samples since the previous frame boundary. This bounded boxcar integration
+- After frame zero, set `freePhase = 0` and clear the four accumulators. For
+  every later audio sample that remains in REC, first add that sample's two
+  sanitized CV values and gate truth values to the current window, then add
+  `1000` to `freePhase`. When `freePhase >= sampleRate`, subtract
+  `sampleRate`, store one frame from that non-empty window, and clear the
+  accumulators. Since 1000 is below every supported sample rate, at most one
+  frame boundary occurs per audio sample.
+- These are half-open logical windows after the instantaneous frame zero. At
+  48 kHz the first averaged frame contains samples `start+1..start+48`; at
+  44.1 kHz the phase remainder alternates 45- and 44-sample windows. Each CV
+  frame stores its window's arithmetic mean. This bounded boxcar integration
   reduces, but does not eliminate, aliasing.
 - A FREE gate frame is high if any sample in its frame interval is high. This
   preserves the repository's ordinary 5–10 ms triggers at 1 kHz while accepting
   that a sub-millisecond pulse may be extended to one frame.
 - Fewer than two frames is not a valid FREE recording. Stopping earlier returns
   to EMPTY.
+- REC-stop/CLEAR/RESET priority is evaluated before FREE accumulation on that
+  sample. The command sample is excluded even when it coincides with the next
+  frame boundary, and any incomplete accumulator window is discarded. Starting
+  on sample 0 and stopping on sample `10 * sampleRate` therefore commits exactly
+  10,000 frames at every supported sample rate.
 - FREE recording auto-finalizes on frame 60,000 and begins playback at frame
   zero.
 - The path is intended for modulation below 500 Hz and is most faithful at
@@ -643,8 +657,16 @@ discarded.
 
 The DSP `reset()` resets transport, edge histories, accumulators, pulse timers,
 input/output buffers, LEDs, and action params but preserves committed recording
-memory, matching the repository's looper/JOY lifecycle convention. Only CLEAR
-or a committed replacement erases the stored runtime recording.
+memory, matching the repository's looper/JOY lifecycle convention. With valid
+memory it restarts in PLAY at frame/step zero; without memory it returns EMPTY.
+It fills all stable inputs with their declared normals in place. Because Clock
+edge history resets low, a routed high Clock on the first subsequent process
+block is accepted once. Only CLEAR or a committed replacement erases memory.
+
+`restoreRuntimeState()` is intentionally different: it restores the validated
+saved PLAY/PAUSE state and bounded saved position, then establishes jack edge
+histories low. A routed high Clock on its first subsequent process block is
+therefore also accepted once in CLOCK mode.
 
 ## DSP Model and Trade-offs
 
@@ -734,8 +756,11 @@ Chosen trade-offs:
 9. **FREE start:** frame zero captures both CV/gate pairs on the exact REC sample,
    previous memory clears, output monitoring remains sample-accurate, and a
    later-in-block REC waits until its own sample.
-10. **FREE control rate:** across 44.1/48/96 kHz and 128/512 blocks, a ten-second
-    take creates exactly 10,000 frames independent of block boundaries.
+10. **FREE control rate:** across 44.1/48/96 kHz and 128/512 blocks, starting on
+    sample zero and stopping before capture on sample `10 * sampleRate` creates
+    exactly 10,000 frames independent of block boundaries. Goldens cover the
+    first 48 kHz window, alternating 44.1 kHz window lengths, a stop exactly on
+    a pending boundary, and discard of a partial final window.
 11. **FREE averaging:** known ramps and alternating samples produce exact
     per-window arithmetic means; non-finite values contribute sanitized zero.
 12. **FREE gate capture:** any-high accumulation preserves 5 ms and 10 ms pulses,
@@ -774,11 +799,12 @@ Chosen trade-offs:
     not create a false clock edge.
 27. **CLEAR:** erases both lanes, wins every collision, zeroes memory telemetry,
     and returns to live monitoring on the exact action sample.
-28. **Lifecycle reset:** `reset()` clears transport/actions/I/O/LEDs/helpers but
-    preserves committed memory and deterministically restarts its playhead.
+28. **Lifecycle reset:** `reset()` clears transport/actions/I/O/LEDs/helpers,
+    restores input normals in place, preserves committed memory, and restarts
+    it in PLAY at frame/step zero. A high first-block Clock is accepted once.
 29. **Runtime state:** capture/restore round-trips both modes, both gate lanes,
     exact valid length, playhead, run/pause, rails, and typed data without patch
-    params.
+    params; a restored high first-block Clock is accepted once.
 30. **Runtime validation:** malformed, non-finite, mismatched, old-rate,
     oversized, or invalid-mode snapshots restore EMPTY atomically.
 31. **Mid-record stop/start:** valid partial data restores as committed PLAY at

@@ -396,6 +396,21 @@ describe('CHANGES pure scale, voicing, motion, and generated-table planning', ()
         expect(scoreCyclicVoicingPlan(equalTotalLowerMax).totalMotion)
             .toBe(scoreCyclicVoicingPlan(equalTotalHigherMax).totalMotion);
         expect(compareCyclicVoicingPlans(equalTotalLowerMax, equalTotalHigherMax)).toBeLessThan(0);
+
+        const flattenedLater = [[-1, 0, 2, 2], [0, 0, 1, 0], [0, 2, 1, 1], [-2, -1, 0, 1]];
+        const flattenedEarlier = [[-2, 0, 0, -1], [0, 0, -2, 0], [2, 0, -1, -1], [1, 1, -2, -1]];
+        const laterScore = scoreCyclicVoicingPlan(flattenedLater);
+        const earlierScore = scoreCyclicVoicingPlan(flattenedEarlier);
+        expect([
+            earlierScore.totalMotion,
+            earlierScore.maximumLeap,
+            earlierScore.absolutePitchSum
+        ]).toEqual([
+            laterScore.totalMotion,
+            laterScore.maximumLeap,
+            laterScore.absolutePitchSum
+        ]);
+        expect(compareCyclicVoicingPlans(flattenedEarlier, flattenedLater)).toBeLessThan(0);
     });
 
     it('matches an independent exhaustive cyclic oracle for all 64 scale/progression plans', () => {
@@ -423,6 +438,10 @@ describe('CHANGES pure scale, voicing, motion, and generated-table planning', ()
         const lexEarlier = { notes: [...notes], permutationIndices: [0, 1, 2, 3] };
         const lexLater = { notes: [...notes.slice(0, 15), 16], permutationIndices: [0, 1, 2, 3] };
         expect(compareMotionPaths(lexEarlier, lexLater)).toBeLessThan(0);
+        expect(compareMotionPaths(
+            { totalMotion: 10, maximumLeap: 4, notes: [0, 1], permutationIndices: [0] },
+            { totalMotion: 10, maximumLeap: 4, notes: [0, 2], permutationIndices: [0] }
+        )).toBeLessThan(0);
         expect(compareMotionPaths(
             { notes, permutationIndices: [0, 1, 2, 3] },
             { notes, permutationIndices: [0, 1, 3, 2] }
@@ -575,6 +594,24 @@ describe('CHANGES clocking, harmony, latching, voltages, LEDs, and triggers', ()
         expect(dsp.leds.pending).toBe(0);
     });
 
+    it('shows every pre-clock structural edit as pending and commits it on the first clock', () => {
+        const edits = [
+            ['key', 11],
+            ['scale', 7],
+            ['changes', 6],
+            ['motion', 5]
+        ];
+
+        edits.forEach(([param, value]) => {
+            const dsp = createChanges();
+            dsp.params[param] = value;
+            clearInputs(dsp);
+            dsp.process();
+            expect(dsp.leds.pending, param).toBe(1);
+            expect(clockOnce(dsp).leds.pending, param).toBe(0);
+        });
+    });
+
     it('uses exact Changes CV scaling, rounding, clamping, normal, and non-finite fallback', () => {
         expect(computeChangesIndex(0, -5)).toBe(0);
         expect(computeChangesIndex(0, 5)).toBe(7);
@@ -583,6 +620,8 @@ describe('CHANGES clocking, harmony, latching, voltages, LEDs, and triggers', ()
         expect(computeChangesIndex(3, 0)).toBe(3);
         expect(computeChangesIndex(3, 0.35)).toBe(3);
         expect(computeChangesIndex(3, 0.36)).toBe(4);
+        expect(computeChangesIndex(3.4, 0.1)).toBe(4);
+        expect(computeChangesIndex(5.6, -0.1)).toBe(5);
         expect(computeChangesIndex(Number.NaN, Number.NaN)).toBe(1);
         expect(computeChangesIndex(Infinity, Infinity)).toBe(1);
 
@@ -593,6 +632,8 @@ describe('CHANGES clocking, harmony, latching, voltages, LEDs, and triggers', ()
             { knob: 7, cv: -5, expected: 0 },
             { knob: 7, cv: 5, expected: 7 },
             { knob: 3, cv: 0, expected: 3 },
+            { knob: 3.4, cv: 0.1, expected: 4 },
+            { knob: 5.6, cv: -0.1, expected: 5 },
             { knob: Number.NaN, cv: Number.NaN, expected: 1 }
         ];
         cases.forEach(({ knob, cv, expected }) => {
@@ -626,6 +667,27 @@ describe('CHANGES clocking, harmony, latching, voltages, LEDs, and triggers', ()
         const finite = clockOnce(dsp, { keyCV: Number.NaN });
         expect(Number.isFinite(finite.pitch)).toBe(true);
         expect(Number.isFinite(finite.root)).toBe(true);
+    });
+
+    it('samples changing Key and Changes CV independently on multiple clock edges in one block', () => {
+        const dsp = createChanges({ bufferSize: 6 });
+        const table = createGeneratedPlanTableSnapshot();
+        dsp.inputs.clock[0] = 10;
+        dsp.inputs.clock[2] = 10;
+        dsp.inputs.keyCV[0] = -1;
+        dsp.inputs.keyCV[1] = -1;
+        dsp.inputs.keyCV[2] = 1;
+        dsp.inputs.changesCV[0] = 0;
+        dsp.inputs.changesCV[2] = 5;
+        dsp.process();
+
+        const step0 = table[getPlanTableIndex(0, 1, 0, 0)] / 12 - 1;
+        const step1 = table[getPlanTableIndex(0, 1, 0, 1)] / 12 + 1;
+        expect(dsp.outputs.pitch[0]).toBeCloseTo(step0, 6);
+        expect(dsp.outputs.pitch[1]).toBeCloseTo(step0, 6);
+        expect(dsp.outputs.pitch[2]).toBeCloseTo(step1, 6);
+        expect(dsp.outputs.pitch[5]).toBeCloseTo(step1, 6);
+        expect(dsp.leds.pending).toBe(1);
     });
 
     it('keeps Root independent of Motion while every Pitch remains within its declared rail', () => {

@@ -82,6 +82,7 @@ function createBoundToolkit(moduleId, onParamChange, onCleanup, registerParamCon
                 ...options,
                 moduleId,
                 param,
+                onCleanup,
                 onChange: options.onChange || ((value) => onParamChange?.(param, value))
             });
         },
@@ -236,7 +237,7 @@ export function renderModule(definition, moduleId, context) {
 
     } else if (definition.ui) {
         // Declarative mode - render from UI definition
-        renderDeclarativeUI(content, definition.ui, moduleId, context, toolkit);
+        renderDeclarativeUI(content, definition.ui, moduleId, context, toolkit, onCleanup);
     }
 
     panel.appendChild(content);
@@ -252,7 +253,7 @@ export function renderModule(definition, moduleId, context) {
  * @param {Object} context - Rendering context
  * @param {Object} toolkit - Toolkit instance
  */
-function renderDeclarativeUI(container, ui, moduleId, context, toolkit) {
+function renderDeclarativeUI(container, ui, moduleId, context, toolkit, onCleanup) {
     const { dsp, onParamChange } = context;
 
     // LEDs at top
@@ -366,6 +367,7 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit) {
                 value: actionDef.default || 0,
                 mode: actionDef.mode || 'toggle',
                 param: actionDef.param,
+                onCleanup,
                 onChange: (value) => {
                     if (dsp?.params) dsp.params[actionDef.param] = value;
                     onParamChange?.(moduleId, actionDef.param, value);

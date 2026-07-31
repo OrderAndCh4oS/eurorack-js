@@ -19,6 +19,17 @@ const registry = {
                 buttons: []
             }
         },
+        actions: {
+            id: 'actions',
+            hp: 4,
+            ui: {
+                actions: [
+                    { id: 'reset', param: 'reset', mode: 'trigger', default: 0 },
+                    { id: 'hold', param: 'hold', mode: 'momentary', default: 0 },
+                    { id: 'latch', param: 'latch', mode: 'toggle', default: 0 }
+                ]
+            }
+        },
         wide: { id: 'wide', hp: 84, ui: { knobs: [], buttons: [] } }
     },
     get(id) {
@@ -153,5 +164,24 @@ describe('RackState', () => {
         expect(rack.serializePatch().modules).toEqual([
             { id: 'vco_1', type: 'vco', row: 3, index: 0 }
         ]);
+    });
+
+    it('restores transient actions released while preserving toggle actions', () => {
+        const rack = new RackState();
+
+        rack.loadPatch({
+            version: 3,
+            plugins: { core: 1 },
+            modules: [{ id: 'actions_1', type: 'actions', row: 1, index: 0 }],
+            params: { actions_1: { reset: 1, hold: 1, latch: 1 } },
+            cables: [],
+            midiMappings: {}
+        }, registry);
+
+        expect(rack.getModule('actions_1').params).toEqual({
+            reset: 0,
+            hold: 0,
+            latch: 1
+        });
     });
 });

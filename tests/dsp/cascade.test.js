@@ -156,6 +156,8 @@ describe('CASCADE pure priority, rank, Fill, and mask planning', () => {
         expect(computeCascadeFill(16, 100)).toBe(16);
         expect(computeCascadeFill(3, 0.31)).toBe(3);
         expect(computeCascadeFill(3, 0.32)).toBe(4);
+        expect(computeCascadeFill(3.4, 0.1)).toBe(4);
+        expect(computeCascadeFill(12.6, -0.1)).toBe(12);
         expect(computeCascadeFill(Number.NaN, Number.NaN)).toBe(8);
         expect(computeCascadeFill(Infinity, Infinity)).toBe(8);
     });
@@ -248,6 +250,8 @@ describe('CASCADE clocking, runtime masks, latching, pulses, and LEDs', () => {
             { fill: 8, cv: 0, expected: 8 },
             { fill: 8, cv: 5, expected: 16 },
             { fill: 0, cv: 5, expected: 8 },
+            { fill: 3.4, cv: 0.1, expected: 4 },
+            { fill: 12.6, cv: -0.1, expected: 12 },
             { fill: Number.NaN, cv: Number.NaN, expected: 8 }
         ];
         cases.forEach(({ fill, cv, expected }) => {
@@ -280,6 +284,19 @@ describe('CASCADE clocking, runtime masks, latching, pulses, and LEDs', () => {
         expect(committed.leds.pending).toBe(0);
     });
 
+    it('shows a pre-clock Rotate edit as pending and commits it on the first clock', () => {
+        const dsp = createCascade({ bufferSize: 16 });
+        dsp.params.fill = 8;
+        dsp.params.rotate = 1;
+        clearInputs(dsp);
+        dsp.process();
+        expect(dsp.leds.pending).toBe(1);
+
+        const first = clockOnce(dsp);
+        expect(first.lanes[0] === 10).toBe(createCascadeMask(8, 1, 1)[0]);
+        expect(first.leds.pending).toBe(0);
+    });
+
     it('does not cancel an active pulse when Fill falls on the next clock', () => {
         const dsp = createCascade({ sampleRate: 1000, bufferSize: 4 });
         dsp.params.fill = 16;
@@ -297,8 +314,24 @@ describe('CASCADE clocking, runtime masks, latching, pulses, and LEDs', () => {
         expect([...dsp.outputs.lane4]).toEqual([0, 0, 0, 0]);
     });
 
+    it('samples a changed Fill on that exact clock after the previous pulse has ended', () => {
+        const rising = createCascade({ sampleRate: 1000, bufferSize: 8 });
+        rising.params.fill = 0;
+        expect(clockOnce(rising).lanes).toEqual([0, 0, 0, 0]);
+        rising.params.fill = 16;
+        expect(clockOnce(rising).lanes).toEqual(
+            [1, 2, 3, 4].map(lane => createCascadeMask(16, 0, lane)[1] ? 10 : 0)
+        );
+
+        const falling = createCascade({ sampleRate: 1000, bufferSize: 8 });
+        falling.params.fill = 16;
+        expect(clockOnce(falling).lanes).toEqual([10, 10, 10, 10]);
+        falling.params.fill = 0;
+        expect(clockOnce(falling).lanes).toEqual([0, 0, 0, 0]);
+    });
+
     it('emits exactly 8ms at 10V across sample rates and exactly 0V otherwise', () => {
-        for (const sampleRate of [1000, 44100, 48000]) {
+        for (const sampleRate of [1000, 44100, 48000, 96000]) {
             const pulseSamples = Math.max(1, Math.round(sampleRate * 0.008));
             const dsp = createCascade({ sampleRate, bufferSize: pulseSamples + 5 });
             dsp.params.fill = 16;
@@ -346,6 +379,18 @@ describe('CASCADE clocking, runtime masks, latching, pulses, and LEDs', () => {
         for (let step = 1; step < 4; step++) clockOnce(sparse);
         expect(sparse.leds.lane4).toBe(1);
     });
+
+    it('keeps staggered lane LED counters independent', () => {
+        const dsp = createCascade({ sampleRate: 1000, bufferSize: 4 });
+        dsp.params.fill = 4;
+        clockOnce(dsp);
+        for (let step = 1; step <= 8; step++) clockOnce(dsp);
+        clearInputs(dsp);
+        for (let block = 0; block < 4; block++) dsp.process();
+
+        expect([dsp.leds.lane1, dsp.leds.lane2, dsp.leds.lane3, dsp.leds.lane4])
+            .toEqual([0, 1, 1, 1]);
+    });
 });
 
 describe('CASCADE reset semantics and deterministic replay', () => {
@@ -363,6 +408,24 @@ describe('CASCADE reset semantics and deterministic replay', () => {
 
         const restarted = clockOnce(dsp);
         expect(restarted.lanes).toEqual([10, 10, 10, 10]);
+        expect(restarted.leds.pending).toBe(0);
+    });
+
+    it('commits a pending Rotate when Reset restarts the next step zero', () => {
+        const dsp = createCascade({ sampleRate: 1000, bufferSize: 8 });
+        dsp.params.fill = 8;
+        for (let step = 0; step < 5; step++) clockOnce(dsp);
+        dsp.params.rotate = 3;
+        clearInputs(dsp);
+        dsp.inputs.reset[0] = 1;
+        dsp.process();
+        expect(dsp.leds.pending).toBe(1);
+
+        const restarted = clockOnce(dsp);
+        for (let lane = 1; lane <= 4; lane++) {
+            expect(restarted.lanes[lane - 1] === 10)
+                .toBe(createCascadeMask(8, 3, lane)[0]);
+        }
         expect(restarted.leds.pending).toBe(0);
     });
 

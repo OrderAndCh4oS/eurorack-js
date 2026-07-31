@@ -33,6 +33,52 @@ test('runs the custom-module patch and switches topology while audio is active',
     expect(pageErrors).toEqual([]);
 });
 
+test('runs the Refrain composition patch and delivers every transient action to the worklet', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.host);
+    await page.locator('#patchSelect').selectOption('Test - Refrain');
+    await page.locator('#loadPatch').click();
+    await page.waitForFunction(() => window.eurorackApp.state.getModule('scope'));
+
+    await page.locator('#startButton').click();
+    await expect(page.locator('#startButton')).toHaveClass(/active/);
+    await page.waitForFunction(() => {
+        const scope = window.eurorackApp.state.getModule('scope')?.instance;
+        return window.eurorackApp.host.engine && scope?.displayBuffer1?.some(sample => sample !== 0);
+    });
+
+    await page.locator('#module-refrain .action-btn[data-param="mutate"]').click();
+    await page.waitForFunction(() =>
+        window.eurorackApp.state.getModule('refrain')?.instance?.leds?.pending === 0.5
+    );
+    await expect(page.locator('#module-refrain .action-btn[data-param="mutate"]'))
+        .not.toHaveClass(/active/, { timeout: 1000 });
+
+    for (const selector of [
+        '#module-refrain .action-btn[data-param="recall"]',
+        '#module-changes .action-btn[data-param="resetAction"]',
+        '#module-cascade .action-btn[data-param="resetAction"]'
+    ]) {
+        await page.locator(selector).click();
+        await expect(page.locator(selector)).not.toHaveClass(/active/, { timeout: 1000 });
+    }
+
+    await page.waitForFunction(() => {
+        const state = window.eurorackApp.state;
+        return state.getModule('refrain')?.params?.mutate === 0 &&
+            state.getModule('refrain')?.params?.recall === 0 &&
+            state.getModule('changes')?.params?.resetAction === 0 &&
+            state.getModule('cascade')?.params?.resetAction === 0;
+    });
+
+    await page.locator('#startButton').click();
+    await expect(page.locator('#startButton')).not.toHaveClass(/active/);
+    expect(pageErrors).toEqual([]);
+});
+
 test('themes Reset, Mutate, and Recall actions in every rack theme and mode', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));

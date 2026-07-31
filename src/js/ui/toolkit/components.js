@@ -220,6 +220,7 @@ export function createButtonBank({
  * @param {string} options.moduleId - Parent module ID
  * @param {string} options.mode - 'toggle', 'momentary', or 'trigger'
  * @param {Function} options.onChange - Callback when value changes
+ * @param {Function} options.onCleanup - Registers teardown for pending trigger release
  * @returns {HTMLButtonElement} Action button element
  */
 export function createActionButton({
@@ -230,7 +231,8 @@ export function createActionButton({
     value = 0,
     param = id,
     durationMs = 80,
-    onChange
+    onChange,
+    onCleanup
 }) {
     const button = document.createElement('button');
     button.className = `action-btn action-${mode}${value ? ' active' : ''}`;
@@ -246,6 +248,13 @@ export function createActionButton({
         onChange?.(nextValue ? 1 : 0);
     };
 
+    let releaseTimer = null;
+    const releaseTrigger = () => {
+        releaseTimer = null;
+        button.classList.remove('active');
+        onChange?.(0);
+    };
+
     if (mode === 'momentary') {
         button.addEventListener('pointerdown', event => {
             event.preventDefault();
@@ -257,12 +266,15 @@ export function createActionButton({
     } else if (mode === 'trigger') {
         button.addEventListener('click', event => {
             event.preventDefault();
+            if (releaseTimer !== null) clearTimeout(releaseTimer);
             button.classList.add('active');
             onChange?.(1);
-            setTimeout(() => {
-                button.classList.remove('active');
-                onChange?.(0);
-            }, durationMs);
+            releaseTimer = setTimeout(releaseTrigger, durationMs);
+        });
+        onCleanup?.(() => {
+            if (releaseTimer === null) return;
+            clearTimeout(releaseTimer);
+            releaseTrigger();
         });
     } else {
         button.addEventListener('click', event => {

@@ -1,8 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { cleanupRenderedModule, renderModule, syncParamToModuleUI } from '../../src/js/ui/renderer.js';
 import { EurorackApp } from '../../src/js/app/app.js';
 import loopModule from '../../src/js/modules/loop/index.js';
 import joystickModule from '../../src/js/modules/joystick/index.js';
+
+afterEach(() => {
+    vi.useRealTimers();
+});
 
 describe('renderModule', () => {
     it('adds module color token classes to rendered panels', () => {
@@ -97,6 +101,37 @@ describe('renderModule', () => {
         cleanupRenderedModule(panel);
 
         expect(cleanup).toHaveBeenCalledOnce();
+    });
+
+    it('delivers trigger actions once and cancels their delayed release during cleanup', () => {
+        vi.useFakeTimers();
+        const onParamChange = vi.fn();
+        const panel = renderModule({
+            id: 'actions',
+            name: 'ACTIONS',
+            hp: 4,
+            color: 'module-color-one',
+            createDSP: () => ({}),
+            ui: {
+                actions: [
+                    { id: 'reset', label: 'Reset', param: 'reset', mode: 'trigger', default: 0 }
+                ]
+            }
+        }, 'actions_1', {
+            dsp: { params: { reset: 0 } },
+            onParamChange
+        });
+
+        panel.querySelector('.action-btn').click();
+        expect(onParamChange).toHaveBeenCalledTimes(1);
+        expect(onParamChange).toHaveBeenLastCalledWith('actions_1', 'reset', 1);
+
+        cleanupRenderedModule(panel);
+        expect(onParamChange).toHaveBeenCalledTimes(2);
+        expect(onParamChange).toHaveBeenLastCalledWith('actions_1', 'reset', 0);
+
+        vi.advanceTimersByTime(100);
+        expect(onParamChange).toHaveBeenCalledTimes(2);
     });
 
     it('provides managed animation cleanup through the toolkit', () => {

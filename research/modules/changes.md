@@ -353,6 +353,11 @@ listening validation updates this record and golden tests.
   `process()` and verified against a checked-in 8,192-entry `Int8Array`.
   Production DSP performs constant-time indexed reads with no per-sample
   allocation or search.
+- **31 July re-audit:** the exported Changes/CV equation now performs its
+  documented single rounding step after combining the base control and CV,
+  including fractional imported/MIDI values. Pending reports every
+  pre-clock structural knob edit and clears when the first step-0 clock
+  commits it.
 - **Next action:** retain generator/table equivalence and paired common-clock
   tests whenever harmonic data, tie-breaks, or module registration changes.
 

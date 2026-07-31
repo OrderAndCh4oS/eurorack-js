@@ -373,6 +373,12 @@ Declarative actions use id, label, param, mode, and default:
 | mode | toggle, momentary, or trigger. |
 | durationMs | Supported by toolkit.createActionButton() in custom renderers; declarative trigger actions use 80ms. |
 
+Trigger and momentary actions are transient commands. Patch loading restores
+them to their declared defaults rather than replaying a captured high pulse;
+toggle actions remain patch-persisted. Renderer cleanup also releases any
+active trigger and cancels its delayed callback before a module is removed or
+replaced.
+
 All rendered parameter controls expose MIDI-learn metadata. There is no action-level MIDI flag.
 
 ### Patch-Persisted State

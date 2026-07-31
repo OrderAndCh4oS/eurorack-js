@@ -6,6 +6,8 @@ import refrainModule, {
     createPcg32,
     createRefrainBaseSnapshot
 } from '../../src/js/modules/refrain/index.js';
+import changesModule from '../../src/js/modules/changes/index.js';
+import cascadeModule from '../../src/js/modules/cascade/index.js';
 import testRefrainPatch from '../../src/js/config/patches/test-refrain.js';
 import { expectExhaustivePanelCoverage } from './panel-test-helpers.js';
 
@@ -371,21 +373,25 @@ describe('REFRAIN panel, initialization, and deterministic generation', () => {
 });
 
 describe('REFRAIN transport, clock/reset, and boundary-only structure', () => {
-    it('accepts only crossings from <=2.5V to >2.5V and advances one cell after exactly 16 clocks', () => {
+    it('accepts only crossings from <=2.5V to >2.5V, starts on cell zero, then advances after 16 steps', () => {
         const dsp = createRefrain();
         expect(clockEdge(dsp, { voltage: 2.5 }).debug).toMatchObject({ cellIndex: 0, substepIndex: 0 });
-        expect(clockEdge(dsp, { voltage: 2.5001 }).debug).toMatchObject({ cellIndex: 0, substepIndex: 1 });
+        expect(clockEdge(dsp, { voltage: 2.5001 }).debug).toMatchObject({
+            cellIndex: 0,
+            substepIndex: 0,
+            restartPending: false
+        });
 
         clearInputs(dsp);
         dsp.inputs.clock.fill(10);
         dsp.process();
-        expect(dsp.getDebugState()).toMatchObject({ cellIndex: 0, substepIndex: 2 });
+        expect(dsp.getDebugState()).toMatchObject({ cellIndex: 0, substepIndex: 1 });
         dsp.process();
-        expect(dsp.getDebugState()).toMatchObject({ cellIndex: 0, substepIndex: 2 });
+        expect(dsp.getDebugState()).toMatchObject({ cellIndex: 0, substepIndex: 1 });
         clearInputs(dsp);
         dsp.process();
 
-        clockEdges(dsp, 13);
+        clockEdges(dsp, 14);
         expect(dsp.getDebugState()).toMatchObject({ cellIndex: 0, substepIndex: 15 });
         const boundary = clockEdge(dsp);
         expect(boundary.debug).toMatchObject({ cellIndex: 1, substepIndex: 0 });
@@ -397,7 +403,7 @@ describe('REFRAIN transport, clock/reset, and boundary-only structure', () => {
 
     it('holds every tuple between clocks and fills the exact current-cell value for the whole block', () => {
         const dsp = createRefrain({ bufferSize: 31 });
-        clockEdges(dsp, 16);
+        clockEdges(dsp, 17);
         processIdle(dsp);
         const state = dsp.getDebugState();
         Object.entries(dsp.outputs).forEach(([lane, output]) => {
@@ -417,7 +423,7 @@ describe('REFRAIN transport, clock/reset, and boundary-only structure', () => {
 
         expect(dsp.getDebugState()).toMatchObject({ activeSeed: 0, activeLength: 4 });
         expect(dsp.getDebugState().livePattern).toEqual(seed0);
-        clockEdges(dsp, 63);
+        clockEdges(dsp, 64);
         expect(dsp.getDebugState()).toMatchObject({ activeSeed: 0, activeLength: 4, cellIndex: 3, substepIndex: 15 });
 
         const boundary = clockEdge(dsp);
@@ -431,6 +437,32 @@ describe('REFRAIN transport, clock/reset, and boundary-only structure', () => {
         expectCellOutputs(boundary.outputs, seed1[0]);
     });
 
+    it('commits a Length increase at the old boundary and exposes the existing added cells', () => {
+        const dsp = createRefrain();
+        dsp.params.seed = 19;
+        dsp.params.length = 2;
+        dsp.params.chance = 0;
+        dsp.reset();
+        const live = cloneCells(dsp.getDebugState().livePattern);
+        clockEdges(dsp, 12);
+        dsp.params.length = 4;
+        clockEdges(dsp, 21);
+        expect(dsp.getDebugState()).toMatchObject({
+            activeLength: 4,
+            cellIndex: 0,
+            substepIndex: 0,
+            livePattern: live
+        });
+
+        clockEdges(dsp, 32);
+        const state = dsp.getDebugState();
+        expect(state).toMatchObject({ activeLength: 4, cellIndex: 2, substepIndex: 0 });
+        expectCellOutputs(
+            Object.fromEntries(Object.entries(dsp.outputs).map(([lane, output]) => [lane, output[0]])),
+            live[2]
+        );
+    });
+
     it('lets reset win coincident clock without changing pattern, Anchor, queues, or PRNG continuation', () => {
         const dsp = createRefrain();
         dsp.params.anchor = 1;
@@ -441,7 +473,7 @@ describe('REFRAIN transport, clock/reset, and boundary-only structure', () => {
         const before = dsp.getDebugState();
 
         const reset = clockEdge(dsp, { voltage: 10, reset: 10 });
-        expect(reset.debug).toMatchObject({ cellIndex: 0, substepIndex: 0 });
+        expect(reset.debug).toMatchObject({ cellIndex: 0, substepIndex: 0, restartPending: false });
         expect(reset.debug.livePattern).toEqual(before.livePattern);
         expect(reset.debug.anchorPattern).toEqual(before.anchorPattern);
         expect(reset.debug.anchorValid).toBe(true);
@@ -454,6 +486,82 @@ describe('REFRAIN transport, clock/reset, and boundary-only structure', () => {
         dsp.process();
         expect(dsp.getDebugState()).toMatchObject({ cellIndex: 0, substepIndex: 0 });
     });
+
+    it('queues an asynchronous reset until the next clock without exposing a mismatched macro cell', () => {
+        const dsp = createRefrain();
+        clockEdges(dsp, 20);
+        const before = dsp.getDebugState();
+        const beforeOutputs = Object.fromEntries(
+            Object.entries(dsp.outputs).map(([lane, output]) => [lane, output[0]])
+        );
+
+        clearInputs(dsp);
+        dsp.inputs.reset[0] = 1;
+        dsp.process();
+        expect(dsp.getDebugState()).toMatchObject({
+            cellIndex: before.cellIndex,
+            substepIndex: before.substepIndex,
+            restartPending: true
+        });
+        Object.entries(dsp.outputs).forEach(([lane, output]) => {
+            expect(output[0]).toBe(beforeOutputs[lane]);
+        });
+
+        processIdle(dsp);
+        expect(clockEdge(dsp).debug).toMatchObject({
+            cellIndex: 0,
+            substepIndex: 0,
+            restartPending: false
+        });
+    });
+
+    it('keeps Refrain cells phase-aligned with Changes phrases and Cascade step zero', () => {
+        const refrain = createRefrain();
+        const changes = changesModule.createDSP({ sampleRate: 1000, bufferSize: 8 });
+        const cascade = cascadeModule.createDSP({ sampleRate: 1000, bufferSize: 8 });
+        refrain.params.seed = 474;
+        cascade.params.fill = 16;
+
+        const sharedEdge = () => {
+            clearInputs(refrain);
+            Object.values(changes.inputs).forEach(input => input.fill(0));
+            Object.values(cascade.inputs).forEach(input => input.fill(0));
+            refrain.inputs.clock[0] = 10;
+            refrain.process();
+            changes.inputs.keyCV.set(refrain.outputs.key);
+            cascade.inputs.fillCV.set(refrain.outputs.energy);
+            changes.inputs.clock[0] = 10;
+            cascade.inputs.clock[0] = 10;
+            changes.process();
+            cascade.process();
+            const frame = {
+                refrain: refrain.getDebugState(),
+                change: changes.outputs.change[0],
+                cascadeLane1: cascade.outputs.lane1[0]
+            };
+            processIdle(refrain);
+            Object.values(changes.inputs).forEach(input => input.fill(0));
+            Object.values(cascade.inputs).forEach(input => input.fill(0));
+            changes.process();
+            cascade.process();
+            return frame;
+        };
+
+        const first = sharedEdge();
+        expect(first.refrain).toMatchObject({ cellIndex: 0, substepIndex: 0 });
+        expect(first.change).toBe(10);
+        expect(first.cascadeLane1).toBe(10);
+
+        let sixteenth;
+        for (let edge = 2; edge <= 16; edge++) sixteenth = sharedEdge();
+        expect(sixteenth.refrain).toMatchObject({ cellIndex: 0, substepIndex: 15 });
+        expect(sixteenth.change).toBe(0);
+
+        const nextPhrase = sharedEdge();
+        expect(nextPhrase.refrain).toMatchObject({ cellIndex: 1, substepIndex: 0 });
+        expect(nextPhrase.change).toBe(10);
+        expect(nextPhrase.cascadeLane1).toBe(10);
+    });
 });
 
 describe('REFRAIN exact mutation, Anchor, Recall, priority, and automatic evolution', () => {
@@ -463,7 +571,7 @@ describe('REFRAIN exact mutation, Anchor, Recall, priority, and automatic evolut
         const before = cloneCells(dsp.getDebugState().livePattern);
         dsp.params.amount = 3;
         pulseAction(dsp, 'mutate');
-        clockEdges(dsp, 63);
+        clockEdges(dsp, 64);
         expect(dsp.getDebugState().livePattern).toEqual(before);
         expect(dsp.leds.pending).toBe(0.5);
 
@@ -495,7 +603,7 @@ describe('REFRAIN exact mutation, Anchor, Recall, priority, and automatic evolut
         dsp.params.chance = 0;
         pulseAction(dsp, 'mutate');
 
-        const boundary = clockEdges(dsp, 64);
+        const boundary = clockEdges(dsp, 65);
 
         expect(boundary.debug.lastMutationIndices).toEqual([3, 2, 0]);
         expect(boundary.debug.lastMutationDeltas).toEqual([
@@ -523,7 +631,7 @@ describe('REFRAIN exact mutation, Anchor, Recall, priority, and automatic evolut
                 dsp.reset();
                 const before = cloneCells(dsp.getDebugState().livePattern);
                 pulseAction(dsp, 'mutate');
-                clockEdges(dsp, length * 16);
+                clockEdges(dsp, length * 16 + 1);
                 const after = dsp.getDebugState().livePattern;
                 const changed = changedCellIndices(before, after);
 
@@ -561,7 +669,7 @@ describe('REFRAIN exact mutation, Anchor, Recall, priority, and automatic evolut
         dsp.params.amount = 4;
         pulseAction(dsp, 'mutate');
         dsp.params.amount = 2;
-        clockEdges(dsp, 64);
+        clockEdges(dsp, 65);
         const state = dsp.getDebugState();
 
         expect(state.anchorValid).toBe(true);
@@ -590,7 +698,7 @@ describe('REFRAIN exact mutation, Anchor, Recall, priority, and automatic evolut
         pulseAction(recalled, 'mutate');
         pulseAction(recalled, 'recall');
 
-        clockEdges(recalled, 64);
+        clockEdges(recalled, 65);
         expect(recalled.getDebugState()).toMatchObject({
             activeSeed: 1,
             activeLength: 2,
@@ -609,7 +717,7 @@ describe('REFRAIN exact mutation, Anchor, Recall, priority, and automatic evolut
         mutated.params.chance = 100;
         processIdle(mutated);
         pulseAction(mutated, 'mutate');
-        clockEdges(mutated, 64);
+        clockEdges(mutated, 65);
         const newBase = createRefrainBaseSnapshot(1).cells;
         const after = mutated.getDebugState().livePattern;
         expect(changedCellIndices(newBase, after)).toHaveLength(2);
@@ -626,7 +734,7 @@ describe('REFRAIN exact mutation, Anchor, Recall, priority, and automatic evolut
 
         dsp.params.amount = 2;
         pulseAction(dsp, 'mutate');
-        clockEdges(dsp, 64);
+        clockEdges(dsp, 65);
         expect(dsp.getDebugState().livePattern).not.toEqual(anchor);
 
         dsp.params.anchor = 0;
@@ -644,6 +752,30 @@ describe('REFRAIN exact mutation, Anchor, Recall, priority, and automatic evolut
         expect(boundary.leds.mutation).toBe(0);
     });
 
+    it('uses the latest immediately overwritten Anchor when a queued Recall reaches its boundary', () => {
+        const dsp = createRefrain();
+        dsp.params.anchor = 1;
+        processIdle(dsp);
+        const originalAnchor = cloneCells(dsp.getDebugState().anchorPattern);
+
+        dsp.params.amount = 2;
+        pulseAction(dsp, 'mutate');
+        clockEdges(dsp, 65);
+        const mutated = cloneCells(dsp.getDebugState().livePattern);
+        expect(mutated).not.toEqual(originalAnchor);
+
+        dsp.params.anchor = 0;
+        processIdle(dsp);
+        pulseAction(dsp, 'recall');
+        dsp.params.anchor = 1;
+        processIdle(dsp);
+        expect(dsp.getDebugState().anchorPattern).toEqual(mutated);
+
+        clockEdges(dsp, 64);
+        expect(dsp.getDebugState().livePattern).toEqual(mutated);
+        expect(dsp.getDebugState().pendingRecall).toBe(false);
+    });
+
     it('ignores invalid Recall, disables auto in Hold, and applies Chance 0/100 exactly in Run', () => {
         const noRecall = createRefrain();
         processIdle(noRecall);
@@ -655,7 +787,7 @@ describe('REFRAIN exact mutation, Anchor, Recall, priority, and automatic evolut
         never.params.chance = 0;
         never.reset();
         const neverBefore = cloneCells(never.getDebugState().livePattern);
-        clockEdges(never, 16);
+        clockEdges(never, 17);
         expect(never.getDebugState().livePattern).toEqual(neverBefore);
 
         const held = createRefrain();
@@ -665,7 +797,7 @@ describe('REFRAIN exact mutation, Anchor, Recall, priority, and automatic evolut
         held.reset();
         processIdle(held);
         const heldBefore = cloneCells(held.getDebugState().livePattern);
-        clockEdges(held, 16);
+        clockEdges(held, 17);
         expect(held.getDebugState().livePattern).toEqual(heldBefore);
 
         held.params.anchor = 0;
@@ -675,8 +807,8 @@ describe('REFRAIN exact mutation, Anchor, Recall, priority, and automatic evolut
         expect(automatic.leds.mutation).toBe(1);
     });
 
-    it('reports one-hot position plus bounded substep, Anchor, pending, and one-block mutation LEDs', () => {
-        const dsp = createRefrain();
+    it('reports one-hot position plus bounded substep, Anchor, pending, and visible 50ms event LEDs', () => {
+        const dsp = createRefrain({ sampleRate: 1000, bufferSize: 10 });
         dsp.params.anchor = 1;
         processIdle(dsp);
         pulseAction(dsp, 'mutate');
@@ -684,12 +816,17 @@ describe('REFRAIN exact mutation, Anchor, Recall, priority, and automatic evolut
         expect(dsp.leds.anchor).toBe(1);
         expect(Object.values(dsp.leds).every(value => value >= 0 && value <= 1)).toBe(true);
 
-        clockEdges(dsp, 63);
+        clockEdges(dsp, 64);
         const boundary = clockEdge(dsp);
         expect(boundary.leds.mutation).toBe(1);
         expect(boundary.leds.substep).toBe(1);
         expect(boundary.leds.cell1).toBe(1);
         expect(['cell5', 'cell6', 'cell7', 'cell8'].every(id => boundary.leds[id] === 0)).toBe(true);
+        processIdle(dsp);
+        expect(dsp.leds.mutation).toBe(1);
+        expect(dsp.leds.substep).toBe(1);
+        processIdle(dsp);
+        expect(dsp.leds.mutation).toBe(1);
         processIdle(dsp);
         expect(dsp.leds.mutation).toBe(0);
         expect(dsp.leds.substep).toBe(1 / 64);

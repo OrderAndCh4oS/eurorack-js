@@ -324,6 +324,11 @@ at pre-step `-1`.
 - **Invariant result:** lane nesting and same-lane Fill nesting hold for the
   complete contract matrix. Fill changes are edge-sampled without truncating
   active pulses, while Rotate remains phrase-latched.
+- **31 July re-audit:** fractional Fill values delivered by MIDI or imported
+  patches now follow the normative single-round equation after CV is added;
+  tests cover both positive and negative boundary crossings. Pending also
+  reports a pre-clock Rotate edit and clears when the first step-0 clock
+  commits it.
 - **Next action:** retain exhaustive mask and common-clock integration tests
   whenever priority order, lane-count mapping, or reset timing changes.
 

@@ -56,7 +56,7 @@ function finiteRounded(value, fallback, minimum, maximum) {
 }
 
 export function computeChangesIndex(changes, changesCV) {
-    const base = finiteRounded(changes, DEFAULT_CHANGES, 0, 7);
+    const base = Number.isFinite(changes) ? clamp(changes, 0, 7) : DEFAULT_CHANGES;
     const modulation = Number.isFinite(changesCV) ? clamp(changesCV, -5, 5) : 0;
     return clamp(Math.round(base + modulation * 7 / 5), 0, 7);
 }
@@ -86,7 +86,6 @@ export default {
         let changeCounter = 0;
         let heldPitch = 0;
         let heldRoot = 0;
-        let activeInitialized = false;
         let activeKey = DEFAULT_KEY;
         let activeScale = DEFAULT_SCALE;
         let activeChanges = DEFAULT_CHANGES;
@@ -118,7 +117,9 @@ export default {
             process() {
                 const requestedKey = finiteRounded(this.params.key, DEFAULT_KEY, 0, 11);
                 const requestedScale = finiteRounded(this.params.scale, DEFAULT_SCALE, 0, 7);
-                const requestedChanges = finiteRounded(this.params.changes, DEFAULT_CHANGES, 0, 7);
+                const requestedChanges = Number.isFinite(this.params.changes)
+                    ? clamp(this.params.changes, 0, 7)
+                    : DEFAULT_CHANGES;
                 const requestedMotion = finiteRounded(this.params.motion, DEFAULT_MOTION, 0, 7);
                 const resetActionHigh = Number.isFinite(this.params.resetAction) &&
                     this.params.resetAction >= 0.5;
@@ -162,7 +163,6 @@ export default {
                             activeChangesControl = requestedChanges;
                             activeChangesCV = sampledRequestedChangesCV;
                             activeMotion = requestedMotion;
-                            activeInitialized = true;
                             restartPending = false;
                         }
 
@@ -197,7 +197,7 @@ export default {
                     }
                 }
 
-                const structuralChangePending = activeInitialized && (
+                const structuralChangePending = (
                     requestedKey !== activeKey ||
                     requestedScale !== activeScale ||
                     requestedChanges !== activeChangesControl ||
@@ -223,7 +223,6 @@ export default {
                 changeCounter = 0;
                 heldPitch = 0;
                 heldRoot = 0;
-                activeInitialized = false;
                 activeKey = DEFAULT_KEY;
                 activeScale = DEFAULT_SCALE;
                 activeChanges = DEFAULT_CHANGES;

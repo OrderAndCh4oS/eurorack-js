@@ -242,8 +242,6 @@ export default {
     category: 'sequencer',
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
-        void sampleRate;
-
         const clock = new Float32Array(bufferSize);
         const reset = new Float32Array(bufferSize);
         const key = new Float32Array(bufferSize);
@@ -261,11 +259,13 @@ export default {
         const lastMutationDeltas = new Int8Array(CELL_COUNT * LANE_COUNT);
         const prngStateScratch = new Uint32Array(2);
         const prng = createPcg32(DEFAULT_SEED);
+        const ledHoldSamples = Math.max(1, Math.round(sampleRate * 0.05));
 
         let activeSeed = DEFAULT_SEED;
         let activeLength = DEFAULT_LENGTH;
         let cellIndex = 0;
         let substepIndex = 0;
+        let restartPending = true;
         let lastClockHigh = false;
         let lastResetHigh = false;
         let lastMutateHigh = false;
@@ -277,6 +277,8 @@ export default {
         let pendingAmount = DEFAULT_AMOUNT;
         let lastMutationCount = 0;
         let firstProcessPending = true;
+        let clockLedCounter = 0;
+        let mutationLedCounter = 0;
 
         prng.reseed(activeSeed);
         fillBasePattern(basePattern, prng);
@@ -361,6 +363,7 @@ export default {
                     copyPattern(basePattern, candidatePattern);
                     cellIndex = 0;
                     substepIndex = 0;
+                    restartPending = true;
                     fillHeldOutputs(outputs, livePattern, cellIndex);
                     lastMutateHigh = mutateHigh;
                     lastRecallHigh = recallHigh;
@@ -383,8 +386,6 @@ export default {
                 lastRecallHigh = recallHigh;
 
                 let acceptedClockThisBlock = false;
-                let mutationCommittedThisBlock = false;
-
                 for (let sample = 0; sample < bufferSize; sample++) {
                     const resetHigh = Number.isFinite(reset[sample]) &&
                         reset[sample] >= RESET_THRESHOLD;
@@ -396,65 +397,78 @@ export default {
                     lastClockHigh = clockHigh;
 
                     if (resetRising) {
-                        cellIndex = 0;
-                        substepIndex = 0;
-                    } else if (clockRising) {
-                        acceptedClockThisBlock = true;
-                        const completeLoopBoundary =
-                            cellIndex === activeLength - 1 &&
-                            substepIndex === CLOCKS_PER_CELL - 1;
-
-                        if (completeLoopBoundary) {
-                            if (requestedSeed !== activeSeed) {
-                                activeSeed = requestedSeed;
-                                prng.reseed(activeSeed);
-                                fillBasePattern(basePattern, prng);
-                                copyPattern(basePattern, livePattern);
-                            }
-                            if (requestedLength !== activeLength) {
-                                activeLength = requestedLength;
-                            }
-
-                            if (pendingRecall && anchorValid) {
-                                copyPattern(anchorPattern, livePattern);
-                                pendingRecall = false;
-                                pendingMutate = false;
-                            } else if (pendingMutate) {
-                                lastMutationCount = mutatePattern(
-                                    livePattern,
-                                    candidatePattern,
-                                    activeLength,
-                                    Math.min(pendingAmount, activeLength),
-                                    prng,
-                                    shuffle,
-                                    lastMutationIndices,
-                                    lastMutationDeltas
-                                );
-                                copyPattern(candidatePattern, livePattern);
-                                pendingMutate = false;
-                                mutationCommittedThisBlock = true;
-                            } else if (!anchorHold && prng.bounded(100) < requestedChance) {
-                                lastMutationCount = mutatePattern(
-                                    livePattern,
-                                    candidatePattern,
-                                    activeLength,
-                                    Math.min(requestedAmount, activeLength),
-                                    prng,
-                                    shuffle,
-                                    lastMutationIndices,
-                                    lastMutationDeltas
-                                );
-                                copyPattern(candidatePattern, livePattern);
-                                mutationCommittedThisBlock = true;
-                            }
-
+                        restartPending = true;
+                        if (clockRising) {
                             cellIndex = 0;
                             substepIndex = 0;
+                            restartPending = false;
+                            acceptedClockThisBlock = true;
+                            clockLedCounter = ledHoldSamples;
+                        }
+                    } else if (clockRising) {
+                        acceptedClockThisBlock = true;
+                        clockLedCounter = ledHoldSamples;
+                        if (restartPending) {
+                            cellIndex = 0;
+                            substepIndex = 0;
+                            restartPending = false;
                         } else {
-                            substepIndex++;
-                            if (substepIndex === CLOCKS_PER_CELL) {
+                            const completeLoopBoundary =
+                                cellIndex === activeLength - 1 &&
+                                substepIndex === CLOCKS_PER_CELL - 1;
+
+                            if (completeLoopBoundary) {
+                                if (requestedSeed !== activeSeed) {
+                                    activeSeed = requestedSeed;
+                                    prng.reseed(activeSeed);
+                                    fillBasePattern(basePattern, prng);
+                                    copyPattern(basePattern, livePattern);
+                                }
+                                if (requestedLength !== activeLength) {
+                                    activeLength = requestedLength;
+                                }
+
+                                if (pendingRecall && anchorValid) {
+                                    copyPattern(anchorPattern, livePattern);
+                                    pendingRecall = false;
+                                    pendingMutate = false;
+                                } else if (pendingMutate) {
+                                    lastMutationCount = mutatePattern(
+                                        livePattern,
+                                        candidatePattern,
+                                        activeLength,
+                                        Math.min(pendingAmount, activeLength),
+                                        prng,
+                                        shuffle,
+                                        lastMutationIndices,
+                                        lastMutationDeltas
+                                    );
+                                    copyPattern(candidatePattern, livePattern);
+                                    pendingMutate = false;
+                                    mutationLedCounter = ledHoldSamples;
+                                } else if (!anchorHold && prng.bounded(100) < requestedChance) {
+                                    lastMutationCount = mutatePattern(
+                                        livePattern,
+                                        candidatePattern,
+                                        activeLength,
+                                        Math.min(requestedAmount, activeLength),
+                                        prng,
+                                        shuffle,
+                                        lastMutationIndices,
+                                        lastMutationDeltas
+                                    );
+                                    copyPattern(candidatePattern, livePattern);
+                                    mutationLedCounter = ledHoldSamples;
+                                }
+
+                                cellIndex = 0;
                                 substepIndex = 0;
-                                cellIndex++;
+                            } else {
+                                substepIndex++;
+                                if (substepIndex === CLOCKS_PER_CELL) {
+                                    substepIndex = 0;
+                                    cellIndex++;
+                                }
                             }
                         }
                     }
@@ -463,6 +477,8 @@ export default {
                     harm[sample] = livePattern.harm[cellIndex] / 4;
                     energy[sample] = livePattern.energy[cellIndex] / 4;
                     mod[sample] = livePattern.mod[cellIndex] / 4;
+                    if (clockLedCounter > 0) clockLedCounter--;
+                    if (mutationLedCounter > 0) mutationLedCounter--;
                 }
 
                 this.leds.cell1 = cellIndex === 0 ? 1 : 0;
@@ -473,12 +489,12 @@ export default {
                 this.leds.cell6 = cellIndex === 5 && activeLength > 5 ? 1 : 0;
                 this.leds.cell7 = cellIndex === 6 && activeLength > 6 ? 1 : 0;
                 this.leds.cell8 = cellIndex === 7 && activeLength > 7 ? 1 : 0;
-                this.leds.substep = acceptedClockThisBlock
+                this.leds.substep = acceptedClockThisBlock || clockLedCounter > 0
                     ? 1
                     : ((substepIndex + 1) / CLOCKS_PER_CELL) * 0.25;
                 this.leds.anchor = anchorValid ? (anchorHold ? 1 : 0.5) : 0;
                 this.leds.pending = pendingRecall ? 1 : (pendingMutate ? 0.5 : 0);
-                this.leds.mutation = mutationCommittedThisBlock ? 1 : 0;
+                this.leds.mutation = mutationLedCounter > 0 ? 1 : 0;
             },
 
             reset() {
@@ -501,6 +517,7 @@ export default {
                 lastMutationDeltas.fill(0);
                 cellIndex = 0;
                 substepIndex = 0;
+                restartPending = true;
                 lastClockHigh = false;
                 lastResetHigh = false;
                 lastMutateHigh = false;
@@ -512,6 +529,8 @@ export default {
                 pendingAmount = DEFAULT_AMOUNT;
                 lastMutationCount = 0;
                 firstProcessPending = false;
+                clockLedCounter = 0;
+                mutationLedCounter = 0;
                 this.params.mutate = 0;
                 this.params.recall = 0;
                 fillHeldOutputs(outputs, livePattern, cellIndex);
@@ -548,6 +567,7 @@ export default {
                     activeLength,
                     cellIndex,
                     substepIndex,
+                    restartPending,
                     anchorValid,
                     pendingMutate,
                     pendingRecall,

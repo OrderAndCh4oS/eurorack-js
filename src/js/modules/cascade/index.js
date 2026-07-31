@@ -20,7 +20,7 @@ function finiteRounded(value, fallback, minimum, maximum) {
 }
 
 export function computeCascadeFill(fill, fillCV) {
-    const base = finiteRounded(fill, DEFAULT_FILL, 0, 16);
+    const base = Number.isFinite(fill) ? clamp(fill, 0, 16) : DEFAULT_FILL;
     const modulation = Number.isFinite(fillCV) ? clamp(fillCV, -5, 5) : 0;
     return clamp(Math.round(base + modulation * 8 / 5), 0, 16);
 }
@@ -70,7 +70,6 @@ export default {
         let lastResetHigh = false;
         let lastResetActionHigh = false;
         let restartPending = false;
-        let activeInitialized = false;
         let activeRotate = DEFAULT_ROTATE;
 
         return {
@@ -126,7 +125,6 @@ export default {
                         }
                         if (step === 0) {
                             activeRotate = requestedRotate;
-                            activeInitialized = true;
                             restartPending = false;
                         }
 
@@ -161,7 +159,7 @@ export default {
                 this.leds.lane3 = ledCounters[2] > 0 ? 1 : 0;
                 this.leds.lane4 = ledCounters[3] > 0 ? 1 : 0;
                 this.leds.pending = restartPending ||
-                    (activeInitialized && requestedRotate !== activeRotate) ? 1 : 0;
+                    requestedRotate !== activeRotate ? 1 : 0;
             },
 
             reset() {
@@ -179,7 +177,6 @@ export default {
                 lastResetHigh = false;
                 lastResetActionHigh = false;
                 restartPending = false;
-                activeInitialized = false;
                 activeRotate = DEFAULT_ROTATE;
                 this.params.resetAction = 0;
                 this.leds.lane1 = 0;

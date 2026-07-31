@@ -162,7 +162,13 @@ export class RackState {
         return { row: targetRow, removedModuleIds: [...removedModuleIds] };
     }
 
-    addModule(type, registry, { row = null, index = null, id = null, params = null } = {}) {
+    addModule(type, registry, {
+        row = null,
+        index = null,
+        id = null,
+        params = null,
+        releaseTransientActions = false
+    } = {}) {
         const definition = registry.get(type);
         if (!definition) {
             throw new Error(`Module type "${type}" not found`);
@@ -195,11 +201,20 @@ export class RackState {
             ? rowModules.length
             : Math.max(0, Math.min(index, rowModules.length));
 
+        const moduleParams = { ...createDefaultParams(definition), ...(params || {}) };
+        if (releaseTransientActions) {
+            (definition.ui?.actions || []).forEach(action => {
+                if (action.mode === 'trigger' || action.mode === 'momentary') {
+                    moduleParams[action.param] = action.default ?? 0;
+                }
+            });
+        }
+
         const moduleState = {
             id: moduleId,
             type,
             row: targetRow,
-            params: { ...createDefaultParams(definition), ...(params || {}) }
+            params: moduleParams
         };
 
         this.modules.set(moduleId, moduleState);
@@ -348,7 +363,8 @@ export class RackState {
                 id: mod.id,
                 row: mod.row,
                 index: mod.index ?? index,
-                params: patchState.params?.[mod.id] || {}
+                params: patchState.params?.[mod.id] || {},
+                releaseTransientActions: true
             });
         });
 

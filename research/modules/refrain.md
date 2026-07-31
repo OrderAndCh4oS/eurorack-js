@@ -1,6 +1,6 @@
 # Refrain — Research and Specification
 
-**Status:** spec-ready
+**Status:** done
 **Module ID:** `refrain`
 **Working model:** inspired autonomous phrase-form sequencer
 
@@ -316,13 +316,18 @@ coherent four-lane macro tuple.
 - Reset is active at `>= 1 V` and is edge-detected to avoid repeated resets
   while held high.
 - The current cell's tuple is sample-and-held continuously at all four outputs.
-- A cell lasts exactly 16 accepted clocks.
+- Once started, a cell lasts exactly 16 accepted clock intervals.
 - Loop length is an integer from 1 through 8 cells.
 - Transport state is `(cellIndex, substepIndex)`, with both zero-based.
-- Initialization begins at cell 0, substep 0, with cell 0 already visible.
-- On an ordinary accepted clock, increment `substepIndex`. When it reaches 16,
-  set it to 0 and advance `cellIndex` modulo the active loop length.
-- Reset affects transport only: it selects cell 0/substep 0 and does not alter
+- Initialization begins at cell 0, substep 0, with cell 0 already visible and
+  a restart queued. The first accepted clock establishes cell 0/substep 0
+  without advancing, matching the pre-step transport used by Changes and
+  Cascade.
+- After transport has started, each accepted clock increments `substepIndex`.
+  The clock after substep 15 sets it to 0 and advances `cellIndex` modulo the
+  active loop length.
+- Reset affects transport only: it queues cell 0/substep 0 for the next
+  accepted clock without changing the currently held tuple. It does not alter
   the generated base pattern, live pattern, Anchor, PRNG seed, or queued
   boundary action.
 - If reset and clock edges occur on the same sample, reset wins transport and
@@ -543,10 +548,10 @@ their tuple between accepted clocks.
 | ID | Meaning |
 |---|---|
 | `cell1`..`cell8` | One-hot active-cell position; LEDs above `length` are off. |
-| `substep` | Bright pulse on accepted clock, otherwise shows normalized progress `(substepIndex + 1) / 16` at a restrained level. |
+| `substep` | 50 ms bright hold after an accepted clock, otherwise shows normalized progress `(substepIndex + 1) / 16` at a restrained level. |
 | `anchor` | `0` with no valid Anchor; `0.5` with a valid Anchor while in Run; `1` with a valid Anchor while in Hold. |
 | `pending` | On when Recall or Mutate is queued; Recall may use full brightness and Mutate half brightness. |
-| `mutation` | One-block pulse when manual or automatic mutation commits. |
+| `mutation` | 50 ms visual hold when manual or automatic mutation commits. |
 
 No display telemetry or custom renderer is required; the initial implementation
 should use declarative controls and bounded LED state only.
@@ -617,9 +622,11 @@ semantic voltage vocabulary. The narrower `KEY` lane follows the repository's
 4. **Voltage/quantization:** `KEY` stays -1..+1 V on 1/12 V steps; `HARM`
    0..5 V and macro outputs -5..+5 V on 0.25 V steps.
 5. **Clock threshold:** only rising crossings from `<=2.5` to `>2.5 V` advance;
-   a held clock does not retrigger; exactly 16 accepted edges advance one cell.
-6. **Reset:** `>=1 V` rising edge returns cell/substep to zero without changing
-   pattern, Anchor, queues, or PRNG; same-sample reset+clock ends at 0/0.
+   a held clock does not retrigger; the first accepted edge establishes step
+   zero and the following 16 accepted edges advance one cell.
+6. **Reset:** `>=1 V` rising edge queues a transport restart without changing
+   the held tuple, pattern, Anchor, queues, or PRNG; the next clock starts at
+   0/0 and same-sample reset+clock ends at 0/0.
 7. **Length:** values clamp/step 1..8; requested changes do not alter the active
    loop before a complete boundary and commit atomically there.
 8. **Seed:** change is boundary-only, replaces live base deterministically, and
@@ -646,8 +653,8 @@ semantic voltage vocabulary. The narrower `KEY` lane follows the repository's
     eligible Run boundary; one attempt maximum per loop; a valid retained
     Anchor does not suppress auto after returning to Run.
 17. **LEDs:** one-hot cell position, inactive-length LEDs off, valid/pending
-    states accurate, accepted-clock/substep behavior bounded 0..1, mutation
-    pulse one block.
+    states accurate, accepted-clock/substep behavior bounded 0..1, and 50 ms
+    clock/mutation holds visible at the worklet telemetry cadence.
 18. **Lifecycle/reset distinction:** DSP `reset()` reconstructs seed-derived
     base and clears volatile live/Anchor/pending/PRNG continuation, while RESET
     input only resets transport. Reset clears Anchor edge history to Run, so a
@@ -695,11 +702,11 @@ semantic voltage vocabulary. The narrower `KEY` lane follows the repository's
 
 ## Gate Decision
 
-**Decision: spec-ready.** The linked source register is verified, and the
+**Decision: done.** The linked source register is verified, and the
 behavioral, timing, panel, voltage, deterministic-generation, boundary
 priority, persistence, DSP, assumption/contradiction, test, and
-implementation-plan contracts are closed. No implementation work was
-performed in this research worktree.
+implementation-plan contracts are closed. Implementation and validation are
+complete.
 
 ## DSP Audit (2026-07-31)
 
@@ -717,7 +724,17 @@ clock/reset semantics, quantization, reset reconstruction, and deterministic
 replay. Production-style hydration tests also verify that params assigned after
 `createDSP()` install `SEED` and `LENGTH` before the first output/Anchor capture,
 while restored high Mutate/Recall action values establish edge history without
-replaying commands.
+replaying commands. Rack patch loading releases transient trigger/momentary
+actions to their defaults before instantiation, so a captured high pulse cannot
+consume the performer's first click.
+
+The 31 July integration re-audit also verifies shared-clock phase against
+Changes and Cascade: clock 1 establishes all three at step 0, clock 16 leaves
+Refrain at cell 0/substep 15, and clock 17 advances Refrain to cell 1 exactly
+as the companion modules enter their next step 0. Asynchronous Reset now holds
+the current macro tuple until the shared next clock, preventing a one-clock
+cross-module mismatch. Clock and mutation LEDs use 50 ms counters so 30 Hz
+worklet telemetry can observe them.
 
 RackHost regressions additionally verify that ordinary topology synchronization
 uses non-replacing activation, explicit patch loads use replacing activation,

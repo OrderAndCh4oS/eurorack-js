@@ -197,6 +197,23 @@ describe('factory-patches', () => {
             expect(arpCables.length).toBeGreaterThan(0);
         });
 
+        it('Test - Changes + Cascade locks the intended shared-clock pitch and articulation wiring', () => {
+            const patch = FACTORY_PATCHES['Test - Changes + Cascade'];
+            const moduleIds = new Set(['changes', 'cascade']);
+            const compositionCables = patch.state.cables.filter(cable =>
+                moduleIds.has(cable.fromModule) || moduleIds.has(cable.toModule)
+            );
+
+            expect(compositionCables).toEqual([
+                { fromModule: 'clock', fromPort: 'clock', toModule: 'changes', toPort: 'clock' },
+                { fromModule: 'clock', fromPort: 'clock', toModule: 'cascade', toPort: 'clock' },
+                { fromModule: 'changes', fromPort: 'pitch', toModule: 'lead', toPort: 'vOct' },
+                { fromModule: 'cascade', fromPort: 'lane3', toModule: 'lead', toPort: 'trigger' },
+                { fromModule: 'changes', fromPort: 'root', toModule: 'bass', toPort: 'vOct' },
+                { fromModule: 'cascade', fromPort: 'lane1', toModule: 'bass', toPort: 'trigger' }
+            ]);
+        });
+
         it('Test - Refrain routes every macro lane through shared-clock audible form', () => {
             const patch = FACTORY_PATCHES['Test - Refrain'];
             expect(patch).toBeDefined();
@@ -220,6 +237,29 @@ describe('factory-patches', () => {
             expect(patch.state.params.arp.chord).toBe(0);
             expect(patch.state.params.changes.key).toBe(0);
             expect(patch.state.params.refrain.chance).toBe(100);
+
+            const moduleIds = new Set(['refrain', 'changes', 'cascade']);
+            const compositionCables = patch.state.cables.filter(cable =>
+                moduleIds.has(cable.fromModule) || moduleIds.has(cable.toModule)
+            );
+            expect(compositionCables).toEqual([
+                { fromModule: 'clock', fromPort: 'clock', toModule: 'refrain', toPort: 'clock' },
+                { fromModule: 'clock', fromPort: 'clock', toModule: 'changes', toPort: 'clock' },
+                { fromModule: 'clock', fromPort: 'clock', toModule: 'cascade', toPort: 'clock' },
+                { fromModule: 'resetB', fromPort: 'out1', toModule: 'refrain', toPort: 'reset' },
+                { fromModule: 'resetB', fromPort: 'out1', toModule: 'changes', toPort: 'reset' },
+                { fromModule: 'resetB', fromPort: 'out1', toModule: 'cascade', toPort: 'reset' },
+                { fromModule: 'refrain', fromPort: 'key', toModule: 'changes', toPort: 'keyCV' },
+                { fromModule: 'refrain', fromPort: 'harm', toModule: 'arp', toPort: 'chordCV' },
+                { fromModule: 'refrain', fromPort: 'energy', toModule: 'cascade', toPort: 'fillCV' },
+                { fromModule: 'refrain', fromPort: 'energy', toModule: 'scope', toPort: 'in2' },
+                { fromModule: 'refrain', fromPort: 'mod', toModule: 'lead', toPort: 'dampCV' },
+                { fromModule: 'refrain', fromPort: 'mod', toModule: 'bass', toPort: 'positionCV' },
+                { fromModule: 'changes', fromPort: 'root', toModule: 'arp', toPort: 'rootCV' },
+                { fromModule: 'changes', fromPort: 'root', toModule: 'bass', toPort: 'vOct' },
+                { fromModule: 'cascade', fromPort: 'lane3', toModule: 'arp', toPort: 'trigger' },
+                { fromModule: 'cascade', fromPort: 'lane1', toModule: 'bass', toPort: 'trigger' }
+            ]);
         });
 
         it('Demo - Neon Grid uses exactly three rows with drums, bass, and melody texture', () => {

@@ -34,6 +34,7 @@ import testLogic from './test-logic.js';
 import testMult from './test-mult.js';
 import testMatrix from './test-matrix.js';
 import testJoystick from './test-joystick.js';
+import testCvRec from './test-cv-rec.js';
 import testWavetable from './test-wavetable.js';
 import testComplexVco from './test-complex-vco.js';
 import testEnsembleVco from './test-ensemble-vco.js';
@@ -156,6 +157,7 @@ export const FACTORY_PATCHES = {
     [testMult.name]: testMult,
     [testMatrix.name]: testMatrix,
     [testJoystick.name]: testJoystick,
+    [testCvRec.name]: testCvRec,
     [testWavetable.name]: testWavetable,
     [testComplexVco.name]: testComplexVco,
     [testEnsembleVco.name]: testEnsembleVco,

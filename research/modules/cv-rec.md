@@ -832,7 +832,7 @@ Chosen trade-offs:
 
 - **Module ID/category:** `cv-rec`, `modulation`.
 - **Implementation branch/worktree:** `module/cv-rec` at
-  `/Users/orderandchaos/code/eurorack-js/.worktrees/cv-rec`.
+  `/Users/orderandchaos/code/eurorack-js/.worktrees/cv-rec-module`.
 - **DSP model:** inspired dual CV/gate runtime recorder with fixed 60,000-frame
   stores, 1 kHz FREE accumulation/playback, exact-edge CLOCK capture up to 1024
   steps, STEP/SMOOTH CV reconstruction, discrete gates, and explicit transport
@@ -884,6 +884,32 @@ Chosen trade-offs:
   FREE storage, 1024 CLOCK steps, mean-CV/any-high-gate accumulation, 8 ms EOL,
   runtime-only memory, no overdub/edit/reverse/speed/quantization, and the
   normative collision order above.
+
+## DSP Audit (2026-07-31)
+
+- **Focused coverage:** `tests/dsp/cv-rec.test.js` has 24 tests covering FREE
+  and CLOCK capture, both lane pairs, exact capacities, transport priorities,
+  interpolation, gates and EOL, reset/clear, runtime-state round trips and
+  rejection, block-segmentation determinism, stable buffers, and finite voltage
+  rails. `tests/ui/cv-rec.test.js` covers the custom renderer, exact jacks,
+  controls, telemetry display, and cleanup.
+- **Measured status:** the strict 44.1/48/96 kHz by 128/512-sample audit matrix
+  completed 11 scenarios per configuration with finite, stable buffers, zero
+  processing errors, zero voltage-contract flags, an exact 10.000 V observed
+  peak, and a maximum advisory Node diagnostic time of 211.4 microseconds per
+  block across repeated validation runs.
+- **Integration status:** module-contract, queue-contract, factory-patch,
+  patch-format, rack-host, worklet-engine, and worklet-processor focused suites
+  pass. The repository-wide run passes 2,169 of 2,170 tests; its sole failure is
+  the pre-existing research-index audit check for five unregistered candidate
+  records (`chaos`, `pitch-track`, `prob-seq`, `shimmer`, and `vocoder`).
+- **Runtime decision:** recording arrays remain bounded runtime state and are
+  allocated only at DSP construction or explicit snapshot capture. They are
+  excluded from patches, params, and worklet telemetry; the process path uses
+  stable arrays and scalar state only.
+- **Remaining acceptance:** browser AudioWorklet listening and interaction
+  checks are recommended before merge; no focused DSP or contract blocker is
+  known.
 
 ## Deferred Scope
 

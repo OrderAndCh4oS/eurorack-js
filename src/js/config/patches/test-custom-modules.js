@@ -3,7 +3,7 @@
  *
  * Exercises every custom-rendered module in one diagnostic patch:
  * sequencers, looper, recorder, scope, spectrum, plot, spectrogram, VU meter,
- * joystick, low pass gate, and ensemble oscillator.
+ * joystick, CV recorder, low pass gate, and ensemble oscillator.
  */
 export default {
     "name": "Test - Custom Modules",
@@ -131,6 +131,12 @@ export default {
                 "type": "prob-seq",
                 "row": 3,
                 "index": 4
+            },
+            {
+                "id": "cvRecorder",
+                "type": "cv-rec",
+                "row": 3,
+                "index": 5
             }
         ],
         "params": {
@@ -300,6 +306,15 @@ export default {
                     { "enabled": 1, "probability": 65, "ratchets": 2, "condition": 7 },
                     { "enabled": 1, "probability": 100, "ratchets": 4, "condition": 10 }
                 ]
+            },
+            "cvRecorder": {
+                "mode": 1,
+                "shape": 1,
+                "playMode": 0,
+                "record": 0,
+                "play": 0,
+                "resetAction": 0,
+                "clear": 0
             }
         },
         "cables": [
@@ -319,6 +334,12 @@ export default {
                 "fromModule": "clock",
                 "fromPort": "clock",
                 "toModule": "probSeq",
+                "toPort": "clock"
+            },
+            {
+                "fromModule": "clock",
+                "fromPort": "clock",
+                "toModule": "cvRecorder",
                 "toPort": "clock"
             },
             {
@@ -389,6 +410,18 @@ export default {
             },
             {
                 "fromModule": "joy",
+                "fromPort": "x",
+                "toModule": "cvRecorder",
+                "toPort": "cv1In"
+            },
+            {
+                "fromModule": "joy",
+                "fromPort": "gate",
+                "toModule": "cvRecorder",
+                "toPort": "gate1In"
+            },
+            {
+                "fromModule": "joy",
                 "fromPort": "y",
                 "toModule": "lpg",
                 "toPort": "dampCV"
@@ -404,6 +437,12 @@ export default {
                 "fromPort": "out",
                 "toModule": "vca",
                 "toPort": "ch1In"
+            },
+            {
+                "fromModule": "cvRecorder",
+                "fromPort": "cv1Out",
+                "toModule": "vca",
+                "toPort": "ch1CV"
             },
             {
                 "fromModule": "vca",

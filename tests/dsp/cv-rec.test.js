@@ -37,21 +37,25 @@ function clockEdge(dsp, values = {}) {
 function restoreState(dsp, {
     mode = 0,
     cv1 = [0, 1],
-    cv2 = [0, -1],
-    gate1 = [0, 1],
-    gate2 = [1, 0],
+    cv2 = null,
+    gate1 = null,
+    gate2 = null,
     position = 0,
     playbackState = PLAY
 } = {}) {
+    const length = cv1.length;
+    const safeCv2 = cv2 ?? new Array(length).fill(0);
+    const safeGate1 = gate1 ?? new Array(length).fill(0);
+    const safeGate2 = gate2 ?? new Array(length).fill(0);
     cvRecorder.restoreRuntimeState(dsp, {
         version: 1,
         freeFrameRate: 1000,
         recordedMode: mode,
         recordedLength: cv1.length,
         cv1: Float32Array.from(cv1),
-        cv2: Float32Array.from(cv2),
-        gate1: Uint8Array.from(gate1),
-        gate2: Uint8Array.from(gate2),
+        cv2: Float32Array.from(safeCv2),
+        gate1: Uint8Array.from(safeGate1),
+        gate2: Uint8Array.from(safeGate2),
         playPosition: position,
         playbackState
     });
@@ -318,7 +322,7 @@ describe('cv-rec', () => {
         expect(smooth.outputs.cv1Out[0]).toBe(-4);
         expect(smooth.outputs.gate1Out[0]).toBe(0);
         processBlock(smooth);
-        expect(smooth.outputs.cv1Out[5]).toBeCloseTo(-2, 5);
+        expect(smooth.outputs.cv1Out[5]).toBeCloseTo(-1, 5);
         expect(smooth.outputs.gate1Out[5]).toBe(0);
     });
 
@@ -368,6 +372,25 @@ describe('cv-rec', () => {
         expect(one.outputs.cv1Out[0]).toBe(2);
         expect(one.outputs.gate1Out[0]).toBe(10);
     });
+
+    it.each([44100, 48000])(
+        'latches an in-block EOL event for telemetry at %i Hz without extending the output pulse',
+        sampleRate => {
+            const dsp = cvRecorder.createDSP({ sampleRate, bufferSize: 512 });
+            restoreState(dsp, { mode: 1, cv1: [1, 2] });
+            clockEdge(dsp);
+            clockEdge(dsp);
+
+            const pulseSamples = Math.round(sampleRate * 0.008);
+            expect(Array.from(dsp.outputs.eol).filter(value => value === 10)).toHaveLength(pulseSamples);
+            expect(dsp.outputs.eol[pulseSamples]).toBe(0);
+            expect(dsp.leds.eol).toBe(1);
+
+            processBlock(dsp);
+            expect(dsp.outputs.eol.every(value => value === 0)).toBe(true);
+            expect(dsp.leds.eol).toBe(0);
+        }
+    );
 
     it('captures and atomically restores bounded runtime state in both modes', () => {
         const source = cvRecorder.createDSP({ sampleRate: 4000, bufferSize: 4 });
@@ -423,6 +446,95 @@ describe('cv-rec', () => {
         expect(restored.params.play).toBe(0);
         processBlock(restored, { clock: 10 });
         expect(restored.outputs.cv1Out.every(Number.isFinite)).toBe(true);
+    });
+
+    it('auto-finalizes exact FREE and CLOCK capacities without overwriting', () => {
+        const free = cvRecorder.createDSP({ sampleRate: 1000, bufferSize: 100 });
+        free.params.mode = 0;
+        for (let block = 0; block < 600; block++) {
+            processBlock(free, {
+                cv1In: block / 100,
+                recordTrig: block === 0 ? i => i === 0 ? 10 : 0 : 0
+            });
+        }
+        expect(free.transportState).toBe(PLAY);
+        expect(free.recordedLength).toBe(60000);
+        expect(free.getRecordedFrame(0).cv1).toBe(0);
+        expect(free.outputs.eol.every(value => value === 0)).toBe(true);
+
+        const clocked = cvRecorder.createDSP({ sampleRate: 48000, bufferSize: 4 });
+        clocked.params.mode = 1;
+        clocked.params.record = 1;
+        clockEdge(clocked, { cv1In: 1 });
+        clocked.params.record = 0;
+        processBlock(clocked);
+        for (let step = 1; step < 1024; step++) clockEdge(clocked, { cv1In: step / 200 });
+        expect(clocked.transportState).toBe(PLAY);
+        expect(clocked.recordedLength).toBe(1024);
+        expect(clocked.getRecordedFrame(0).cv1).toBe(1);
+        expect(clocked.getRecordedFrame(1023).cv1).toBeCloseTo(1023 / 200, 6);
+        clockEdge(clocked, { cv1In: 9 });
+        expect(clocked.getRecordedFrame(0).cv1).toBe(1);
+    });
+
+    it('keeps old playback intact through CLOCK arm/cancel and latches mode only on replacement', () => {
+        const dsp = cvRecorder.createDSP({ sampleRate: 4000, bufferSize: 4 });
+        restoreState(dsp, { mode: 0, cv1: [0, 2, 4], cv2: [0, 0, 0] });
+        dsp.params.mode = 1;
+        pulseAction(dsp, 'record');
+        expect(dsp.transportState).toBe(ARM);
+        expect(dsp.recordedLength).toBe(3);
+        expect(dsp.outputs.cv1Out.some(value => value !== 0)).toBe(true);
+        pulseAction(dsp, 'record');
+        expect(dsp.transportState).toBe(PLAY);
+        expect(dsp.getTransportInfo().memoryMode).toBe(0);
+
+        pulseAction(dsp, 'record');
+        clockEdge(dsp, { cv1In: 7, gate1In: 10 });
+        expect(dsp.transportState).toBe(REC);
+        expect(dsp.recordedMode).toBe(1);
+        expect(dsp.recordedLength).toBe(1);
+        expect(dsp.getRecordedFrame(0)).toEqual({ cv1: 7, gate1: 1, cv2: 0, gate2: 0 });
+    });
+
+    it('accepts one routed high CLOCK after lifecycle reset or runtime restore', () => {
+        const dsp = cvRecorder.createDSP({ sampleRate: 48000, bufferSize: 8 });
+        restoreState(dsp, { mode: 1, cv1: [1, 2], cv2: [0, 0] });
+        dsp.reset();
+        processBlock(dsp, { clock: 10 });
+        expect(dsp.getTransportInfo().currentStep).toBe(1);
+        processBlock(dsp, { clock: 10 });
+        expect(dsp.getTransportInfo().currentStep).toBe(1);
+
+        const snapshot = cvRecorder.captureRuntimeState(dsp);
+        const restored = cvRecorder.createDSP({ sampleRate: 48000, bufferSize: 8 });
+        cvRecorder.restoreRuntimeState(restored, snapshot);
+        processBlock(restored, { clock: 10 });
+        expect(restored.getTransportInfo().currentStep).toBe(0);
+        processBlock(restored, { clock: 10 });
+        expect(restored.getTransportInfo().currentStep).toBe(0);
+    });
+
+    it('records identical FREE data across block segmentation', () => {
+        const options = {
+            sampleRate: 48000,
+            stopSample: 4800,
+            sampleAt(sample) {
+                return {
+                    cv1: Math.sin(sample * 0.001) * 5,
+                    cv2: Math.cos(sample * 0.0007) * 4,
+                    gate1: sample % 333 < 48 ? 10 : 0,
+                    gate2: sample % 511 < 96 ? 10 : 0
+                };
+            }
+        };
+        const shortBlocks = cvRecorder.captureRuntimeState(recordFree({ ...options, bufferSize: 128 }));
+        const longBlocks = cvRecorder.captureRuntimeState(recordFree({ ...options, bufferSize: 512 }));
+        expect(longBlocks.recordedLength).toBe(100);
+        expect(longBlocks.cv1).toEqual(shortBlocks.cv1);
+        expect(longBlocks.cv2).toEqual(shortBlocks.cv2);
+        expect(longBlocks.gate1).toEqual(shortBlocks.gate1);
+        expect(longBlocks.gate2).toEqual(shortBlocks.gate2);
     });
 
     it('keeps telemetry and LEDs finite and bounded through every transport state', () => {

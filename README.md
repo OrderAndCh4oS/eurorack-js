@@ -60,6 +60,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | `adsr` | ADSR | ADSR envelope generator with CV timing inputs |
 | `ochd` | OCHD | Eight free-running triangle LFOs based on Instruo ochd |
 | `chaos` | Chaos | Three correlated Lorenz chaotic CV axes with rate, character, reset, and lobe gate |
+| `cv-rec` | CV REC | Dual arbitrary-CV/gate recorder with free-time and clocked looping |
 
 ### Sequencers
 | ID | Module | Description |

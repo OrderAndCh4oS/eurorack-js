@@ -861,10 +861,30 @@ are recorded here before merge.
   INPUT and REGEN instances and keeps a spectrum on each instance. Two MIX
   modules preserve the full stereo returns while respecting the rack's single-
   cable-per-input rule: MIX channel 1 is INPUT and channel 2 is REGEN on both
-  sides, then the left and right sums feed OUT. A partly dry equal-power mix and
-  practical OUT gain make both paths immediately audible without hiding their
-  different tails. Inspect all actual source/analyzer/out port definitions
-  during implementation rather than guessing cable names.
+  sides, then the left and right sums feed OUT. CLK produces a specification-
+  correct 10 ms trigger, so a Gate Delay stretches it to roughly 168 ms before
+  ADSR; a 55% sustain and approximately 92 ms release prevent the source VCA
+  from spending nearly the entire clock period silent. A partly dry equal-power
+  mix and practical OUT gain make both paths immediately audible without hiding
+  their different tails. Inspect all actual source/analyzer/out port
+  definitions during implementation rather than guessing cable names.
+
+### Factory-patch level audit (2026-07-31)
+
+An offline 48 kHz / 128-sample-block render measured both stereo channels over
+12 seconds. With the original direct CLK-to-ADSR cable, Ensemble was healthy at
+1.669 V RMS (-9.5 dBFS), but the 10 ms trigger plus zero sustain reduced the VCA
+to 0.107 V RMS (-33.4 dBFS) and the post-volume output to 0.051 V RMS (-39.9
+dBFS). Selecting Ensemble Warp mode 1 raised the final average by only 2.7 dB;
+its brighter peaks masked rather than fixed the gain staging.
+
+With the stretched gate and sustained envelope, Warp mode 0 retains the same
+healthy 1.669 V RMS Ensemble source while producing 0.620 V RMS at the VCA,
+0.396/0.418 V RMS at the INPUT/REGEN Shimmer returns, 0.382 V RMS at the stereo
+mixers, and 0.275 V RMS after OUT volume (-25.2 dBFS). This is about 14.7 dB
+louder on average with 1.35 V post-volume peaks, leaving useful headroom. The
+result identifies the factory patch's articulation as the fault; neither the
+Ensemble output nor Shimmer processing requires a gain correction.
 - **Registration:** add matching manifest and static core-definition entries,
   preserve sequential aliases/order, and bump the same core graph revision in
   `worklet-engine.js`, `processor.js`, and `core-plugin.js`.

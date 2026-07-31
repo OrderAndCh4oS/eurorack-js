@@ -1,10 +1,11 @@
 /**
  * Test - Shimmer
  *
- * A clocked envelope makes the stereo Ensemble VCO percussive, then feeds
- * matched INPUT and REGEN Shimmer instances. Their spectrum panels expose the
- * one-generation INPUT layer beside REGEN's octave ladder. Paired mixers sum
- * both complete stereo returns: channel 1 is INPUT and channel 2 is REGEN.
+ * A stretched clock gate gives the stereo Ensemble VCO an audible sustained
+ * envelope, then feeds matched INPUT and REGEN Shimmer instances. Their
+ * spectrum panels expose the one-generation INPUT layer beside REGEN's octave
+ * ladder. Paired mixers sum both complete stereo returns: channel 1 is INPUT
+ * and channel 2 is REGEN.
  */
 export default {
     name: 'Test - Shimmer',
@@ -14,9 +15,10 @@ export default {
         plugins: { core: 1 },
         modules: [
             { id: 'clock', type: 'clk', row: 1, index: 0 },
-            { id: 'envelope', type: 'adsr', row: 1, index: 1 },
-            { id: 'ensemble', type: 'ensemble-vco', row: 1, index: 2 },
-            { id: 'vca', type: 'vca', row: 1, index: 3 },
+            { id: 'gateStretcher', type: 'gate-delay', row: 1, index: 1 },
+            { id: 'envelope', type: 'adsr', row: 1, index: 2 },
+            { id: 'ensemble', type: 'ensemble-vco', row: 1, index: 3 },
+            { id: 'vca', type: 'vca', row: 1, index: 4 },
             { id: 'inputShimmer', type: 'shimmer', row: 2, index: 0 },
             { id: 'regenShimmer', type: 'shimmer', row: 2, index: 1 },
             { id: 'inputSpectrum', type: 'spectrum', row: 3, index: 0 },
@@ -27,7 +29,8 @@ export default {
         ],
         params: {
             clock: { rate: 0.3, pause: 0 },
-            envelope: { attack: 0.03, decay: 0.22, sustain: 0, release: 0.28 },
+            gateStretcher: { delay1: 0, length1: 0.52, delay2: 0, length2: 0.35 },
+            envelope: { attack: 0.03, decay: 0.22, sustain: 0.55, release: 0.45 },
             ensemble: {
                 root: 0.28,
                 pitch: 0,
@@ -91,7 +94,8 @@ export default {
             out: { volume: 0.72 }
         },
         cables: [
-            { fromModule: 'clock', fromPort: 'clock', toModule: 'envelope', toPort: 'gate' },
+            { fromModule: 'clock', fromPort: 'clock', toModule: 'gateStretcher', toPort: 'trig1' },
+            { fromModule: 'gateStretcher', fromPort: 'gate1', toModule: 'envelope', toPort: 'gate' },
             { fromModule: 'ensemble', fromPort: 'outA', toModule: 'vca', toPort: 'ch1In' },
             { fromModule: 'ensemble', fromPort: 'outB', toModule: 'vca', toPort: 'ch2In' },
             { fromModule: 'envelope', fromPort: 'env', toModule: 'vca', toPort: 'ch1CV' },

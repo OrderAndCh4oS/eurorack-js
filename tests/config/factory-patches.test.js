@@ -215,11 +215,19 @@ describe('factory-patches', () => {
         it('Test - Shimmer mixes both complete stereo routing modes to output', () => {
             const patch = FACTORY_PATCHES['Test - Shimmer'];
 
+            expect(patch.state.params.gateStretcher).toEqual({
+                delay1: 0, length1: 0.52, delay2: 0, length2: 0.35
+            });
+            expect(patch.state.params.envelope).toEqual({
+                attack: 0.03, decay: 0.22, sustain: 0.55, release: 0.45
+            });
             expect(patch.state.params.inputShimmer).toMatchObject({ route: 0, mix: 0.72 });
             expect(patch.state.params.regenShimmer).toMatchObject({ route: 1, mix: 0.72 });
             expect(patch.state.params.leftMix).toEqual({ lvl1: 0.5, lvl2: 0.5, lvl3: 0, lvl4: 0 });
             expect(patch.state.params.rightMix).toEqual({ lvl1: 0.5, lvl2: 0.5, lvl3: 0, lvl4: 0 });
             expect(patch.state.cables).toEqual(expect.arrayContaining([
+                { fromModule: 'clock', fromPort: 'clock', toModule: 'gateStretcher', toPort: 'trig1' },
+                { fromModule: 'gateStretcher', fromPort: 'gate1', toModule: 'envelope', toPort: 'gate' },
                 { fromModule: 'inputShimmer', fromPort: 'outL', toModule: 'leftMix', toPort: 'in1' },
                 { fromModule: 'regenShimmer', fromPort: 'outL', toModule: 'leftMix', toPort: 'in2' },
                 { fromModule: 'inputShimmer', fromPort: 'outR', toModule: 'rightMix', toPort: 'in1' },

@@ -23,6 +23,10 @@ export function createDefaultParams(definition) {
         params[action.param] = action.default ?? 0;
     });
 
+    (ui.state || []).forEach(state => {
+        params[state.param] = clone(state.default);
+    });
+
     return params;
 }
 

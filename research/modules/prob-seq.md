@@ -2,8 +2,8 @@
 
 ## Status and Model
 
-- **Research status:** spec-ready proposal, pending coordinator review and queue
-  transition.
+- **Research status:** approved specification implemented and validated on
+  31 July 2026; queue transitions remain coordinator-owned.
 - **Module ID:** `prob-seq`.
 - **Name:** `PROB SEQ`.
 - **Category:** `sequencer`.
@@ -809,7 +809,7 @@ boundaries.
 
 - **Module ID/category:** `prob-seq`, `sequencer`.
 - **Implementation branch/worktree:** branch `module/prob-seq` at
-  `/Users/orderandchaos/code/eurorack-js/.worktrees/prob-seq`.
+  `/Users/orderandchaos/code/eurorack-js/.worktrees/prob-seq-module`.
 - **Research input:** merge or cherry-pick this approved research commit before
   writing tests or DSP. The coordinator owns the queue transition from
   `researching` to `spec-ready` and later `implementing`.
@@ -846,13 +846,15 @@ boundaries.
   README module table. Update `docs/creating-modules.md` only if implementation
   exposes a genuinely reusable structured-step/transaction pattern not already
   covered.
-- **Shared framework changes:** none beyond normal core registration, alias
-  renumbering, and the required synchronized graph-revision bump. Import the
-  existing shared PCG32 utility; scheduling stays module-local.
+- **Shared framework changes:** normal core registration, alias renumbering,
+  the synchronized graph-revision bump, and a general correction so
+  `createDefaultParams()` deep-clones declared `ui.state` defaults into new
+  rack instances. Import the existing shared PCG32 utility; scheduling stays
+  module-local.
 - **Focused test command:**
 
   ```bash
-  npm test -- tests/dsp/prob-seq.test.js tests/rack/module-contracts.test.js tests/research/module-queue.test.js
+  npm test -- tests/dsp/prob-seq.test.js tests/ui/prob-seq-renderer.test.js tests/app/prob-seq-state.test.js tests/app/rack-state.test.js tests/rack/module-contracts.test.js tests/research/module-queue.test.js
   ```
 
 - **Patch validation command:**
@@ -873,13 +875,26 @@ boundaries.
   ignores PRE-family steps; fallback BPM is not an internal clock; the random
   draw schedule is one bounded result per accepted step; transport is volatile.
 
-## DSP Audit (Not Yet Implemented — 31 July 2026)
+## DSP Audit (2026-07-31)
 
-No runtime DSP exists at this research gate, so reporting measured ranges,
-spectra, or matrix results would be misleading. The implementation gate must
-run the focused tests and strict matrix command above, record the result here,
-and link any finding requiring cross-module work into
-[`research/sound-engineering-review.md`](../sound-engineering-review.md).
+- `npm run audit:dsp -- --module prob-seq --matrix --strict-voltage` covered
+  all six supported sample-rate/block-size combinations and seven scenarios
+  per combination. It reported zero errors, finite outputs, stable input/output
+  buffers, zero voltage flags, and an exact 10 V peak. The slowest advisory
+  measurement in that run was 151.4 microseconds per block.
+- The focused DSP, module-contract, queue-contract, and custom-renderer suites
+  pass. They cover deterministic seeds, all eleven conditions, fixed draw
+  consumption, CV scaling, reset/clock collisions, wrap transactions, ratchet
+  edge separation, structured-state replacement, telemetry, rails, and stable
+  buffers.
+- Both factory-patch/patch-format suites pass for the dedicated
+  `Test Probability Sequencer` patch and the all-custom-renderers diagnostic.
+- The complete repository run passed 2,178 of 2,179 tests. Its only failure is
+  the repository-wide research/registration equality check: five concurrent
+  candidate research documents (`chaos`, `cv-rec`, `pitch-track`, `shimmer`,
+  and `vocoder`) are present but not registered on this isolated branch.
+  `prob-seq` itself is present in both the manifest and research index.
+  Excluding only that global invariant file, all 2,171 tests in 114 files pass.
 
 ## Spec-ready Gate Assessment
 

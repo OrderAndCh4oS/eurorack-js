@@ -19,6 +19,7 @@ export const MODULE_MANIFEST = [
     { id: 'changes', load: () => import('../modules/changes/index.js') },
     { id: 'refrain', load: () => import('../modules/refrain/index.js') },
     { id: 'seq', load: () => import('../modules/seq/index.js') },
+    { id: 'prob-seq', load: () => import('../modules/prob-seq/index.js') },
     { id: 'seq-switch', load: () => import('../modules/seq-switch/index.js') },
     { id: 'euclid', load: () => import('../modules/euclid/index.js') },
     { id: 'logic', load: () => import('../modules/logic/index.js') },

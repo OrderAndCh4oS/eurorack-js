@@ -125,6 +125,12 @@ export default {
                 "type": "refrain",
                 "row": 3,
                 "index": 3
+            },
+            {
+                "id": "probSeq",
+                "type": "prob-seq",
+                "row": 3,
+                "index": 4
             }
         ],
         "params": {
@@ -279,6 +285,21 @@ export default {
                 "mutate": 0,
                 "anchor": 0,
                 "recall": 0
+            },
+            "probSeq": {
+                "seed": 17,
+                "length": 8,
+                "fallbackBpm": 120,
+                "steps": [
+                    { "enabled": 1, "probability": 100, "ratchets": 1, "condition": 0 },
+                    { "enabled": 1, "probability": 70, "ratchets": 2, "condition": 1 },
+                    { "enabled": 1, "probability": 80, "ratchets": 1, "condition": 5 },
+                    { "enabled": 0, "probability": 100, "ratchets": 1, "condition": 0 },
+                    { "enabled": 1, "probability": 55, "ratchets": 3, "condition": 2 },
+                    { "enabled": 1, "probability": 90, "ratchets": 1, "condition": 6 },
+                    { "enabled": 1, "probability": 65, "ratchets": 2, "condition": 7 },
+                    { "enabled": 1, "probability": 100, "ratchets": 4, "condition": 10 }
+                ]
             }
         },
         "cables": [
@@ -292,6 +313,12 @@ export default {
                 "fromModule": "clock",
                 "fromPort": "clock",
                 "toModule": "refrain",
+                "toPort": "clock"
+            },
+            {
+                "fromModule": "clock",
+                "fromPort": "clock",
+                "toModule": "probSeq",
                 "toPort": "clock"
             },
             {

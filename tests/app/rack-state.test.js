@@ -30,6 +30,13 @@ const registry = {
                 ]
             }
         },
+        stateful: {
+            id: 'stateful',
+            hp: 4,
+            ui: {
+                state: [{ param: 'pattern', default: [{ enabled: 1, value: 4 }] }]
+            }
+        },
         wide: { id: 'wide', hp: 84, ui: { knobs: [], buttons: [] } }
     },
     get(id) {
@@ -143,6 +150,22 @@ describe('RackState', () => {
             version: 3, plugins: { core: 1 },
             modules: [{ id: 'vco_1', type: 'vco', row: 1, index: 0 }],
             params: { vco_1: { coarse: 0.7 } }
+        });
+    });
+
+    it('deep-clones and serializes structured ui.state defaults', () => {
+        const rack = new RackState();
+        const first = rack.addModule('stateful', registry, { id: 'stateful_1' });
+        const second = rack.addModule('stateful', registry, { id: 'stateful_2' });
+
+        expect(first.params.pattern).toEqual([{ enabled: 1, value: 4 }]);
+        first.params.pattern[0].value = 9;
+        expect(second.params.pattern).toEqual([{ enabled: 1, value: 4 }]);
+        expect(registry.get('stateful').ui.state[0].default)
+            .toEqual([{ enabled: 1, value: 4 }]);
+        expect(rack.serializePatch().params).toEqual({
+            stateful_1: { pattern: [{ enabled: 1, value: 9 }] },
+            stateful_2: { pattern: [{ enabled: 1, value: 4 }] }
         });
     });
 

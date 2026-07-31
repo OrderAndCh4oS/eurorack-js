@@ -68,6 +68,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | `changes` | CHANGES | Scale-aware 16-note harmonic sequencer with cyclic voice-leading plans |
 | `refrain` | REFRAIN | Seed-CV-addressable phrase-form sequencer with selective exact mutation, triggerable Recall, Hold, and four macro CV lanes |
 | `seq` | SEQ | 8-step CV/gate sequencer with direction and range controls |
+| `prob-seq` | PROB SEQ | 8-step probability trigger sequencer with ratchets, skips, conditional gates, and deterministic seeds |
 | `seq-switch` | SEQ-SW | Clocked sequential switch for 4-to-1 and 1-to-4 signal routing |
 | `euclid` | EUCLID | Euclidean rhythm generator with length, hits, and rotation controls |
 | `turing` | TURING | Random looping sequencer based on Music Thing Turing Machine |

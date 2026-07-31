@@ -20,6 +20,7 @@ import testQuantizerScales from './test-quantizer-scales.js';
 import testArpeggiator from './test-arpeggiator.js';
 import testScopeSinewave from './test-scope-sinewave.js';
 import testSequencer from './test-sequencer.js';
+import testProbSeq from './test-prob-seq.js';
 import testSeqSwitch from './test-seq-switch.js';
 import testEuclid from './test-euclid.js';
 import testChangesCascade from './test-changes-cascade.js';
@@ -141,6 +142,7 @@ export const FACTORY_PATCHES = {
     [testArpeggiator.name]: testArpeggiator,
     [testScopeSinewave.name]: testScopeSinewave,
     [testSequencer.name]: testSequencer,
+    [testProbSeq.name]: testProbSeq,
     [testSeqSwitch.name]: testSeqSwitch,
     [testEuclid.name]: testEuclid,
     [testChangesCascade.name]: testChangesCascade,

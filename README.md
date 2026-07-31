@@ -108,6 +108,7 @@ reconstructed base.
 |----|--------|-------------|
 | `fold` | FOLD | Wavefolder for adding harmonic complexity |
 | `ring` | RING | Ring modulator for signal multiplication |
+| `vocoder` | VOCODER | 12-band channel vocoder with envelope shifting and direct sibilance |
 | `dly` | DLY | Mono digital delay with time, feedback, mix, and CV control |
 | `tape` | TAPE | Tape-style delay with saturation, multi-head modes, wow/flutter, crinkle, tap, and freeze |
 | `verb` | VERB | Stereo reverb with time, damping, mix, and mix CV |

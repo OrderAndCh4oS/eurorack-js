@@ -43,6 +43,7 @@ import testFormant from './test-formant.js';
 import testResbank from './test-resbank.js';
 import testFold from './test-fold.js';
 import testRing from './test-ring.js';
+import testVocoder from './test-vocoder.js';
 import testRnd from './test-rnd.js';
 import testEnvf from './test-envf.js';
 import testEnvfSidechain from './test-envf-sidechain.js';
@@ -166,6 +167,7 @@ export const FACTORY_PATCHES = {
     [testResbank.name]: testResbank,
     [testFold.name]: testFold,
     [testRing.name]: testRing,
+    [testVocoder.name]: testVocoder,
     [testRnd.name]: testRnd,
     [testEnvf.name]: testEnvf,
     [testEnvfSidechain.name]: testEnvfSidechain,

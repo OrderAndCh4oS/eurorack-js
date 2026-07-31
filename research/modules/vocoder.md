@@ -696,24 +696,26 @@ IIR/follower settling; do not mistake follower attack for routing latency.
 - There are no trigger, gate, clock, pitch-CV, reset-input, switch, button,
   action, custom-renderer, telemetry, or patch-state behaviors to test.
 
-## DSP Audit Plan (Pre-Implementation, 2026-07-31)
+## DSP Audit (2026-07-31)
 
-- No DSP exists for `vocoder`, so there are no measured runtime, voltage,
-  spectral, or timing findings in this research-only commit.
-- During implementation, run
-  `npm run audit:dsp -- --module vocoder --matrix --strict-voltage`.
-- Record the matrix result and measured peak/timing observations here only
-  after the module exists. The audit supplements, rather than replaces, the
-  focused spectral-transfer, time-constant, reset, and CV assertions above.
-- Next action after coordinator approval: move the queue row to `spec-ready`,
-  create the implementation worktree, write focused tests, then implement.
+- `npm run audit:dsp -- --module vocoder --matrix --strict-voltage` passed all
+  six 44.1/48/96 kHz by 128/512-sample configurations.
+- Each configuration completed 15 scenarios with zero errors, finite output,
+  zero voltage flags, and stable input/output buffer identities.
+- Measured output peaks ranged from 4.894 V to 5.000 V. Maximum observed
+  processing time ranged from 39.9 to 591.6 microseconds per block across the
+  matrix; these local wall-clock figures are regression observations rather
+  than real-time guarantees.
+- The focused suite separately verifies spectral transfer, carrier-pitch
+  retention, follower timing, CV mapping, reset equivalence, exact LED decay,
+  malformed-input handling, and rail compliance.
 
 ## Implementation Plan
 
 - **Module ID**: `vocoder`
 - **Category**: `effect`
 - **Branch/worktree**: implement on `module/vocoder` at
-  `/Users/orderandchaos/code/eurorack-js/.worktrees/vocoder`. Do not implement in
+  `/Users/orderandchaos/code/eurorack-js/.worktrees/vocoder-module`. Do not implement in
   the research worktree.
 - **DSP model**: mono, fixed 12-channel time-domain vocoder with matching
   LP + 10 BP + HP banks, 12 full-wave attack/release followers, interpolated

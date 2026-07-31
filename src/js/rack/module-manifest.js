@@ -37,6 +37,7 @@ export const MODULE_MANIFEST = [
     { id: 'resbank', load: () => import('../modules/resbank/index.js') },
     { id: 'fold', load: () => import('../modules/fold/index.js') },
     { id: 'ring', load: () => import('../modules/ring/index.js') },
+    { id: 'vocoder', load: () => import('../modules/vocoder/index.js') },
     { id: 'rnd', load: () => import('../modules/rnd/index.js') },
     { id: 'envf', load: () => import('../modules/envf/index.js') },
     { id: 'func', load: () => import('../modules/func/index.js') },

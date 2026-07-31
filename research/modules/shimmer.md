@@ -569,7 +569,11 @@ of some coloration when the heads contain poorly correlated material. Near
 unison, a 30 ms crossfade selects direct bypass so a stalled phasor cannot turn
 Interval zero into a static comb filter. The same precomputed periodic table
 used for tank modulation supplies the pitch windows, so `process()` performs no
-trigonometric call.
+trigonometric call. The implementation also derives equal-power Mix gains and
+one-pole cosine coefficients from that table. Linear interpolation keeps the
+worst supported-rate coefficient error below 0.5% (about 7.2 cents of cutoff at
+the most sensitive 96 kHz upward-shift extreme) without another table or any
+audio-rate allocation; exact Mix endpoints remain explicit.
 
 Before upward shift, four cascaded one-pole lowpasses use
 `min(dampCutoff, 0.45 * sampleRate / r)` as their target cutoff. This cannot make

@@ -564,7 +564,7 @@ expires. Every sample of every output buffer is overwritten in each
 | `step1`..`step8` | One-hot active/armed step. Steps outside active length render dim/off. |
 | `hit` | 1 for 50 ms after a decision that emitted a gate. |
 | `miss` | 1 for 50 ms after a disabled, condition-false, or probability-false decision. |
-| `eoc` | Mirrors the EOC output pulse. |
+| `eoc` | Reports an active EOC pulse, and remains lit through the end of a block in which the pulse expires so short events remain visible to block-rate telemetry. |
 | `pending` | 1 while requested seed or requested length differs from its active value. |
 
 The custom renderer requires bounded telemetry:

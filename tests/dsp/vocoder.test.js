@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import vocoderModule from '../../src/js/modules/vocoder/index.js';
+import { softLimitVoltage } from '../../src/js/utils/voltage.js';
 
 const SAMPLE_RATE = 48000;
 const BUFFER_SIZE = 128;
@@ -400,12 +401,14 @@ describe('Vocoder', () => {
     it('maps block peaks to LEDs and applies the exact 100 ms decay', () => {
         const dsp = create();
         dsp.params.mix = 0;
-        dsp.inputs.modulator.fill(2);
+        dsp.params.analysisGain = 2;
+        dsp.params.carrierGain = 0;
+        dsp.inputs.modulator.fill(2.5);
         dsp.inputs.carrier.fill(3);
         dsp.process();
-        expect(dsp.leds.analysis).toBeCloseTo(0.4, 6);
-        expect(dsp.leds.carrier).toBeCloseTo(0.6, 6);
-        expect(dsp.leds.output).toBeCloseTo(0.4, 6);
+        expect(dsp.leds.analysis).toBeCloseTo(softLimitVoltage(5, 5) / 5, 6);
+        expect(dsp.leds.carrier).toBe(0);
+        expect(dsp.leds.output).toBeCloseTo(0.5, 6);
 
         const previous = { ...dsp.leds };
         dsp.inputs.modulator.fill(0);
@@ -415,6 +418,25 @@ describe('Vocoder', () => {
         expect(dsp.leds.analysis).toBeCloseTo(previous.analysis * decay, 7);
         expect(dsp.leds.carrier).toBeCloseTo(previous.carrier * decay, 7);
         expect(dsp.leds.output).toBeCloseTo(previous.output * decay, 7);
+    });
+
+    it('meters live Analysis and Carrier gain slews instead of raw or target input levels', () => {
+        const dsp = create();
+        dsp.params.analysisGain = 0;
+        dsp.params.carrierGain = 0;
+        dsp.inputs.modulator.fill(1);
+        dsp.inputs.carrier.fill(1);
+        dsp.process();
+        expect(dsp.leds.analysis).toBe(0);
+        expect(dsp.leds.carrier).toBe(0);
+
+        dsp.params.analysisGain = 2;
+        dsp.params.carrierGain = 2;
+        dsp.process();
+        const finalSmoothedGain = 2 * (1 - Math.exp(-BUFFER_SIZE / (0.005 * SAMPLE_RATE)));
+        const expected = softLimitVoltage(finalSmoothedGain, 5) / 5;
+        expect(dsp.leds.analysis).toBeCloseTo(expected, 6);
+        expect(dsp.leds.carrier).toBeCloseTo(expected, 6);
     });
 
     it('sanitizes params, CV, and malformed audio while preserving rails', () => {

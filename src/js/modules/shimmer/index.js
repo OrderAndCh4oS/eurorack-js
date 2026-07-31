@@ -155,9 +155,9 @@ function dampingCutoff(damp, sampleRate) {
     return Math.min(cutoff, sampleRate * 0.45);
 }
 
-function onePoleCoefficient(cutoff, sampleRate) {
+function onePoleCoefficient(cutoff, sampleRate, sineTable) {
     const frequency = clamp(cutoff, 1, sampleRate * 0.45);
-    const cosine = Math.cos(2 * Math.PI * frequency / sampleRate);
+    const cosine = lookupPeriodic(sineTable, frequency / sampleRate + 0.25);
     const pole = 2 - cosine - Math.sqrt((2 - cosine) * (2 - cosine) - 1);
     return 1 - pole;
 }
@@ -642,7 +642,7 @@ export default {
                         pitchSourceR,
                         ratio,
                         shiftMorph,
-                        onePoleCoefficient(pitchCutoff, sampleRate)
+                        onePoleCoefficient(pitchCutoff, sampleRate, sineTable)
                     );
                     const pitchedL = pitchResult[0];
                     const pitchedR = pitchResult[1];
@@ -655,7 +655,7 @@ export default {
                     applyNormalizedHadamard8(fdnFeedback);
                     const regenAmount = shimmerAmount * route * (1 - freezeMorph);
                     const rt60 = 0.4 * Math.pow(75, decay);
-                    const lowpassCoefficient = onePoleCoefficient(dampHz, sampleRate);
+                    const lowpassCoefficient = onePoleCoefficient(dampHz, sampleRate, sineTable);
                     maxFeedbackGain = 0;
                     for (let line = 0; line < 8; line++) {
                         const pitchedFeedback = rowValue(3, line) * pitchedL
@@ -698,8 +698,10 @@ export default {
                         dryGain = 0;
                         wetGain = 1;
                     } else {
-                        dryGain = Math.cos(mix * Math.PI * 0.5);
-                        wetGain = Math.sin(mix * Math.PI * 0.5);
+                        // Reuse the periodic table for the equal-power law so
+                        // the AudioWorklet sample loop stays trig-free.
+                        dryGain = lookupPeriodic(sineTable, 0.25 + mix * 0.25);
+                        wetGain = lookupPeriodic(sineTable, mix * 0.25);
                     }
                     const mixedL = guardInternal(dryL * dryGain + wetL * wetGain * clearGain);
                     const mixedR = guardInternal(dryR * dryGain + wetR * wetGain * clearGain);
@@ -813,7 +815,7 @@ export default {
                     sample,
                     ratio,
                     interval === 0 ? 0 : 1,
-                    onePoleCoefficient(pitchCutoff, sampleRate)
+                    onePoleCoefficient(pitchCutoff, sampleRate, sineTable)
                 );
                 return pitchResult[0];
             },

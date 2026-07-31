@@ -29,11 +29,15 @@ describe('CV Recorder renderer', () => {
         expect(panel.querySelectorAll('.led')).toHaveLength(8);
         expect(panel.textContent).toContain('RUNTIME · MOD ONLY');
 
-        panel.querySelector('.switch[data-param="mode"]').click();
-        expect(onParamChange).toHaveBeenCalledWith('cv_rec_1', 'mode', 1);
+        ['mode', 'shape', 'playMode'].forEach(param => {
+            panel.querySelector(`.switch[data-param="${param}"]`).click();
+            expect(onParamChange).toHaveBeenCalledWith('cv_rec_1', param, expect.any(Number));
+        });
 
-        panel.querySelector('.action-btn[data-param="record"]').click();
-        expect(onParamChange).toHaveBeenCalledWith('cv_rec_1', 'record', 1);
+        ['record', 'play', 'resetAction', 'clear'].forEach(param => {
+            panel.querySelector(`.action-btn[data-param="${param}"]`).click();
+            expect(onParamChange).toHaveBeenCalledWith('cv_rec_1', param, 1);
+        });
 
         dsp.transportState = 3;
         dsp.recordedMode = 0;
@@ -42,7 +46,9 @@ describe('CV Recorder renderer', () => {
         expect(panel.querySelector('.cv-rec-display').textContent).toBe('PLAY F 12.345s');
 
         cleanupRenderedModule(panel);
-        expect(onParamChange).toHaveBeenCalledWith('cv_rec_1', 'record', 0);
+        ['record', 'play', 'resetAction', 'clear'].forEach(param => {
+            expect(onParamChange).toHaveBeenCalledWith('cv_rec_1', param, 0);
+        });
         expect(cancelFrame).toHaveBeenCalledWith(73);
         vi.advanceTimersByTime(100);
         expect(requestFrame).toHaveBeenCalled();

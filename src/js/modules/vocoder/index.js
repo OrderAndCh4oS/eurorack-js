@@ -130,10 +130,6 @@ export default {
                 for (let sample = 0; sample < bufferSize; sample++) {
                     const rawModulator = finiteOr(modulator[sample], 0);
                     const rawCarrier = finiteOr(carrier[sample], 0);
-                    const absoluteModulator = Math.abs(rawModulator);
-                    const absoluteCarrier = Math.abs(rawCarrier);
-                    if (absoluteModulator > analysisPeak) analysisPeak = absoluteModulator;
-                    if (absoluteCarrier > carrierPeak) carrierPeak = absoluteCarrier;
 
                     const smoothedAnalysisGain = analysisGainSlew.process(analysisGainTarget);
                     const smoothedCarrierGain = carrierGainSlew.process(carrierGainTarget);
@@ -149,9 +145,15 @@ export default {
                         1
                     ));
 
-                    const analysisInput = softLimitVoltage(rawModulator * smoothedAnalysisGain, 5) / 5;
-                    const carrierInput = softLimitVoltage(rawCarrier * smoothedCarrierGain, 5) / 5;
+                    const analysisVoltage = softLimitVoltage(rawModulator * smoothedAnalysisGain, 5);
+                    const carrierVoltage = softLimitVoltage(rawCarrier * smoothedCarrierGain, 5);
+                    const analysisInput = analysisVoltage / 5;
+                    const carrierInput = carrierVoltage / 5;
                     const dry = softLimitVoltage(rawModulator, 5) / 5;
+                    const absoluteAnalysis = Math.abs(analysisVoltage);
+                    const absoluteCarrier = Math.abs(carrierVoltage);
+                    if (absoluteAnalysis > analysisPeak) analysisPeak = absoluteAnalysis;
+                    if (absoluteCarrier > carrierPeak) carrierPeak = absoluteCarrier;
 
                     for (let band = 0; band < BAND_COUNT; band++) {
                         const offset = band * 5;

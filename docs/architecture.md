@@ -266,7 +266,7 @@ Modules marked `role: 'audio-output'` are worklet sinks. Their stereo inputs are
 
 ## Where to Make Changes
 
-- **Add a built-in module**: create `modules/{moduleId}/index.js`, register it in both `module-manifest.js` and `core-definitions.js` in matching order, preserve the sequential `m0` through `mN` aliases, and bump the synchronized core worklet graph revision.
+- **Add a built-in module**: create `modules/{moduleId}/index.js`, register it in both `module-manifest.js` and `core-definitions.js` in matching order, preserve the sequential `m0` through `mN` aliases, and bump the synchronized core worklet graph revision using the ordered-module digest described in `creating-modules.md`.
 - **Add an external plugin**: register its main-thread manifest and provide a matching worklet entry point; do not edit core registration lists.
 - **Change cable or feedback behavior**: edit `audio/graph.js` and its graph/worklet tests.
 - **Change production block processing**: edit `audio/worklet/processor.js`.

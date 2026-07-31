@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { RackHost } from '../../src/js/app/rack-host.js';
 import { PluginRegistry } from '../../src/js/rack/registry.js';
+import cvRecorder from '../../src/js/modules/cv-rec/index.js';
 
 function createModule(id) {
     return {
@@ -43,6 +44,42 @@ async function createHost() {
     const host = new RackHost({ registry, blockSize: 4 });
     await host.init();
     return { host, registry };
+}
+
+async function createCvRecorderHost(audioEngineFactory) {
+    const registry = new PluginRegistry({ blockSize: 4 });
+    await registry.registerPlugin({
+        id: 'cv-rec-test-plugin',
+        name: 'CV Recorder Test Plugin',
+        version: '1.0.0',
+        apiVersion: 1,
+        patchVersion: 1,
+        workletUrl: 'https://example.test/cv-rec-worklet.js',
+        modules: [{ id: 'cv-rec', definition: cvRecorder }]
+    });
+    const host = new RackHost({
+        registry,
+        blockSize: 4,
+        sampleRate: 1000,
+        audioEngineFactory
+    });
+    await host.init();
+    return { host, registry };
+}
+
+function createCvRecorderRuntimeState() {
+    const dsp = cvRecorder.createDSP({ sampleRate: 1000, bufferSize: 4 });
+    dsp.inputs.cv1In.set([1, 2, 3, 4]);
+    dsp.inputs.gate1In.set([0, 10, 0, 10]);
+    dsp.inputs.cv2In.set([-1, -2, -3, -4]);
+    dsp.inputs.gate2In.set([10, 0, 10, 0]);
+    dsp.params.record = 1;
+    dsp.process();
+    dsp.params.record = 0;
+    dsp.process();
+    dsp.params.record = 1;
+    dsp.process();
+    return cvRecorder.captureRuntimeState(dsp);
 }
 
 function createTestPatch({
@@ -270,6 +307,46 @@ describe('RackHost', () => {
         }));
         expect(engine.stop).toHaveBeenCalledOnce();
         expect(host.engine).toBeNull();
+        await host.destroy();
+    });
+
+    it('hands both CV Recorder lanes through an audio stop/start lifecycle', async () => {
+        const runtimeState = createCvRecorderRuntimeState();
+        const firstEngine = {
+            setPatchState: vi.fn(async () => 1),
+            captureRuntimeStates: vi.fn(async () => ({ recorder: runtimeState })),
+            start: vi.fn(),
+            stop: vi.fn()
+        };
+        const secondEngine = {
+            setPatchState: vi.fn(async () => 2),
+            captureRuntimeStates: vi.fn(async () => ({})),
+            start: vi.fn(),
+            stop: vi.fn()
+        };
+        const audioEngineFactory = vi.fn()
+            .mockResolvedValueOnce(firstEngine)
+            .mockResolvedValueOnce(secondEngine);
+        const { host, registry } = await createCvRecorderHost(audioEngineFactory);
+        host.addModule('cv-rec', { id: 'recorder' });
+
+        await host.startAudio({ sampleRate: 1000 });
+        await host.stopAudio();
+        await host.startAudio({ sampleRate: 1000 });
+
+        const restartedPatch = secondEngine.setPatchState.mock.calls[0][0];
+        const restartedRecorder = restartedPatch.modules.find(module => module.id === 'recorder');
+        expect(restartedRecorder.runtimeState).toEqual(runtimeState);
+        expect(restartedRecorder.runtimeState.cv1).toEqual(runtimeState.cv1);
+        expect(restartedRecorder.runtimeState.cv2).toEqual(runtimeState.cv2);
+        expect(restartedRecorder.runtimeState.gate1).toEqual(runtimeState.gate1);
+        expect(restartedRecorder.runtimeState.gate2).toEqual(runtimeState.gate2);
+        expect(secondEngine.setPatchState).toHaveBeenCalledWith(
+            expect.any(Object),
+            { registry, replace: true }
+        );
+
+        await host.stopAudio();
         await host.destroy();
     });
 

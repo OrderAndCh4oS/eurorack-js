@@ -163,6 +163,69 @@ describe('Eurorack AudioWorkletProcessor', () => {
         );
     });
 
+    it('captures and restores both routed CV Recorder lanes inside the worklet', () => {
+        const modules = [
+            { id: 'joystick', type: 'joystick', pluginId: 'core', params: { x: -0.4, y: 0.6 }, order: 0, rackOrder: 0 },
+            { id: 'clock1', type: 'clk', pluginId: 'core', params: { rate: 1 }, order: 1, rackOrder: 1 },
+            { id: 'clock2', type: 'clk', pluginId: 'core', params: { rate: 0.6 }, order: 2, rackOrder: 2 },
+            { id: 'recorder', type: 'cv-rec', pluginId: 'core', params: {}, order: 3, rackOrder: 3 }
+        ];
+        const cables = [
+            { fromModule: 'joystick', fromPort: 'x', toModule: 'recorder', toPort: 'cv1In' },
+            { fromModule: 'joystick', fromPort: 'y', toModule: 'recorder', toPort: 'cv2In' },
+            { fromModule: 'clock1', fromPort: 'clock', toModule: 'recorder', toPort: 'gate1In' },
+            { fromModule: 'clock2', fromPort: 'clock', toModule: 'recorder', toPort: 'gate2In' }
+        ];
+        const first = new Processor();
+        first.handleMessage({
+            type: 'topology',
+            topology: { revision: 1, plugins: { core: 1 }, modules, cables }
+        });
+        const outputs = [[new Float32Array(128), new Float32Array(128)]];
+
+        first.handleMessage({ type: 'param', moduleId: 'recorder', param: 'record', value: 1 });
+        for (let block = 0; block < 20; block++) first.process([], outputs);
+        first.handleMessage({ type: 'param', moduleId: 'recorder', param: 'record', value: 0 });
+        first.process([], outputs);
+        first.handleMessage({ type: 'param', moduleId: 'recorder', param: 'record', value: 1 });
+        first.process([], outputs);
+        first.handleMessage({ type: 'capture-runtime', requestId: 19 });
+
+        const runtimeMessage = first.port.postMessage.mock.calls
+            .map(([message]) => message)
+            .find(message => message.type === 'runtime-state' && message.requestId === 19);
+        const state = runtimeMessage.states.recorder;
+        expect(state.recordedLength).toBeGreaterThan(2);
+        expect(state.cv1.some(value => value < 0)).toBe(true);
+        expect(state.cv1.every(value => value <= 0)).toBe(true);
+        expect(state.cv2.some(value => value > 0)).toBe(true);
+        expect(state.cv2.every(value => value >= 0)).toBe(true);
+        expect(state.gate1).not.toEqual(state.gate2);
+        expect(state.gate1.some(value => value === 1)).toBe(true);
+        expect(state.gate2.some(value => value === 1)).toBe(true);
+
+        const restored = new Processor();
+        const restoredModules = modules.map(module => module.id === 'recorder'
+            ? { ...module, params: { record: 0 }, runtimeState: state }
+            : module);
+        restored.handleMessage({
+            type: 'topology',
+            replace: true,
+            topology: { revision: 2, plugins: { core: 1 }, modules: restoredModules, cables }
+        });
+        restored.process([], outputs);
+        const restoredRecorder = restored.modules.recorder.instance;
+
+        expect(restoredRecorder.getTransportInfo()).toMatchObject({
+            memoryMode: state.recordedMode,
+            memoryLength: state.recordedLength
+        });
+        expect(restoredRecorder.outputs.cv1Out.some(value => value !== 0)).toBe(true);
+        expect(restoredRecorder.outputs.cv2Out.some(value => value !== 0)).toBe(true);
+        expect(restoredRecorder.outputs.cv1Out.every(value => value <= 0)).toBe(true);
+        expect(restoredRecorder.outputs.cv2Out.every(value => value >= 0)).toBe(true);
+    });
+
     it('shares sample-offset MIDI notes across every module consumer', () => {
         const processor = new Processor();
         processor.handleMessage({

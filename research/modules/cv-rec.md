@@ -437,7 +437,7 @@ monitoring on the exact clear sample. No output buffer identity may change.
 | `playing` | Full in PLAY, half in PAUSE, off without committed memory. |
 | `memory` | Full whenever a valid recording exists. |
 | `clock` | 50 ms visual hold after an accepted CLOCK-mode edge. |
-| `eol` | Follows the 8 ms EOL pulse timer. |
+| `eol` | Reports any active 8 ms EOL pulse, and remains lit through the end of a block in which the pulse expires so short events remain visible to block-rate telemetry. |
 | `gate1` / `gate2` | Follow the two output gate states. |
 | `phase` | `playProgress` during playback; `recordedLength / limit` while recording; `0` when empty. |
 

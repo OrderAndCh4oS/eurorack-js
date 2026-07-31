@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import shimmerModule, {
     SHIMMER_INTERVAL_RATIOS,
     applyNormalizedHadamard8
@@ -211,6 +211,27 @@ describe('shimmer', () => {
         expect(SHIMMER_INTERVAL_RATIOS[24]).toBeCloseTo(2, 12);
     });
 
+    it('performs no trigonometric calls in the audio-rate process path', () => {
+        const dsp = shimmerModule.createDSP({ sampleRate: 48000, bufferSize: 64 });
+        dsp.reset();
+        const sin = vi.spyOn(Math, 'sin');
+        const cos = vi.spyOn(Math, 'cos');
+
+        try {
+            processBlock(dsp, {
+                inL: index => index === 0 ? 3 : 0,
+                dampCV: index => index / 64 * 10 - 5,
+                mixCV: index => index / 64 * 10 - 5
+            });
+
+            expect(sin).not.toHaveBeenCalled();
+            expect(cos).not.toHaveBeenCalled();
+        } finally {
+            sin.mockRestore();
+            cos.mockRestore();
+        }
+    });
+
     it('maps Size, Pre-delay, Decay, and Damp to their exact endpoint contracts', () => {
         const low = shimmerModule.createDSP({ sampleRate: 48000, bufferSize: 64 });
         Object.assign(low.params, {
@@ -359,6 +380,18 @@ describe('shimmer', () => {
         dsp.onInputDisconnected('inR');
         processBlock(dsp, { inL: i => left[i], inR: 0 });
         expect(dsp.outputs.outR).toEqual(Float32Array.from(left));
+    });
+
+    it('uses the equal-power law at an intermediate Mix setting', () => {
+        const dsp = shimmerModule.createDSP({ sampleRate: 48000, bufferSize: 8 });
+        dsp.params.mix = 0.5;
+        dsp.params.preDelay = 0;
+        dsp.reset();
+        processBlock(dsp, { inL: 1 });
+
+        const expected = Math.SQRT1_2;
+        expect(dsp.outputs.outL[0]).toBeCloseTo(expected, 6);
+        expect(dsp.outputs.outR[0]).toBeCloseTo(expected, 6);
     });
 
     it('uses continuous five-volt rails and recovers from non-finite input and params', () => {

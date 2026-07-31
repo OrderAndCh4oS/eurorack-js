@@ -25,4 +25,35 @@ describe('prob-seq rack persistence', () => {
         expect(restoredSteps).toEqual(probSeqModule.ui.state[0].default);
         expect(restoredSteps).not.toBe(added.params.steps);
     });
+
+    it('serializes and restores every edited step field with fresh identities', () => {
+        const rack = new RackState();
+        const added = rack.addModule('prob-seq', registry, { id: 'probSeq' });
+        const editedSteps = Array.from({ length: 8 }, (_, index) => ({
+            enabled: index % 2,
+            probability: 7 + index * 11,
+            ratchets: index + 1,
+            condition: (index + 3) % 11
+        }));
+        added.params.seed = 4242;
+        added.params.length = 5;
+        added.params.fallbackBpm = 173;
+        added.params.steps = editedSteps;
+
+        const serialized = rack.serializePatch();
+        const restored = new RackState();
+        restored.loadPatch(serialized, registry);
+        const restoredModule = restored.getModule('probSeq');
+
+        expect(restoredModule.params).toEqual({
+            seed: 4242,
+            length: 5,
+            fallbackBpm: 173,
+            steps: editedSteps
+        });
+        expect(restoredModule.params.steps).not.toBe(editedSteps);
+        restoredModule.params.steps.forEach((step, index) => {
+            expect(step).not.toBe(editedSteps[index]);
+        });
+    });
 });

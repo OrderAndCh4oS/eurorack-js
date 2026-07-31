@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CATEGORY_ORDER, MODULE_MANIFEST, MODULE_ORDER } from '../../src/js/rack/module-manifest.js';
@@ -91,6 +92,7 @@ describe('module contracts', () => {
         const engine = readFileSync(resolve('src/js/audio/worklet-engine.js'), 'utf8');
         const processor = readFileSync(resolve('src/js/audio/worklet/processor.js'), 'utf8');
         const corePlugin = readFileSync(resolve('src/js/audio/worklet/core-plugin.js'), 'utf8');
+        const definitionsSource = readFileSync(resolve('src/js/rack/core-definitions.js'), 'utf8');
         const revisions = [
             engine.match(/CORE_WORKLET_GRAPH_REVISION = '([^']+)'/)?.[1],
             processor.match(/core-plugin\.js\?core=([^'"]+)/)?.[1],
@@ -99,6 +101,15 @@ describe('module contracts', () => {
 
         expect(revisions.every(Boolean)).toBe(true);
         expect(new Set(revisions).size).toBe(1);
+        const imports = [...definitionsSource.matchAll(/^import (m\d+) from '([^']+)'/gm)];
+        const graphFingerprint = imports.map(([, alias, path], index) => (
+            `${alias}:${path}:${CORE_MODULE_DEFINITIONS[index].id}`
+        )).join('\n');
+        const graphDigest = createHash('sha256')
+            .update(graphFingerprint)
+            .digest('hex')
+            .slice(0, 8);
+        expect(revisions[0]).toMatch(new RegExp(`^\\d{8}-\\d+-${graphDigest}$`));
     });
 
     it('loads modules whose self-contained metadata is valid', async () => {

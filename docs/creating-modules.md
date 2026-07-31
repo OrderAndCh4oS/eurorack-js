@@ -505,7 +505,7 @@ Manifest order is the deterministic processing-order tie break. Sidebar grouping
 
 AudioWorklet imports must be static. Also import the definition in **src/js/rack/core-definitions.js** and add it to CORE_MODULE_DEFINITIONS at the same position. Keep the file's aliases sequential (`m0` through `mN`) with no gaps in either list. The module-contract test rejects ID, order, or alias drift.
 
-Adding or removing a built-in changes the static worklet graph. Bump the matching core graph revision in **audio/worklet-engine.js**, **audio/worklet/processor.js**, and **audio/worklet/core-plugin.js** so an already-cached browser loads the new registry. The contract test requires all three revisions to match.
+Adding or removing a built-in changes the static worklet graph. Bump the matching core graph revision in **audio/worklet-engine.js**, **audio/worklet/processor.js**, and **audio/worklet/core-plugin.js** so an already-cached browser loads the new registry. Revisions use `<date>-<serial>-<digest>`; `<digest>` is the first eight hex characters of SHA-256 over the ordered `alias:import-path:module-id` tuples joined by newlines. The contract test requires all three revisions to match the current graph fingerprint.
 
 ### Trusted Plugins
 

@@ -25,7 +25,7 @@ The harness measures runtime invariants, levels, basic signal statistics, broad 
 | Sequencing and pitch | [sh](modules/sh.md), [quant](modules/quant.md), [arp](modules/arp.md), [changes](modules/changes.md), [refrain](modules/refrain.md), [seq](modules/seq.md), [prob-seq](modules/prob-seq.md), [seq-switch](modules/seq-switch.md), [euclid](modules/euclid.md), [turing](modules/turing.md) |
 | Filters and nonlinear | [vcf](modules/vcf.md), [lpg](modules/lpg.md), [formant](modules/formant.md), [resbank](modules/resbank.md), [fold](modules/fold.md), [ring](modules/ring.md) |
 | Effects | [vocoder](modules/vocoder.md), [dly](modules/dly.md), [tape](modules/tape.md), [verb](modules/verb.md), [chorus](modules/chorus.md), [phaser](modules/phaser.md), [flanger](modules/flanger.md), [crush](modules/crush.md), [loop](modules/loop.md), [granulita](modules/granulita.md) |
-| Utilities | [logic](modules/logic.md), [mult](modules/mult.md), [matrix](modules/matrix.md), [joystick](modules/joystick.md), [vca](modules/vca.md), [atten](modules/atten.md), [db](modules/db.md), [pwm](modules/pwm.md), [cmp2](modules/cmp2.md), [comp](modules/comp.md), [mix](modules/mix.md) |
+| Utilities | [logic](modules/logic.md), [mult](modules/mult.md), [matrix](modules/matrix.md), [joystick](modules/joystick.md), [vca](modules/vca.md), [atten](modules/atten.md), [db](modules/db.md), [pwm](modules/pwm.md), [cmp2](modules/cmp2.md), [comp](modules/comp.md), [mix](modules/mix.md), [pitch-track](modules/pitch-track.md) |
 | Analysis and recording | [scope](modules/scope.md), [spectrum](modules/spectrum.md), [plot](modules/plot.md), [spectrogram](modules/spectrogram.md), [rec](modules/rec.md) |
 | Output | [out](modules/out.md) |
 

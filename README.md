@@ -128,6 +128,7 @@ reconstructed base.
 | `matrix` | MATRIX | 4x4 DC-coupled matrix mixer with unipolar and bipolar output modes |
 | `joystick` | JOY | X/Y performance CV controller with gate, trigger, CV modes, and runtime gesture recording |
 | `envf` | ENVF | Envelope follower with normal and inverted CV outputs |
+| `pitch-track` | PITCH TRACK | Monophonic audio-to-continuous-1 V/oct tracker with held pitch and validity gate |
 | `vca` | VCA | Dual voltage-controlled amplifier |
 | `atten` | ATTN | Dual attenuverter with offset controls |
 | `slew` | SLEW | Dual slew limiter for portamento and CV smoothing |

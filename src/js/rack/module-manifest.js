@@ -71,6 +71,7 @@ export const MODULE_MANIFEST = [
     { id: 'spectrogram', load: () => import('../modules/spectrogram/index.js') },
     { id: 'rec', load: () => import('../modules/rec/index.js') },
     { id: 'cv-rec', load: () => import('../modules/cv-rec/index.js') },
+    { id: 'pitch-track', load: () => import('../modules/pitch-track/index.js') },
     { id: 'out', load: () => import('../modules/out/index.js') }
 ];
 

@@ -2,8 +2,8 @@
 
 ## Status and Model
 
-- **Research status:** spec-ready proposal, pending coordinator review and queue
-  transition.
+- **Research status:** implemented and validated against the coordinator-
+  approved specification on 31 July 2026.
 - **Module ID:** `pitch-track`.
 - **Name:** `PITCH TRACK`.
 - **Category:** `utility`.
@@ -619,36 +619,31 @@ the documented worst case near 31.1 million simple pair evaluations/second.
   cannot optimize every instrument. External EQ, ENVF, VCA, and Quant remain
   composable alternatives in the rack.
 
-## DSP Audit (Pre-Implementation, 2026-07-31)
+## DSP Audit (2026-07-31)
 
-This is a research-stage audit; there is no production DSP or module test yet.
-
-- The selected matrix is 44.1, 48, and 96 kHz at every audit block size. The
-  decimation/range arithmetic above is exact for those rates and independent of
-  block size.
-- A disposable numerical prototype of the specified low-pass, direct YIN,
-  margin, and interpolation policy was exercised outside the repository. Pure
-  sines at E1/E2, 110 Hz, C4, A4, C6, upper-register notes, and C7 were accepted
-  in their intended modes at all three sample rates. Typical midrange error was
-  around one cent; upper-register error remained below roughly eight cents.
-  Harmonic saw-like inputs stayed within a similar low-to-single-digit range,
-  with the largest tested upper-register error below roughly seven cents.
-  This prototype is exploratory evidence, not a replacement for committed
-  tests or the DSP audit.
-- Exact boundary notes required the documented 2% search margin; accepted
-  targets then clamp to the nominal rails. Fast rejected E1 in the exploratory
-  run, while Low accepted it.
-- All persistent memory has a closed bound: two 1024-value analysis buffers,
-  difference/CMNDF storage bounded by 1024 values each, fixed audio buffers,
-  and scalar filter/scheduler state. Exact layout can use fewer arrays, but not
-  unbounded queues or histories.
-- The operation ceiling is highest at 48/96 kHz Low mode. Implementation review
-  and `audit:dsp` must confirm no per-block allocation and acceptable worklet
-  timing in addition to voltage correctness.
-- Remaining engineering risk is harmonic/octave selection on real sources,
-  followed by browser CPU variance. These do not block spec-ready because the
-  monophonic scope, preprocessing, acceptance rule, operation cap, and failure
-  behavior are closed and testable.
+- The focused suite has 31 passing tests covering the complete declarative
+  contract, exact analysis plans, pure-tone accuracy at 44.1/48/96 kHz and
+  128/512-sample blocks, harmonic and missing-fundamental inputs, continuous
+  pitch, rejection, lifecycle behavior, smoothing, reset, determinism, and
+  the static operation ceilings.
+- `npm run audit:dsp -- --module pitch-track --matrix --strict-voltage` passed
+  all six matrix configurations with zero errors, no non-finite samples, no
+  voltage flags, and stable input/output buffers. The audit's largest observed
+  scenario time was 491.6 microseconds per block.
+- A sustained two-second 55 Hz Low-mode timing probe stayed comfortably within
+  every render budget. Across the matrix, p99 block time was 0.0745..0.5001 ms
+  against 1.333..11.610 ms available; the largest observed block was 0.6151 ms.
+- Measured pure-tone acquisition latency from Level opening was 40.998/77.868
+  ms at 44.1 kHz Fast/Low, 38.146/70.125 ms at 48 kHz, and 38.167/70.146 ms at
+  96 kHz, below the respective 43/80 and 41/73 ms ceilings.
+- The implementation preallocates its ring, immutable frame scratch,
+  difference, CMNDF, and audio buffers. `process()` creates no arrays, objects,
+  closures, promises, typed arrays, or logging work. The worst Low plan remains
+  397 lags, four rows per analysis tick, 2,508 comparisons per tick, and
+  248,919 sample pairs per completed estimate.
+- The remaining validation need is listening and browser AudioWorklet profiling
+  with real monophonic sources. Real-source octave ambiguity and browser CPU
+  variance remain documented limitations, not changes to the v1 contract.
 
 ## Test Targets
 
@@ -750,7 +745,7 @@ modules.
 
 - **Implementation branch:** `module/pitch-track`.
 - **Implementation worktree:**
-  `/Users/orderandchaos/code/eurorack-js/.worktrees/pitch-track`.
+  `/Users/orderandchaos/code/eurorack-js/.worktrees/pitch-track-module`.
 - Start from the coordinator-approved baseline after this research branch is
   integrated and the queue row is `spec-ready`.
 - Create tests first. Do not implement on the research branch and do not mix
@@ -837,12 +832,9 @@ framework change or silently reducing accuracy/range.
 - The queue coordinator owns the `researching` to `spec-ready` transition and
   queue-row link. This research-only branch does not edit the queue.
 
-## Spec-Ready Gate
+## Implementation Gate
 
-This proposal is ready for coordinator review because it contains varied
-linked sources, explicit source weighting and contradictions, observed musical
-behavior, a complete panel and voltage contract, closed pitch/gate/latency
-semantics, a deterministic worklet-safe DSP model with operation ceilings,
-assumptions and non-goals, test targets, a factory-patch requirement, and an
-isolated implementation/validation plan. No module code or tests are included
-on the research branch.
+The approved contract is implemented with committed focused tests, bounded
+incremental work, static core registration, an audible factory patch, and the
+validation evidence recorded in the dated DSP audit. The queue remains under
+coordinator ownership and is intentionally unchanged by this implementation.

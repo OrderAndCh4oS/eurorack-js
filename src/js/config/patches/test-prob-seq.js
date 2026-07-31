@@ -1,9 +1,9 @@
 /**
- * Test Probability Sequencer
+ * Test - Probability Sequencer
  * Probability, conditional steps, and ratchets driving a closed hi-hat.
  */
 export default {
-    name: 'Test Probability Sequencer',
+    name: 'Test - Probability Sequencer',
     factory: true,
     state: {
         version: 3,

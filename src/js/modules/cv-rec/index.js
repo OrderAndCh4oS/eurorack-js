@@ -88,10 +88,11 @@ export default {
             width: calc(100% - 8px);
             min-height: 25px;
             padding: 5px 4px;
-            border: 1px solid rgba(255, 255, 255, 0.24);
-            border-radius: 3px;
-            background: rgba(8, 12, 14, 0.86);
-            color: #9fffb5;
+            border: 1px solid color-mix(in srgb, var(--hw-edge) 78%, transparent);
+            border-radius: var(--hw-radius);
+            background: var(--hw-display-bg);
+            color: var(--hw-display-ink);
+            box-shadow: inset 0 2px 4px var(--hw-shadow), 0 1px 0 var(--hw-highlight);
             font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
             font-size: 8px;
             line-height: 1.2;
@@ -140,8 +141,10 @@ export default {
             gap: 3px;
             width: 50%;
             padding: 3px 2px;
-            border: 1px solid rgba(255, 255, 255, 0.13);
-            border-radius: 3px;
+            border: 1px solid color-mix(in srgb, var(--hw-edge) 46%, transparent);
+            border-radius: var(--hw-radius);
+            background: color-mix(in srgb, var(--hw-well) 24%, transparent);
+            box-shadow: inset 0 1px 2px color-mix(in srgb, var(--hw-shadow) 36%, transparent);
         }
         .cv-rec-lane-title,
         .cv-rec-note {
@@ -156,6 +159,7 @@ export default {
         }
         .cv-rec-note {
             width: 100%;
+            color: var(--hw-muted);
             opacity: 0.76;
         }
     `,

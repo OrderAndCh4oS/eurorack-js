@@ -173,7 +173,7 @@ test('themes Reset, Mutate, and Recall actions in every rack theme and mode', as
         snapshot.idle.forEach((style, index) => {
             expect(style.fontSize).toBe('7px');
             expect(style.textTransform).toBe('uppercase');
-            expect(snapshot.active[index].backgroundColor).not.toBe(style.backgroundColor);
+            expect(snapshot.active[index].backgroundImage).not.toBe(style.backgroundImage);
         });
     });
 

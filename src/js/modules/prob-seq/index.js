@@ -167,8 +167,9 @@ function renderProbSeq(container, { instance, toolkit, onParamChange, onCleanup 
     for (let index = 0; index < STEP_COUNT; index++) {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'prob-seq-step';
+        button.className = 'prob-seq-step hardware-button';
         button.dataset.step = String(index);
+        button.setAttribute('aria-label', `Edit step ${index + 1}`);
         stepGrid.appendChild(button);
         stepButtons.push(button);
     }
@@ -176,31 +177,53 @@ function renderProbSeq(container, { instance, toolkit, onParamChange, onCleanup 
 
     const editor = document.createElement('div');
     editor.className = 'prob-seq-editor';
+    const editorHead = document.createElement('div');
+    editorHead.className = 'prob-seq-editor-head';
     const editorTitle = document.createElement('strong');
     const enableButton = document.createElement('button');
     enableButton.type = 'button';
-    enableButton.className = 'prob-seq-enable';
-    const probabilityLabel = document.createElement('label');
-    probabilityLabel.textContent = 'PROB';
-    const probabilityInput = document.createElement('input');
-    probabilityInput.type = 'range';
-    probabilityInput.min = '0';
-    probabilityInput.max = '100';
-    probabilityInput.step = '1';
-    probabilityInput.dataset.field = 'probability';
-    probabilityLabel.appendChild(probabilityInput);
-    const ratchetLabel = document.createElement('label');
-    ratchetLabel.textContent = 'RATCH';
-    const ratchetInput = document.createElement('input');
-    ratchetInput.type = 'range';
-    ratchetInput.min = '1';
-    ratchetInput.max = '8';
-    ratchetInput.step = '1';
-    ratchetInput.dataset.field = 'ratchets';
-    ratchetLabel.appendChild(ratchetInput);
+    enableButton.className = 'prob-seq-enable hardware-button';
+    enableButton.title = 'Enable or skip the selected step';
+    editorHead.append(editorTitle, enableButton);
+
+    const createStepKnob = ({ field, id, label, min, max, step }) => {
+        const control = toolkit.createKnob({
+            id,
+            label,
+            param: 'steps',
+            value: uiSteps[selectedStep][field],
+            min,
+            max,
+            step,
+            small: true,
+            onChange: value => replaceSelectedField(field, finiteInteger(value, min, min, max))
+        });
+        control.classList.add('prob-seq-editor-knob');
+        control.dataset.field = field;
+        const knob = control.querySelector('.knob');
+        knob.removeAttribute('data-param');
+        knob.setAttribute('role', 'slider');
+        knob.setAttribute('aria-label', label);
+        knob.setAttribute('aria-valuemin', String(min));
+        knob.setAttribute('aria-valuemax', String(max));
+        knob.tabIndex = 0;
+        const output = document.createElement('output');
+        output.className = 'prob-seq-knob-value';
+        output.dataset.field = `${field}Value`;
+        control.appendChild(output);
+        return { control, knob, output, field, min, max, step };
+    };
+    const probabilityControl = createStepKnob({
+        field: 'probability', id: 'stepProbability', label: 'PROB', min: 0, max: 100, step: 1
+    });
+    const ratchetControl = createStepKnob({
+        field: 'ratchets', id: 'stepRatchets', label: 'RATCH', min: 1, max: 8, step: 1
+    });
     const conditionLabel = document.createElement('label');
+    conditionLabel.className = 'prob-seq-condition';
     conditionLabel.textContent = 'COND';
     const conditionSelect = document.createElement('select');
+    conditionSelect.className = 'hardware-select';
     conditionSelect.dataset.field = 'condition';
     CONDITION_LABELS.forEach((label, value) => {
         const option = document.createElement('option');
@@ -209,7 +232,12 @@ function renderProbSeq(container, { instance, toolkit, onParamChange, onCleanup 
         conditionSelect.appendChild(option);
     });
     conditionLabel.appendChild(conditionSelect);
-    editor.append(editorTitle, enableButton, probabilityLabel, ratchetLabel, conditionLabel);
+    editor.append(
+        editorHead,
+        probabilityControl.control,
+        ratchetControl.control,
+        conditionLabel
+    );
     root.appendChild(editor);
 
     const statusRow = toolkit.createRow('prob-seq-status-row');
@@ -257,16 +285,25 @@ function renderProbSeq(container, { instance, toolkit, onParamChange, onCleanup 
         enableButton.textContent = step.enabled ? 'ON' : 'SKIP';
         enableButton.classList.toggle('active', Boolean(step.enabled));
         enableButton.setAttribute('aria-pressed', String(Boolean(step.enabled)));
-        probabilityInput.value = String(step.probability);
-        probabilityInput.title = `${step.probability}%`;
-        ratchetInput.value = String(step.ratchets);
-        ratchetInput.title = `${step.ratchets} trigger${step.ratchets === 1 ? '' : 's'}`;
+        probabilityControl.knob.dataset.value = String(step.probability);
+        probabilityControl.knob.title = `${step.probability}% probability`;
+        probabilityControl.knob.setAttribute('aria-valuenow', String(step.probability));
+        probabilityControl.knob.setAttribute('aria-valuetext', `${step.probability}%`);
+        probabilityControl.output.value = `${step.probability}%`;
+        toolkit.updateKnobRotation(probabilityControl.knob);
+        ratchetControl.knob.dataset.value = String(step.ratchets);
+        ratchetControl.knob.title = `${step.ratchets} trigger${step.ratchets === 1 ? '' : 's'}`;
+        ratchetControl.knob.setAttribute('aria-valuenow', String(step.ratchets));
+        ratchetControl.knob.setAttribute('aria-valuetext', ratchetControl.knob.title);
+        ratchetControl.output.value = `×${step.ratchets}`;
+        toolkit.updateKnobRotation(ratchetControl.knob);
         conditionSelect.value = String(step.condition);
         stepButtons.forEach((button, index) => {
             const summary = uiSteps[index];
             button.textContent = `${index + 1}\n${summary.enabled ? `${summary.probability}% ×${summary.ratchets}` : 'SKIP'}\n${CONDITION_LABELS[summary.condition]}`;
             button.classList.toggle('selected', index === selectedStep);
             button.classList.toggle('disabled', !summary.enabled);
+            button.setAttribute('aria-pressed', String(index === selectedStep));
         });
     };
 
@@ -282,17 +319,23 @@ function renderProbSeq(container, { instance, toolkit, onParamChange, onCleanup 
             refreshEditor();
         });
     });
-    [enableButton, probabilityInput, ratchetInput, conditionSelect].forEach(control => {
+    [enableButton, probabilityControl.knob, ratchetControl.knob, conditionSelect].forEach(control => {
         listen(control, 'mousedown', event => event.stopPropagation());
     });
     listen(enableButton, 'click', () => {
         replaceSelectedField('enabled', uiSteps[selectedStep].enabled ? 0 : 1);
     });
-    listen(probabilityInput, 'input', () => {
-        replaceSelectedField('probability', finiteInteger(Number(probabilityInput.value), 100, 0, 100));
-    });
-    listen(ratchetInput, 'input', () => {
-        replaceSelectedField('ratchets', finiteInteger(Number(ratchetInput.value), 1, 1, 8));
+    [probabilityControl, ratchetControl].forEach(control => {
+        listen(control.knob, 'keydown', event => {
+            if (!['ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft'].includes(event.key)) return;
+            event.preventDefault();
+            const direction = event.key === 'ArrowUp' || event.key === 'ArrowRight' ? 1 : -1;
+            const current = uiSteps[selectedStep][control.field];
+            replaceSelectedField(
+                control.field,
+                finiteInteger(current + direction * control.step, current, control.min, control.max)
+            );
+        });
     });
     listen(conditionSelect, 'change', () => {
         replaceSelectedField('condition', finiteInteger(Number(conditionSelect.value), 0, 0, 10));
@@ -334,22 +377,206 @@ export default {
     },
 
     css: `
-        .prob-seq-panel { display: grid; gap: 6px; padding: 4px; }
-        .prob-seq-top-row { align-items: end; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-        .prob-seq-telemetry { align-items: center; display: flex; flex-direction: column; font-size: 8px; line-height: 1.3; }
-        .prob-seq-step-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; }
-        .prob-seq-step { background: rgba(0, 0, 0, .25); border: 1px solid currentColor; color: inherit; cursor: pointer; font: inherit; font-size: 7px; line-height: 1.2; min-height: 38px; padding: 2px; white-space: pre-line; }
-        .prob-seq-step.selected { outline: 2px solid currentColor; }
-        .prob-seq-step.playing { background: rgba(255, 255, 255, .28); }
-        .prob-seq-step.disabled, .prob-seq-step.inactive { opacity: .55; }
-        .prob-seq-editor { align-items: center; display: grid; gap: 3px; grid-template-columns: auto auto 1fr 1fr 1fr; font-size: 8px; }
-        .prob-seq-editor label { display: flex; flex-direction: column; min-width: 0; }
-        .prob-seq-editor input, .prob-seq-editor select { max-width: 100%; min-width: 0; }
-        .prob-seq-enable { font: inherit; }
-        .prob-seq-enable.active { font-weight: 700; }
-        .prob-seq-status-row { justify-content: space-around; }
-        .prob-seq-status-row > span { align-items: center; display: flex; flex-direction: column; }
-        .prob-seq-port-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+        .prob-seq-panel {
+            display: grid;
+            gap: 6px;
+            width: 100%;
+            padding: 3px;
+            color: var(--hw-ink);
+        }
+        .prob-seq-top-row {
+            align-items: end;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(58px, 1.35fr);
+            gap: 3px;
+        }
+        .prob-seq-telemetry {
+            align-items: center;
+            align-self: stretch;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-width: 0;
+            padding: 3px 2px;
+            border: 1px solid color-mix(in srgb, var(--hw-edge) 78%, transparent);
+            border-radius: var(--hw-radius);
+            background: var(--hw-display-bg);
+            color: var(--hw-display-muted);
+            box-shadow: inset 0 2px 4px var(--hw-shadow), 0 1px 0 var(--hw-highlight);
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 7px;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.25;
+            white-space: nowrap;
+        }
+        .prob-seq-telemetry strong {
+            color: var(--hw-display-ink);
+            font-size: 8px;
+            letter-spacing: .04em;
+        }
+        .prob-seq-step-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 4px;
+        }
+        .prob-seq-step {
+            position: relative;
+            min-height: 40px;
+            padding: 3px 2px 2px;
+            overflow: hidden;
+            color: var(--hw-ink);
+            font-size: 7px;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.18;
+            text-align: center;
+            white-space: pre-line;
+        }
+        .prob-seq-step::before {
+            content: '';
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            width: 4px;
+            height: 4px;
+            border: 1px solid color-mix(in srgb, var(--hw-edge) 68%, transparent);
+            border-radius: 50%;
+            background: var(--hw-well);
+            box-shadow: inset 0 1px 1px var(--hw-shadow);
+        }
+        .prob-seq-step.selected {
+            border-color: var(--hw-accent);
+            box-shadow:
+                0 2px 0 var(--hw-shadow),
+                0 0 0 2px color-mix(in srgb, var(--hw-accent) 48%, transparent),
+                inset 0 1px 0 var(--hw-highlight);
+        }
+        .prob-seq-step.playing::before {
+            border-color: var(--hw-accent);
+            background: var(--hw-accent);
+            box-shadow: 0 0 7px var(--hw-accent);
+        }
+        .prob-seq-step.playing {
+            color: var(--hw-ink);
+            background: linear-gradient(
+                to bottom,
+                color-mix(in srgb, var(--hw-accent) 28%, var(--hw-face-top)),
+                color-mix(in srgb, var(--hw-accent) 20%, var(--hw-face-bottom))
+            );
+        }
+        .prob-seq-step.disabled {
+            color: var(--hw-muted);
+            filter: saturate(.45);
+        }
+        .prob-seq-step.inactive {
+            opacity: .38;
+        }
+        .prob-seq-editor {
+            align-items: center;
+            display: grid;
+            grid-template-columns: 48px 38px 38px minmax(60px, 1fr);
+            gap: 5px;
+            padding: 5px;
+            border: 1px solid color-mix(in srgb, var(--hw-edge) 62%, transparent);
+            border-radius: var(--hw-radius);
+            background: color-mix(in srgb, var(--hw-well) 44%, transparent);
+            box-shadow: inset 0 1px 3px color-mix(in srgb, var(--hw-shadow) 58%, transparent);
+            font-size: 7px;
+        }
+        .prob-seq-editor-head {
+            align-self: stretch;
+            display: grid;
+            align-content: space-between;
+            gap: 4px;
+            min-width: 0;
+        }
+        .prob-seq-editor-head strong {
+            overflow: hidden;
+            font-size: 7px;
+            letter-spacing: .04em;
+            text-align: center;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .prob-seq-enable {
+            width: 100%;
+            min-height: 19px;
+            padding: 0 3px;
+            font-size: 7px;
+        }
+        .prob-seq-editor-knob {
+            position: relative;
+            min-width: 0;
+            gap: 1px;
+        }
+        .prob-seq-editor-knob .knob {
+            cursor: ns-resize;
+        }
+        .prob-seq-editor-knob .knob:focus-visible {
+            outline: 2px solid var(--hw-accent);
+            outline-offset: 2px;
+        }
+        .prob-seq-editor-knob .knob-label {
+            color: var(--hw-ink);
+            font-size: 6px;
+            font-weight: 800;
+        }
+        .prob-seq-knob-value {
+            min-width: 3.5ch;
+            color: var(--hw-muted);
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 6px;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            text-align: center;
+        }
+        .prob-seq-condition {
+            display: grid;
+            gap: 3px;
+            min-width: 0;
+            color: var(--hw-ink);
+            font-size: 6px;
+            font-weight: 800;
+            text-align: center;
+        }
+        .prob-seq-condition select {
+            width: 100%;
+            min-width: 0;
+            font-size: 7px;
+        }
+        .prob-seq-status-row {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            justify-items: center;
+            padding: 1px 4px;
+            width: 100%;
+        }
+        .prob-seq-status-row > span {
+            align-items: center;
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            color: var(--hw-muted);
+        }
+        .prob-seq-status-row small {
+            font-size: 5px;
+            font-weight: 800;
+            letter-spacing: .04em;
+        }
+        .prob-seq-port-row {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 1px;
+        }
+        .prob-seq-port-row .jack-container {
+            min-width: 0;
+        }
+        .prob-seq-port-row .jack-label {
+            max-width: 34px;
+            overflow: hidden;
+            font-size: 5px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
     `,
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {

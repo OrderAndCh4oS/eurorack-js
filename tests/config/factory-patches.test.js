@@ -25,6 +25,7 @@ describe('factory-patches', () => {
         it('should have test patches', () => {
             const testPatches = Object.keys(FACTORY_PATCHES).filter(k => k.startsWith('Test'));
             expect(testPatches.length).toBeGreaterThan(0);
+            expect(testPatches.every(name => name.startsWith('Test - '))).toBe(true);
         });
 
         it('should have demo patches', () => {

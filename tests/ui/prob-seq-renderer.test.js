@@ -14,6 +14,12 @@ function renderProbSeq() {
     return { dsp, onParamChange, panel };
 }
 
+function dragKnob(knob, startY, endY) {
+    knob.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientY: startY }));
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientY: endY }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientY: endY }));
+}
+
 describe('PROB SEQ custom renderer', () => {
     it('shows all step summaries, the selected editor, status, and exact ports', () => {
         vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
@@ -23,8 +29,15 @@ describe('PROB SEQ custom renderer', () => {
         expect(panel.classList.contains('module-14hp')).toBe(true);
         expect(panel.querySelectorAll('.prob-seq-step')).toHaveLength(8);
         expect(panel.querySelector('.prob-seq-editor strong').textContent).toBe('STEP 1');
-        expect([...panel.querySelectorAll('.knob')].map(control => control.dataset.param))
+        expect([...panel.querySelectorAll('.prob-seq-top-row .knob')].map(control => control.dataset.param))
             .toEqual(['seed', 'length', 'fallbackBpm']);
+        expect([...panel.querySelectorAll('.prob-seq-editor-knob .knob')]
+            .map(control => control.id))
+            .toEqual(['knob-prob_seq_1-stepProbability', 'knob-prob_seq_1-stepRatchets']);
+        expect(panel.querySelectorAll('.prob-seq-editor-knob .knob[data-param]')).toHaveLength(0);
+        expect(panel.querySelectorAll('input[type="range"]')).toHaveLength(0);
+        expect(panel.querySelectorAll('.hardware-button')).toHaveLength(9);
+        expect(panel.querySelector('.hardware-select')).toBeTruthy();
         expect([...panel.querySelectorAll('.led')].map(led => led.dataset.led))
             .toEqual(['hit', 'miss', 'eoc', 'pending']);
         expect([...panel.querySelectorAll('.jack')].map(jack => [
@@ -51,9 +64,8 @@ describe('PROB SEQ custom renderer', () => {
         const originalSecond = originalSteps[1];
 
         panel.querySelector('.prob-seq-step[data-step="1"]').click();
-        const probability = panel.querySelector('[data-field="probability"]');
-        probability.value = '37';
-        probability.dispatchEvent(new Event('input', { bubbles: true }));
+        const probability = panel.querySelector('.prob-seq-editor-knob[data-field="probability"] .knob');
+        dragKnob(probability, 100, 194.5);
 
         expect(originalSteps[1].probability).toBe(100);
         expect(dsp.params.steps).not.toBe(originalSteps);
@@ -65,9 +77,8 @@ describe('PROB SEQ custom renderer', () => {
             expect.arrayContaining([expect.objectContaining({ probability: 37 })])
         );
 
-        const ratchets = panel.querySelector('[data-field="ratchets"]');
-        ratchets.value = '5';
-        ratchets.dispatchEvent(new Event('input', { bubbles: true }));
+        const ratchets = panel.querySelector('.prob-seq-editor-knob[data-field="ratchets"] .knob');
+        dragKnob(ratchets, 100, 14.3);
         const condition = panel.querySelector('[data-field="condition"]');
         condition.value = '9';
         condition.dispatchEvent(new Event('change', { bubbles: true }));
@@ -82,6 +93,8 @@ describe('PROB SEQ custom renderer', () => {
         expect(onParamChange).toHaveBeenCalledTimes(4);
         expect(panel.querySelector('.prob-seq-step[data-step="1"]').textContent)
             .toContain('SKIP');
+        expect(panel.querySelector('[data-field="probabilityValue"]').value).toBe('37%');
+        expect(panel.querySelector('[data-field="ratchetsValue"]').value).toBe('×5');
 
         cleanupRenderedModule(panel);
     });
@@ -118,6 +131,7 @@ describe('PROB SEQ custom renderer', () => {
             .toBe(true);
         expect(panel.querySelector('.prob-seq-step[data-step="0"]').textContent)
             .toContain('12%');
+        expect(panel.querySelector('[data-field="probabilityValue"]').value).toBe('12%');
 
         cleanupRenderedModule(panel);
         expect(cancelFrame).toHaveBeenCalledWith(11);

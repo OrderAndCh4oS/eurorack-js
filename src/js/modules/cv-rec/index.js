@@ -70,7 +70,7 @@ export default {
     category: 'modulation',
 
     telemetry: {
-        fields: ['transportState', 'recordedMode', 'recordedLength', 'playProgress'],
+        fields: ['transportState', 'recordArmState', 'recordedMode', 'recordedLength', 'playProgress'],
         methods: []
     },
 
@@ -129,10 +129,10 @@ export default {
             text-align: center;
         }
         .cv-rec-action-row .action-btn {
-            min-width: 31px;
+            min-width: 35px;
             height: 20px;
-            padding: 0 3px;
-            font-size: 7px;
+            padding: 0 2px;
+            font-size: 6px;
         }
         .cv-rec-lane {
             display: grid;
@@ -715,6 +715,7 @@ export default {
         function syncFeedback(dsp) {
             const active = effectiveTransport();
             dsp.transportState = transport;
+            dsp.recordArmState = transport === ARM ? armKind : ARM_NONE;
             dsp.recordedMode = transport === ARM || transport === REC ? transactionMode : memoryMode;
             dsp.recordedLength = transport === REC || (transport === ARM && armKind === ARM_STOP)
                 ? workingLength
@@ -940,6 +941,7 @@ export default {
             },
 
             transportState: EMPTY,
+            recordArmState: ARM_NONE,
             recordedMode: -1,
             recordedLength: 0,
             playProgress: 0,
@@ -1130,10 +1132,10 @@ export default {
 
         const actionRow = toolkit.createRow('cv-rec-action-row');
         [
-            ['record', 'REC'],
-            ['play', 'PLAY'],
-            ['resetAction', 'RESET'],
-            ['clear', 'CLEAR']
+            ['record', 'REC / STOP'],
+            ['play', 'PLAY / PAUSE'],
+            ['resetAction', 'REWIND'],
+            ['clear', 'ERASE']
         ].forEach(([id, label]) => {
             actionRow.appendChild(toolkit.createActionButton({
                 id,
@@ -1189,8 +1191,8 @@ export default {
 
         const note = document.createElement('div');
         note.className = 'cv-rec-note';
-        note.textContent = 'RUNTIME · MOD ONLY';
-        note.title = 'Recorded lanes survive supported audio stop/start only; they are not stored in patches or page reloads.';
+        note.textContent = 'RUNTIME MEMORY · CLOCK REC / STOP: NEXT CLOCK';
+        note.title = 'Press REC / STOP once to arm recording, then again to arm playback. Recorded lanes survive supported audio stop/start only; they are not stored in patches or page reloads.';
         root.appendChild(note);
 
         container.appendChild(root);
@@ -1201,17 +1203,20 @@ export default {
             const length = Number.isFinite(dsp?.recordedLength)
                 ? clamp(Math.round(dsp.recordedLength), 0, MAX_FREE_FRAMES)
                 : 0;
+            const formattedLength = dsp?.recordedMode === CLOCK
+                ? String(length).padStart(4, '0')
+                : `${(length / FREE_FRAME_RATE).toFixed(3)}s`;
             if (state === EMPTY || length === 0 && state !== ARM && state !== REC) {
                 display.textContent = 'EMPTY';
             } else if (state === ARM) {
-                display.textContent = `ARM ${mode}`;
+                display.textContent = dsp?.recordArmState === ARM_STOP
+                    ? `ARM STOP ${mode} ${formattedLength}`
+                    : `ARM START ${mode}`;
             } else if (state === REC) {
-                display.textContent = `REC ${mode}`;
+                display.textContent = `REC ${mode} ${formattedLength}`;
             } else {
                 const label = state === PAUSE ? 'PAUSE' : 'PLAY';
-                display.textContent = dsp?.recordedMode === CLOCK
-                    ? `${label} C ${String(length).padStart(4, '0')}`
-                    : `${label} F ${(length / FREE_FRAME_RATE).toFixed(3)}s`;
+                display.textContent = `${label} ${mode} ${formattedLength}`;
             }
         };
 
@@ -1228,10 +1233,10 @@ export default {
             { id: 'playMode', label: 'LOOP / ONE', param: 'playMode', default: LOOP }
         ],
         actions: [
-            { id: 'record', label: 'REC', param: 'record', mode: 'trigger', default: 0 },
-            { id: 'play', label: 'PLAY', param: 'play', mode: 'trigger', default: 0 },
-            { id: 'resetAction', label: 'RESET', param: 'resetAction', mode: 'trigger', default: 0 },
-            { id: 'clear', label: 'CLEAR', param: 'clear', mode: 'trigger', default: 0 }
+            { id: 'record', label: 'REC / STOP', param: 'record', mode: 'trigger', default: 0 },
+            { id: 'play', label: 'PLAY / PAUSE', param: 'play', mode: 'trigger', default: 0 },
+            { id: 'resetAction', label: 'REWIND', param: 'resetAction', mode: 'trigger', default: 0 },
+            { id: 'clear', label: 'ERASE', param: 'clear', mode: 'trigger', default: 0 }
         ],
         inputs: [
             { id: 'cv1In', label: 'CV 1 IN', port: 'cv1In', signal: 'cv', voltage: { min: -10, max: 10, normal: 0 } },

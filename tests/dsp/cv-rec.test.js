@@ -93,7 +93,7 @@ describe('cv-rec', () => {
             color: 'module-color-seven',
             category: 'modulation',
             telemetry: {
-                fields: ['transportState', 'recordedMode', 'recordedLength', 'playProgress'],
+                fields: ['transportState', 'recordArmState', 'recordedMode', 'recordedLength', 'playProgress'],
                 methods: []
             }
         });
@@ -130,6 +130,7 @@ describe('cv-rec', () => {
             expect(buffer).toHaveLength(128);
         });
         expect(dsp.transportState).toBe(EMPTY);
+        expect(dsp.recordArmState).toBe(0);
         expect(dsp.recordedMode).toBe(-1);
         expect(dsp.recordedLength).toBe(0);
         expect(dsp.playProgress).toBe(0);
@@ -240,6 +241,7 @@ describe('cv-rec', () => {
 
         pulseAction(dsp, 'record');
         expect(dsp.transportState).toBe(ARM);
+        expect(dsp.recordArmState).toBe(1);
         clockEdge(dsp, { cv1In: 1, gate1In: 1, cv2In: -1, gate2In: 0 });
         expect(dsp.transportState).toBe(REC);
         expect(dsp.recordedLength).toBe(1);
@@ -249,6 +251,7 @@ describe('cv-rec', () => {
         expect(dsp.recordedLength).toBe(2);
         pulseAction(dsp, 'record');
         expect(dsp.transportState).toBe(ARM);
+        expect(dsp.recordArmState).toBe(2);
         pulseAction(dsp, 'record');
         expect(dsp.transportState).toBe(REC);
         pulseAction(dsp, 'record');

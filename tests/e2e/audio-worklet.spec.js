@@ -104,6 +104,69 @@ test('runs the Refrain composition patch and delivers every transient action to 
     expect(pageErrors).toEqual([]);
 });
 
+test('records and replays the CV Recorder test patch through the production worklet', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.host);
+    await page.locator('#patchSelect').selectOption('Test - CV Recorder');
+    await page.locator('#loadPatch').click();
+    await page.waitForFunction(() => window.eurorackApp.state.getModule('recorder'));
+    await page.locator('#startButton').click();
+
+    const recorder = page.locator('#module-recorder');
+    const record = recorder.locator('.action-btn[data-param="record"]');
+    const play = recorder.locator('.action-btn[data-param="play"]');
+
+    await record.click();
+    await expect.poll(() => page.evaluate(() => ({
+        state: window.eurorackApp.state.getModule('recorder')?.instance?.transportState,
+        length: window.eurorackApp.state.getModule('recorder')?.instance?.recordedLength
+    })), { timeout: 5000 }).toEqual({ state: 2, length: expect.any(Number) });
+
+    await expect.poll(() => page.evaluate(() => (
+        window.eurorackApp.state.getModule('recorder')?.instance?.recordedLength
+    )), { timeout: 5000 }).toBeGreaterThanOrEqual(4);
+
+    await record.click();
+    await expect.poll(() => page.evaluate(() => ({
+        state: window.eurorackApp.state.getModule('recorder')?.instance?.transportState,
+        mode: window.eurorackApp.state.getModule('recorder')?.instance?.recordedMode,
+        length: window.eurorackApp.state.getModule('recorder')?.instance?.recordedLength
+    })), { timeout: 5000 }).toEqual({
+        state: 3,
+        mode: 1,
+        length: expect.any(Number)
+    });
+
+    await expect(recorder.locator('.cv-rec-display')).toContainText('PLAY C');
+    const recorded = await page.evaluate(async () => {
+        const state = (await window.eurorackApp.host.engine.captureRuntimeStates()).recorder;
+        return {
+            gateValues: [...new Set(state.gate1)],
+            cv2Values: new Set([...state.cv2].map(value => value.toFixed(4))).size
+        };
+    });
+    expect(recorded.gateValues.sort()).toEqual([0, 1]);
+    expect(recorded.cv2Values).toBeGreaterThan(1);
+
+    await expect.poll(() => page.evaluate(() => (
+        window.eurorackApp.state.getModule('recorder')?.instance?.playProgress
+    )), { timeout: 5000 }).toBeGreaterThan(0);
+    await play.click();
+    await expect.poll(() => page.evaluate(() => (
+        window.eurorackApp.state.getModule('recorder')?.instance?.transportState
+    ))).toBe(4);
+    await play.click();
+    await expect.poll(() => page.evaluate(() => (
+        window.eurorackApp.state.getModule('recorder')?.instance?.transportState
+    ))).toBe(3);
+
+    await page.locator('#startButton').click();
+    expect(pageErrors).toEqual([]);
+});
+
 test('runs the Pitch Tracker audition and exposes valid pitch and gate activity', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));

@@ -27,7 +27,9 @@ describe('CV Recorder renderer', () => {
         expect(panel.querySelectorAll('.jack.input')).toHaveLength(7);
         expect(panel.querySelectorAll('.jack.output')).toHaveLength(5);
         expect(panel.querySelectorAll('.led')).toHaveLength(8);
-        expect(panel.textContent).toContain('RUNTIME · MOD ONLY');
+        expect(panel.textContent).toContain('RUNTIME MEMORY · CLOCK REC / STOP: NEXT CLOCK');
+        expect(panel.querySelector('[data-param="record"]').textContent).toBe('REC / STOP');
+        expect(panel.querySelector('[data-param="play"]').textContent).toBe('PLAY / PAUSE');
 
         ['mode', 'shape', 'playMode'].forEach(param => {
             panel.querySelector(`.switch[data-param="${param}"]`).click();
@@ -44,6 +46,13 @@ describe('CV Recorder renderer', () => {
         dsp.recordedLength = 12345;
         animationFrame?.(0);
         expect(panel.querySelector('.cv-rec-display').textContent).toBe('PLAY F 12.345s');
+
+        dsp.transportState = 1;
+        dsp.recordArmState = 2;
+        dsp.recordedMode = 1;
+        dsp.recordedLength = 8;
+        animationFrame?.(1);
+        expect(panel.querySelector('.cv-rec-display').textContent).toBe('ARM STOP C 0008');
 
         cleanupRenderedModule(panel);
         ['record', 'play', 'resetAction', 'clear'].forEach(param => {

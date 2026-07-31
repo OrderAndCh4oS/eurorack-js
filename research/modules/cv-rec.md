@@ -441,18 +441,21 @@ monitoring on the exact clear sample. No output buffer identity may change.
 | `gate1` / `gate2` | Follow the two output gate states. |
 | `phase` | `playProgress` during playback; `recordedLength / limit` while recording; `0` when empty. |
 
-All LEDs remain finite in `0..1`. The renderer displays state plus stored
-timebase/length without unbounded history:
+All LEDs remain finite in `0..1`. Bounded `recordArmState` telemetry distinguishes
+an armed start from an armed stop. The renderer displays that intent plus the
+growing or stored timebase/length without unbounded history:
 
 - EMPTY: `EMPTY`
-- armed: `ARM F` or `ARM C`
-- active: `REC F` / `REC C`
+- armed start: `ARM START F` or `ARM START C`
+- armed stop: `ARM STOP F 1.234s` or `ARM STOP C 0032`
+- active: `REC F 1.234s` / `REC C 0032`
 - playback: `PLAY F 12.345s` or `PLAY C 0032`
 - paused: `PAUSE F ...` or `PAUSE C ...`
 
 The FREE seconds display derives from `recordedLength / 1000`; CLOCK displays
-steps. The panel labels recorded memory `RUNTIME` so it does not imply patch or
-page persistence.
+steps. Panel actions are labelled `REC / STOP`, `PLAY / PAUSE`, `REWIND`, and
+`ERASE`, and a note states that memory is runtime-only and clocked start/stop
+waits for the next clock. Its tooltip expands the patch/page-persistence warning.
 
 ## Voltage and Timing Contract
 
@@ -896,20 +899,27 @@ Chosen trade-offs:
 - **Measured status:** the strict 44.1/48/96 kHz by 128/512-sample audit matrix
   completed 11 scenarios per configuration with finite, stable buffers, zero
   processing errors, zero voltage-contract flags, an exact 10.000 V observed
-  peak, and a maximum advisory Node diagnostic time of 211.4 microseconds per
+  peak, and a maximum advisory Node diagnostic time of 211.5 microseconds per
   block across repeated validation runs.
 - **Integration status:** module-contract, queue-contract, factory-patch,
   patch-format, rack-host, worklet-engine, and worklet-processor focused suites
-  pass. The repository-wide run passes 2,169 of 2,170 tests; its sole failure is
-  the pre-existing research-index audit check for five unregistered candidate
-  records (`chaos`, `pitch-track`, `prob-seq`, `shimmer`, and `vocoder`).
+  pass. The repository-wide run passes all 2,309 tests and the full browser suite
+  passes all 21 tests.
 - **Runtime decision:** recording arrays remain bounded runtime state and are
   allocated only at DSP construction or explicit snapshot capture. They are
   excluded from patches, params, and worklet telemetry; the process path uses
   stable arrays and scalar state only.
-- **Remaining acceptance:** browser AudioWorklet listening and interaction
-  checks are recommended before merge; no focused DSP or contract blocker is
-  known.
+- **Interaction follow-up (2026-07-31):** a production AudioWorklet browser test
+  confirmed clocked arm, record, finalize-to-play, pause, and resume. The original
+  factory patch sampled an `x1` divider pulse on every recorder clock, so every
+  stored gate step was high and playback could not retrigger the pluck after its
+  first edge. The patch now records a `/2` gate, scales and quantizes seeded
+  stepped random CV into `V/O`, and uses STEP playback so the committed loop is
+  plainly audible as a repeating melody. The transport display now distinguishes
+  armed start/stop and shows length while recording.
+- **Acceptance:** the browser AudioWorklet interaction test covers transport,
+  advancing playback, mixed stored gate states, varied stored CV, pause, and
+  resume. No focused DSP, contract, or browser blocker is known.
 
 ## Deferred Scope
 

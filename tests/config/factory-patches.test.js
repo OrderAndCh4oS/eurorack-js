@@ -294,6 +294,20 @@ describe('factory-patches', () => {
             ]));
         });
 
+        it('Test - CV Recorder makes committed clocked memory audible as a melody', () => {
+            const patch = FACTORY_PATCHES['Test - CV Recorder'];
+
+            expect(patch.state.params.divider.rate1).toBe(0.4375);
+            expect(patch.state.params.recorder).toMatchObject({ mode: 1, shape: 0, playMode: 0 });
+            expect(patch.state.cables).toEqual(expect.arrayContaining([
+                { fromModule: 'random', fromPort: 'step', toModule: 'recorder', toPort: 'cv2In' },
+                { fromModule: 'recorder', fromPort: 'gate1Out', toModule: 'voice', toPort: 'trigger' },
+                { fromModule: 'recorder', fromPort: 'cv2Out', toModule: 'pitchDepth', toPort: 'in1' },
+                { fromModule: 'pitchDepth', fromPort: 'out1', toModule: 'quantizer', toPort: 'cv' },
+                { fromModule: 'quantizer', fromPort: 'cv', toModule: 'voice', toPort: 'vOct' }
+            ]));
+        });
+
         it('Test - Changes + Cascade locks the intended shared-clock pitch and articulation wiring', () => {
             const patch = FACTORY_PATCHES['Test - Changes + Cascade'];
             const moduleIds = new Set(['changes', 'cascade']);

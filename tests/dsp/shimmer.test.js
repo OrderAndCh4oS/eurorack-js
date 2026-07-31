@@ -152,8 +152,8 @@ describe('shimmer', () => {
         const left = [-4.8, -3, -1, 0, 1, 3, 4.7, 4.8];
 
         processBlock(dsp, { inL: i => left[i] });
-        expect(Array.from(dsp.outputs.outL)).toEqual(left);
-        expect(Array.from(dsp.outputs.outR)).toEqual(left);
+        expect(dsp.outputs.outL).toEqual(Float32Array.from(left));
+        expect(dsp.outputs.outR).toEqual(Float32Array.from(left));
 
         dsp.onInputConnected('inR');
         processBlock(dsp, { inL: i => left[i], inR: 0 });
@@ -161,7 +161,7 @@ describe('shimmer', () => {
 
         dsp.onInputDisconnected('inR');
         processBlock(dsp, { inL: i => left[i], inR: 0 });
-        expect(Array.from(dsp.outputs.outR)).toEqual(left);
+        expect(dsp.outputs.outR).toEqual(Float32Array.from(left));
     });
 
     it('uses continuous five-volt rails and recovers from non-finite input and params', () => {
@@ -174,8 +174,8 @@ describe('shimmer', () => {
         const values = [4.79, 4.8, 4.81, 5, 6, NaN, Infinity, -Infinity];
         processBlock(dsp, { inL: i => values[i] });
 
-        expect(dsp.outputs.outL[0]).toBe(4.79);
-        expect(dsp.outputs.outL[1]).toBe(4.8);
+        expect(dsp.outputs.outL[0]).toBeCloseTo(4.79, 6);
+        expect(dsp.outputs.outL[1]).toBeCloseTo(4.8, 6);
         expect(dsp.outputs.outL[2]).toBeCloseTo(softLimitVoltage(4.81, 5), 6);
         expect(dsp.outputs.outL.every(Number.isFinite)).toBe(true);
         expect(dsp.outputs.outL.every(value => Math.abs(value) <= 5)).toBe(true);

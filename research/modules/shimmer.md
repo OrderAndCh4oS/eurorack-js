@@ -362,7 +362,7 @@ a simpler duplicate.
 
 | Param | Label | UI contract | Default | Behavior |
 |---|---|---|---:|---|
-| `route` | ROUTE | two-position switch, `0=INPUT`, `1=REGEN` | `1` | INPUT creates one stable shifted layer before the tank; REGEN recursively shifts the tail on each traversal. A 50 ms internal morph avoids a topology click. |
+| `route` | INPUT / REGEN | two-position switch, `0=INPUT`, `1=REGEN` | `1` | INPUT creates one stable shifted layer before the tank; REGEN recursively shifts the tail on each traversal. The explicit upper/lower labels make the physical switch state self-describing. A 50 ms internal morph avoids a topology click. |
 | `freeze` | FREEZE | toggle action | `0` | Holds the current unpitched tank, mutes new wet input and pitch regeneration, and leaves dry audio passing. |
 | `clear` | CLEAR | trigger action | `0` | Fades and erases every delay/filter state without changing panel controls. It is transient and cannot replay from a loaded patch. |
 
@@ -857,8 +857,12 @@ are recorded here before merge.
 - **Factory patch:** add `Test - Shimmer` in
   `src/js/config/patches/test-shimmer.js`. Use a simple external melodic or
   percussive stereo-capable source, route Shimmer to OUT and a visual analyzer,
-  and set a clear REGEN octave default. Inspect all actual source/analyzer/out
-  port definitions during implementation rather than guessing cable names.
+  and set a clear REGEN octave default. The implemented comparison uses matched
+  INPUT and REGEN instances, sends INPUT to the left output and REGEN to the
+  right, and keeps a spectrum on each instance. A partly dry equal-power mix
+  and practical OUT gain make both paths immediately audible without hiding
+  their different tails. Inspect all actual source/analyzer/out port
+  definitions during implementation rather than guessing cable names.
 - **Registration:** add matching manifest and static core-definition entries,
   preserve sequential aliases/order, and bump the same core graph revision in
   `worklet-engine.js`, `processor.js`, and `core-plugin.js`.

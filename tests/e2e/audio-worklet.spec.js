@@ -104,6 +104,62 @@ test('runs the Refrain composition patch and delivers every transient action to 
     expect(pageErrors).toEqual([]);
 });
 
+test('runs the Pitch Tracker audition and exposes valid pitch and gate activity', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.host);
+    await page.locator('#patchSelect').selectOption('Test - Pitch Tracker');
+    await page.locator('#loadPatch').click();
+    await page.waitForFunction(() => window.eurorackApp.state.getModule('scope'));
+    await page.locator('#startButton').click();
+
+    await expect.poll(() => page.evaluate(() => (
+        window.eurorackApp.state.getModule('tracker')?.instance?.leds?.lock
+    )), { timeout: 10_000 }).toBe(1);
+    await page.waitForFunction(() => {
+        const scope = window.eurorackApp.state.getModule('scope')?.instance;
+        return scope?.displayBuffer1?.some(sample => Math.abs(sample) > 0.02)
+            && scope?.displayBuffer2?.some(sample => sample >= 9);
+    }, null, { timeout: 10_000 });
+
+    await page.locator('#startButton').click();
+    expect(pageErrors).toEqual([]);
+});
+
+test('runs both Shimmer comparison routes with active wet and pitched tails', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.host);
+    await page.locator('#patchSelect').selectOption('Test - Shimmer');
+    await page.locator('#loadPatch').click();
+    await page.waitForFunction(() => window.eurorackApp.state.getModule('regenSpectrum'));
+    await page.locator('#startButton').click();
+
+    await expect.poll(() => page.evaluate(() => {
+        const state = window.eurorackApp.state;
+        const input = state.getModule('inputShimmer')?.instance;
+        const regen = state.getModule('regenShimmer')?.instance;
+        return {
+            inputTail: input?.leds?.tail > 0.0001,
+            inputPitched: input?.leds?.pitched > 0.0001,
+            regenTail: regen?.leds?.tail > 0.0001,
+            regenPitched: regen?.leds?.pitched > 0.0001
+        };
+    }), { timeout: 10_000 }).toEqual({
+        inputTail: true,
+        inputPitched: true,
+        regenTail: true,
+        regenPitched: true
+    });
+
+    await page.locator('#startButton').click();
+    expect(pageErrors).toEqual([]);
+});
+
 test('themes Reset, Mutate, and Recall actions in every rack theme and mode', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));
@@ -173,7 +229,7 @@ test('themes Reset, Mutate, and Recall actions in every rack theme and mode', as
         snapshot.idle.forEach((style, index) => {
             expect(style.fontSize).toBe('7px');
             expect(style.textTransform).toBe('uppercase');
-            expect(snapshot.active[index].backgroundImage).not.toBe(style.backgroundImage);
+            expect(snapshot.active[index].backgroundColor).not.toBe(style.backgroundColor);
         });
     });
 

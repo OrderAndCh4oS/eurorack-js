@@ -198,6 +198,30 @@ describe('factory-patches', () => {
             expect(arpCables.length).toBeGreaterThan(0);
         });
 
+        it('Test - Pitch Tracker keeps analysis continuous and exposes pitch plus lock', () => {
+            const patch = FACTORY_PATCHES['Test - Pitch Tracker'];
+
+            expect(patch.state.modules.some(module => module.id === 'sourceAmplifier')).toBe(false);
+            expect(patch.state.cables).toEqual(expect.arrayContaining([
+                { fromModule: 'sourceOscillator', fromPort: 'triangle', toModule: 'tracker', toPort: 'audio' },
+                { fromModule: 'sourceOscillator', fromPort: 'triangle', toModule: 'out', toPort: 'L' },
+                { fromModule: 'tracker', fromPort: 'pitch', toModule: 'scope', toPort: 'in1' },
+                { fromModule: 'tracker', fromPort: 'gate', toModule: 'scope', toPort: 'in2' },
+                { fromModule: 'trackedAmplifier', fromPort: 'ch1Out', toModule: 'out', toPort: 'R' }
+            ]));
+        });
+
+        it('Test - Shimmer makes both routing modes audible for direct comparison', () => {
+            const patch = FACTORY_PATCHES['Test - Shimmer'];
+
+            expect(patch.state.params.inputShimmer).toMatchObject({ route: 0, mix: 0.72 });
+            expect(patch.state.params.regenShimmer).toMatchObject({ route: 1, mix: 0.72 });
+            expect(patch.state.cables).toEqual(expect.arrayContaining([
+                { fromModule: 'inputShimmer', fromPort: 'outL', toModule: 'out', toPort: 'L' },
+                { fromModule: 'regenShimmer', fromPort: 'outR', toModule: 'out', toPort: 'R' }
+            ]));
+        });
+
         it('Test - Changes + Cascade locks the intended shared-clock pitch and articulation wiring', () => {
             const patch = FACTORY_PATCHES['Test - Changes + Cascade'];
             const moduleIds = new Set(['changes', 'cascade']);

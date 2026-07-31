@@ -149,7 +149,7 @@ describe('shimmer', () => {
         expect(shimmerModule.ui.switches).toEqual([
             {
                 id: 'route',
-                label: 'ROUTE',
+                label: 'INPUT / REGEN',
                 param: 'route',
                 positions: ['INPUT', 'REGEN'],
                 default: 1

@@ -360,7 +360,7 @@ export default {
         ],
         switches: [
             {
-                id: 'range', label: 'RANGE', param: 'range',
+                id: 'range', label: 'FAST / LOW', param: 'range',
                 positions: ['FAST', 'LOW'], default: 0
             }
         ],

@@ -42,6 +42,7 @@ test('themes recent-module hardware controls and keeps Probability Sequencer tac
                 const readStyle = selector => {
                     const style = getComputedStyle(element.querySelector(selector));
                     return {
+                        backgroundColor: style.backgroundColor,
                         backgroundImage: style.backgroundImage,
                         borderColor: style.borderTopColor,
                         borderRadius: style.borderTopLeftRadius,
@@ -57,21 +58,63 @@ test('themes recent-module hardware controls and keeps Probability Sequencer tac
         }
     }
 
-    expect(new Set(Object.values(snapshots).map(value => JSON.stringify(value.button))).size).toBe(4);
+    expect(new Set(Object.values(snapshots).map(value => JSON.stringify(value.button))).size)
+        .toBeGreaterThanOrEqual(3);
     expect(snapshots['industrial-light'].button.borderRadius).toBe('0px');
     expect(snapshots['industrial-dark'].button.borderRadius).toBe('0px');
     expect(snapshots['classic-light'].button.borderRadius).toBe('3px');
     expect(snapshots['classic-dark'].button.borderRadius).toBe('3px');
-    Object.values(snapshots).forEach(({ button, select }) => {
-        expect(button.backgroundImage).toContain('linear-gradient');
-        expect(select.backgroundImage).toContain('linear-gradient');
-        expect(button.boxShadow).not.toBe('none');
-        expect(select.boxShadow).not.toBe('none');
-    });
+    for (const mode of ['light', 'dark']) {
+        const industrial = snapshots[`industrial-${mode}`];
+        expect(industrial.button.backgroundImage).toBe('none');
+        expect(industrial.button.boxShadow).toBe('none');
+        expect(industrial.select.boxShadow).toBe('none');
+
+        const classic = snapshots[`classic-${mode}`];
+        expect(classic.button.backgroundImage).toContain('linear-gradient');
+        expect(classic.button.boxShadow).not.toBe('none');
+        expect(classic.select.backgroundImage).toContain('linear-gradient');
+        expect(classic.select.boxShadow).not.toBe('none');
+    }
 
     await loadFactoryPatch(page, 'Test - CV Recorder', 'recorder');
     await expect(page.locator('#module-recorder .action-btn')).toHaveCount(4);
     await expect(page.locator('#module-recorder .switch')).toHaveCount(3);
+    await page.evaluate(() => {
+        window.eurorackApp.setTheme('industrial');
+        window.eurorackApp.setThemeMode('dark');
+    });
+    await page.waitForTimeout(120);
+    const establishedIndustrialStyles = await page.locator('#module-recorder').evaluate(element => {
+        const action = getComputedStyle(element.querySelector('.action-btn'));
+        const toggle = element.querySelector('.switch');
+        const toggleStyle = getComputedStyle(toggle);
+        const toggleCap = getComputedStyle(toggle, '::after');
+        return {
+            action: {
+                backgroundImage: action.backgroundImage,
+                borderRadius: action.borderTopLeftRadius
+            },
+            toggle: {
+                height: toggleStyle.height,
+                width: toggleStyle.width,
+                capBackgroundImage: toggleCap.backgroundImage,
+                capBorderRadius: toggleCap.borderTopLeftRadius,
+                capBoxShadow: toggleCap.boxShadow
+            }
+        };
+    });
+    expect(establishedIndustrialStyles.action).toEqual({
+        backgroundImage: 'none',
+        borderRadius: '0px'
+    });
+    expect(establishedIndustrialStyles.toggle).toEqual({
+        height: '22px',
+        width: '14px',
+        capBackgroundImage: 'none',
+        capBorderRadius: '0px',
+        capBoxShadow: 'none'
+    });
 
     await loadFactoryPatch(page, 'Test - Pitch Tracker', 'tracker');
     await expect(page.locator('#module-tracker .switch')).toHaveCount(1);

@@ -3,8 +3,8 @@
  *
  * A clocked envelope makes the stereo Ensemble VCO percussive, then feeds
  * matched INPUT and REGEN Shimmer instances. Their spectrum panels expose the
- * one-generation INPUT layer beside REGEN's octave ladder; OUT plays REGEN in
- * stereo.
+ * one-generation INPUT layer beside REGEN's octave ladder; INPUT is heard on
+ * the left and REGEN on the right for an immediate routing comparison.
  */
 export default {
     name: 'Test - Shimmer',
@@ -53,7 +53,7 @@ export default {
                 resetScale: 0,
                 scaleMemory: {}
             },
-            vca: { ch1Gain: 0.82, ch2Gain: 0.82 },
+            vca: { ch1Gain: 0.92, ch2Gain: 0.92 },
             inputShimmer: {
                 decay: 0.82,
                 size: 0.58,
@@ -62,8 +62,8 @@ export default {
                 damp: 0.3,
                 modDepth: 0.24,
                 interval: 12,
-                shimmer: 0.62,
-                mix: 1,
+                shimmer: 0.72,
+                mix: 0.72,
                 route: 0,
                 freeze: 0,
                 clear: 0
@@ -76,15 +76,15 @@ export default {
                 damp: 0.3,
                 modDepth: 0.24,
                 interval: 12,
-                shimmer: 0.62,
-                mix: 1,
+                shimmer: 0.72,
+                mix: 0.72,
                 route: 1,
                 freeze: 0,
                 clear: 0
             },
             inputSpectrum: { floor: 0.35, decay: 0.65, scale: 0 },
             regenSpectrum: { floor: 0.35, decay: 0.65, scale: 0 },
-            out: { volume: 0.46 }
+            out: { volume: 0.72 }
         },
         cables: [
             { fromModule: 'clock', fromPort: 'clock', toModule: 'envelope', toPort: 'gate' },
@@ -98,7 +98,7 @@ export default {
             { fromModule: 'vca', fromPort: 'ch2Out', toModule: 'regenShimmer', toPort: 'inR' },
             { fromModule: 'inputShimmer', fromPort: 'outL', toModule: 'inputSpectrum', toPort: 'audio' },
             { fromModule: 'regenShimmer', fromPort: 'outL', toModule: 'regenSpectrum', toPort: 'audio' },
-            { fromModule: 'regenShimmer', fromPort: 'outL', toModule: 'out', toPort: 'L' },
+            { fromModule: 'inputShimmer', fromPort: 'outL', toModule: 'out', toPort: 'L' },
             { fromModule: 'regenShimmer', fromPort: 'outR', toModule: 'out', toPort: 'R' }
         ],
         midiMappings: {}

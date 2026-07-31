@@ -846,7 +846,7 @@ export default {
         switches: [
             {
                 id: 'route',
-                label: 'ROUTE',
+                label: 'INPUT / REGEN',
                 param: 'route',
                 positions: ['INPUT', 'REGEN'],
                 default: 1

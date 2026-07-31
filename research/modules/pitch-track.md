@@ -331,7 +331,7 @@ runtime events, browser services, or patch-persisted non-control state.
 | --- | --- | --- | --- |
 | Knob | `level` | `LEVEL` | 0..1, default 0.5; logarithmic qualification threshold described below. |
 | Knob | `smooth` | `SMOOTH` | 0..250 ms, default 15 ms. |
-| Switch | `range` | `RANGE` | positions `FAST`, `LOW`; values 0 and 1; default 0. |
+| Switch | `range` | `FAST / LOW` | positions `FAST`, `LOW`; values 0 and 1; default 0. The explicit labels map the upper and lower switch positions without requiring prior knowledge of the module. |
 | Input | `audio` | `IN` | port `audio`, signal `audio`, -5..+5 V, normal 0 V. |
 | Output | `pitch` | `PITCH` | port `pitch`, signal `cv`, -8/3..+3 V. |
 | Output | `gate` | `GATE` | port `gate`, signal `gate`, exactly 0 or 10 V. |
@@ -778,7 +778,13 @@ modules.
    `src/js/audio/worklet-engine.js`, `src/js/audio/worklet/processor.js`, and
    `src/js/audio/worklet/core-plugin.js`.
 6. Add `Test - Pitch Tracker` under `src/js/config/patches/`, register it in the
-   factory-patch index, and validate exact current port names.
+   factory-patch index, and validate exact current port names. The audition
+   patch hard-pans the source voice left and the tracked/resynthesized voice
+   right, while SCOPE shows continuous Pitch CV and the 0/10 V validity gate;
+   this makes held-pitch behavior and lock loss observable as well as audible.
+   The source oscillator remains continuous while SEQ changes its pitch. SEQ's
+   Gate follows CLK's short trigger and must not gate the analysis source,
+   because a roughly 10 ms burst cannot reliably fill a YIN analysis frame.
 7. Add Pitch Tracker to the `AGENTS.md` available-modules list and the README
    module table. Update `docs/creating-modules.md` only if implementation needs
    a genuinely reusable new authoring pattern; none is currently planned.

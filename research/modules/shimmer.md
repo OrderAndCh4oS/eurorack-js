@@ -827,7 +827,7 @@ are recorded here before merge.
 
 - **Module ID/category:** `shimmer`, `effect`.
 - **Implementation branch/worktree:** `module/shimmer` at
-  `/Users/orderandchaos/code/eurorack-js/.worktrees/shimmer`.
+  `/Users/orderandchaos/code/eurorack-js/.worktrees/shimmer-module`.
 - **DSP model:** inspired stereo reverb using four input allpasses per channel,
   one eight-line modulated Hadamard FDN, one stereo two-head 80 ms time-domain
   pitch shifter, INPUT/REGEN routing, frequency-dependent RT60, anti-alias
@@ -896,14 +896,35 @@ are recorded here before merge.
 These may be valuable later, but none is required to prove a distinct,
 high-quality standalone pitch-feedback reverb.
 
-## Pre-Implementation DSP Audit (2026-07-31)
+## DSP Audit (2026-07-31)
 
-`shimmer` is not registered and has no runtime measurements. The local VERB and
-Granulita audits establish the relevant baseline expectations: connection-state
-stereo normalization, continuous `+/-5 V` rails, allocation-free per-sample
-loops, and strict 44.1/48/96 kHz by 128/512 validation. The next action is tests
-first on `module/shimmer`; no implementation work belongs on this research
-branch.
+- **Focused coverage:** `tests/dsp/shimmer.test.js` has 23 tests for
+  schema/defaults, fixed memory, normalized-Hadamard energy, exact interval
+  ratios, measured `-12/+7/+12` pitch translation, upward-shift filtering,
+  every knob/CV mapping, Diffusion/Mod response, LEDs, connection-state stereo
+  normalization, continuous rails, the REGEN octave ladder, Freeze loss and
+  wet-input rejection, exact Clear timing/priority/complete-state reset,
+  deterministic block segmentation, reset, and 30-second recursive stability.
+- **Measured status:** the strict 44.1/48/96 kHz by 128/512-sample matrix
+  completes 23 scenarios per configuration with finite stable buffers, zero
+  processing errors, zero voltage-contract flags, a 4.926 V observed peak, and
+  a maximum advisory Node diagnostic time of 1.5288 ms per block. The focused,
+  contract, patch-format, and runtime-ownership gate passes 114 tests.
+- **Memory and stability:** the 96 kHz fixed delay allocation remains below the
+  specified 1 MiB cap. Five-second frozen-tail tests remain within the `+/-3 dB`
+  target after integer-delay settling, and 30-second maximum-feedback renders
+  remain finite inside the continuous external `+/-5 V` rails. The factory
+  patch feeds matched INPUT and REGEN instances from a clocked stereo source
+  and exposes their late spectra side by side while playing REGEN in stereo.
+- **Licensing decision:** the implementation follows the independently stated
+  Stautner/Jot normalized-FDN and Puckette moving-delay equations in this
+  record. No Plateau GPL source or proprietary commercial algorithm was copied.
+- **Review and repository status:** independent DSP/contract review found no
+  remaining Shimmer blocker. The full suite passes 2,243 of 2,244 tests; its
+  sole failure is the pre-existing audit-index mismatch for the concurrently
+  documented but unregistered `pitch-track` and `vocoder` queue items. No
+  browser listening session was performed; the advisory timings did not cross
+  the documented threshold that requires a browser AudioWorklet profile.
 
 ## Spec-Ready Gate Decision
 

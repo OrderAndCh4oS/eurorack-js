@@ -112,6 +112,7 @@ reconstructed base.
 | `dly` | DLY | Mono digital delay with time, feedback, mix, and CV control |
 | `tape` | TAPE | Tape-style delay with saturation, multi-head modes, wow/flutter, crinkle, tap, and freeze |
 | `verb` | VERB | Stereo reverb with time, damping, mix, and mix CV |
+| `shimmer` | SHIMMER | Stereo Hadamard-FDN reverb with pitch-shifted input or regenerative feedback |
 | `chorus` | CHORUS | Stereo chorus effect |
 | `phaser` | PHASER | Stereo phaser effect |
 | `flanger` | FLANGER | Stereo flanger effect |

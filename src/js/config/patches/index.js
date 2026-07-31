@@ -62,6 +62,7 @@ import testFlanger from './test-flanger.js';
 import testCrush from './test-crush.js';
 import testLoop from './test-loop.js';
 import testGranulita from './test-granulita.js';
+import testShimmer from './test-shimmer.js';
 import testDb from './test-db.js';
 import testPwm from './test-pwm.js';
 import testTuring from './test-turing.js';
@@ -187,6 +188,7 @@ export const FACTORY_PATCHES = {
     [testCrush.name]: testCrush,
     [testLoop.name]: testLoop,
     [testGranulita.name]: testGranulita,
+    [testShimmer.name]: testShimmer,
     [testDb.name]: testDb,
     [testPwm.name]: testPwm,
     [testTuring.name]: testTuring,

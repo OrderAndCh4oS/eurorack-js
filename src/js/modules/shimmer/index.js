@@ -3,6 +3,9 @@ import { createLinearCircularReader } from '../../utils/interpolation.js';
 import { createSlew } from '../../utils/slew.js';
 import { softLimitVoltage } from '../../utils/voltage.js';
 
+// Independently specified from the published FDN and moving-delay equations in
+// research/modules/shimmer.md. No proprietary or GPL implementation is copied.
+
 const DEFAULTS = Object.freeze({
     decay: 0.55,
     size: 0.5,
@@ -153,7 +156,10 @@ function dampingCutoff(damp, sampleRate) {
 }
 
 function onePoleCoefficient(cutoff, sampleRate) {
-    return 1 - Math.exp(-2 * Math.PI * clamp(cutoff, 1, sampleRate * 0.45) / sampleRate);
+    const frequency = clamp(cutoff, 1, sampleRate * 0.45);
+    const cosine = Math.cos(2 * Math.PI * frequency / sampleRate);
+    const pole = 2 - cosine - Math.sqrt((2 - cosine) * (2 - cosine) - 1);
+    return 1 - pole;
 }
 
 function clearTypedBuffers(buffers) {
@@ -278,12 +284,18 @@ export default {
         let inputLedState = 0;
         let tailLedState = 0;
         let pitchLedState = 0;
+        let lastDecay = DEFAULTS.decay;
+        let lastDiffusion = DEFAULTS.diffusion;
+        let lastModDepth = DEFAULTS.modDepth;
         let lastShimmerAmount = DEFAULTS.shimmer;
+        let lastMix = DEFAULTS.mix;
+        let lastRoute = DEFAULTS.route;
         let lastIntervalSemitones = DEFAULTS.interval;
         let lastPitchRatio = 2;
         let lastSizeScale = 1;
         let lastPreDelaySamples = 0;
         let lastDampCutoff = 0;
+        let lastPitchFilteredL = 0;
         let maxFeedbackGain = 0;
 
         function sanitizeParams(dsp) {
@@ -307,8 +319,8 @@ export default {
                 const buffer = buffers[stage];
                 const index = indices[stage];
                 const delayed = buffer[index];
-                const next = delayed - coefficient * output;
-                buffer[index] = flushTiny(output + coefficient * next);
+                const next = guardInternal(delayed - coefficient * output);
+                buffer[index] = flushTiny(guardInternal(output + coefficient * next));
                 output = next;
                 indices[stage] = index + 1 === buffer.length ? 0 : index + 1;
             }
@@ -329,7 +341,12 @@ export default {
             shimmerSlew.reset(dsp.params.shimmer);
             mixSlew.reset(dsp.params.mix);
             routeSlew.reset(dsp.params.route);
+            lastDecay = dsp.params.decay;
+            lastDiffusion = dsp.params.diffusion;
+            lastModDepth = dsp.params.modDepth;
             lastShimmerAmount = dsp.params.shimmer;
+            lastMix = dsp.params.mix;
+            lastRoute = dsp.params.route;
             lastIntervalSemitones = dsp.params.interval;
             lastPitchRatio = ratio;
             lastSizeScale = Math.pow(2, dsp.params.size - 0.5);
@@ -362,6 +379,7 @@ export default {
             pitchFilterR.fill(0);
             pitchWrite = 0;
             pitchPhase = 0;
+            lastPitchFilteredL = 0;
             for (let i = 0; i < 8; i++) modPhases[i] = i / 8;
             inputLedState = 0;
             tailLedState = 0;
@@ -453,6 +471,7 @@ export default {
 
             pitchBufferL[pitchWrite] = guardInternal(filteredL);
             pitchBufferR[pitchWrite] = guardInternal(filteredR);
+            lastPitchFilteredL = filteredL;
 
             const phase0 = pitchPhase;
             const phase1 = wrapUnit(pitchPhase + 0.5);
@@ -478,6 +497,30 @@ export default {
             for (let line = 0; line < 8; line++) {
                 const buffer = fdnBuffers[line];
                 for (let i = 0; i < buffer.length; i++) total += buffer[i] * buffer[i];
+            }
+            return total;
+        }
+
+        function calculateStateEnergy() {
+            let total = calculateTankEnergy();
+            for (let i = 0; i < preDelayL.length; i++) {
+                total += preDelayL[i] * preDelayL[i] + preDelayR[i] * preDelayR[i];
+            }
+            for (let stage = 0; stage < 4; stage++) {
+                const left = diffuserBuffersL[stage];
+                const right = diffuserBuffersR[stage];
+                for (let i = 0; i < left.length; i++) total += left[i] * left[i];
+                for (let i = 0; i < right.length; i++) total += right[i] * right[i];
+                total += pitchFilterL[stage] * pitchFilterL[stage];
+                total += pitchFilterR[stage] * pitchFilterR[stage];
+            }
+            for (let i = 0; i < pitchBufferL.length; i++) {
+                total += pitchBufferL[i] * pitchBufferL[i] + pitchBufferR[i] * pitchBufferR[i];
+            }
+            for (let line = 0; line < 8; line++) {
+                total += highpassInput[line] * highpassInput[line];
+                total += highpassOutput[line] * highpassOutput[line];
+                total += lowpassState[line] * lowpassState[line];
             }
             return total;
         }
@@ -674,6 +717,11 @@ export default {
                     if (pitchLedState < 1e-12) pitchLedState = 0;
 
                     lastShimmerAmount = shimmerAmount;
+                    lastDecay = decay;
+                    lastDiffusion = diffusion;
+                    lastModDepth = modDepth;
+                    lastMix = mix;
+                    lastRoute = route;
                     lastIntervalSemitones = semitones;
                     lastPitchRatio = ratio;
                     lastSizeScale = sizeScale;
@@ -730,10 +778,17 @@ export default {
                 return {
                     allocatedDelayBytes,
                     tankEnergy: calculateTankEnergy(),
+                    stateEnergy: calculateStateEnergy(),
                     clearCount,
                     clearStage,
                     clearGain,
                     freezeMorph,
+                    decay: lastDecay,
+                    diffusion: lastDiffusion,
+                    modDepth: lastModDepth,
+                    shimmer: lastShimmerAmount,
+                    mix: lastMix,
+                    route: lastRoute,
                     sizeScale: lastSizeScale,
                     preDelaySamples: lastPreDelaySamples,
                     intervalSemitones: lastIntervalSemitones,
@@ -743,6 +798,28 @@ export default {
                     activeDelaySamples: Array.from(activeDelaySamples),
                     feedbackGains: Array.from(feedbackGains)
                 };
+            },
+
+            processPitchProbe(sampleValue, semitones) {
+                const interval = clamp(Math.round(finite(semitones, 0)), -12, 12);
+                const ratio = SHIMMER_INTERVAL_RATIOS[interval + 12];
+                const dampHz = dampingCutoff(this.params.damp, sampleRate);
+                const pitchCutoff = ratio > 1
+                    ? Math.min(dampHz, sampleRate * 0.45 / ratio)
+                    : dampHz;
+                const sample = finiteAudio(sampleValue);
+                processPitch(
+                    sample,
+                    sample,
+                    ratio,
+                    interval === 0 ? 0 : 1,
+                    onePoleCoefficient(pitchCutoff, sampleRate)
+                );
+                return pitchResult[0];
+            },
+
+            getPitchFilterSample() {
+                return lastPitchFilteredL;
             }
         };
 
@@ -765,7 +842,13 @@ export default {
             { id: 'mix', label: 'MIX', param: 'mix', min: 0, max: 1, default: 0.35 }
         ],
         switches: [
-            { id: 'route', label: 'ROUTE', param: 'route', default: 1 }
+            {
+                id: 'route',
+                label: 'ROUTE',
+                param: 'route',
+                positions: ['INPUT', 'REGEN'],
+                default: 1
+            }
         ],
         actions: [
             { id: 'freeze', label: 'FREEZE', param: 'freeze', mode: 'toggle', default: 0 },
@@ -790,8 +873,9 @@ export default {
             label: 'STEREO / CV',
             columns: [
                 { label: 'AUDIO', columns: 2, ports: ['inL', 'inR', 'outL', 'outR'] },
-                { label: 'SPACE', columns: 2, ports: ['decayCV', 'dampCV', 'mixCV', 'freezeGate'] },
-                { label: 'PITCH', columns: 2, ports: ['shimmerCV', 'intervalCV', 'clearTrig'] }
+                { label: 'SPACE', columns: 2, ports: ['decayCV', 'dampCV', 'freezeGate'] },
+                { label: 'PITCH', columns: 2, ports: ['shimmerCV', 'intervalCV', 'clearTrig'] },
+                { label: 'MIX', ports: ['mixCV'] }
             ]
         }
     }

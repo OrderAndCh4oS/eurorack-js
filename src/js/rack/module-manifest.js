@@ -54,6 +54,7 @@ export const MODULE_MANIFEST = [
     { id: 'crush', load: () => import('../modules/crush/index.js') },
     { id: 'loop', load: () => import('../modules/loop/index.js') },
     { id: 'granulita', load: () => import('../modules/granulita/index.js') },
+    { id: 'shimmer', load: () => import('../modules/shimmer/index.js') },
     { id: 'db', load: () => import('../modules/db/index.js') },
     { id: 'pwm', load: () => import('../modules/pwm/index.js') },
     { id: 'turing', load: () => import('../modules/turing/index.js') },

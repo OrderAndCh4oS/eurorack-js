@@ -19,6 +19,23 @@ test('runs the custom-module patch and switches topology while audio is active',
         const scope = window.eurorackApp.state.getModule('scope')?.instance;
         return window.eurorackApp.host.engine && scope?.displayBuffer1?.some(sample => sample !== 0);
     });
+    const scopeHistory = await page.evaluate(() => {
+        const scope = window.eurorackApp.state.getModule('scope')?.instance;
+        const samplesPerScreen = Math.floor(128 + (1 - scope.params.time) * 896);
+        return {
+            displaySize: scope.displaySize,
+            channel1Length: scope.displayBuffer1.length,
+            channel2Length: scope.displayBuffer2.length,
+            samplesPerScreen
+        };
+    });
+    expect(scopeHistory).toEqual({
+        displaySize: 2048,
+        channel1Length: 2048,
+        channel2Length: 2048,
+        samplesPerScreen: expect.any(Number)
+    });
+    expect(scopeHistory.displaySize).toBeGreaterThanOrEqual(scopeHistory.samplesPerScreen);
 
     const revision = await page.evaluate(() => window.eurorackApp.host.engine.revision);
     await page.locator('#patchSelect').selectOption('Test - Chorus');

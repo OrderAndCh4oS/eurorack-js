@@ -13,6 +13,9 @@
  * - DC coupled inputs accepting ±10V
  */
 
+const DISPLAY_HISTORY_SIZE = 2048;
+const MAX_CANVAS_SAMPLES = 1024;
+
 export default {
     id: 'scope',
     name: 'SCOPE',
@@ -95,8 +98,12 @@ export default {
     `,
 
     createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
-        // Display buffer holds multiple frames for visualization
-        const displaySize = bufferSize * 4;
+        // Keep display history independent of the host render quantum. The
+        // canvas can request up to 1024 samples, while AudioWorklet normally
+        // processes 128-sample blocks; tying these buffers to block size made
+        // the renderer start outside the circular history and redraw only part
+        // of the trace as the write index advanced.
+        const displaySize = DISPLAY_HISTORY_SIZE;
         const displayBuffer1 = new Float32Array(displaySize);
         const displayBuffer2 = new Float32Array(displaySize);
         let writeIndex = 0;
@@ -503,7 +510,7 @@ export default {
                 const bufferSize = dsp.displaySize;
                 const writeIdx = dsp.getWriteIndex();
 
-                const samplesPerScreen = Math.floor(256 + (1 - dsp.params.time) * 768);
+                const samplesPerScreen = Math.floor(256 + (1 - dsp.params.time) * (MAX_CANVAS_SAMPLES - 256));
 
                 // Calculate min/max for auto-centering
                 let min1 = Infinity, max1 = -Infinity;
@@ -571,7 +578,7 @@ export default {
                 const offset1 = (dsp.params.offset1 - 0.5) * 20;
                 const offset2 = (dsp.params.offset2 - 0.5) * 20;
 
-                const samplesPerScreen = Math.floor(128 + (1 - dsp.params.time) * 896);
+                const samplesPerScreen = Math.floor(128 + (1 - dsp.params.time) * (MAX_CANVAS_SAMPLES - 128));
 
                 // Always read from behind the write index to avoid discontinuities
                 const startIdx = (writeIdx - samplesPerScreen + bufferSize) % bufferSize;

@@ -67,7 +67,7 @@ Chromatic tuner:
 
 ### Circular Display Buffer
 ```javascript
-const displaySize = bufferSize * 4;  // Multiple frames for smooth display
+const displaySize = 2048;  // Independent of the AudioWorklet render quantum
 const displayBuffer1 = new Float32Array(displaySize);
 const displayBuffer2 = new Float32Array(displaySize);
 let writeIndex = 0;
@@ -79,6 +79,16 @@ for (let i = 0; i < bufferSize; i++) {
     writeIndex = (writeIndex + 1) % displaySize;
 }
 ```
+
+The canvas requests between 128 and 1024 samples in time-domain mode and up to
+1024 samples in X-Y mode. History must therefore never be derived from the
+AudioWorklet block size: the production render quantum is normally 128 samples,
+so the former `bufferSize * 4` policy exposed only 512 samples and forced longer
+views outside the available history. Because the old start-index expression
+added the buffer length only once, it could remain negative for the excess
+region; those invalid samples produced the blank/flickering section until the
+write index advanced. A fixed 2048-sample circular history holds two
+maximum-width views and remains bounded.
 
 ### Trigger Detection
 Rising edge detection for stable display:
@@ -226,4 +236,19 @@ const y = centerY - ((sample + offset) / range) * (height / 2);
 - Focused tests cover trigger threshold, tune frequency, circular history,
   passthrough, LEDs, telemetry bounds, finite recovery, and reset.
 - The strict matrix completes fifteen scenarios with zero voltage flags, stable
-  buffers, and maximum Node diagnostic time below 0.083ms/block.
+  buffers, and maximum observed advisory Node diagnostic time below
+  0.154ms/block across the latest validation run.
+
+## Display-history regression (2026-07-31)
+
+- Recent factory patches commonly select Time values from 0.24 to 0.45, asking
+  the canvas for roughly 620 to 810 samples per frame.
+- Production AudioWorklet instances use 128-sample blocks. The old
+  `bufferSize * 4` history therefore held only 512 samples, causing the excess
+  canvas region to begin at invalid negative history indices and flicker as the
+  write index advanced.
+- Scope now uses a fixed 2048-sample history for both channels. Focused DSP and
+  production-browser tests require that the telemetry buffer is at least as
+  long as the requested canvas window.
+- Validation passes all 34 focused Scope tests, the six strict matrix
+  configurations, all 2,311 repository tests, and all 21 Chromium tests.

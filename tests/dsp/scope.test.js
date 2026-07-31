@@ -47,6 +47,17 @@ describe('SCOPE - Dual Channel Oscilloscope', () => {
             expect(dsp.displayBuffer2.length).toBe(BUFFER_SIZE * 4);
         });
 
+        it('keeps enough history for a full canvas at the production worklet block size', () => {
+            const workletDsp = scopeModule.createDSP({
+                sampleRate: SAMPLE_RATE,
+                bufferSize: 128
+            });
+
+            expect(workletDsp.displaySize).toBe(2048);
+            expect(workletDsp.displayBuffer1.length).toBeGreaterThanOrEqual(1024);
+            expect(workletDsp.displayBuffer2.length).toBeGreaterThanOrEqual(1024);
+        });
+
         it('should have default params', () => {
             expect(dsp.params.time).toBe(0.5);
             expect(dsp.params.gain1).toBe(0.5);

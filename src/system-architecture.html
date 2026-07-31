@@ -424,7 +424,7 @@
                 <h1>Voltages in.<br>Sound out.</h1>
                 <p class="hero-copy">A complete visual tour of the browser-based Eurorack emulator: who owns state, how patches become an atomic audio graph, where DSP runs, and how UI, MIDI, plugins, telemetry, and tests fit around the real-time core.</p>
                 <div class="facts" aria-label="Project facts">
-                    <div class="fact"><b>66</b><span>built-in modules</span></div>
+                    <div class="fact"><b>75</b><span>built-in modules</span></div>
                     <div class="fact"><b>12</b><span>module categories</span></div>
                     <div class="fact"><b>v3</b><span>strict patch schema</span></div>
                     <div class="fact"><b>1</b><span>production DSP thread</span></div>
@@ -510,7 +510,7 @@ sequenceDiagram
     B->>A: init()
     A->>H: init()
     H->>R: loadCorePlugin()
-    R->>R: load + validate 66 definitions
+    R->>R: load + validate 75 definitions
     R-->>H: atomic registration
     H->>S: create stable UI mirrors
     H-->>A: host ready
@@ -695,7 +695,7 @@ flowchart LR
     EVENTS --> MORE{"More modules?"}
     DISABLE --> MORE
     MORE -->|"yes"| NEXT
-    MORE -->|"no"| SUM["Sum audio-output sinks<br/>scale ±5V to ±1"]
+    MORE -->|"no"| SUM["Sum audio-output sinks<br/>scale ±5V to ±1 · hard-limit stereo"]
     SUM --> TELEMETRY{"~30 Hz telemetry tick?"}
     TELEMETRY -->|"yes"| POST["Post params, LEDs,<br/>declared fields/history"]
     TELEMETRY -->|"no"| END["End MIDI block"]
@@ -847,6 +847,12 @@ flowchart TB
                         </pre></div>
                     </article>
                 </div>
+
+                <div class="notes">
+                    <div class="note"><b>Transient actions</b><p>Trigger and momentary actions return to their declared defaults and release during renderer cleanup; toggle actions remain patch-persisted.</p></div>
+                    <div class="note"><b>Cable focus</b><p>Dragging a cable automatically dims established routes while keeping the preview fully visible. The footer can also dim cables without changing connections.</p></div>
+                    <div class="note"><b>Theme layer</b><p>Shared module colour tokens and hardware controls map to Industrial or Classic palettes in both light and dark mode, keeping reusable controls consistent.</p></div>
+                </div>
             </section>
 
             <section id="sync">
@@ -947,8 +953,8 @@ flowchart TB
     P1 --> JSON["JSON / local storage /<br/>gzip URL hash"]
     P2 --> JSON
 
-    LIVE["Runtime-only state"] --> L1["Looper buffers"]
-    LIVE --> L2["Gesture recordings"]
+    LIVE["Runtime-only state"] --> L1["Looper audio buffers"]
+    LIVE --> L2["CV Recorder lane buffers"]
     L1 --> CAP["captureRuntimeState()"]
     L2 --> CAP
     CAP --> STOP["Audio stop"]
@@ -962,6 +968,12 @@ flowchart TB
                         </pre></div>
                         <div class="insight"><strong>Timeout</strong><span>Topology acknowledgements and runtime-state requests have a five-second timeout; runtime capture failure cannot prevent audio shutdown.</span></div>
                     </article>
+                </div>
+
+                <div class="notes">
+                    <div class="note"><b>Deterministic patches</b><p>Seeds for random and generative modules are ordinary declared parameters. A shared patch restores those seeds, while volatile live mutations and bulk recordings remain outside patch JSON.</p></div>
+                    <div class="note"><b>Shared-link compatibility</b><p>Compact URL v2 keeps an immutable deployed core-token snapshot. New module strings use the local table, so later core additions cannot reinterpret existing hashes.</p></div>
+                    <div class="note"><b>Transient commands</b><p>Patch loading resets trigger and momentary actions instead of replaying a captured high pulse. Persistent toggles and finite <code>ui.state</code> values still restore normally.</p></div>
                 </div>
             </section>
 
@@ -1013,7 +1025,7 @@ flowchart LR
     class LOAD,WREG,MATCH,ACTIVE dsp;
     class FAIL,REJECT bad;
                     </pre></div>
-                    <div class="insight"><strong>Core special case</strong><span>Built-ins have a lazy main-thread manifest and a matching static worklet definition list. Their IDs, order, aliases, and graph revision must remain synchronized.</span></div>
+                    <div class="insight"><strong>Core special case</strong><span>Built-ins have a lazy main-thread manifest and a matching static worklet definition list. Their IDs, order, aliases, and graph revision must remain synchronized; the revision carries an ordered-module digest checked by contract tests.</span></div>
                 </article>
             </section>
 
@@ -1023,20 +1035,20 @@ flowchart LR
                     <p>The manifest provides deterministic default order; each definition owns its sidebar category. All signals remain DC-coupled regardless of semantic port labels.</p>
                 </div>
                 <article class="card">
-                    <div class="card-head"><div><h3>66 built-in modules by role</h3><p>Categories are UI taxonomy, while graph order is dependency-driven at runtime.</p></div><span class="tag">Catalog</span></div>
+                    <div class="card-head"><div><h3>75 built-in modules by category</h3><p>Categories are UI taxonomy, while graph order is dependency-driven at runtime.</p></div><span class="tag">Catalog</span></div>
                     <div class="diagram"><pre class="mermaid">
 flowchart TB
-    RACK["eurorack-js module library · 66"]
+    RACK["eurorack-js module library · 75"]
     RACK --> MIDI["MIDI · 5<br/>midi-cv · midi-4 · midi-cc<br/>midi-clk · midi-drum"]
-    RACK --> CLOCK["Clock · 5<br/>clk · div · swing<br/>burst · gate-delay"]
+    RACK --> CLOCK["Clock · 6<br/>clk · div · swing<br/>burst · gate-delay · cascade"]
     RACK --> SOURCE["Sources · 5<br/>nse · vco · wavetable<br/>complex-vco · ensemble-vco"]
     RACK --> VOICE["Voices · 4<br/>pluck · kick · snare · hat"]
-    RACK --> MOD["Modulation · 6<br/>lfo · quad-lfo · rnd<br/>func · adsr · ochd"]
-    RACK --> SEQ["Sequencers · 5<br/>arp · seq · seq-switch<br/>euclid · turing"]
+    RACK --> MOD["Modulation · 8<br/>lfo · quad-lfo · rnd · func<br/>adsr · ochd · chaos · cv-rec"]
+    RACK --> SEQ["Sequencers · 8<br/>arp · changes · refrain · seq<br/>prob-seq · seq-switch · euclid · turing"]
     RACK --> QUANT["Quantizer · 1<br/>quant"]
     RACK --> FILTER["Filters · 4<br/>vcf · lpg · formant · resbank"]
-    RACK --> FX["Effects · 11<br/>fold · ring · dly · tape · verb · chorus<br/>phaser · flanger · crush · loop · granulita"]
-    RACK --> UTIL["Utility · 19<br/>sh · logic · mult · matrix · joystick · envf<br/>vca · atten · slew · db · pwm · cmp2 · comp<br/>mix · scope · spectrum · plot · spectrogram · rec"]
+    RACK --> FX["Effects · 13<br/>fold · ring · vocoder · dly · tape · verb · chorus<br/>phaser · flanger · crush · loop · granulita · shimmer"]
+    RACK --> UTIL["Utility · 20<br/>sh · logic · mult · matrix · joystick · envf<br/>vca · atten · slew · db · pwm · cmp2 · comp<br/>mix · scope · spectrum · plot · spectrogram · rec · pitch-track"]
     RACK --> OUTPUT["Output · 1<br/>out"]
     RACK --> OTHER["Other · 0<br/>reserved category"]
 
@@ -1091,7 +1103,7 @@ flowchart TB
     E2E["Playwright E2E<br/>real browser interactions"]
     INT["Worklet + app integration<br/>topology, lifecycle, patches"]
     CONTRACT["Contract tests<br/>manifest, modules, plugins, research"]
-    DSP["68 focused DSP suites<br/>ranges, controls, reset, buffers"]
+    DSP["76 focused DSP suites<br/>ranges, controls, reset, buffers"]
     UTILS["Utility unit tests<br/>FFT, interpolation, slew, voltage"]
     AUDIT["DSP audit matrix<br/>sample rates × block sizes × strict voltage"]
 
@@ -1124,6 +1136,7 @@ flowchart TB
                         <a href="./js/app/rack-host.js"><code>app/rack-host.js</code><span>Authoritative lifecycle and synchronization API.</span></a>
                         <a href="./js/app/rack-state.js"><code>app/rack-state.js</code><span>Serializable modules, rows, params, cables, and mappings.</span></a>
                         <a href="./js/app/patch-format.js"><code>app/patch-format.js</code><span>Strict patch v3 validation and compact shared URLs.</span></a>
+                        <a href="./js/app/patch-url-tokens.js"><code>app/patch-url-tokens.js</code><span>Immutable deployed URL-v2 core token snapshot for shared-link compatibility.</span></a>
                         <a href="./js/audio/worklet-engine.js"><code>audio/worklet-engine.js</code><span>Main-thread worklet node and request/response controller.</span></a>
                         <a href="./js/audio/worklet/processor.js"><code>audio/worklet/processor.js</code><span>Production block loop, MIDI, output, telemetry, events, profiling.</span></a>
                         <a href="./js/audio/graph.js"><code>audio/graph.js</code><span>Validation, SCC ordering, routing, normals, feedback delays.</span></a>
@@ -1134,7 +1147,7 @@ flowchart TB
                         <a href="./js/ui/renderer.js"><code>ui/renderer.js</code><span>Declarative/custom panel rendering and mirror synchronization.</span></a>
                         <a href="./js/ui/toolkit/index.js"><code>ui/toolkit/</code><span>Reusable controls, layout, and pointer interactions.</span></a>
                         <a href="https://github.com/OrderAndCh4oS/eurorack-js/tree/main/src/js/modules" target="_blank" rel="noopener noreferrer"><code>modules/{moduleId}/</code><span>Self-contained DSP, UI, render, telemetry, and browser hooks.</span></a>
-                        <a href="https://github.com/OrderAndCh4oS/eurorack-js/tree/main/src/js/config/patches" target="_blank" rel="noopener noreferrer"><code>config/patches/</code><span>105 factory, demo, test, drum, and sound-design patches.</span></a>
+                        <a href="https://github.com/OrderAndCh4oS/eurorack-js/tree/main/src/js/config/patches" target="_blank" rel="noopener noreferrer"><code>config/patches/</code><span>112 factory, demo, test, drum, and sound-design patches.</span></a>
                         <a href="https://github.com/OrderAndCh4oS/eurorack-js/blob/main/scripts/dsp-audit.mjs" target="_blank" rel="noopener noreferrer"><code>scripts/dsp-audit.mjs</code><span>Matrix-based DSP regression and voltage audit runner.</span></a>
                         <a href="https://github.com/OrderAndCh4oS/eurorack-js/blob/main/docs/architecture.md" target="_blank" rel="noopener noreferrer"><code>docs/architecture.md</code><span>Canonical written runtime and schema reference.</span></a>
                         <a href="https://github.com/OrderAndCh4oS/eurorack-js/blob/main/docs/creating-modules.md" target="_blank" rel="noopener noreferrer"><code>docs/creating-modules.md</code><span>Built-in and trusted-plugin module authoring guide.</span></a>

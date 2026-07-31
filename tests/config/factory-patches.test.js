@@ -218,7 +218,7 @@ describe('factory-patches', () => {
             const patch = FACTORY_PATCHES['Test - Refrain'];
             expect(patch).toBeDefined();
             expect(patch.state.modules.map(module => module.type)).toEqual(expect.arrayContaining([
-                'lfo', 'refrain', 'changes', 'cascade', 'arp', 'pluck', 'mix', 'scope', 'out'
+                'rnd', 'refrain', 'changes', 'cascade', 'arp', 'pluck', 'mix', 'scope', 'out'
             ]));
             expect(patch.state.cables).toEqual(expect.arrayContaining([
                 { fromModule: 'clock', fromPort: 'clock', toModule: 'refrain', toPort: 'clock' },
@@ -227,7 +227,8 @@ describe('factory-patches', () => {
                 { fromModule: 'resetB', fromPort: 'out1', toModule: 'refrain', toPort: 'reset' },
                 { fromModule: 'resetB', fromPort: 'out1', toModule: 'changes', toPort: 'reset' },
                 { fromModule: 'resetB', fromPort: 'out1', toModule: 'cascade', toPort: 'reset' },
-                { fromModule: 'seedLfo', fromPort: 'primary', toModule: 'refrain', toPort: 'seedCV' },
+                { fromModule: 'resetB', fromPort: 'out2', toModule: 'seedRnd', toPort: 'clock' },
+                { fromModule: 'seedRnd', fromPort: 'step', toModule: 'refrain', toPort: 'seedCV' },
                 { fromModule: 'refrain', fromPort: 'key', toModule: 'changes', toPort: 'keyCV' },
                 { fromModule: 'refrain', fromPort: 'harm', toModule: 'arp', toPort: 'chordCV' },
                 { fromModule: 'refrain', fromPort: 'energy', toModule: 'cascade', toPort: 'fillCV' },
@@ -237,6 +238,9 @@ describe('factory-patches', () => {
             ]));
             expect(patch.state.params.arp.chord).toBe(0);
             expect(patch.state.params.changes.key).toBe(0);
+            expect(patch.state.params.resetB.rate2).toBe(0.0625);
+            expect(patch.state.params.seedRnd).toEqual({ rate: 1, amp: 0.5 });
+            expect(patch.state.params.cascade.fill).toBe(12);
             expect(patch.state.params.refrain).toMatchObject({
                 chance: 100,
                 mutateKey: 1,
@@ -256,7 +260,7 @@ describe('factory-patches', () => {
                 { fromModule: 'resetB', fromPort: 'out1', toModule: 'refrain', toPort: 'reset' },
                 { fromModule: 'resetB', fromPort: 'out1', toModule: 'changes', toPort: 'reset' },
                 { fromModule: 'resetB', fromPort: 'out1', toModule: 'cascade', toPort: 'reset' },
-                { fromModule: 'seedLfo', fromPort: 'primary', toModule: 'refrain', toPort: 'seedCV' },
+                { fromModule: 'seedRnd', fromPort: 'step', toModule: 'refrain', toPort: 'seedCV' },
                 { fromModule: 'refrain', fromPort: 'key', toModule: 'changes', toPort: 'keyCV' },
                 { fromModule: 'refrain', fromPort: 'harm', toModule: 'arp', toPort: 'chordCV' },
                 { fromModule: 'refrain', fromPort: 'energy', toModule: 'cascade', toPort: 'fillCV' },
@@ -265,8 +269,8 @@ describe('factory-patches', () => {
                 { fromModule: 'refrain', fromPort: 'mod', toModule: 'bass', toPort: 'positionCV' },
                 { fromModule: 'changes', fromPort: 'root', toModule: 'arp', toPort: 'rootCV' },
                 { fromModule: 'changes', fromPort: 'root', toModule: 'bass', toPort: 'vOct' },
-                { fromModule: 'cascade', fromPort: 'lane3', toModule: 'arp', toPort: 'trigger' },
-                { fromModule: 'cascade', fromPort: 'lane1', toModule: 'bass', toPort: 'trigger' }
+                { fromModule: 'cascade', fromPort: 'lane4', toModule: 'arp', toPort: 'trigger' },
+                { fromModule: 'cascade', fromPort: 'lane2', toModule: 'bass', toPort: 'trigger' }
             ]);
         });
 

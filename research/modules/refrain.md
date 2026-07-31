@@ -1047,9 +1047,33 @@ custom renderer. Factory-patch and Chromium AudioWorklet tests exercise routed
 Seed CV, custom controls, action release, patch replacement, both themes, and
 worklet telemetry. The implementation adds no manifest/core-definition entry
 and requires no graph-revision change because Refrain retains its existing
-core module identity and order. The full Vitest suite passes all 2,138 tests
+core module identity and order. The full Vitest suite passes all 2,140 tests
 across 112 files, and the focused Chromium AudioWorklet suite passes all eight
 tests.
+
+## Post-implementation usability follow-up (2026-07-31)
+
+Listening and interaction review found two presentation issues and one factory-
+patch issue; none required changing the Refrain DSP contract.
+
+- Mutation-lane buttons now state `ON` or `OFF` in their title and identify the
+  inverse click action. Mutate explains that Amount selects how many cells
+  change and the lane buttons select which outputs change. Recall explains
+  that it restores the volatile Anchor captured by entering Hold.
+- The ACTIVE/NEXT seed readout is status, not a control. Its pending state is
+  labelled `PEND`, has state-specific help text, and consumes mouse-down so it
+  cannot accidentally start rack-module dragging.
+- The original Test-Refrain patch continuously scanned Seed CV with an LFO.
+  This could install a new seed at successive cell boundaries, repeatedly
+  restart at cell 0, and prevent Amount/Chance evolution from completing a
+  phrase. It also set Cascade Fill to 8, so Refrain's -5 V ENERGY extreme
+  produced effective Fill 0, while the bass used sparse lane 1.
+- The revised patch clocks a half-amplitude RND source every 128 master clocks,
+  holding each candidate for two complete four-cell loops. Cascade Fill 12
+  maps the full ENERGY range to Fill 4..16; lead lane 4 therefore has at least
+  four hits and bass lane 2 at least two hits in every 16-step mask. This
+  retains audible density modulation without silent seed regions and leaves
+  an intervening loop in which Amount/Chance mutation can be heard.
 
 ## Historical V1 DSP Audit (2026-07-31)
 

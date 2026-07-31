@@ -45,9 +45,19 @@ describe('REFRAIN custom renderer', () => {
             'mutateEnergy',
             'mutateMod'
         ]);
+        expect([...panel.querySelectorAll('.refrain-lane-toggle')].map(button => (
+            button.title
+        ))).toEqual([
+            'KEY lane ON: Mutate may change the tonal center and pitch-offset sequence. Click to turn OFF.',
+            'HARM lane ON: Mutate may change the chord and harmonic-selector sequence. Click to turn OFF.',
+            'ENERGY lane ON: Mutate may change the rhythmic-density and accent sequence. Click to turn OFF.',
+            'MOD lane ON: Mutate may change the general-purpose timbre and motion sequence. Click to turn OFF.'
+        ]);
         expect([...panel.querySelectorAll('.action-trigger')].map(button => (
             button.dataset.param
         ))).toEqual(['mutate', 'recall']);
+        expect(panel.querySelector('[data-param="mutate"]').title).toMatch(/AMOUNT/);
+        expect(panel.querySelector('[data-param="recall"]').title).toMatch(/Anchor/);
         expect(panel.querySelector('.switch[data-param="anchor"]')).toBeTruthy();
 
         expect([...panel.querySelectorAll('.jack')].map(jack => [
@@ -94,6 +104,8 @@ describe('REFRAIN custom renderer', () => {
         const { onParamChange, panel } = renderRefrain();
 
         panel.querySelector('[data-param="mutateKey"]').click();
+        expect(panel.querySelector('[data-param="mutateKey"]').title)
+            .toBe('KEY lane OFF: Mutate will preserve the tonal center and pitch-offset sequence. Click to turn ON.');
         panel.querySelector('.switch[data-param="anchor"]').click();
         panel.querySelector('[data-param="mutate"]').click();
         panel.querySelector('[data-param="recall"]').click();
@@ -130,9 +142,32 @@ describe('REFRAIN custom renderer', () => {
         expect(
             panel.querySelector('[data-param="mutateHarm"]').classList.contains('active')
         ).toBe(false);
+        expect(panel.querySelector('[data-param="mutateHarm"]').title)
+            .toBe('HARM lane OFF: Mutate will preserve the chord and harmonic-selector sequence. Click to turn ON.');
         expect(
             panel.querySelector('.switch[data-param="anchor"]').classList.contains('on')
         ).toBe(true);
+
+        syncParamToModuleUI(panel, 'refrain_1', 'mutateHarm', 1);
+        expect(panel.querySelector('[data-param="mutateHarm"]').title)
+            .toBe('HARM lane ON: Mutate may change the chord and harmonic-selector sequence. Click to turn OFF.');
+        cleanupRenderedModule(panel);
+    });
+
+    it('treats the seed readout as status rather than a module drag handle', () => {
+        vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
+        vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+        const { panel } = renderRefrain();
+        const moduleMouseDown = vi.fn();
+        panel.addEventListener('mousedown', moduleMouseDown);
+
+        panel.querySelector('.refrain-seed-status').dispatchEvent(
+            new MouseEvent('mousedown', { bubbles: true, button: 0 })
+        );
+
+        expect(moduleMouseDown).not.toHaveBeenCalled();
+        expect(panel.querySelector('.refrain-seed-display').title)
+            .toMatch(/next cell boundary/i);
         cleanupRenderedModule(panel);
     });
 
@@ -154,6 +189,8 @@ describe('REFRAIN custom renderer', () => {
         frameCallback();
         expect(active.textContent).toBe('00042');
         expect(next.textContent).toBe('00043');
+        expect(status.textContent).toBe('PEND');
+        expect(status.title).toMatch(/next cell boundary/i);
         expect(status.classList.contains('is-armed')).toBe(true);
         expect(status.classList.contains('is-held')).toBe(false);
 

@@ -8,7 +8,10 @@ import refrainModule, {
     mapRefrainSeed
 } from '../../src/js/modules/refrain/index.js';
 import changesModule from '../../src/js/modules/changes/index.js';
-import cascadeModule from '../../src/js/modules/cascade/index.js';
+import cascadeModule, {
+    computeCascadeFill,
+    getCascadeLaneCount
+} from '../../src/js/modules/cascade/index.js';
 import arpModule, {
     CHORDS,
     CHORD_NAMES
@@ -873,6 +876,15 @@ describe('REFRAIN transport, clock/reset, and boundary-only structure', () => {
             CHORDS[CHORD_NAMES.at(-1)][1] / 12,
             7
         );
+    });
+
+    it('keeps both Test-Refrain trigger lanes active across the full ENERGY range', () => {
+        for (let energyStep = -20; energyStep <= 20; energyStep++) {
+            const fill = computeCascadeFill(12, energyStep / 4);
+            expect(fill).toBeGreaterThanOrEqual(4);
+            expect(getCascadeLaneCount(fill, 4)).toBeGreaterThanOrEqual(4);
+            expect(getCascadeLaneCount(fill, 2)).toBeGreaterThanOrEqual(2);
+        }
     });
 });
 

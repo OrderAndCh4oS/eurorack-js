@@ -306,6 +306,8 @@ function renderRefrain(container, { instance, toolkit }) {
 
     const seedDisplay = document.createElement('div');
     seedDisplay.className = 'refrain-seed-display';
+    seedDisplay.title = 'Seed status display; pending targets activate at the next cell boundary';
+    seedDisplay.addEventListener('mousedown', event => event.stopPropagation());
 
     const createSeedField = (label, field) => {
         const wrapper = document.createElement('div');
@@ -375,16 +377,35 @@ function renderRefrain(container, { instance, toolkit }) {
     root.appendChild(knobGrid);
 
     const laneRow = toolkit.createRow('refrain-lane-row');
+    const laneDescriptions = {
+        mutateKey: 'the tonal center and pitch-offset sequence',
+        mutateHarm: 'the chord and harmonic-selector sequence',
+        mutateEnergy: 'the rhythmic-density and accent sequence',
+        mutateMod: 'the general-purpose timbre and motion sequence'
+    };
     REFRAIN_UI.buttons.forEach(button => {
+        const initialValue = dsp?.params?.[button.param] ?? button.default;
         const control = toolkit.createActionButton({
             id: button.id,
             label: button.label,
             param: button.param,
             mode: 'toggle',
-            value: dsp?.params?.[button.param] ?? button.default
+            value: initialValue
         });
+        const updateLaneState = (element, value) => {
+            const enabled = value === 1 || value === true;
+            element.classList.toggle('active', enabled);
+            element.title = `${button.label.toUpperCase()} lane ${enabled ? 'ON' : 'OFF'}: Mutate ${enabled ? 'may change' : 'will preserve'} ${laneDescriptions[button.param]}. Click to turn ${enabled ? 'OFF' : 'ON'}.`;
+            element.setAttribute('aria-pressed', String(enabled));
+        };
         control.classList.add('refrain-lane-toggle');
-        control.title = `Include ${button.label.toUpperCase()} in future mutations`;
+        updateLaneState(control, initialValue);
+        control.addEventListener('click', () => {
+            updateLaneState(control, control.classList.contains('active'));
+        });
+        toolkit.registerParamControl(button.param, control, (value, element) => {
+            updateLaneState(element, value);
+        });
         laneRow.appendChild(control);
     });
     root.appendChild(laneRow);
@@ -396,16 +417,20 @@ function renderRefrain(container, { instance, toolkit }) {
         param: 'anchor',
         value: dsp?.params?.anchor ?? 0
     });
-    hold.title = 'Hold captures the volatile Anchor and blocks unattended Seed CV and Auto';
+    hold.title = 'RUN / HOLD: Entering Hold captures the current loop as the volatile Anchor and pauses automatic mutation and unattended Seed CV changes. Clock, Mutate, and Recall remain active.';
     actionRow.appendChild(hold);
     REFRAIN_UI.actions.forEach(action => {
-        actionRow.appendChild(toolkit.createActionButton({
+        const control = toolkit.createActionButton({
             id: action.id,
             label: action.label,
             param: action.param,
             mode: action.mode,
             value: 0
-        }));
+        });
+        control.title = action.id === 'mutate'
+            ? 'MUTATE: At the next cell boundary, vary exactly AMOUNT active cells in every orange lane that is ON. Seed, Length, transport, and Anchor do not change.'
+            : 'RECALL: At the next cell boundary, restore all four lanes from the latest Anchor. Entering Hold captures or replaces that Anchor; it is lost when the patch reloads.';
+        actionRow.appendChild(control);
     });
     root.appendChild(actionRow);
 
@@ -454,7 +479,12 @@ function renderRefrain(container, { instance, toolkit }) {
         seedStatus.classList.toggle('is-armed', state === 1);
         seedStatus.classList.toggle('is-held', state === 2);
         seedStatus.dataset.state = state === 2 ? 'held' : (state === 1 ? 'armed' : 'equal');
-        seedStatus.textContent = state === 2 ? 'HELD' : (state === 1 ? 'ARM' : 'SET');
+        seedStatus.textContent = state === 2 ? 'HELD' : (state === 1 ? 'PEND' : 'SET');
+        seedStatus.title = state === 2
+            ? 'Pending Seed CV is held; release Hold to activate it at a cell boundary'
+            : (state === 1
+                ? 'Pending seed will activate at the next cell boundary'
+                : 'The displayed ACTIVE seed is currently selected');
     };
 
     updateSeedDisplay();
@@ -498,6 +528,8 @@ export default {
             align-items: stretch;
             gap: 3px;
             width: 100%;
+            cursor: default;
+            user-select: none;
         }
         .refrain-seed-field {
             display: grid;

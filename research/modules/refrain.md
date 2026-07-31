@@ -1,33 +1,39 @@
 # Refrain — Research and Specification
 
-**Status:** done
+**Status:** spec-ready
 **Module ID:** `refrain`
-**Working model:** inspired autonomous phrase-form sequencer
+**Working model:** inspired deterministic phrase-form sequencer, v2 interaction
+revision
 
 ## Scope
 
 Refrain is a deterministic, clocked phrase-form sequencer. It generates a small
 loop of related macro-tuples and occasionally replaces selected loop cells with
 bounded variations. Each cell is held for sixteen accepted clocks, so Refrain
-describes musical sections rather than notes.
+describes musical sections rather than notes. The v2 revision makes that form
+performable: a bipolar Seed CV auditions nearby deterministic forms, direct
+lane toggles scope mutation, and trigger/gate inputs expose Mutate, Recall, and
+Hold to a patch.
 
 It is deliberately **not** a scene manager, preset morpher, arbitrary CV
 recorder, or sample-accurate automation lane. Its four output lanes have fixed
 semantic roles:
 
 - `KEY`: semitone-quantized tonal offset in the inclusive range -1 V to +1 V.
-- `HARM`: absolute harmonic selector in the inclusive range 0 V to +5 V.
+- `HARM`: normalized absolute harmonic-selector target in the inclusive range
+  0 V to +5 V.
 - `ENERGY`: bipolar activity/fill control in the inclusive range -5 V to +5 V.
 - `MOD`: bipolar general modulation in the inclusive range -5 V to +5 V.
 
 For intended use, patch `HARM` to Changes or Arp and set the destination's
-corresponding panel knob to exactly `0`, so the voltage is interpreted as an
-absolute selector rather than an offset. Patch `ENERGY` to Cascade's fill
-control.
+corresponding panel knob to exactly `0`. Refrain emits an absolute selector
+target, but both current destinations add their own panel setting to incoming
+CV; the zero-knob convention is therefore required at the integration point.
+Patch `ENERGY` to Cascade's fill control.
 
 ## Research Questions and Design Reading
 
-The source review is organized around five questions:
+The source review is organized around eight questions:
 
 1. How do established generative sequencers balance repeatability and change?
 2. Which interactions make loop mutation playable without becoming a scene
@@ -35,6 +41,10 @@ The source review is organized around five questions:
 3. How can changes be measured and made exact rather than probabilistic?
 4. What must be deterministic across JavaScript engines and audio lifecycles?
 5. How should queued actions interact at a loop boundary?
+6. How can CV choose seeds without making 65,536 values noise-sensitive?
+7. Which changes must wait for a whole loop, and which are playable at the next
+   16-clock cell boundary?
+8. What does Hold protect while leaving deliberate performance gestures live?
 
 ## Source Register
 
@@ -143,15 +153,15 @@ the access date is included.
     [Manual](https://manuals.noiseengineering.us/ms/) — Primary source for a
     64-step CV recorder/randomizer, three patterns, chromatic quantization,
     bounded pitch-aware or motion-aware variation, pattern duplication, and
-    saving to flash. It is the clearest negative boundary: Refrain has no CV
-    input, recording, flash save, or multi-pattern selector.
-18. **“meloDICER User Guide,” VERMONA, manual version 1.1 / firmware R19,
-    early-2020s revision (accessed 30 July 2026).**
-    [Official support/download page](https://www.vermona.com/en/support/product/melodicer/)
-    and [official product description](https://www.vermona.com/produkte/module/produkt/melodicer/)
+    saving to flash. It is a negative boundary: Refrain has no arbitrary CV
+    recording, flash save, or multi-pattern selector.
+18. **“meloDICER & MEX3 User Guide,” VERMONA, manual version 1.4 / firmware
+    R41, current revision accessed 31 July 2026.**
+    [Official manual PDF](https://www.vermona.com/fileadmin/user_upload/products/melodicer/downloads/melodicer%20manual%20en%201.4%20web.pdf)
     — Primary source for balancing stochastic and deterministic melody/rhythm,
-    live control, looped “dice” mode, stored generator conditions, and explicit
-    clock thresholds. Refrain adopts the balance, not saved patterns.
+    positive-edge gate assignments for re-dicing, and a Lock mode that stages
+    ordinary controls until release. Refrain adopts externalized randomization
+    but explicitly rejects meloDICER's global control-decoupling Lock semantics.
 19. **“Chaos Manual,” CLANK, firmware 1.17, 20 July 2023.**
     [Official manual PDF](https://static1.squarespace.com/static/5d77f17826f9797b805bdae8/t/64b8fa30b1d4be19a870f17a/1689844272963/Chaos%2BManual%2Bv1.17.pdf)
     and [product page](https://www.clank.eu/chaos) — Primary source for six
@@ -175,12 +185,14 @@ the access date is included.
     [minimal PCG C usage/reference vectors](https://www.pcg-random.org/using-pcg-c-basic.html)
     — Primary algorithm source for a reproducible 64-bit-state/32-bit-output
     generator and unbiased bounded generation.
-22. **“Math.random,” ECMA-262 ECMAScript Language Specification, Ecma
-    International / TC39, living specification accessed 30 July 2026.**
-    [Normative section](https://tc39.es/ecma262/multipage/numbers-and-dates.html#sec-math.random)
-    — Specifies an implementation-defined random algorithm/strategy and no
-    user seed; therefore it cannot satisfy Refrain's cross-lifecycle
-    reconstruction contract.
+22. **“Math.random” and “Math.round,” ECMA-262 ECMAScript Language
+    Specification, Ecma International / TC39, living specification accessed
+    31 July 2026.**
+    [Normative `Math.random` section](https://tc39.es/ecma262/multipage/numbers-and-dates.html#sec-math.random)
+    and [normative `Math.round` section](https://tc39.es/ecma262/multipage/numbers-and-dates.html#sec-math.round)
+    — `Math.random` uses an implementation-defined strategy and exposes no
+    user seed, so it cannot satisfy cross-lifecycle reconstruction;
+    `Math.round` closes Seed-CV half-step tie behavior.
 23. **“Error Detecting and Error Correcting Codes,” R. W. Hamming, *Bell
     System Technical Journal* 29(2), April 1950, pp. 147–160.**
     [Publisher record and DOI](https://onlinelibrary.wiley.com/doi/10.1002/j.1538-7305.1950.tb00463.x)
@@ -216,8 +228,8 @@ the access date is included.
 ### Boundary transactions, demos, and reviews
 
 28. **“Launching Clips,” Ableton Reference Manual Version 12, Ableton,
-    current manual accessed 30 July 2026.**
-    [Official manual chapter](https://www.ableton.com/en/manual/launching-clips/)
+    current manual accessed 31 July 2026.**
+    [Official manual chapter](https://www.ableton.com/en/live-manual/12/launching-clips/)
     — Primary source for launch quantization and Follow Actions: requested
     changes can be deferred to a musical grid, and explicit action precedence
     is part of a live system's contract.
@@ -225,8 +237,8 @@ the access date is included.
     “Transition Mode.”**
     [Official manual PDF](https://www.elektron.se/wp-content/uploads/2026/05/Tonverk-User-Manual_ENG_OS1.3.3_260507.pdf)
     — Primary source contrasting sequential end-of-pattern changes with direct
-    jumps/starts. Refrain fixes the choice to a sequential complete-loop
-    transaction for all structural changes.
+    jumps/starts. Refrain uses that distinction to define cell-quantized
+    performance changes separately from whole-loop automatic evolution.
 30. **“Qu-Bit Bloom,” Paul Nagle, *Sound On Sound*, February 2020.**
     [Independent review](https://www.soundonsound.com/reviews/qu-bit-bloom) —
     Observes that mutation can generate rewarding related sequences, that the
@@ -238,10 +250,50 @@ the access date is included.
     — Observes responsive controls and successful live-performance,
     improvisation, and jamming workflow.
 
+### Refrain v2 interaction and implementation sources
+
+32. **“Mimetic Digitwolis,” Noise Engineering Documentation, last updated
+    13 July 2026.**
+    [Official manual](https://manuals.noiseengineering.us/md2/) — Primary
+    precedent for four persistent lane-selection buttons, externally
+    triggerable Shred randomization, five assignable trigger inputs, and
+    next-advance reset. Its selected-lane edit model supports four direct
+    Refrain mutation toggles; its deep menus and save slots remain out of scope.
+33. **“CVilization User Guide,” u-he / Heckmann Audio GmbH, Q2 2026 revision,
+    accessed 31 July 2026.**
+    [Official manual PDF](https://u-he.com/downloads/manuals/eurorack/cvilization/CVilization-user-guide.pdf)
+    — Primary source for independently mutating four tracks, freezing a
+    mutation result, assigning mutation/undo to external CV or trigger, and
+    retaining a value until the next clock to avoid a live jump. It supports
+    direct lane scope and clock-quantized changes, not Refrain's algorithm.
+34. **“The Inspector Panel on Arranger Clips — Seed Section,” Bitwig Studio
+    User Guide, Bitwig GmbH, current guide © 2026, accessed 31 July 2026.**
+    [Official guide](https://www.bitwig.com/userguide/latest/the_inspector_panel_on_arranger_clips/)
+    — Primary software precedent for showing a concrete numeric seed, hearing
+    the pattern it produces, keeping a liked result, and reproducing the same
+    random sequence from the same seed. It supports visible `ACTIVE`/`NEXT`
+    identity rather than an LED-only pending state.
+35. **“T's Musical Tools — Seed,” Jadael/T, open-source VCV Rack plugin,
+    copyright 2024; release 2.2.1 dated 20 December 2025; repository accessed
+    31 July 2026.**
+    [Source and guide](https://github.com/Jadael/TMT) — Practical
+    implementation precedent for converting an input voltage into repeatable
+    seeded random output and sequencing seed voltages to revisit the same
+    patterns. It supports voltage-addressed deterministic variation but does
+    not define Refrain's voltage scale or timing.
+36. **Local Changes and Arp module contracts, Eurorack JS, revision inspected
+    31 July 2026.**
+    [`changes/index.js`](../../src/js/modules/changes/index.js) and
+    [`arp/index.js`](../../src/js/modules/arp/index.js) — Authoritative local
+    integration evidence. Changes adds a bipolar CV-derived offset to its
+    panel index; Arp adds a unipolar CV-derived offset to its chord control.
+    Neither offers a shared ABS/OFFSET mode, so Refrain cannot make `HARM`
+    universally absolute without the destination-knob-zero convention.
+
 The source list intentionally contains no retailer specifications for
 Refrain's electrical contract: those voltages and thresholds are local
 application requirements supplied by this specification. All live pages were
-verified on 30 July 2026.
+reverified on 31 July 2026.
 
 ## Product and Historical Context
 
@@ -278,15 +330,35 @@ selects exactly K unique cells.
 
 Metropolix and René show the value of immediate physical control over looping
 material and of separating transport from stored musical state. Mimetic
-Sequent, meloDICER, CLANK Chaos, and Bloom provide additional examples of
-controlled randomization, loop capture/recall, and bounded generative
-variation. Refrain narrows those ideas to one loop, one anchor, and four fixed
-macro lanes.
+Sequent, Mimetic Digitwolis, CVilization, meloDICER, CLANK Chaos, and Bloom
+provide additional examples of controlled randomization, externally triggered
+edits, lane selection, loop capture/recall, and bounded generative variation.
+Refrain narrows those ideas to one loop, one anchor, four fixed macro lanes,
+and no menu.
 
 Ableton Live clip launch quantization and Elektron's transition workflow are
 useful non-Eurorack precedents for deferring a requested structural change to a
-musically complete boundary. They motivate Refrain's loop-boundary transaction
-model; Refrain does not launch clips or retain scenes.
+musically complete boundary. For v2, they motivate two quantization grids:
+manual and Seed-audition changes use the next 16-clock cell boundary, while
+unattended automatic evolution remains a whole-loop event. Refrain does not
+launch clips or retain scenes.
+
+### Seed audition and visible identity
+
+Bitwig makes a deterministic seed useful by showing its identity and letting
+the musician hear the resulting material. T's Musical Tools demonstrates the
+related modular technique of revisiting deterministic output with a repeated
+seed voltage. Directly spreading all 65,536 Refrain seeds over a 10 V input
+would require about 0.153 mV per seed, far below a musically controllable
+interval and vulnerable to ordinary modulation noise. V2 instead treats Seed
+CV as a bipolar, semitone-grid offset around the panel seed: 121 reachable
+offsets from -60 through +60, one adjacent seed per `1/12 V`.
+
+The panel must show the committed seed and current target numerically. A
+pending LED alone cannot identify a liked candidate or let a performer return
+to it. `ACTIVE` identifies the base/PRNG seed underlying the live pattern;
+`NEXT` previews the current panel-plus-CV target. It does not claim that a
+subsequently mutated live pattern can be reconstructed from `ACTIVE` alone.
 
 ## Local Distinctness
 
@@ -308,30 +380,59 @@ Its distinct job is slow phrase form: every accepted clock advances a
 substep, every sixteen accepted clocks advances a cell, and each cell holds a
 coherent four-lane macro tuple.
 
+## V2 Design Decisions and Rejected Alternatives
+
+| Question | Decision | Rejected alternative and reason |
+|---|---|---|
+| Seed CV scale | Bipolar -5..+5 V, quantized to -60..+60 integer seed offsets at 12 offsets/V. | Mapping 65,536 values across the jack is too sensitive; a unipolar full-range mapping also loses the useful “panel seed as centre” model. |
+| Seed timing | Activate at the next cell boundary and restart transport at cell 0. | Immediate replacement can split a 16-clock phrase; waiting for a whole loop makes auditioning up to 128 clocks too slow. |
+| Candidate approval | Automatic boundary activation with Hold as the audition lock. | Apply/Cancel adds controls and an extra confirmation step; Anchor/Recall already supplies a deliberate return point. |
+| Seed feedback | Numeric `ACTIVE` and `NEXT` display plus bounded scalar telemetry. | LEDs convey state but cannot identify or recover one of 65,536 seeds. |
+| Hold | Transport continues; Hold blocks unattended Seed-CV activation and automatic mutation, but leaves panel Seed, Length, Mutate, and Recall live. | Transport stop and global parameter lock conflate audition protection with clocking or disable explicit gestures. |
+| Manual timing | Mutate and Recall commit at the next cell boundary. | Whole-loop latency is too slow for performance; mid-cell commits break phrase coherence. |
+| Mutation scope | Four persistent direct toggles, one per lane, default on. | A menu or shared ABS/OFFSET mode hides common performance state; a double-tap solo gesture is deferred until there is evidence it is needed. |
+| All lanes off | Mutate is rejected and automatic evolution is ineligible, with no PRNG draw or state change. | Consuming randomness for an inaudible no-op makes later deterministic results depend on a gesture that did nothing. |
+| `HARM` | Keep the normalized 0..5 V absolute-target lane and require the destination knob at zero. | Offset/absolute modes cannot compensate consistently for the current, different Changes and Arp CV laws and would duplicate destination policy. |
+| Seed stabilization | Quantize at `1/12 V` and sample only at cell boundaries; no hysteresis. | Hysteresis makes voltage-to-seed mapping history-dependent and weakens deterministic replay. |
+
 ## Closed Behavioral Contract
 
 ### Time model
 
 - An **accepted clock** is a rising crossing from `<= 2.5 V` to `> 2.5 V`.
-- Reset is active at `>= 1 V` and is edge-detected to avoid repeated resets
-  while held high.
+- A **cell boundary** is an accepted clock that enters cell 0 after
+  startup/reset or ordinarily advances from substep 15 to the next cell at
+  substep 0.
+- A **natural loop boundary** is an ordinary cell boundary that would wrap
+  from the old active length's final cell to cell 0. A Seed-driven restart and
+  a startup/reset entry into cell 0 are not natural loop boundaries.
+- Reset, Mutate, and Recall inputs use a `>= 1 V` high level and independent
+  rising-edge histories. Held-high trigger signals do not retrigger. Hold is a
+  level gate sampled continuously; only transitions of the combined
+  panel-or-gate Hold state matter for Anchor capture.
 - The current cell's tuple is sample-and-held continuously at all four outputs.
 - Once started, a cell lasts exactly 16 accepted clock intervals.
 - Loop length is an integer from 1 through 8 cells.
 - Transport state is `(cellIndex, substepIndex)`, with both zero-based.
-- Initialization begins at cell 0, substep 0, with cell 0 already visible and
-  a restart queued. The first accepted clock establishes cell 0/substep 0
-  without advancing, matching the pre-step transport used by Changes and
-  Cascade.
+- First-process hydration exposes cell 0 and queues a restart. The first
+  accepted clock is a cell boundary that establishes cell 0/substep 0 without
+  advancing, matching the pre-step transport used by Changes and Cascade.
 - After transport has started, each accepted clock increments `substepIndex`.
   The clock after substep 15 sets it to 0 and advances `cellIndex` modulo the
-  active loop length.
+  active loop length, unless a Seed activation restarts at cell 0.
 - Reset affects transport only: it queues cell 0/substep 0 for the next
   accepted clock without changing the currently held tuple. It does not alter
   the generated base pattern, live pattern, Anchor, PRNG seed, or queued
-  boundary action.
+  manual action.
 - If reset and clock edges occur on the same sample, reset wins transport and
-  the clock is consumed: the sample ends at cell 0/substep 0, not substep 1.
+  that clock performs the restart cell boundary: eligible Seed/manual
+  transactions occur, then the sample ends at cell 0/substep 0, not substep 1.
+- Input edges on the exact clock sample are observed before that boundary's
+  transaction and may commit there. Edges after it wait for the next cell
+  boundary.
+- A panel-button rising edge is treated as occurring at sample 0 of the
+  process block in which its param is first observed high. This makes its
+  ordering relative to in-block jack and clock edges testable.
 
 ### Pattern model
 
@@ -345,14 +446,44 @@ coherent four-lane macro tuple.
 - `energy` and `mod` are stored as signed integer steps in `[-20, 20]` and
   rendered as `step / 4` volts (0.25 V resolution across -5–+5 V).
 - A deterministic base pattern is regenerated from the visible integer
-  `SEED`. Generation uses the PCG XSH-RR 64/32 (“PCG32”) procedure specified
-  below; it must not use `Math.random()`.
-- A seed change schedules the newly generated base pattern for the next
-  complete-loop boundary. It does not replace a tuple during a cell.
-- A length change is also boundary-only. Until the boundary transaction, the
-  previous length determines wrap and boundary detection.
-- Committing a seed change replaces the live eight-cell pattern with the new
-  base pattern. It does not overwrite Anchor.
+  effective seed. Generation uses the PCG XSH-RR 64/32 (“PCG32”) procedure
+  specified below; it must not use `Math.random()`.
+- Let `panelSeed` be the finite stepped `SEED` value in `0..65535`. At a
+  particular sample, compute:
+
+  ```text
+  seedOffset = Math.round(clamp(finite(seedCV, 0), -5, +5) * 12)
+  targetSeed = ((panelSeed + seedOffset) % 65536 + 65536) % 65536
+  ```
+
+  `Math.round` is the ECMAScript operation, including its ties-toward-positive-
+  infinity behavior. The map is stateless and has no hysteresis. It exposes
+  exactly 121 offsets, -60 through +60, and wraps at both ends of the 16-bit
+  seed domain.
+- The latest processed sample updates the preview `NEXT`; the exact routed
+  `seedCV` sample on a cell-boundary clock is authoritative for activation.
+  A preview can therefore change between worklet telemetry frames and is not a
+  latched promise.
+- The DSP remembers the panel seed used for the active base separately from
+  the combined active seed. A differing panel value is an explicit manual
+  Seed intent. If the panel value is unchanged, a differing combined target is
+  a CV-only intent.
+- At every cell boundary, a target different from `ACTIVE` commits when either
+  effective Hold is false or the panel intent is explicit. A CV-only intent is
+  blocked while Hold is true. A blocked target remains visible as `NEXT`.
+- A committed target regenerates the base, replaces the live eight-cell
+  pattern, resets mutation PRNG continuation to the seed-derived post-base
+  state, and restarts transport at cell 0/substep 0. It does not overwrite
+  Anchor. Thus changing Seed CV once per cell auditions one complete 16-clock
+  cell-0 phrase from each candidate; holding a target lets its later cells
+  proceed.
+- If an explicit panel change produces the same combined target as `ACTIVE`,
+  the boundary acknowledges the new panel basis without regeneration or
+  transport restart. Later CV movement is then CV-only.
+- `LENGTH` retains the v1 rule: a requested change commits only at a natural
+  loop boundary detected with the old active length. Rapid Seed auditioning can
+  postpone that boundary; this is intentional and must be shown by the active
+  cell LEDs rather than silently changing length.
 - Newly exposed cells after a length increase already exist in the current
   eight-cell live/base pattern; no random work occurs at the boundary.
 
@@ -361,78 +492,126 @@ coherent four-lane macro tuple.
 - `AMOUNT` maps to an exact integer `K` in `[1, activeLength]`.
 - The UI control itself is integer `1..8`; at mutation time
   `K = min(amount, activeLength)`.
-- A mutation request snapshots `AMOUNT` and queues one mutation intent for the
-  next complete-loop boundary. The candidate is constructed from the live
-  pattern at that boundary, after pending Seed/Length changes commit. Repeated
-  requests before the boundary replace the pending intent (latest request
-  wins).
+- Four persisted direct toggles form a lane mask in fixed bit order
+  `KEY=1`, `HARM=2`, `ENERGY=4`, `MOD=8`; all default on.
+- A panel `MUTATE` rising edge or `MUTATE` trigger-input rising edge is one
+  logical command. It snapshots the current `AMOUNT` and four-bit mask and
+  queues one intent for the next cell boundary. Repeated valid requests before
+  that boundary replace the pending snapshot; latest request wins.
+- A request whose sampled lane mask is zero is rejected. It clears an older
+  queued Mutate intent, queues nothing, lights no pending/mutation indication,
+  and consumes no PCG draw or state. It does not affect a queued Recall.
+- The candidate is constructed from the live pattern at the commit boundary,
+  after an eligible Seed regeneration and natural-loop Length commit.
 - The candidate chooses exactly K unique active cell indices using a partial
   Fisher–Yates shuffle driven by PCG32.
-- The same K-cell mask applies to all four lanes.
-- At every chosen cell, all four lanes receive bounded, quantized deltas:
+- The same K-cell mask applies to every enabled lane. Disabled lanes and all
+  inactive cells are bit-for-bit unchanged.
+- At every chosen cell, each enabled lane receives a bounded, quantized delta:
   `KEY` ±1..±4 semitones; `HARM` ±1..±3 selector steps; `ENERGY` and `MOD`
   ±1..±4 quarter-volt steps.
 - Delta signs and magnitudes are deterministic PRNG results.
 - Saturating at a rail must not produce a no-op. If a sampled signed delta
   clamps to the original value, reflect the direction inward; if necessary,
   choose the nearest valid adjacent quantized value.
-- Consequently every chosen cell changes all four lanes, and therefore changes
-  by at least one lane as a weaker invariant.
+- Consequently every chosen cell changes every enabled lane and therefore
+  changes at least one lane for every accepted nonzero mask.
 - Unselected cells are bit-for-bit unchanged.
 - Mutation never changes length, seed, transport, or Anchor.
+- For any nonzero mask, draw magnitude and sign for all four lanes in the
+  existing `KEY`, `HARM`, `ENERGY`, `MOD` order and discard disabled-lane
+  results. This fixed schedule makes later masks and PRNG continuation
+  independent of which nonzero subset was enabled. The all-off case is the
+  intentional exception and makes no draw at all.
 
 This exact-cardinality design uses Hamming distance on the cell-selection mask:
-the mask distance is exactly K. Lane-wise quantized edit sizes are bounded,
-providing an intentionally simple musical-distance proxy rather than claiming
-the full melodic-edit models of Mongeau–Sankoff or later learned similarity
-work.
+the cell mask distance is exactly K for each enabled lane. Lane-wise quantized
+edit sizes are bounded, providing an intentionally simple musical-distance
+proxy rather than claiming the full melodic-edit models of Mongeau–Sankoff or
+later learned similarity work.
 
 ### Anchor, Recall, and automatic evolution
 
-- `ANCHOR` is a two-position `RUN`/`HOLD` switch, defaulting to `RUN`.
-- A rising transition from Run to Hold immediately copies the current
-  eight-cell live pattern into a single volatile Anchor slot and marks it
-  valid. It does not change transport.
-- While the switch is in Hold, automatic evolution is disabled.
-- A falling transition from Hold to Run resumes automatic evolution without
-  clearing or changing the valid Anchor. A later Run-to-Hold transition
-  overwrites Anchor with the then-current live pattern.
-- `RECALL` is ignored when no Anchor is valid. Otherwise it queues an Anchor
-  copy for the next complete-loop boundary.
-- A manual `MUTATE` remains allowed while Hold is active; Hold prevents only
-  automatic evolution.
-- Automatic evolution is attempted once per complete-loop boundary when the
-  switch is in Run. `CHANCE` is an integer percent `0..100`; a PCG32 draw below
-  that percentage creates and commits a mutation using the current `AMOUNT`.
-- A complete-loop boundary is the clock edge that would wrap from the final
-  cell's substep 15 to cell 0/substep 0.
-- Boundary action priority is `RECALL > MUTATE > automatic`.
-- If Recall and Mutate are both pending, Recall commits and the pending Mutate
-  is discarded. Automatic evolution is not evaluated at that boundary.
-- If Mutate is pending without Recall, it commits and automatic evolution is
-  not evaluated.
-- If neither manual action is pending, automatic evolution may commit.
-- Anchor capture itself is immediate, so a same-block later boundary sees the
-  new Anchor and Hold state.
-- Boundary commits occur before outputting the newly entered cell 0 tuple.
+- `ANCHOR` remains the persisted panel parameter ID for compatibility; its
+  visible switch labels are `RUN`/`HOLD`, defaulting to `RUN`.
+- `effectiveHold = panelHold || (holdInput >= 1 V)` and is evaluated per
+  sample. Only a false-to-true transition of the combined state captures; one
+  source changing while the other keeps the OR high does not recapture.
+- On an effective Run-to-Hold transition, immediately copy all eight cells of
+  the current live pattern into the one volatile Anchor slot and mark it
+  valid. Capture does not stop or reset transport.
+- If Hold rises on a cell-boundary sample, capture the pre-transaction live
+  pattern first. The now-high Hold blocks CV-only Seed activation and automatic
+  evolution at that boundary; explicit panel Seed, Length, Mutate, and Recall
+  remain allowed.
+- A falling transition to Run resumes CV-only Seed and automatic eligibility
+  at the next applicable boundary without clearing Anchor. The falling edge
+  itself does not mutate, regenerate, or recall.
+- A panel `RECALL` rising edge or Recall trigger-input rising edge is one
+  logical command. It is ignored if Anchor is invalid; otherwise it queues for
+  the next cell boundary. Recall copies whichever valid Anchor exists at
+  commit time, so a later Hold capture before that boundary replaces the
+  recalled target.
+- Manual Mutate, Recall, explicit panel Seed, and Length remain operational in
+  Hold. Hold suppresses only unattended Seed-CV activation and automatic
+  mutation, including their chance draw.
+- Automatic evolution is considered at most once per natural loop boundary.
+  It requires effective Hold false, a nonzero current lane mask, no manual
+  winner, and no change auto guard. Only then does it draw `bounded(100)`
+  and succeed when the result is below the current integer `CHANCE` in
+  `0..100`. A success snapshots nothing earlier; it uses the current boundary
+  `AMOUNT` and lane mask.
+- A manual Recall or Mutate command that wins a natural loop boundary
+  suppresses automatic evaluation and its chance draw at that boundary.
+- Recall has priority over Mutate. When both are pending, valid Recall commits
+  and discards Mutate. When only Mutate is pending, it commits. Automatic is
+  considered only when neither manual action wins.
+- All cell-boundary commits occur before outputting the tuple of the newly
+  entered cell. A Seed restart exposes cell 0; otherwise the ordinary next cell
+  is exposed.
 
-### Complete-loop boundary transaction
+### Cell-boundary transaction and collision order
 
-The boundary transaction is atomic and has this exact order:
+Every startup/reset entry or ordinary cell boundary executes one atomic
+transaction. Its exact order is:
 
-1. Detect wrap using the pre-boundary active length.
-2. If Seed is pending, regenerate the eight-cell base, replace the eight-cell
-   live pattern, and reset mutation PRNG continuation to the new seed-derived
-   post-base state.
-3. If Length is pending, commit it.
-4. Resolve one pattern action: valid Recall, otherwise queued Mutate, otherwise
-   eligible automatic evolution. Recall discards a queued Mutate.
-5. Set transport to cell 0/substep 0 and expose the final live cell 0 tuple.
+1. Sample same-sample Reset, Hold, Mutate, and Recall edges; if effective Hold
+   rose, capture the pre-transaction live pattern.
+2. Classify whether the incoming ordinary boundary was a natural loop boundary
+   using the pre-boundary active length.
+3. Compute the boundary's `targetSeed` from the current panel seed and exact
+   routed Seed-CV sample. If the target differs and is eligible under Hold,
+   regenerate base/live and PCG continuation, record both active effective
+   seed and panel basis, and choose cell 0. If an explicit panel change maps to
+   the already-active target, acknowledge its panel basis without restart.
+4. If this was a natural loop boundary and Length is pending, commit Length.
+5. Resolve at most one manual pattern action: valid Recall, otherwise queued
+   nonzero-mask Mutate. Recall discards Mutate.
+6. Any Seed, Length, Recall, or Mutate commit sets a change auto guard. Only if
+   the incoming boundary was natural-loop, no manual action won, effective
+   Hold is false, the current lane mask is nonzero, and that guard is clear may
+   automatic chance be evaluated. If the guard is set at a natural loop
+   boundary, skip the chance draw and clear the guard after suppressing that
+   boundary.
+7. Expose the final tuple for cell 0 after a Seed/startup/reset restart;
+   otherwise expose the ordinarily entered cell at substep 0.
 
-A Recall at the same boundary as a Seed change therefore restores Anchor after
-the new base/PRNG state is installed. A Mutate at that boundary mutates the new
-base using the new length. Structural control changes are not themselves
-“automatic evolution” and still commit while Hold is active.
+Structural Seed commits happen before `Recall > Mutate`, exactly so Recall can
+restore Anchor after installing the new seed's PRNG continuation and Mutate can
+operate on the new base. A natural loop remains classified from incoming
+transport even if Seed then restarts it. The change guard always suppresses
+automatic mutation and its chance draw on a natural boundary where Seed,
+Length, Recall, or Mutate commits. A commit at a non-loop cell boundary carries
+the guard to the next natural loop boundary, which is also suppressed; a
+commit at a natural loop boundary consumes the guard there. In both cases the
+first later eligible automatic boundary occurs only after at least one
+complete traversal of the committed result. Rejected all-off Mutate and
+invalid Recall commands do not set the guard because they commit nothing. At
+an ordinary non-wrap cell boundary, automatic mutation is never evaluated.
+
+An asynchronous Reset merely queues a restart; it does not clear pending
+actions. Its next accepted clock runs the transaction above but is not a
+natural loop boundary, so Seed/manual actions can commit and automatic cannot.
 
 ### Exact PCG32 and integer mapping
 
@@ -466,8 +645,10 @@ fixed order:
 4. `mod = bounded(41) - 20`.
 
 The PRNG state after those 32 bounded results becomes mutation continuation.
-An automatic eligibility test draws `bounded(100)` and succeeds exactly when
-the result is less than `CHANCE`. A mutation creates indices
+An eligible automatic test draws `bounded(100)` and succeeds exactly when the
+result is less than `CHANCE`; ineligible Hold, manual-action, non-loop, or
+all-off cases, and change-guarded loop boundaries do not make that draw.
+A mutation creates indices
 `[0, ..., activeLength - 1]` and performs a partial Fisher–Yates selection:
 for selection position `j = 0..K-1`, swap it with
 `j + bounded(activeLength - j)`; the first K indices are the shared mask.
@@ -475,9 +656,11 @@ for selection position `j = 0..K-1`, swap it with
 For each selected cell, visit lanes in `KEY`, `HARM`, `ENERGY`, `MOD` order.
 Draw magnitude `1 + bounded(maxDelta)` with respective maxima `4, 3, 4, 4`,
 then draw the sign with `bounded(2)` (`0 = negative`, `1 = positive`). Apply
-the signed delta with saturation. If saturation returns the original value,
-apply the opposite-signed delta instead. All lane domains contain more than
-one value, so this rule guarantees an actual quantized change.
+the signed delta only when that lane's mask bit is enabled; otherwise discard
+both results. If saturation returns the original value, apply the
+opposite-signed delta instead. All lane domains contain more than one value, so
+this rule guarantees an actual quantized change in every enabled selected
+lane. A zero lane mask never enters selection or lane drawing.
 
 Golden tests must lock the seeding output, first base pattern, post-base PRNG
 state, bounded-rejection behavior, selected masks, and lane deltas. This exact
@@ -490,18 +673,39 @@ volatile. The current architecture does not automatically patch-persist such
 state. Patch state contains only declared visible controls. Therefore:
 
 - lifecycle reset/recreation or patch load deterministically reconstructs the
-  base pattern from `SEED`;
-- uncommitted mutation intents, live mutations, Anchor contents,
-  Anchor-valid state,
-  and mutation PRNG continuation are lost;
-- the visible `SEED`, `LENGTH`, `AMOUNT`, `CHANCE`, and other declared controls
-  recreate the same base, not the previous performance's mutations;
-- because `anchor` is a visible persisted switch, lifecycle reconstruction
-  treats its edge history as Run: if the restored value is Hold, the first
-  process pass captures the reconstructed base as a new Anchor and suppresses
-  auto; it does not recover the previous Anchor;
+  base from the effective panel-plus-Seed-CV value observed at first process;
+- uncommitted manual intents, live mutations, Anchor contents, Anchor-valid
+  state, change auto guard, active/preview telemetry, and mutation PRNG
+  continuation are lost;
+- the visible `SEED`, `LENGTH`, `AMOUNT`, `CHANCE`, `anchor`, and four lane
+  toggles persist; momentary Mutate/Recall actions do not;
 - this limitation must be stated in user-facing documentation/tooltips rather
   than implying scene or pattern storage.
+
+The first call to `process()` is a required hydration transaction because the
+production worklet assigns persisted params after `createDSP()`:
+
+1. Read and sanitize persisted panel Seed, Length, Amount, Chance, Run/Hold,
+   and all four lane toggles before exposing outputs or testing edges.
+2. Compute the initial effective seed from the panel Seed and `seedCV[0]`
+   using the exact mapping above (`0 V` for non-finite input), regenerate the
+   base/live pattern, set both `ACTIVE` and `NEXT`, set the active panel basis,
+   and expose cell 0/substep 0. This one hydration activation occurs even when
+   Hold is restored high; it is not an unattended boundary change.
+3. Establish the current high/low histories for the Mutate and Recall panel
+   actions without replaying a restored high. Jack histories begin low and
+   process sample 0 normally, so a routed trigger already high there is one
+   rising command.
+4. Evaluate effective Hold from the restored switch and `hold[0]`. If high,
+   capture the hydrated pattern once as the new volatile Anchor and establish
+   the combined Hold state; do not attempt automatic mutation.
+5. Queue the normal transport restart. Later samples in that block obey the
+   ordinary per-sample edge and boundary rules.
+
+The routed `seedCV[0]` is authoritative at hydration. In an acyclic graph its
+source processes before Refrain; a feedback-component route deliberately
+supplies the graph's one-block-delayed value. `reset()` repeats this hydration
+policy on the next process rather than trying to recover volatile state.
 
 ## Panel Contract
 
@@ -509,18 +713,22 @@ state. Patch state contains only declared visible controls. Therefore:
 
 | ID | Label | Kind | Range/default | Contract |
 |---|---|---|---|---|
-| `seed` | SEED | stepped knob | integer 0..65535, default 0 | Deterministic base-pattern identity; changes commit at the next complete-loop boundary. |
-| `length` | LENGTH | stepped knob | integer 1..8, default 4 | Active cells; boundary-only. |
+| `seed` | SEED | stepped knob | integer 0..65535, default 0 | Centre of the Seed-CV bank; explicit changes commit at the next cell boundary even in Hold. |
+| `length` | LENGTH | stepped knob | integer 1..8, default 4 | Active cells; commits at the next natural loop boundary. |
 | `amount` | AMOUNT | stepped knob | integer 1..8, default 1 | Exact unique-cell mutation count, clamped to active length. |
-| `chance` | CHANCE | knob | integer 0..100%, default 20 | Automatic mutation probability per complete-loop boundary. |
-| `mutate` | MUTATE | momentary button/action | default released | Queue/replace a mutation intent for the next boundary. |
-| `anchor` | ANCHOR | two-position switch | `0` Run / `1` Hold, default Run | Entering Hold immediately captures/overwrites Anchor and suppresses auto; returning to Run resumes auto but retains Anchor for Recall. |
-| `recall` | RECALL | momentary button/action | default released | Queue Anchor restore for the next boundary; ignored if invalid. |
+| `chance` | CHANCE | knob | integer 0..100%, default 20 | Automatic mutation probability per eligible natural loop boundary. |
+| `mutateKey` | KEY | direct toggle | `0` off / `1` on, default on | Include KEY in future manual/automatic mutations. |
+| `mutateHarm` | HARM | direct toggle | `0` off / `1` on, default on | Include HARM in future manual/automatic mutations. |
+| `mutateEnergy` | ENERGY | direct toggle | `0` off / `1` on, default on | Include ENERGY in future manual/automatic mutations. |
+| `mutateMod` | MOD | direct toggle | `0` off / `1` on, default on | Include MOD in future manual/automatic mutations. |
+| `mutate` | MUTATE | momentary button/action | default released | Snapshot Amount/mask and queue/replace an intent for the next cell boundary. |
+| `anchor` | RUN / HOLD | two-position switch | `0` Run / `1` Hold, default Run | Entering effective Hold captures Anchor and blocks CV-only Seed/auto; transport and explicit actions continue. |
+| `recall` | RECALL | momentary button/action | default released | Queue Anchor restore for the next cell boundary; ignored if invalid. |
 
 `MUTATE` and `RECALL` are rising-edge commands and are not semantically
 persistent even if represented through numeric params at the worklet boundary.
-`ANCHOR` is a patch-persisted switch; only its Run/Hold position persists, not
-the captured Anchor contents.
+`anchor` and the four lane toggles are patch-persisted; only their positions
+persist, not captured Anchor contents or a pending manual command.
 
 ### Inputs
 
@@ -528,15 +736,20 @@ the captured Anchor contents.
 |---|---|---|---|---|
 | `clock` | CLOCK | clock | threshold `>2.5 V`, normal 0 V | Rising crossing advances one substep. |
 | `reset` | RESET | trigger | threshold `>=1 V`, normal 0 V | Rising crossing resets transport only. |
+| `seedCV` | SEED CV | cv | -5..+5 V, normal 0 V | Additive 12-seeds/V target offset; sampled authoritatively at cell boundaries. |
+| `mutateTrig` | MUTATE | trigger | 0..10 V, threshold `>=1 V`, normal 0 V | Rising edge ORs with the panel Mutate action. |
+| `recallTrig` | RECALL | trigger | 0..10 V, threshold `>=1 V`, normal 0 V | Rising edge ORs with the panel Recall action. |
+| `hold` | HOLD | gate | 0..10 V, high `>=1 V`, normal 0 V | Level ORs with the panel Hold switch. |
 
-There are no normalled clock sources and no CV-recording or lane inputs.
+There is no normalled clock and no arbitrary CV-recording or per-lane data
+input.
 
 ### Outputs
 
 | Port | Label | Signal | Voltage | Resolution/meaning |
 |---|---|---|---|---|
 | `key` | KEY | CV | -1..+1 V | 1/12 V; semitone-quantized tonal offset. |
-| `harm` | HARM | CV | 0..+5 V | 0.25 V; absolute harmonic selector. |
+| `harm` | HARM | CV | 0..+5 V | 0.25 V; normalized absolute selector target; set Changes/Arp destination knob to 0. |
 | `energy` | ENERGY | CV | -5..+5 V | 0.25 V; bipolar activity/fill macro. |
 | `mod` | MOD | CV | -5..+5 V | 0.25 V; bipolar general macro. |
 
@@ -551,18 +764,40 @@ their tuple between accepted clocks.
 | `substep` | 50 ms bright hold after an accepted clock, otherwise shows normalized progress `(substepIndex + 1) / 16` at a restrained level. |
 | `anchor` | `0` with no valid Anchor; `0.5` with a valid Anchor while in Run; `1` with a valid Anchor while in Hold. |
 | `pending` | On when Recall or Mutate is queued; Recall may use full brightness and Mutate half brightness. |
+| `seedPending` | `0` when `NEXT == ACTIVE`; `1` when a target is eligible at the next cell boundary; `0.5` when a CV-only target is blocked by Hold. |
 | `mutation` | 50 ms visual hold when manual or automatic mutation commits. |
 
-No display telemetry or custom renderer is required; the initial implementation
-should use declarative controls and bounded LED state only.
+### Custom display and telemetry
+
+V2 requires a compact custom renderer and a 12 HP panel. It must retain the
+existing controls, cell/substep LEDs, and jacks; add four always-visible lane
+toggles and the four new inputs; and show two five-digit numeric fields:
+
+- `ACTIVE`: committed effective seed `0..65535`, meaning base/PRNG identity.
+- `NEXT`: latest target seed `0..65535`; render an em dash when it equals
+  `ACTIVE`, and visually mark whether a differing target is armed or held.
+
+The module declares only bounded scalar worklet telemetry:
+
+```javascript
+telemetry: {
+    fields: ['activeSeed', 'nextSeed', 'seedPendingState'],
+    methods: []
+}
+```
+
+`seedPendingState` is integer `0 = equal`, `1 = eligible`, `2 = blocked by
+Hold`; the renderer maps it to text/style without retaining history. All
+controls, including lane toggles and buttons, must call `onParamChange`.
+Direct mutation of the stable main-thread mirror does not control audio.
 
 ## DSP Model and Trade-offs
 
 The DSP is an inspired-by utility adaptation, not a circuit or firmware
 emulation. Its state consists of fixed-size typed arrays for the base, live,
 candidate, and Anchor patterns; transport counters; edge-detector history; a
-PCG32 state; pending-action flags; and LED values. `process()` performs no
-allocation.
+PCG32 state; active/panel/preview seed scalars; a pending Amount/mask snapshot;
+and bounded LED/telemetry values. `process()` performs no allocation.
 
 PCG32 is chosen because its algorithm and output permutation can be specified,
 tested with vectors, and reproduced independently of a JavaScript engine.
@@ -578,7 +813,15 @@ The fixed four-lane tuple and shared cell mask privilege recognizable form over
 maximum entropy. Quarter-volt harmonic and macro grids are a deliberate
 musical abstraction because the destination modules do not publish a shared
 semantic voltage vocabulary. The narrower `KEY` lane follows the repository's
-1 V/octave convention.
+1 V/octave convention. Drawing then discarding disabled-lane deltas costs a
+small fixed amount of work but preserves deterministic continuation across
+nonzero masks. Regenerating at a cell boundary is bounded to eight tuples.
+
+The Seed-CV map is a utility adaptation rather than a claim about any cited
+hardware. Twelve seeds per volt makes the common `1/12 V` semitone interval a
+single deterministic choice and keeps a ±60-seed performance neighborhood.
+Boundary sampling prevents mid-cell discontinuities; the trade-off is that a
+target visible in `NEXT` can move before the boundary that would activate it.
 
 ## Assumptions, Contradictions, and Source Weighting
 
@@ -586,109 +829,183 @@ semantic voltage vocabulary. The narrower `KEY` lane follows the repository's
   behavior of comparison products; product pages are used for high-level
   intent; retailer copy and demos are context only.
 - Comparable products disagree on whether lock/freeze prevents manual change.
-  Refrain defines Hold narrowly: it suppresses automatic evolution but permits
-  explicit Mutate, because a performance lock should not disable an
-  intentional command. Returning to Run resumes auto without destroying the
-  Recall target.
+  Refrain defines Hold narrowly: it suppresses unattended Seed-CV activation
+  and automatic evolution but permits panel Seed, Length, Mutate, and Recall,
+  because an audition lock should not disable an intentional command.
+  Returning to Run resumes eligibility without destroying the Recall target.
 - Comparable products use both immediate and quantized randomization. Refrain
-  uses boundary commits for structural coherence, following launch/transition
-  workflows; Anchor capture remains immediate so the performer captures what
-  is sounding.
+  uses cell-boundary commits for playable manual and Seed response, but retains
+  natural-loop quantization for Length and automatic evolution. Anchor capture
+  remains immediate so the performer captures exactly what is sounding.
 - Hardware random modules frequently describe musical randomness without
   promising cross-restart bit identity. Refrain explicitly guarantees base
   reconstruction from seed and tests the PRNG.
+- No cited product specifies `round(clamp(CV,-5,5)*12)` for a 16-bit seed. It
+  is a local musical mapping selected after rejecting a noise-sensitive
+  full-domain scan. ECMAScript `Math.round` resolves half-step ties exactly.
+- The change auto guard is a local performance rule: Seed, Length, Mutate, or
+  Recall commits suppress the relevant natural-loop chance draw so every
+  deliberate result is heard for at least one complete traversal before
+  automatic mutation can replace it.
 - `HARM`, `ENERGY`, and `MOD` voltage semantics are local integration
   contracts, not claims about a source product. Destination controls may sum
   knob and CV, hence the explicit zero-knob instruction for absolute `HARM`.
 - The 0.25 V macro grid, mutation delta sizes, default chance, and eight-cell
   allocation are product-design assumptions selected for audible,
   testable boundedness.
-- The declarative software panel uses 10 HP and `module-color-ten`; these are
-  local presentation choices, not claims about comparison hardware. The
-  restrained non-clock `substep` LED level is one quarter of normalized
-  progress, so accepted clocks remain visually distinct at full brightness.
+- The custom software panel uses 12 HP and `module-color-ten`; these are local
+  presentation choices, not claims about comparison hardware. Twelve HP is the
+  minimum accepted v2 layout because numeric seed identity, four lane toggles,
+  and four added inputs must remain simultaneously legible.
 - Runtime patterns are not patch state. Adding persisted structured pattern
   state would change scope toward a scene/pattern manager and is explicitly
   deferred.
 
 ## Test Targets
 
-1. **Initialization:** correct defaults; fixed eight-cell buffers; deterministic
-   seed-0 golden pattern; outputs initially equal cell 0.
-2. **Determinism:** PCG32 golden vectors; identical seed/control tuples produce
-   identical base patterns after reconstruction; no `Math.random`.
-3. **Buffer integrity:** all outputs fill every sample for multiple block sizes;
-   no NaN/Infinity; no input or output array replacement.
-4. **Voltage/quantization:** `KEY` stays -1..+1 V on 1/12 V steps; `HARM`
-   0..5 V and macro outputs -5..+5 V on 0.25 V steps.
-5. **Clock threshold:** only rising crossings from `<=2.5` to `>2.5 V` advance;
-   a held clock does not retrigger; the first accepted edge establishes step
-   zero and the following 16 accepted edges advance one cell.
-6. **Reset:** `>=1 V` rising edge queues a transport restart without changing
-   the held tuple, pattern, Anchor, queues, or PRNG; the next clock starts at
-   0/0 and same-sample reset+clock ends at 0/0.
-7. **Length:** values clamp/step 1..8; requested changes do not alter the active
-   loop before a complete boundary and commit atomically there.
-8. **Seed:** change is boundary-only, replaces live base deterministically, and
-   leaves Anchor unchanged.
-9. **Amount:** for every length and amount, mutation selects exactly
-   `min(amount,length)` unique active cells; no inactive or duplicate cells.
-10. **Shared mutation mask:** selected cells change all four lanes within their
-    stated delta limits and quantization; all unselected cells are identical.
-11. **Rail behavior:** mutation at every min/max rail still changes every lane
-    without leaving its voltage range.
-12. **Queued mutation:** request is inaudible before boundary; repeated Mutate
-    requests retain only the latest intent/Amount snapshot; candidate
-    construction and commit precede new cell-0 output.
-13. **Anchor:** Run-to-Hold captures/overwrites the live eight-cell pattern
-    immediately; Hold suppresses automatic evolution while leaving manual
-    Mutate operational; Hold-to-Run resumes auto without clearing Anchor;
-    LED values distinguish invalid, valid/Run, and valid/Hold.
-14. **Recall:** ignored without Anchor; otherwise boundary-only and exact,
-    including cells outside current active length.
-15. **Priority:** simultaneous pending Recall and Mutate commits Recall and
-    discards Mutate; manual Mutate suppresses auto for that boundary; Recall
-    suppresses both.
-16. **Automatic mutation:** chance 0 never mutates; chance 100 mutates at each
-    eligible Run boundary; one attempt maximum per loop; a valid retained
-    Anchor does not suppress auto after returning to Run.
-17. **LEDs:** one-hot cell position, inactive-length LEDs off, valid/pending
-    states accurate, accepted-clock/substep behavior bounded 0..1, and 50 ms
-    clock/mutation holds visible at the worklet telemetry cadence.
-18. **Lifecycle/reset distinction:** DSP `reset()` reconstructs seed-derived
-    base and clears volatile live/Anchor/pending/PRNG continuation, while RESET
-    input only resets transport. Reset clears Anchor edge history to Run, so a
-    persisted Hold value captures the reconstructed base on the next process.
-19. **Contract integration:** declarative params/ports/LEDs satisfy module
-    contracts and all signal types/normal voltages are declared.
+1. **Schema/defaults:** 12 HP metadata, existing IDs retained, four new params,
+   four new fixed input buffers, output buffers, LED fields, and bounded
+   telemetry exactly match the panel contract; all lane toggles default on.
+2. **First-process hydration:** params assigned after `createDSP()` and
+   `seedCV[0]` determine the first audible cell and PCG continuation before
+   Anchor capture; restored Hold captures that hydrated pattern; restored high
+   panel actions do not replay; a high jack at sample 0 is accepted once.
+3. **Determinism:** existing PCG32 vectors, base goldens, post-base state, and
+   bounded rejection remain exact; no `Math.random` or block/sample-rate
+   dependence is introduced.
+4. **Buffer integrity:** every output fills every sample at supported block
+   sizes; all values remain finite; no input/output array is replaced and
+   `process()` allocates no collection.
+5. **Voltage/quantization:** `KEY` remains -1..+1 V on 1/12 V steps, `HARM`
+   0..5 V on 0.25 V steps, and `ENERGY`/`MOD` -5..+5 V on 0.25 V steps.
+6. **Seed-CV map:** test 0 V, ±1/12 V, ±5 V, clamp beyond rails, non-finite
+   fallback, negative/positive half-step ties, and modulo wrap around panel
+   seeds 0 and 65535. All 121 offsets map exactly by the normative formula.
+7. **Seed boundary sampling:** a target change before a cell boundary commits
+   there; one just after waits; the exact clock sample wins over neighboring
+   samples. A commit regenerates all eight cells and restarts at cell 0 before
+   output; an unchanged target does neither.
+8. **Panel versus CV intent:** a panel-seed change commits in Run or Hold; a
+   CV-only change commits in Run but remains blocked in Hold; a panel change
+   that maps back to `ACTIVE` only updates the panel basis. Repeated targets
+   always use the latest boundary sample.
+9. **Seed audition transport:** changing target at consecutive cell boundaries
+   repeatedly exposes a complete 16-clock cell-0 phrase; holding it allows
+   cell 1 onward; Seed changes do not overwrite Anchor.
+10. **Clock and Reset:** thresholds and held-high behavior remain exact; first
+    clock establishes 0/0; asynchronous Reset preserves outputs until the next
+    clock; reset+clock runs a restart boundary and ends at 0/0 without becoming
+    an automatic-evolution boundary.
+11. **Length:** values clamp/step 1..8 and commit only on an old-length natural
+    wrap; Seed restarts can postpone that wrap; newly exposed cells already
+    contain current live/base data.
+12. **Trigger inputs:** each Mutate/Recall jack ignores `<1 V`, accepts a
+    low-to-`>=1 V` edge, does not repeat while held, and accepts a new edge
+    after low. Panel and jack sources OR to one logical command.
+13. **Trigger/boundary collision:** an input edge on the exact boundary sample
+    participates; one later waits. Button edges are ordered from process
+    sample 0 as specified.
+14. **Manual latency:** valid Mutate and Recall are inaudible before the next
+    cell boundary, commit before the entered tuple, and never wait for a full
+    loop. Startup/reset cell entries also accept them.
+15. **Mutate snapshot:** Amount and lane mask are captured at the command edge;
+    later control changes do not affect that intent; repeated valid commands
+    retain only the latest snapshot.
+16. **All-off no-op:** a zero-mask command clears older pending Mutate but not
+    Recall, creates no indication, changes no pattern, and leaves PCG state
+    bit-identical. Automatic evolution with current zero mask makes no chance
+    draw and leaves state unchanged at chance 100.
+17. **Selective exact-K:** for all 15 nonzero masks and every Length/Amount
+    pair, exactly `min(amount,length)` unique active cells are selected; every
+    enabled selected lane changes within its delta/domain; disabled lanes,
+    unselected cells, and inactive cells are bit-identical.
+18. **PRNG mask invariance:** all nonzero masks consume the same mask and
+    four-lane magnitude/sign schedule; subsequent mutation masks and PCG state
+    agree when only the nonzero lane selection differs.
+19. **Rail behavior:** each enabled lane changes even at every minimum/maximum
+    rail without leaving its integer or voltage domain.
+20. **Effective Hold truth table:** panel and gate OR correctly; each combined
+    false-to-true transition captures once; toggling one source while the other
+    remains high does not recapture; returning Run retains Anchor.
+21. **Hold collision/scope:** same-sample Hold rising captures pre-transaction
+    live data and blocks CV-only Seed/auto, while panel Seed, Length, manual
+    Mutate/Recall, transport, and outputs remain live. Hold blocks automatic
+    chance draws, not just pattern commits.
+22. **Recall:** invalid Recall is not queued; valid Recall restores all eight
+    cells/all four lanes regardless of current mask; a newer Anchor capture
+    before commit is the recalled value.
+23. **Transaction priority:** Seed regeneration precedes Length and
+    `Recall > Mutate`; Recall discards Mutate; either manual winner suppresses
+    same-boundary auto. Any Seed, Length, valid Recall, or nonzero-mask Mutate
+    commit at a natural wrap suppresses that draw; any such commit at a
+    non-wrap carries suppression through the next natural wrap. In both cases
+    PCG state proves no chance draw occurred and auto first becomes eligible
+    only after a full traversal. Invalid Recall and all-off Mutate set no guard.
+24. **Automatic evolution:** chance 0 never mutates; chance 100 mutates exactly
+    once per eligible Run natural loop; no valid retained Anchor alone blocks
+    auto; Release from Hold does not mutate until a later natural boundary.
+25. **Feedback/LEDs:** `ACTIVE`, `NEXT`, pending state, `seedPending`, manual
+    pending, Anchor, mutation hold, cell one-hot, and substep values transition
+    exactly and stay bounded. `NEXT` follows latest processed target; equal
+    renders as an em dash; a Held target is visibly distinct.
+26. **HARM integration:** with Changes/Arp destination knob at zero, every
+    Refrain HARM step selects its normalized target; nonzero destination knobs
+    demonstrably add according to each destination contract, preventing any
+    false claim of universal absolute behavior.
+27. **Lifecycle:** `reset()`/patch recreation deterministically hydrates the
+    effective base and clears volatile live/Anchor/pending/PRNG continuation;
+    RESET input changes transport only; persisted lane toggles and Run/Hold
+    restore while actions remain transient.
+28. **Renderer/worklet integration:** custom controls use `onParamChange`;
+    scalar telemetry survives audio start/stop and contains no history or
+    unbounded value; routed jack input, action release, patch replacement,
+    light/dark themes, and 12 HP layout receive browser coverage.
 
 ## Implementation Plan
 
 - **Module/category:** `refrain`, `sequencer`.
-- **Research branch/worktree:** `research/refrain` at
-  `/Users/orderandchaos/code/eurorack-js/.worktrees/refrain-research`.
-- **Implementation branch/worktree:** `module/refrain` at
-  `/Users/orderandchaos/code/eurorack-js/.worktrees/refrain`.
+- **Research branch/worktree:** `research/refrain-v2` at
+  `/Users/orderandchaos/code/eurorack-js/.worktrees/refrain-v2-research`.
+- **Implementation branch/worktree:** create `module/refrain-v2` in a separate
+  coordinator-selected worktree after this research commit is accepted.
 - **DSP model:** deterministic inspired-by phrase-form sequencer using fixed
-  arrays, PCG32, 16-clock cells, boundary transactions, one volatile Anchor,
-  and a shared exact-K mutation mask.
+  arrays, existing PCG32 goldens, 16-clock cells, cell/natural-loop boundary
+  transactions, one volatile Anchor, a shared exact-K cell mask, four-bit lane
+  mask, active/preview seeds, and a change auto guard.
 - **Params/actions:** `seed`, `length`, `amount`, `chance`; momentary `mutate`
-  and `recall`; two-position Run/Hold `anchor`.
-- **Inputs:** `clock`, `reset`.
+  and `recall`; two-position Run/Hold `anchor`; persisted `mutateKey`,
+  `mutateHarm`, `mutateEnergy`, and `mutateMod`.
+- **Inputs:** retain `clock`, `reset`; add `seedCV`, `mutateTrig`,
+  `recallTrig`, and level gate `hold` with the exact voltage contracts above.
 - **Outputs:** `key`, `harm`, `energy`, `mod`.
-- **LEDs:** `cell1`..`cell8`, `substep`, `anchor`, `pending`, `mutation`.
-- **UI:** declarative; add succinct help text for destination-knob-zero and
-  volatile Anchor/live mutations if supported by existing declarative fields.
-- **Factory patch:** `test-refrain`; demonstrate clock/reset, `KEY` to a tonal
-  destination, `HARM` to Changes or Arp with its destination knob at zero,
-  `ENERGY` to Cascade fill, and at least one audible/visible route.
-- **Shared framework changes:** explicit RackHost patch loads must request
-  replace-mode worklet activation so volatile live pattern, Anchor, pending
-  actions, and PRNG state are discarded even when module IDs and types match.
-  Ordinary topology edits and failed-load rollback remain non-replacing; do
-  not add persisted pattern or scene infrastructure.
+- **LEDs/telemetry:** retain `cell1`..`cell8`, `substep`, `anchor`, `pending`,
+  and `mutation`; add `seedPending`; declare scalar fields `activeSeed`,
+  `nextSeed`, and `seedPendingState`.
+- **UI:** replace the declarative panel with a module-local compact custom
+  renderer at 12 HP. Keep all state visible without a menu; use
+  `onParamChange`; label `ACTIVE` as base identity, mark Held `NEXT`, and state
+  the destination-knob-zero and volatile-Anchor limitations.
+- **Tests before implementation:** revise `tests/dsp/refrain.test.js` first,
+  preserving all v1 PCG/base/phase goldens and adding the 28 target groups
+  above. Add focused custom-renderer coverage in `tests/ui/renderer.test.js`
+  or a dedicated Refrain UI test before changing DSP.
+- **Implementation sequence:** add stable input arrays/edge state; refactor
+  processing around named boundary helpers; implement first-process hydration,
+  Seed target classification, change auto guard, manual snapshot queues,
+  lane-aware fixed-draw mutation, scalar telemetry, then the renderer.
+- **Factory patch:** update `test-refrain` to declare new persisted defaults and
+  demonstrate at least Seed CV or a trigger/Hold route while retaining `HARM`
+  to Changes/Arp with its destination knob at zero.
+- **Documentation:** update the README module row/help copy after behavior is
+  implemented. No manifest/core-definition registration or graph-revision bump
+  is required because the existing core module ID/order does not change.
+- **Shared framework changes:** none planned. Keep existing replacing patch-load
+  behavior and volatile runtime policy; do not add persisted pattern/scene
+  infrastructure or unbounded telemetry.
 - **Focused tests:**
   `npm test -- tests/dsp/refrain.test.js tests/rack/module-contracts.test.js tests/research/module-queue.test.js`
+- **UI tests:**
+  `npm test -- tests/ui/renderer.test.js`
 - **RackHost/worklet validation:**
   `npm test -- tests/app/rack-host.test.js tests/audio/worklet-engine.test.js tests/audio/worklet-processor.test.js`
 - **Factory-patch validation:**
@@ -696,21 +1013,23 @@ semantic voltage vocabulary. The narrower `KEY` lane follows the repository's
 - **DSP audit:**
   `npm run audit:dsp -- --module refrain --matrix --strict-voltage`
 - **Full validation:** `npm test`
-- **Known assumptions:** quarter-volt macro grid, delta ranges, exact action
-  timing, and volatile runtime state are normative local decisions described
-  above.
+- **Known assumptions:** 12 seeds/V, 12 HP, quarter-volt macro grid, delta
+  ranges, cell-boundary manual timing, change auto guard, and volatile
+  runtime state are normative local decisions described above.
 
 ## Gate Decision
 
-**Decision: done.** The linked source register is verified, and the
-behavioral, timing, panel, voltage, deterministic-generation, boundary
-priority, persistence, DSP, assumption/contradiction, test, and
-implementation-plan contracts are closed. Implementation and validation are
-complete.
+**Decision: spec-ready.** The linked source register, panel and voltage
+contract, Seed-CV map, first-process hydration, Hold scope, boundary collision
+order, selective-mutation/PRNG rules, HARM integration, telemetry bounds,
+persistence model, test targets, and implementation plan are closed for v2.
+The existing v1 implementation remains valid history, but v2 implementation
+and validation have not started. The queue owner must update queue status
+separately; this research branch does not edit `research/module-queue.md`.
 
-## DSP Audit (2026-07-31)
+## Historical V1 DSP Audit (2026-07-31)
 
-The implemented module passes
+Before this v2 specification, the implemented v1 module passed
 `npm run audit:dsp -- --module refrain --matrix --strict-voltage` across
 44.1, 48, and 96 kHz at block sizes 128 and 512. All 13 generated scenarios
 per configuration completed without errors, produced finite outputs, retained
@@ -742,3 +1061,7 @@ and a failed replacing activation restores the prior main-thread patch before a
 non-replacing rollback synchronization. This rollback policy relies on the
 processor's atomic activation contract: failed candidate construction or graph
 compilation leaves the prior worklet module instances intact.
+
+This audit is not evidence that the v2 Seed CV, trigger/gate inputs, lane mask,
+custom display, cell-boundary actions, or change auto guard are
+implemented. Those features require the validation plan above.

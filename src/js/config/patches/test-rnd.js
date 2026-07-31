@@ -6,7 +6,8 @@
  * - Smooth output modulates filter for evolving timbre
  * - Gate output triggers envelope for rhythmic pulses
  *
- * Try adjusting rate for tempo and amp for pitch range.
+ * Try adjusting rate for tempo, amp for pitch range, and seed for a new but
+ * repeatable sequence.
  */
 export default {
     "name": "Test - Rnd",
@@ -61,7 +62,8 @@ export default {
         "params": {
             "rnd": {
                 "rate": 0.7533,
-                "amp": 0.6867
+                "amp": 0.6867,
+                "seed": 1337
             },
             "quant": {
                 "scale": 3,

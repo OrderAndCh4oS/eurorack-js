@@ -8,6 +8,7 @@
  * Controls:
  * - Rate: Internal clock speed
  * - Amp: Output amplitude (0-10V range)
+ * - Seed: Patch-persisted deterministic random sequence
  *
  * Inputs:
  * - Clock: External clock input (overrides internal clock)
@@ -22,6 +23,15 @@
  * - https://pugix.com/synth/2hp-rnd-module/
  */
 
+import { createPcg32 } from '../../utils/pcg32.js';
+
+const DEFAULT_SEED = 0;
+
+function normalizeSeed(value) {
+    if (!Number.isFinite(value)) return DEFAULT_SEED;
+    return Math.max(0, Math.min(65535, Math.round(value)));
+}
+
 export default {
     id: 'rnd',
     name: 'RND',
@@ -29,12 +39,13 @@ export default {
     color: 'module-color-twelve',
     category: 'modulation',
 
-    createDSP({ sampleRate = 44100, bufferSize = 512, random = Math.random } = {}) {
+    createDSP({ sampleRate = 44100, bufferSize = 512, random = null } = {}) {
         const clock = new Float32Array(bufferSize);
         const step = new Float32Array(bufferSize);
         const smooth = new Float32Array(bufferSize);
         const gate = new Float32Array(bufferSize);
-        const rng = typeof random === 'function' ? random : Math.random;
+        const injectedRandom = typeof random === 'function' ? random : null;
+        const prng = createPcg32(DEFAULT_SEED);
 
         // Internal state
         let currentUnitValue = 0;  // Held random value before Amp scaling
@@ -44,20 +55,36 @@ export default {
         let clockConnected = false;
         let gateCounter = 0;       // Gate pulse duration counter
         let ledCounter = 0;
+        let activeSeed = DEFAULT_SEED;
+        let seedHydrated = false;
 
         // Gate pulse duration in samples (~10ms)
         const GATE_SAMPLES = Math.max(1, Math.round(sampleRate * 0.01));
         const LED_SAMPLES = Math.max(1, Math.round(sampleRate * 0.05));
 
         function nextRandom() {
-            const value = rng();
+            if (!injectedRandom) return prng.nextUint32() / 0x100000000;
+            const value = injectedRandom();
             return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0.5;
+        }
+
+        function syncSeed(value, force = false) {
+            const requestedSeed = normalizeSeed(value);
+            if (injectedRandom || (!force && seedHydrated && requestedSeed === activeSeed)) {
+                seedHydrated = true;
+                activeSeed = requestedSeed;
+                return;
+            }
+            activeSeed = requestedSeed;
+            seedHydrated = true;
+            prng.reseed(activeSeed);
         }
 
         return {
             params: {
                 rate: 0.5,  // 0-1, clock speed
-                amp: 1      // 0-1, output amplitude
+                amp: 1,     // 0-1, output amplitude
+                seed: DEFAULT_SEED
             },
 
             inputs: {
@@ -69,6 +96,7 @@ export default {
             leds: { active: 0 },
 
             process() {
+                syncSeed(this.params.seed);
                 const rate = Number.isFinite(this.params.rate)
                     ? Math.min(1, Math.max(0, this.params.rate))
                     : 0.5;
@@ -153,6 +181,7 @@ export default {
                 lastClockHigh = false;
                 gateCounter = 0;
                 ledCounter = 0;
+                syncSeed(this.params.seed, true);
                 this.leds.active = 0;
             },
 
@@ -174,7 +203,8 @@ export default {
         leds: ['active'],
         knobs: [
             { id: 'rate', label: 'Rate', param: 'rate', min: 0, max: 1, default: 0.5 },
-            { id: 'amp', label: 'Amp', param: 'amp', min: 0, max: 1, default: 1 }
+            { id: 'amp', label: 'Amp', param: 'amp', min: 0, max: 1, default: 1 },
+            { id: 'seed', label: 'Seed', param: 'seed', min: 0, max: 65535, default: DEFAULT_SEED, step: 1 }
         ],
         inputs: [
             { id: 'clock', label: 'Clk', port: 'clock', signal: 'trigger', voltage: { min: 0, max: 10, normal: 0 } }

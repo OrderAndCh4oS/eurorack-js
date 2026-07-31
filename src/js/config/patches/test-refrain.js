@@ -41,7 +41,8 @@ export default {
             seedRnd: {
                 rate: 1,
                 // RND is unipolar 0–10 V; half amplitude fits Seed CV's 0–5 V range.
-                amp: 0.5
+                amp: 0.5,
+                seed: 9021
             },
             refrain: {
                 seed: 474,

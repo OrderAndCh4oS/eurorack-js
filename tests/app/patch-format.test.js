@@ -209,6 +209,21 @@ describe('patch-format', () => {
         expect(parsed.state).toEqual(state);
     });
 
+    it('preserves a random module seed in a shareable URL hash', async () => {
+        const state = {
+            version: 3, plugins: { core: 1 },
+            modules: [{ id: 'random_1', type: 'rnd', row: 1, index: 0 }],
+            params: { random_1: { rate: 0.75, amp: 0.5, seed: 4242 } },
+            cables: [],
+            midiMappings: {}
+        };
+
+        const hash = await createPatchUrlHash({ name: 'Seeded Random', state }, urlOptions());
+        const parsed = await parsePatchUrlHash(`#${hash}`, urlOptions());
+
+        expect(parsed.state).toEqual(state);
+    });
+
     it('keeps deployed v2 shared links decodable after module contracts change', async () => {
         const parsed = await parsePatchUrlHash(DEPLOYED_V2_SHARED_PATCH, urlOptions());
 

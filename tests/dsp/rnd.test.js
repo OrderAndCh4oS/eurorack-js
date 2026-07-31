@@ -28,6 +28,7 @@ describe('Rnd Module', () => {
         it('should have default parameters', () => {
             expect(dsp.params.rate).toBeDefined();
             expect(dsp.params.amp).toBeDefined();
+            expect(dsp.params.seed).toBe(0);
         });
 
         it('should have LED indicator', () => {
@@ -44,6 +45,84 @@ describe('Rnd Module', () => {
                 expect.objectContaining({ port: 'smooth', voltage: { min: 0, max: 10 } }),
                 expect.objectContaining({ port: 'gate', voltage: { min: 0, max: 10 } })
             ]));
+        });
+    });
+
+    describe('Seeded Randomness', () => {
+        const clockedSequence = (seed, count = 4) => {
+            const current = rndModule.createDSP({
+                sampleRate: 1000,
+                bufferSize: 16
+            });
+            current.params.seed = seed;
+            current.params.rate = 1;
+            current.params.amp = 1;
+            current.onInputConnected('clock');
+
+            return Array.from({ length: count }, () => {
+                current.inputs.clock.fill(0);
+                current.inputs.clock[0] = 10;
+                current.process();
+                return current.outputs.step[0];
+            });
+        };
+
+        it('replays the specified PCG32 stream across DSP instances', () => {
+            const expected = [
+                5.421619499102235,
+                5.472188901621848,
+                9.093214725144207,
+                2.7384936227463186
+            ];
+
+            expect(clockedSequence(4242)).toEqual(clockedSequence(4242));
+            clockedSequence(4242).forEach((value, index) => {
+                expect(value).toBeCloseTo(expected[index], 6);
+            });
+            expect(clockedSequence(4243)).not.toEqual(clockedSequence(4242));
+        });
+
+        it('restarts the current seed stream on reset', () => {
+            dsp.params.seed = 9021;
+            dsp.params.rate = 1;
+            dsp.onInputConnected('clock');
+            const render = () => {
+                dsp.inputs.clock.fill(0);
+                dsp.inputs.clock[0] = 10;
+                dsp.process();
+                return dsp.outputs.step[0];
+            };
+
+            const firstPass = [render(), render(), render()];
+            dsp.reset();
+            const secondPass = [render(), render(), render()];
+
+            expect(secondPass).toEqual(firstPass);
+        });
+
+        it('starts a changed seed at the next random event while preserving the held value', () => {
+            dsp.params.seed = 81;
+            dsp.params.rate = 1;
+            dsp.onInputConnected('clock');
+            dsp.inputs.clock[0] = 10;
+            dsp.process();
+
+            dsp.inputs.clock.fill(0);
+            const held = dsp.outputs.step.at(-1);
+            dsp.params.seed = 82;
+            dsp.process();
+            expect(dsp.outputs.step.every(value => value === held)).toBe(true);
+
+            dsp.inputs.clock[0] = 10;
+            dsp.process();
+            expect(dsp.outputs.step[0]).toBe(clockedSequence(82, 1)[0]);
+        });
+
+        it('normalizes invalid seeds to the documented default stream', () => {
+            expect(clockedSequence(Number.NaN)).toEqual(clockedSequence(0));
+            expect(clockedSequence(-100)).toEqual(clockedSequence(0));
+            expect(clockedSequence(100000)).toEqual(clockedSequence(65535));
+            expect(clockedSequence(7.6)).toEqual(clockedSequence(8));
         });
     });
 
@@ -417,10 +496,17 @@ describe('Rnd Module', () => {
             expect(rndModule.ui.outputs).toBeDefined();
         });
 
-        it('should define rate and amp knobs', () => {
+        it('should define rate, amp, and integer seed knobs', () => {
             const knobParams = rndModule.ui.knobs.map(k => k.param);
             expect(knobParams).toContain('rate');
             expect(knobParams).toContain('amp');
+            expect(rndModule.ui.knobs).toContainEqual(expect.objectContaining({
+                param: 'seed',
+                min: 0,
+                max: 65535,
+                default: 0,
+                step: 1
+            }));
         });
 
         it('should define correct outputs', () => {

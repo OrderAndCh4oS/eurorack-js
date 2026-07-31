@@ -55,7 +55,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 |----|--------|-------------|
 | `lfo` | LFO | Low frequency oscillator with multiple waveforms |
 | `quad-lfo` | Quad LFO | Quadrature sine LFO with 0, 90, 180, and 270 degree CV outputs |
-| `rnd` | RND | Random voltage generator with stepped, smooth, and gate outputs |
+| `rnd` | RND | Seeded random voltage generator with stepped, smooth, and gate outputs |
 | `func` | FUNC | Function generator for envelopes, cycling LFOs, and slew behavior |
 | `adsr` | ADSR | ADSR envelope generator with CV timing inputs |
 | `ochd` | OCHD | Eight free-running triangle LFOs based on Instruo ochd |

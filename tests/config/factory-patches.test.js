@@ -239,7 +239,7 @@ describe('factory-patches', () => {
             expect(patch.state.params.arp.chord).toBe(0);
             expect(patch.state.params.changes.key).toBe(0);
             expect(patch.state.params.resetB.rate2).toBe(0.0625);
-            expect(patch.state.params.seedRnd).toEqual({ rate: 1, amp: 0.5 });
+            expect(patch.state.params.seedRnd).toEqual({ rate: 1, amp: 0.5, seed: 9021 });
             expect(patch.state.params.cascade.fill).toBe(12);
             expect(patch.state.params.refrain).toMatchObject({
                 chance: 100,

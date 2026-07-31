@@ -332,7 +332,8 @@ export default {
             },
             "random": {
                 "rate": 0.42,
-                "amp": 0.32
+                "amp": 0.32,
+                "seed": 4242
             },
             "granulita": {
                 "blend": 0.56,

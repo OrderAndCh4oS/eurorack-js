@@ -62,6 +62,7 @@ import testDb from './test-db.js';
 import testPwm from './test-pwm.js';
 import testTuring from './test-turing.js';
 import testOchd from './test-ochd.js';
+import testChaos from './test-chaos.js';
 import testCmp2 from './test-cmp2.js';
 import testComp from './test-comp.js';
 import testAttenuverter from './test-attenuverter.js';
@@ -182,6 +183,7 @@ export const FACTORY_PATCHES = {
     [testPwm.name]: testPwm,
     [testTuring.name]: testTuring,
     [testOchd.name]: testOchd,
+    [testChaos.name]: testChaos,
     [testCmp2.name]: testCmp2,
     [testComp.name]: testComp,
     [testAttenuverter.name]: testAttenuverter,

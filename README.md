@@ -59,6 +59,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 | `func` | FUNC | Function generator for envelopes, cycling LFOs, and slew behavior |
 | `adsr` | ADSR | ADSR envelope generator with CV timing inputs |
 | `ochd` | OCHD | Eight free-running triangle LFOs based on Instruo ochd |
+| `chaos` | Chaos | Three correlated Lorenz chaotic CV axes with rate, character, reset, and lobe gate |
 
 ### Sequencers
 | ID | Module | Description |

@@ -4,13 +4,14 @@
 
 - Researched: 2026-07-31.
 - Queue target: `chaos`, risk `Medium`, category `modulation`.
-- Proposed gate: **spec-ready**. The coordinator owns the queue transition; this
-  research branch deliberately does not edit `research/module-queue.md`.
+- Research gate: **spec-ready and approved**. Implementation and scoped
+  validation are complete on `module/chaos`; the coordinator owns integration
+  and the queue transition.
 - Scope: an inspired software adaptation of a continuous Lorenz flow, informed
   by Nonlinearcircuits Sloth and Joranalogue Orbit 3 interaction patterns. It is
   not a component-level emulation of either circuit.
-- Implementation, tests, registration, graph revision changes, and the factory
-  patch are explicitly out of scope for this research branch.
+- The research branch contained no implementation. The module branch implements
+  the approved contract without editing `research/module-queue.md`.
 
 ## Purpose and Distinct Capability
 
@@ -391,7 +392,7 @@ paths stay aligned indefinitely across sample rates.
 - Module ID: `chaos`.
 - Category: `modulation`.
 - Branch/worktree: branch `module/chaos` in
-  `/Users/orderandchaos/code/eurorack-js/.worktrees/chaos`.
+  `/Users/orderandchaos/code/eurorack-js/.worktrees/chaos-module`.
 - DSP model: the exact bounded Lorenz/RK4 adaptation, reset state, mappings, and
   conditioner specified above; declarative UI only.
 - Params: `rate`, `character`, `depth`.
@@ -425,15 +426,31 @@ paths stay aligned indefinitely across sample rates.
 
 ## DSP Audit (2026-07-31)
 
-- No DSP exists or is registered at the research gate, so `audit:dsp --module
-  chaos` is not yet runnable.
-- Expected primary risks are per-sample RK4 cost, three exponential soft-limit
-  calls, long-horizon numerical divergence, and accidental range violations
-  under parameter-rate CV.
-- Next action after implementation is the strict 44.1/48/96 kHz by 128/512
-  matrix, followed by listening and X-Y scope review across Character and Rate.
-- This pre-implementation entry satisfies the canonical research-record shape;
-  measured results must replace it before the queue item is marked `done`.
+- The Lorenz/RK4 DSP, declarative panel, core registration, and `Test - Chaos`
+  factory patch are implemented on `module/chaos`.
+- The focused DSP/contract/queue command passes 30 tests across three files.
+  The factory-patch and patch-format command passes 48 tests across two files.
+- `npm run audit:dsp -- --module chaos --matrix --strict-voltage` passes all
+  six 44.1/48/96 kHz by 128/512-sample configurations and seven control
+  scenarios per configuration: zero errors, finite reset and output data, zero
+  voltage flags, and stable input/output buffer identities. The reported peak
+  is 10 V from the Lobe gate, within its declared contract.
+- The first strict matrix run reported an advisory maximum of 281.5 µs/block;
+  repeat JSON output was lower after warm-up. This is comfortably below a
+  128-sample render interval even at 96 kHz, but browser AudioWorklet profiling
+  remains the authority for production scheduling.
+- The golden 48 kHz block, one-second trajectories, 44.1/48/96 kHz short-
+  horizon agreement, deterministic perturbation divergence, rate/character CV,
+  reset-edge, aperiodicity-observation, and rail tests all pass.
+- The repository-wide `npm test` run passes 112 of 113 files and 2,161 of
+  2,162 tests. Its sole failure is the pre-existing repository-wide audit-index
+  invariant: five other spec-only research records (`cv-rec`, `pitch-track`,
+  `prob-seq`, `shimmer`, and `vocoder`) are present but not registered on this
+  isolated branch. This module branch does not remove or register unrelated
+  queue work; the coordinator should rerun the full suite after integrating the
+  current module wave.
+- Remaining qualitative follow-up is listening and X-Y Scope review across
+  Character and Rate in a browser. No numerical or contract blocker remains.
 
 ## Sources
 

@@ -56,6 +56,7 @@ export const MODULE_MANIFEST = [
     { id: 'pwm', load: () => import('../modules/pwm/index.js') },
     { id: 'turing', load: () => import('../modules/turing/index.js') },
     { id: 'ochd', load: () => import('../modules/ochd/index.js') },
+    { id: 'chaos', load: () => import('../modules/chaos/index.js') },
     { id: 'cmp2', load: () => import('../modules/cmp2/index.js') },
     { id: 'comp', load: () => import('../modules/comp/index.js') },
     { id: 'kick', load: () => import('../modules/kick/index.js') },

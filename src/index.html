@@ -449,8 +449,7 @@
                 background 80ms ease,
                 border-color 80ms ease,
                 color 80ms ease,
-                box-shadow 80ms ease,
-                transform 80ms ease;
+                box-shadow 80ms ease;
         }
 
         .action-btn:hover {
@@ -463,6 +462,7 @@
         }
 
         .action-btn.active,
+        .action-btn.is-pending,
         .action-btn:active {
             background: color-mix(in srgb, var(--module-color, #666) 74%, #171717);
             border-color: color-mix(in srgb, var(--module-color, #666) 58%, #ddd);
@@ -470,7 +470,7 @@
             box-shadow:
                 0 0 5px color-mix(in srgb, var(--module-color, #666) 68%, transparent),
                 inset 0 1px 0 rgba(255,255,255,0.15);
-            transform: translateY(1px);
+            transform: none;
         }
 
         .seq-gate-btn.active {
@@ -1220,6 +1220,7 @@
         }
 
         body.theme-classic.theme-dark .action-btn.active,
+        body.theme-classic.theme-dark .action-btn.is-pending,
         body.theme-classic.theme-dark .action-btn:active {
             background: color-mix(in srgb, var(--module-color) 76%, #111);
             border-color: color-mix(in srgb, var(--module-color) 56%, #ddd);
@@ -1227,6 +1228,7 @@
         }
 
         body.theme-classic.theme-light .action-btn.active,
+        body.theme-classic.theme-light .action-btn.is-pending,
         body.theme-classic.theme-light .action-btn:active {
             background: color-mix(in srgb, var(--module-color) 56%, #f7f4ea);
             border-color: color-mix(in srgb, var(--module-color) 72%, #5f5b52);
@@ -1858,6 +1860,7 @@
         }
 
         body.skin-factory .action-btn.active,
+        body.skin-factory .action-btn.is-pending,
         body.skin-factory .action-btn:active {
             background: var(--factory-orange);
             border-color: var(--factory-ink);
@@ -2029,13 +2032,12 @@
             font-family: inherit;
             font-weight: 800;
             cursor: pointer;
-            transform: translateY(0);
+            transform: none;
             transition:
                 background 70ms ease,
                 border-color 70ms ease,
                 box-shadow 70ms ease,
-                color 70ms ease,
-                transform 70ms ease;
+                color 70ms ease;
         }
 
         body .module .hardware-button:hover {
@@ -2062,7 +2064,7 @@
                 0 0 0 var(--hw-shadow),
                 inset 0 2px 4px color-mix(in srgb, var(--hw-shadow) 66%, transparent),
                 0 0 7px color-mix(in srgb, var(--hw-accent) 46%, transparent);
-            transform: translateY(2px);
+            transform: none;
         }
 
         body .module .hardware-button:disabled {

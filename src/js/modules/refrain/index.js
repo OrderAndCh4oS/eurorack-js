@@ -302,7 +302,7 @@ function renderRefrain(container, { instance, toolkit }) {
         const updateLaneState = (element, value) => {
             const enabled = value === 1 || value === true;
             element.classList.toggle('active', enabled);
-            element.title = `${button.label.toUpperCase()} lane ${enabled ? 'ON' : 'OFF'}: Mutate ${enabled ? 'may change' : 'will preserve'} ${laneDescriptions[button.param]}. Click to turn ${enabled ? 'OFF' : 'ON'}.`;
+            element.title = `${button.label.toUpperCase()} · ${enabled ? 'ON' : 'OFF'} — Mutate ${enabled ? 'may change' : 'will preserve'} ${laneDescriptions[button.param]}. Click to turn ${enabled ? 'OFF' : 'ON'}.`;
             element.setAttribute('aria-pressed', String(enabled));
         };
         control.classList.add('refrain-lane-toggle');
@@ -324,8 +324,19 @@ function renderRefrain(container, { instance, toolkit }) {
         param: 'anchor',
         value: dsp?.params?.anchor ?? 0
     });
-    hold.title = 'RUN / HOLD: Entering Hold captures the current loop as the volatile Anchor and pauses automatic mutation and unattended Seed CV changes. Clock, Mutate, and Recall remain active.';
+    const updateHoldState = (value, element = hold) => {
+        const held = value === 1 || value === true;
+        element.title = held
+            ? 'RUN / HOLD · HOLD — The volatile Anchor is captured and automatic mutation plus unattended Seed CV changes are paused. Clock, Mutate, and Recall remain active. Click for RUN.'
+            : 'RUN / HOLD · RUN — Automatic mutation and Seed CV changes may proceed. Click for HOLD to capture or replace the volatile Anchor.';
+    };
+    updateHoldState(dsp?.params?.anchor ?? 0);
+    toolkit.registerParamControl('anchor', hold, (value, element) => {
+        element.querySelector('.switch')?.classList.toggle('on', value === 1 || value === true);
+        updateHoldState(value, element);
+    });
     actionRow.appendChild(hold);
+    const actionControls = new Map();
     REFRAIN_UI.actions.forEach(action => {
         const control = toolkit.createActionButton({
             id: action.id,
@@ -334,9 +345,7 @@ function renderRefrain(container, { instance, toolkit }) {
             mode: action.mode,
             value: 0
         });
-        control.title = action.id === 'mutate'
-            ? 'MUTATE: At the next cell boundary, vary exactly AMOUNT active cells in every orange lane that is ON. Seed, Length, transport, and Anchor do not change.'
-            : 'RECALL: At the next cell boundary, restore all four lanes from the latest Anchor. Entering Hold captures or replaces that Anchor; it is lost when the patch reloads.';
+        actionControls.set(action.id, control);
         actionRow.appendChild(control);
     });
     root.appendChild(actionRow);
@@ -375,7 +384,7 @@ function renderRefrain(container, { instance, toolkit }) {
     note.title = 'Set a HARM destination knob to zero for an absolute target. Anchor and live mutations are volatile and are not saved with patches.';
     root.appendChild(note);
 
-    const updateSeedDisplay = () => {
+    const updatePanelFeedback = () => {
         const activeSeed = dsp?.activeSeed ?? 0;
         const nextSeed = dsp?.nextSeed ?? activeSeed;
         const state = finiteInteger(dsp?.seedPendingState, 0, 0, 2);
@@ -392,10 +401,33 @@ function renderRefrain(container, { instance, toolkit }) {
             : (state === 1
                 ? 'Pending seed will activate at the next cell boundary'
                 : 'The displayed ACTIVE seed is currently selected');
+
+        const pendingAction = finiteInteger(dsp?.pendingActionState, 0, 0, 2);
+        const anchorAvailable = Number.isFinite(dsp?.leds?.anchor) && dsp.leds.anchor > 0;
+        actionControls.forEach((control, id) => {
+            const queued = pendingAction === (id === 'mutate' ? 1 : 2);
+            const unavailable = id === 'recall' && !anchorAvailable && !queued;
+            control.classList.toggle('active', queued);
+            control.classList.toggle('is-pending', queued);
+            control.dataset.state = queued ? 'queued' : (unavailable ? 'unavailable' : 'ready');
+            control.setAttribute('aria-pressed', String(queued));
+            control.setAttribute('aria-disabled', String(unavailable));
+            if (id === 'mutate') {
+                control.title = queued
+                    ? 'MUTATE · QUEUED — The captured AMOUNT and ON-lane selection will commit at the next cell boundary. Click again to replace that queued snapshot.'
+                    : 'MUTATE · READY — Queue a change at the next cell boundary: AMOUNT selects how many active cells change and the lane buttons marked ON select which lanes may change.';
+            } else if (queued) {
+                control.title = 'RECALL · QUEUED — All four lanes will restore from the latest volatile Anchor at the next cell boundary.';
+            } else if (unavailable) {
+                control.title = 'RECALL · NO ANCHOR — Nothing can be recalled yet. Enter HOLD to capture the current loop as the volatile Anchor.';
+            } else {
+                control.title = 'RECALL · READY — Queue restoration of all four lanes from the latest volatile Anchor at the next cell boundary.';
+            }
+        });
     };
 
-    updateSeedDisplay();
-    toolkit.animate(updateSeedDisplay);
+    updatePanelFeedback();
+    toolkit.animate(updatePanelFeedback);
     container.appendChild(root);
 }
 
@@ -406,7 +438,7 @@ export default {
     color: 'module-color-ten',
     category: 'sequencer',
     telemetry: {
-        fields: ['activeSeed', 'nextSeed', 'seedPendingState'],
+        fields: ['activeSeed', 'nextSeed', 'seedPendingState', 'pendingActionState'],
         methods: []
     },
 
@@ -795,6 +827,7 @@ export default {
             activeSeed,
             nextSeed,
             seedPendingState,
+            pendingActionState: 0,
 
             process() {
                 const requestedPanelSeed = finiteInteger(
@@ -959,6 +992,7 @@ export default {
                 this.activeSeed = activeSeed;
                 this.nextSeed = nextSeed;
                 this.seedPendingState = seedPendingState;
+                this.pendingActionState = pendingRecall ? 2 : (pendingMutate ? 1 : 0);
                 this.leds.cell1 = cellIndex === 0 ? 1 : 0;
                 this.leds.cell2 = cellIndex === 1 && activeLength > 1 ? 1 : 0;
                 this.leds.cell3 = cellIndex === 2 && activeLength > 2 ? 1 : 0;
@@ -1024,6 +1058,7 @@ export default {
                 this.activeSeed = activeSeed;
                 this.nextSeed = nextSeed;
                 this.seedPendingState = seedPendingState;
+                this.pendingActionState = 0;
                 this.leds.cell1 = 1;
                 this.leds.cell2 = 0;
                 this.leds.cell3 = 0;

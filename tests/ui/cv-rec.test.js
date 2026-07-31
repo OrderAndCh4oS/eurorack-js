@@ -30,6 +30,12 @@ describe('CV Recorder renderer', () => {
         expect(panel.textContent).toContain('RUNTIME MEMORY · CLOCK REC / STOP: NEXT CLOCK');
         expect(panel.querySelector('[data-param="record"]').textContent).toBe('REC / STOP');
         expect(panel.querySelector('[data-param="play"]').textContent).toBe('PLAY / PAUSE');
+        expect(panel.querySelector('[data-param="record"]')).toHaveProperty('title', expect.stringMatching(/REC \/ STOP · READY/));
+        expect(panel.querySelector('[data-param="record"]').dataset.state).toBe('ready');
+        expect(panel.querySelector('[data-param="play"]')).toHaveProperty('title', expect.stringMatching(/PLAY \/ PAUSE · NO RECORDING/));
+        expect(panel.querySelector('[data-param="play"]').dataset.state).toBe('unavailable');
+        expect(panel.querySelector('[data-param="resetAction"]').dataset.state).toBe('unavailable');
+        expect(panel.querySelector('[data-param="clear"]').dataset.state).toBe('unavailable');
 
         ['mode', 'shape', 'playMode'].forEach(param => {
             panel.querySelector(`.switch[data-param="${param}"]`).click();
@@ -46,6 +52,10 @@ describe('CV Recorder renderer', () => {
         dsp.recordedLength = 12345;
         animationFrame?.(0);
         expect(panel.querySelector('.cv-rec-display').textContent).toBe('PLAY F 12.345s');
+        expect(panel.querySelector('[data-param="record"]').classList.contains('active')).toBe(false);
+        expect(panel.querySelector('[data-param="play"]').classList.contains('active')).toBe(true);
+        expect(panel.querySelector('[data-param="play"]').dataset.state).toBe('playing');
+        expect(panel.querySelector('[data-param="play"]')).toHaveProperty('title', expect.stringMatching(/PLAY \/ PAUSE · PLAYING/));
 
         dsp.transportState = 1;
         dsp.recordArmState = 2;
@@ -53,6 +63,20 @@ describe('CV Recorder renderer', () => {
         dsp.recordedLength = 8;
         animationFrame?.(1);
         expect(panel.querySelector('.cv-rec-display').textContent).toBe('ARM STOP C 0008');
+        expect(panel.querySelector('[data-param="record"]').classList.contains('active')).toBe(true);
+        expect(panel.querySelector('[data-param="record"]').classList.contains('is-pending')).toBe(true);
+        expect(panel.querySelector('[data-param="record"]').dataset.state).toBe('armed-stop');
+        expect(panel.querySelector('[data-param="record"]')).toHaveProperty('title', expect.stringMatching(/STOP \/ CANCEL · ARMED STOP/));
+        expect(panel.querySelector('[data-param="play"]').classList.contains('active')).toBe(false);
+        expect(panel.querySelector('[data-param="play"]').dataset.state).toBe('locked');
+
+        dsp.transportState = 4;
+        dsp.recordArmState = 0;
+        animationFrame?.(2);
+        expect(panel.querySelector('[data-param="record"]').classList.contains('active')).toBe(false);
+        expect(panel.querySelector('[data-param="play"]').classList.contains('active')).toBe(false);
+        expect(panel.querySelector('[data-param="play"]').dataset.state).toBe('paused');
+        expect(panel.querySelector('[data-param="play"]')).toHaveProperty('title', expect.stringMatching(/PLAY \/ PAUSE · PAUSED/));
 
         cleanupRenderedModule(panel);
         ['record', 'play', 'resetAction', 'clear'].forEach(param => {

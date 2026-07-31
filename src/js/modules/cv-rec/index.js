@@ -1131,19 +1131,22 @@ export default {
         root.appendChild(switchRow);
 
         const actionRow = toolkit.createRow('cv-rec-action-row');
+        const actionControls = new Map();
         [
             ['record', 'REC / STOP'],
             ['play', 'PLAY / PAUSE'],
             ['resetAction', 'REWIND'],
             ['clear', 'ERASE']
         ].forEach(([id, label]) => {
-            actionRow.appendChild(toolkit.createActionButton({
+            const control = toolkit.createActionButton({
                 id,
                 param: id,
                 label,
                 mode: 'trigger',
                 value: 0
-            }));
+            });
+            actionControls.set(id, control);
+            actionRow.appendChild(control);
         });
         root.appendChild(actionRow);
 
@@ -1197,8 +1200,11 @@ export default {
 
         container.appendChild(root);
 
-        const updateDisplay = () => {
+        const updatePanelFeedback = () => {
             const state = Number.isFinite(dsp?.transportState) ? dsp.transportState : EMPTY;
+            const armState = Number.isFinite(dsp?.recordArmState)
+                ? dsp.recordArmState
+                : ARM_NONE;
             const mode = dsp?.recordedMode === CLOCK ? 'C' : 'F';
             const length = Number.isFinite(dsp?.recordedLength)
                 ? clamp(Math.round(dsp.recordedLength), 0, MAX_FREE_FRAMES)
@@ -1218,10 +1224,78 @@ export default {
                 const label = state === PAUSE ? 'PAUSE' : 'PLAY';
                 display.textContent = `${label} ${mode} ${formattedLength}`;
             }
+
+            const record = actionControls.get('record');
+            const recordArmed = state === ARM;
+            const recording = state === REC || recordArmed;
+            record.classList.toggle('active', recording);
+            record.classList.toggle('is-pending', recordArmed);
+            record.setAttribute('aria-pressed', String(recording));
+            record.setAttribute('aria-disabled', 'false');
+            if (recordArmed && armState === ARM_START) {
+                record.dataset.state = 'armed-start';
+                record.title = 'REC / CANCEL · ARMED START — Waiting for the next CLOCK edge to begin recording. Click to cancel the arm.';
+            } else if (recordArmed && armState === ARM_STOP) {
+                record.dataset.state = 'armed-stop';
+                record.title = 'STOP / CANCEL · ARMED STOP — Waiting for the next CLOCK edge to commit the loop and begin playback. Click to keep recording.';
+            } else if (state === REC) {
+                record.dataset.state = 'recording';
+                record.title = dsp?.params?.mode === CLOCK
+                    ? 'REC / STOP · RECORDING — Capturing one frame per CLOCK edge. Click to arm stop at the following CLOCK edge.'
+                    : 'REC / STOP · RECORDING — Capturing continuous control-rate frames. Click to stop immediately and play the loop.';
+            } else {
+                record.dataset.state = 'ready';
+                record.title = dsp?.params?.mode === CLOCK
+                    ? 'REC / STOP · READY — Arm recording to begin on the next CLOCK edge. A new take replaces the current runtime recording.'
+                    : 'REC / STOP · READY — Start recording immediately. Click again to stop and play the new runtime recording.';
+            }
+
+            const play = actionControls.get('play');
+            const playbackLocked = state === ARM || state === REC;
+            const hasMemory = length > 0 && !playbackLocked;
+            const playing = state === PLAY;
+            play.classList.toggle('active', playing);
+            play.classList.remove('is-pending');
+            play.dataset.state = playbackLocked
+                ? 'locked'
+                : (playing ? 'playing' : (state === PAUSE ? 'paused' : 'unavailable'));
+            play.setAttribute('aria-pressed', String(playing));
+            play.setAttribute('aria-disabled', String(!hasMemory));
+            if (playbackLocked) {
+                play.title = 'PLAY / PAUSE · LOCKED — Finish or cancel the armed/active recording before changing playback.';
+            } else if (playing) {
+                play.title = 'PLAY / PAUSE · PLAYING — Click to pause and hold the current recorded voltages.';
+            } else if (state === PAUSE) {
+                play.title = 'PLAY / PAUSE · PAUSED — Click to resume playback from the held position.';
+            } else {
+                play.title = 'PLAY / PAUSE · NO RECORDING — Record a loop before starting playback.';
+            }
+
+            const rewind = actionControls.get('resetAction');
+            const rewindAvailable = state !== EMPTY || length > 0;
+            rewind.dataset.state = rewindAvailable
+                ? (playbackLocked ? 'cancel-recording' : 'ready')
+                : 'unavailable';
+            rewind.setAttribute('aria-pressed', 'false');
+            rewind.setAttribute('aria-disabled', String(!rewindAvailable));
+            rewind.title = !rewindAvailable
+                ? 'REWIND · NO RECORDING — There is no runtime recording to rewind.'
+                : (playbackLocked
+                    ? 'REWIND · CANCEL RECORDING — Abort the armed/active take. If a committed loop remains, return it to the start.'
+                    : `REWIND · READY — Return the recorded ${state === PAUSE ? 'paused' : 'playing'} loop to its first frame.`);
+
+            const erase = actionControls.get('clear');
+            const eraseAvailable = state !== EMPTY || length > 0;
+            erase.dataset.state = eraseAvailable ? 'ready' : 'unavailable';
+            erase.setAttribute('aria-pressed', 'false');
+            erase.setAttribute('aria-disabled', String(!eraseAvailable));
+            erase.title = eraseAvailable
+                ? 'ERASE · READY — Delete the volatile recording and return to live input monitoring.'
+                : 'ERASE · EMPTY — No runtime recording is stored.';
         };
 
-        updateDisplay();
-        toolkit.animate(updateDisplay);
+        updatePanelFeedback();
+        toolkit.animate(updatePanelFeedback);
     },
 
     ui: {

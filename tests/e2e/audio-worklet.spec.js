@@ -75,15 +75,34 @@ test('runs the Refrain composition patch and delivers every transient action to 
         window.eurorackApp.state.getModule('refrain')?.params?.mutateKey === 1
     );
 
-    await page.locator('#module-refrain .action-btn[data-param="mutate"]').click();
+    const mutate = page.locator('#module-refrain .action-btn[data-param="mutate"]');
+    await mutate.click();
     await page.waitForFunction(() =>
-        window.eurorackApp.state.getModule('refrain')?.instance?.leds?.pending === 0.5
+        window.eurorackApp.state.getModule('refrain')?.instance?.pendingActionState === 1
     );
-    await expect(page.locator('#module-refrain .action-btn[data-param="mutate"]'))
-        .not.toHaveClass(/active/, { timeout: 1000 });
+    await expect(mutate).toHaveClass(/active/);
+    await expect(mutate).toHaveAttribute('data-state', 'queued');
+    await expect(mutate).toHaveAttribute('title', /MUTATE · QUEUED/);
+    await expect(mutate).not.toHaveClass(/active/, { timeout: 7000 });
+
+    const recall = page.locator('#module-refrain .action-btn[data-param="recall"]');
+    await expect(recall).toHaveAttribute('data-state', 'unavailable');
+    await expect(recall).toHaveAttribute('title', /RECALL · NO ANCHOR/);
+    await refrainPanel.locator('.switch[data-param="anchor"]').click();
+    await page.waitForFunction(() =>
+        window.eurorackApp.state.getModule('refrain')?.instance?.leds?.anchor === 1
+    );
+    await expect(recall).toHaveAttribute('data-state', 'ready');
+    await expect(recall).toHaveAttribute('title', /RECALL · READY/);
+    await recall.click();
+    await page.waitForFunction(() =>
+        window.eurorackApp.state.getModule('refrain')?.instance?.pendingActionState === 2
+    );
+    await expect(recall).toHaveClass(/active/);
+    await expect(recall).toHaveAttribute('title', /RECALL · QUEUED/);
+    await expect(recall).not.toHaveClass(/active/, { timeout: 7000 });
 
     for (const selector of [
-        '#module-refrain .action-btn[data-param="recall"]',
         '#module-changes .action-btn[data-param="resetAction"]',
         '#module-cascade .action-btn[data-param="resetAction"]'
     ]) {
@@ -119,17 +138,49 @@ test('records and replays the CV Recorder test patch through the production work
     const record = recorder.locator('.action-btn[data-param="record"]');
     const play = recorder.locator('.action-btn[data-param="play"]');
 
+    await expect(record).toHaveAttribute('data-state', 'ready');
+    await expect(record).toHaveAttribute('title', /REC \/ STOP · READY/);
+    await expect(play).toHaveAttribute('data-state', 'unavailable');
+    await expect(play).toHaveAttribute('title', /PLAY \/ PAUSE · NO RECORDING/);
+
+    await page.evaluate(() => window.eurorackApp.setParam('clock', 'pause', 1));
     await record.click();
+    await expect.poll(() => page.evaluate(() => ({
+        state: window.eurorackApp.state.getModule('recorder')?.instance?.transportState,
+        arm: window.eurorackApp.state.getModule('recorder')?.instance?.recordArmState
+    }))).toEqual({ state: 1, arm: 1 });
+    await expect(record).toHaveClass(/active/);
+    await expect(record).toHaveClass(/is-pending/);
+    await expect(record).toHaveAttribute('data-state', 'armed-start');
+    await expect(record).toHaveAttribute('title', /REC \/ CANCEL · ARMED START/);
+    await expect(play).toHaveAttribute('data-state', 'locked');
+
+    await page.evaluate(() => window.eurorackApp.setParam('clock', 'pause', 0));
     await expect.poll(() => page.evaluate(() => ({
         state: window.eurorackApp.state.getModule('recorder')?.instance?.transportState,
         length: window.eurorackApp.state.getModule('recorder')?.instance?.recordedLength
     })), { timeout: 5000 }).toEqual({ state: 2, length: expect.any(Number) });
+    await expect(record).toHaveAttribute('data-state', 'recording');
+    await expect(record).toHaveClass(/active/);
+    await expect(record).not.toHaveClass(/is-pending/);
+    await expect(record).toHaveAttribute('title', /REC \/ STOP · RECORDING/);
 
     await expect.poll(() => page.evaluate(() => (
         window.eurorackApp.state.getModule('recorder')?.instance?.recordedLength
     )), { timeout: 5000 }).toBeGreaterThanOrEqual(4);
 
+    await page.evaluate(() => window.eurorackApp.setParam('clock', 'pause', 1));
     await record.click();
+    await expect.poll(() => page.evaluate(() => ({
+        state: window.eurorackApp.state.getModule('recorder')?.instance?.transportState,
+        arm: window.eurorackApp.state.getModule('recorder')?.instance?.recordArmState
+    }))).toEqual({ state: 1, arm: 2 });
+    await expect(record).toHaveClass(/active/);
+    await expect(record).toHaveClass(/is-pending/);
+    await expect(record).toHaveAttribute('data-state', 'armed-stop');
+    await expect(record).toHaveAttribute('title', /STOP \/ CANCEL · ARMED STOP/);
+
+    await page.evaluate(() => window.eurorackApp.setParam('clock', 'pause', 0));
     await expect.poll(() => page.evaluate(() => ({
         state: window.eurorackApp.state.getModule('recorder')?.instance?.transportState,
         mode: window.eurorackApp.state.getModule('recorder')?.instance?.recordedMode,
@@ -141,6 +192,11 @@ test('records and replays the CV Recorder test patch through the production work
     });
 
     await expect(recorder.locator('.cv-rec-display')).toContainText('PLAY C');
+    await expect(record).not.toHaveClass(/active/);
+    await expect(record).toHaveAttribute('data-state', 'ready');
+    await expect(play).toHaveClass(/active/);
+    await expect(play).toHaveAttribute('data-state', 'playing');
+    await expect(play).toHaveAttribute('title', /PLAY \/ PAUSE · PLAYING/);
     const recorded = await page.evaluate(async () => {
         const state = (await window.eurorackApp.host.engine.captureRuntimeStates()).recorder;
         return {
@@ -158,10 +214,15 @@ test('records and replays the CV Recorder test patch through the production work
     await expect.poll(() => page.evaluate(() => (
         window.eurorackApp.state.getModule('recorder')?.instance?.transportState
     ))).toBe(4);
+    await expect(play).not.toHaveClass(/active/);
+    await expect(play).toHaveAttribute('data-state', 'paused');
+    await expect(play).toHaveAttribute('title', /PLAY \/ PAUSE · PAUSED/);
     await play.click();
     await expect.poll(() => page.evaluate(() => (
         window.eurorackApp.state.getModule('recorder')?.instance?.transportState
     ))).toBe(3);
+    await expect(play).toHaveClass(/active/);
+    await expect(play).toHaveAttribute('data-state', 'playing');
 
     await page.locator('#startButton').click();
     expect(pageErrors).toEqual([]);
@@ -344,7 +405,7 @@ test('themes Reset, Mutate, and Recall actions in every rack theme and mode', as
             }, { theme, mode });
             await page.waitForTimeout(120);
 
-            snapshots[`${theme}-${mode}`] = await page.evaluate(async selectors => {
+            snapshots[`${theme}-${mode}`] = await page.evaluate(selectors => {
                 const buttons = selectors.map(selector => document.querySelector(selector));
                 const readStyle = button => {
                     const style = getComputedStyle(button);
@@ -359,15 +420,21 @@ test('themes Reset, Mutate, and Recall actions in every rack theme and mode', as
                         fontSize: style.fontSize,
                         fontWeight: style.fontWeight,
                         height: style.height,
-                        textTransform: style.textTransform
+                        textTransform: style.textTransform,
+                        transform: style.transform
                     };
                 };
                 const idle = buttons.map(readStyle);
-                buttons.forEach(button => button.classList.add('active'));
-                await new Promise(resolve => setTimeout(resolve, 120));
+                buttons.forEach(button => {
+                    button.style.transition = 'none';
+                    button.classList.add('active');
+                });
+                void document.body.offsetHeight;
                 const active = buttons.map(readStyle);
-                buttons.forEach(button => button.classList.remove('active'));
-                await new Promise(resolve => setTimeout(resolve, 120));
+                buttons.forEach(button => {
+                    button.classList.remove('active');
+                    button.style.removeProperty('transition');
+                });
                 return {
                     labels: buttons.map(button => button.textContent),
                     idle,
@@ -383,6 +450,8 @@ test('themes Reset, Mutate, and Recall actions in every rack theme and mode', as
         snapshot.idle.forEach((style, index) => {
             expect(style.fontSize).toBe('7px');
             expect(style.textTransform).toBe('uppercase');
+            expect(style.transform).toBe('none');
+            expect(snapshot.active[index].transform).toBe('none');
             expect(snapshot.active[index].backgroundColor).not.toBe(style.backgroundColor);
         });
     });

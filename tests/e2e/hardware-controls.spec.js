@@ -47,11 +47,18 @@ test('themes recent-module hardware controls and keeps Probability Sequencer tac
                         borderColor: style.borderTopColor,
                         borderRadius: style.borderTopLeftRadius,
                         boxShadow: style.boxShadow,
-                        color: style.color
+                        color: style.color,
+                        transform: style.transform
                     };
                 };
+                const button = element.querySelector('.prob-seq-step:not(.selected)');
+                const idleButton = readStyle('.prob-seq-step:not(.selected)');
+                button.classList.add('active');
+                const activeButton = readStyle('.prob-seq-step.active');
+                button.classList.remove('active');
                 return {
-                    button: readStyle('.prob-seq-step:not(.selected)'),
+                    button: idleButton,
+                    activeButton,
                     select: readStyle('.hardware-select')
                 };
             });
@@ -64,6 +71,10 @@ test('themes recent-module hardware controls and keeps Probability Sequencer tac
     expect(snapshots['industrial-dark'].button.borderRadius).toBe('0px');
     expect(snapshots['classic-light'].button.borderRadius).toBe('3px');
     expect(snapshots['classic-dark'].button.borderRadius).toBe('3px');
+    Object.values(snapshots).forEach(snapshot => {
+        expect(snapshot.button.transform).toBe('none');
+        expect(snapshot.activeButton.transform).toBe('none');
+    });
     for (const mode of ['light', 'dark']) {
         const industrial = snapshots[`industrial-${mode}`];
         expect(industrial.button.backgroundImage).toBe('none');

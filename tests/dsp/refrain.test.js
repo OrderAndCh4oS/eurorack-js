@@ -151,7 +151,7 @@ describe('REFRAIN panel, initialization, and deterministic generation', () => {
         });
         expect(refrainModule.render).toBeTypeOf('function');
         expect(refrainModule.telemetry).toEqual({
-            fields: ['activeSeed', 'nextSeed', 'seedPendingState'],
+            fields: ['activeSeed', 'nextSeed', 'seedPendingState', 'pendingActionState'],
             methods: []
         });
         expect(refrainModule.ui.knobs).toEqual([
@@ -296,7 +296,8 @@ describe('REFRAIN panel, initialization, and deterministic generation', () => {
         expect(dsp).toMatchObject({
             activeSeed: 0,
             nextSeed: 0,
-            seedPendingState: 0
+            seedPendingState: 0,
+            pendingActionState: 0
         });
         expect(dsp.getDebugState()).toMatchObject({
             activeSeed: 0,
@@ -413,6 +414,7 @@ describe('REFRAIN panel, initialization, and deterministic generation', () => {
             pendingMutate: true,
             pendingAmount: 3
         });
+        expect(dsp.pendingActionState).toBe(1);
     });
 
     it('hydrates the Test - Refrain factory Seed on its first production-style block', () => {

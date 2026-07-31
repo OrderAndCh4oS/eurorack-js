@@ -781,13 +781,15 @@ The module declares only bounded scalar worklet telemetry:
 
 ```javascript
 telemetry: {
-    fields: ['activeSeed', 'nextSeed', 'seedPendingState'],
+    fields: ['activeSeed', 'nextSeed', 'seedPendingState', 'pendingActionState'],
     methods: []
 }
 ```
 
 `seedPendingState` is integer `0 = equal`, `1 = eligible`, `2 = blocked by
-Hold`; the renderer maps it to text/style without retaining history. All
+Hold`. `pendingActionState` is integer `0 = none`, `1 = Mutate`, `2 = Recall`;
+it keeps a queued action visibly active until its cell-boundary commit. The
+renderer maps both scalars to text/style without retaining history. All
 controls, including lane toggles and buttons, must call `onParamChange`.
 Direct mutation of the stable main-thread mirror does not control audio.
 
@@ -1047,9 +1049,9 @@ custom renderer. Factory-patch and Chromium AudioWorklet tests exercise routed
 Seed CV, custom controls, action release, patch replacement, both themes, and
 worklet telemetry. The implementation adds no manifest/core-definition entry
 and requires no graph-revision change because Refrain retains its existing
-core module identity and order. The full Vitest suite passes all 2,140 tests
-across 112 files, and the focused Chromium AudioWorklet suite passes all eight
-tests.
+core module identity and order. After the button-state follow-up, the full
+Vitest suite passes all 2,310 tests across 123 files and the full Chromium suite
+passes all 21 tests.
 
 ## Post-implementation usability follow-up (2026-07-31)
 
@@ -1060,6 +1062,12 @@ patch issue; none required changing the Refrain DSP contract.
   inverse click action. Mutate explains that Amount selects how many cells
   change and the lane buttons select which outputs change. Recall explains
   that it restores the volatile Anchor captured by entering Hold.
+- Lane titles use the consistent `LANE · ON/OFF — meaning` format. Mutate and
+  Recall use `READY`, `QUEUED`, and `NO ANCHOR` titles; a queued command remains
+  visually active until it commits. Run/Hold likewise states its current side
+  and inverse click action. Module action and hardware buttons retain tactile
+  colour/shadow feedback without vertical translation, so pressing or selecting
+  them never shifts their panel position.
 - The ACTIVE/NEXT seed readout is status, not a control. Its pending state is
   labelled `PEND`, has state-specific help text, and consumes mouse-down so it
   cannot accidentally start rack-module dragging.

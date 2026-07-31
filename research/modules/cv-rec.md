@@ -903,7 +903,7 @@ Chosen trade-offs:
   block across repeated validation runs.
 - **Integration status:** module-contract, queue-contract, factory-patch,
   patch-format, rack-host, worklet-engine, and worklet-processor focused suites
-  pass. The repository-wide run passes all 2,309 tests and the full browser suite
+  pass. The repository-wide run passes all 2,310 tests and the full browser suite
   passes all 21 tests.
 - **Runtime decision:** recording arrays remain bounded runtime state and are
   allocated only at DSP construction or explicit snapshot capture. They are
@@ -917,6 +917,13 @@ Chosen trade-offs:
   stepped random CV into `V/O`, and uses STEP playback so the committed loop is
   plainly audible as a repeating melody. The transport display now distinguishes
   armed start/stop and shows length while recording.
+- **Button-state follow-up (2026-07-31):** the four transport actions now use
+  explicit `ACTION · STATE — meaning` titles. REC / STOP remains visibly active
+  throughout armed and recording states, with a distinct non-moving pending style
+  while waiting for a clock edge; PLAY / PAUSE remains active only while playing.
+  Playback, rewind, and erase identify locked or unavailable states instead of
+  accepting an unexplained no-op. Pressed feedback changes colour and shadow but
+  never translates the button vertically.
 - **Acceptance:** the browser AudioWorklet interaction test covers transport,
   advancing playback, mixed stored gate states, varied stored CV, pause, and
   resume. No focused DSP, contract, or browser blocker is known.

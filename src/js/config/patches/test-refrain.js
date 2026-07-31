@@ -13,10 +13,11 @@ export default {
             { id: 'clock', type: 'clk', row: 1, index: 0 },
             { id: 'resetA', type: 'div', row: 1, index: 1 },
             { id: 'resetB', type: 'div', row: 1, index: 2 },
-            { id: 'refrain', type: 'refrain', row: 1, index: 3 },
-            { id: 'changes', type: 'changes', row: 1, index: 4 },
-            { id: 'cascade', type: 'cascade', row: 1, index: 5 },
-            { id: 'arp', type: 'arp', row: 1, index: 6 },
+            { id: 'seedLfo', type: 'lfo', row: 1, index: 3 },
+            { id: 'refrain', type: 'refrain', row: 1, index: 4 },
+            { id: 'changes', type: 'changes', row: 1, index: 5 },
+            { id: 'cascade', type: 'cascade', row: 1, index: 6 },
+            { id: 'arp', type: 'arp', row: 1, index: 7 },
             { id: 'lead', type: 'pluck', row: 2, index: 0 },
             { id: 'bass', type: 'pluck', row: 2, index: 1 },
             { id: 'mix', type: 'mix', row: 2, index: 2 },
@@ -36,11 +37,20 @@ export default {
                 rate1: 0,
                 rate2: 0.5
             },
+            seedLfo: {
+                range: 0,
+                rateKnob: 0,
+                waveKnob: 0
+            },
             refrain: {
                 seed: 474,
                 length: 4,
                 amount: 1,
                 chance: 100,
+                mutateKey: 1,
+                mutateHarm: 1,
+                mutateEnergy: 1,
+                mutateMod: 1,
                 mutate: 0,
                 anchor: 0,
                 recall: 0
@@ -105,6 +115,9 @@ export default {
             { fromModule: 'resetB', fromPort: 'out1', toModule: 'changes', toPort: 'reset' },
             { fromModule: 'resetB', fromPort: 'out1', toModule: 'cascade', toPort: 'reset' },
             { fromModule: 'resetB', fromPort: 'out1', toModule: 'arp', toPort: 'reset' },
+
+            // Slowly scan nearby deterministic forms through the Seed-CV bank.
+            { fromModule: 'seedLfo', fromPort: 'primary', toModule: 'refrain', toPort: 'seedCV' },
 
             // Refrain's semantic macro lanes.
             { fromModule: 'refrain', fromPort: 'key', toModule: 'changes', toPort: 'keyCV' },

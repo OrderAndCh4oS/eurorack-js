@@ -1,6 +1,6 @@
 # Refrain — Research and Specification
 
-**Status:** spec-ready
+**Status:** implemented and validated
 **Module ID:** `refrain`
 **Working model:** inspired deterministic phrase-form sequencer, v2 interaction
 revision
@@ -1019,13 +1019,37 @@ target visible in `NEXT` can move before the boundary that would activate it.
 
 ## Gate Decision
 
-**Decision: spec-ready.** The linked source register, panel and voltage
-contract, Seed-CV map, first-process hydration, Hold scope, boundary collision
-order, selective-mutation/PRNG rules, HARM integration, telemetry bounds,
-persistence model, test targets, and implementation plan are closed for v2.
-The existing v1 implementation remains valid history, but v2 implementation
-and validation have not started. The queue owner must update queue status
-separately; this research branch does not edit `research/module-queue.md`.
+**Decision: implemented and validated.** The linked source register, panel and
+voltage contract, Seed-CV map, first-process hydration, Hold scope, boundary
+collision order, selective-mutation/PRNG rules, HARM integration, telemetry
+bounds, persistence model, test targets, and implementation plan are closed
+and implemented for v2. The queue owner must update queue status separately;
+this implementation branch does not edit `research/module-queue.md`.
+
+## DSP Audit (2026-07-31)
+
+The v2 implementation passes
+`npm run audit:dsp -- --module refrain --matrix --strict-voltage` at 44.1, 48,
+and 96 kHz with block sizes 128 and 512. All 21 scenarios in each of the six
+configurations complete without errors, produce finite outputs, retain stable
+input/output buffers, and report zero voltage-contract flags. The largest
+observed output magnitude is 4.25 V. Diagnostic Node timing ranges from 28.4
+to 208.3 microseconds per block; these measurements are advisory and are not
+AudioWorklet deadline thresholds.
+
+Focused coverage preserves the v1 PCG32 vectors, base goldens, and transport
+phase while verifying the Seed-CV map across all 121 semitone offsets,
+first-process/reset hydration, cell-boundary transactions, exact trigger
+collisions, combined panel/gate Hold behavior, Recall precedence, selective
+exact-K mutation for all 15 nonzero lane masks, fixed-draw PRNG invariance, the
+full-traversal automatic-evolution guard, scalar telemetry, and the 12 HP
+custom renderer. Factory-patch and Chromium AudioWorklet tests exercise routed
+Seed CV, custom controls, action release, patch replacement, both themes, and
+worklet telemetry. The implementation adds no manifest/core-definition entry
+and requires no graph-revision change because Refrain retains its existing
+core module identity and order. The full Vitest suite passes all 2,138 tests
+across 112 files, and the focused Chromium AudioWorklet suite passes all eight
+tests.
 
 ## Historical V1 DSP Audit (2026-07-31)
 
@@ -1062,6 +1086,6 @@ non-replacing rollback synchronization. This rollback policy relies on the
 processor's atomic activation contract: failed candidate construction or graph
 compilation leaves the prior worklet module instances intact.
 
-This audit is not evidence that the v2 Seed CV, trigger/gate inputs, lane mask,
-custom display, cell-boundary actions, or change auto guard are
-implemented. Those features require the validation plan above.
+This historical audit predates the v2 Seed CV, trigger/gate inputs, lane mask,
+custom display, cell-boundary actions, and change auto guard documented in the
+current audit above.

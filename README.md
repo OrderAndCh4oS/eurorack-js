@@ -65,7 +65,7 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 |----|--------|-------------|
 | `arp` | ARP | Triggered chord arpeggiator with root and chord CV |
 | `changes` | CHANGES | Scale-aware 16-note harmonic sequencer with cyclic voice-leading plans |
-| `refrain` | REFRAIN | Deterministic phrase-form sequencer with exact mutation, Run/Hold Anchor, and four macro CV lanes |
+| `refrain` | REFRAIN | Seed-CV-addressable phrase-form sequencer with selective exact mutation, triggerable Recall, Hold, and four macro CV lanes |
 | `seq` | SEQ | 8-step CV/gate sequencer with direction and range controls |
 | `seq-switch` | SEQ-SW | Clocked sequential switch for 4-to-1 and 1-to-4 signal routing |
 | `euclid` | EUCLID | Euclidean rhythm generator with length, hits, and rotation controls |
@@ -73,10 +73,19 @@ Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.
 
 Refrain holds each four-lane tuple for 16 accepted clocks. When patching
 `HARM` as an absolute selector into Changes or Arp, set the destination's
-corresponding selector knob to `0`. Live mutations and the captured Anchor are
-volatile: reloading a patch or recreating audio reconstructs the base pattern
-from `SEED` rather than restoring the previous performance state; a restored
-Hold switch captures that reconstructed base.
+corresponding selector knob to `0`. Bipolar `SEED CV` addresses 121 nearby
+deterministic forms at 12 seeds per volt; `ACTIVE` shows the committed seed and
+`NEXT` previews the current target. Seed, Mutate, and Recall changes land on
+the next 16-clock cell boundary, while Length and automatic evolution wait for
+a natural loop boundary. The four lane buttons scope future mutations.
+
+Panel or gate Hold captures the current Anchor and blocks unattended Seed-CV
+activation and automatic mutation without stopping transport or deliberate
+Seed, Mutate, Recall, and Length gestures. Live mutations and the captured
+Anchor are volatile: reloading a patch or recreating audio reconstructs the
+base pattern from panel Seed plus the first routed Seed-CV sample rather than
+restoring the previous performance state; a restored Hold captures that
+reconstructed base.
 
 ### Quantizers
 | ID | Module | Description |

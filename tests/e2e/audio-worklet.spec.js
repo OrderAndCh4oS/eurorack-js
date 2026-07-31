@@ -50,6 +50,31 @@ test('runs the Refrain composition patch and delivers every transient action to 
         return window.eurorackApp.host.engine && scope?.displayBuffer1?.some(sample => sample !== 0);
     });
 
+    const refrainPanel = page.locator('#module-refrain');
+    await expect(refrainPanel).toHaveClass(/module-12hp/);
+    await expect(refrainPanel.locator('[data-seed-field="active"]'))
+        .toHaveText(/^\d{5}$/);
+    await expect(refrainPanel.locator('[data-seed-field="next"]'))
+        .toHaveText(/^(—|\d{5})$/);
+    await expect(refrainPanel.locator('.jack[data-port="seedCV"][data-dir="input"]'))
+        .toHaveCount(1);
+    await page.waitForFunction(() => {
+        const dsp = window.eurorackApp.state.getModule('refrain')?.instance;
+        return Number.isInteger(dsp?.activeSeed) &&
+            Number.isInteger(dsp?.nextSeed) &&
+            [0, 1, 2].includes(dsp?.seedPendingState);
+    });
+
+    const keyLane = refrainPanel.locator('.refrain-lane-toggle[data-param="mutateKey"]');
+    await keyLane.click();
+    await page.waitForFunction(() =>
+        window.eurorackApp.state.getModule('refrain')?.params?.mutateKey === 0
+    );
+    await keyLane.click();
+    await page.waitForFunction(() =>
+        window.eurorackApp.state.getModule('refrain')?.params?.mutateKey === 1
+    );
+
     await page.locator('#module-refrain .action-btn[data-param="mutate"]').click();
     await page.waitForFunction(() =>
         window.eurorackApp.state.getModule('refrain')?.instance?.leds?.pending === 0.5

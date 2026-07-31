@@ -218,7 +218,7 @@ describe('factory-patches', () => {
             const patch = FACTORY_PATCHES['Test - Refrain'];
             expect(patch).toBeDefined();
             expect(patch.state.modules.map(module => module.type)).toEqual(expect.arrayContaining([
-                'refrain', 'changes', 'cascade', 'arp', 'pluck', 'mix', 'scope', 'out'
+                'lfo', 'refrain', 'changes', 'cascade', 'arp', 'pluck', 'mix', 'scope', 'out'
             ]));
             expect(patch.state.cables).toEqual(expect.arrayContaining([
                 { fromModule: 'clock', fromPort: 'clock', toModule: 'refrain', toPort: 'clock' },
@@ -227,6 +227,7 @@ describe('factory-patches', () => {
                 { fromModule: 'resetB', fromPort: 'out1', toModule: 'refrain', toPort: 'reset' },
                 { fromModule: 'resetB', fromPort: 'out1', toModule: 'changes', toPort: 'reset' },
                 { fromModule: 'resetB', fromPort: 'out1', toModule: 'cascade', toPort: 'reset' },
+                { fromModule: 'seedLfo', fromPort: 'primary', toModule: 'refrain', toPort: 'seedCV' },
                 { fromModule: 'refrain', fromPort: 'key', toModule: 'changes', toPort: 'keyCV' },
                 { fromModule: 'refrain', fromPort: 'harm', toModule: 'arp', toPort: 'chordCV' },
                 { fromModule: 'refrain', fromPort: 'energy', toModule: 'cascade', toPort: 'fillCV' },
@@ -236,7 +237,13 @@ describe('factory-patches', () => {
             ]));
             expect(patch.state.params.arp.chord).toBe(0);
             expect(patch.state.params.changes.key).toBe(0);
-            expect(patch.state.params.refrain.chance).toBe(100);
+            expect(patch.state.params.refrain).toMatchObject({
+                chance: 100,
+                mutateKey: 1,
+                mutateHarm: 1,
+                mutateEnergy: 1,
+                mutateMod: 1
+            });
 
             const moduleIds = new Set(['refrain', 'changes', 'cascade']);
             const compositionCables = patch.state.cables.filter(cable =>
@@ -249,6 +256,7 @@ describe('factory-patches', () => {
                 { fromModule: 'resetB', fromPort: 'out1', toModule: 'refrain', toPort: 'reset' },
                 { fromModule: 'resetB', fromPort: 'out1', toModule: 'changes', toPort: 'reset' },
                 { fromModule: 'resetB', fromPort: 'out1', toModule: 'cascade', toPort: 'reset' },
+                { fromModule: 'seedLfo', fromPort: 'primary', toModule: 'refrain', toPort: 'seedCV' },
                 { fromModule: 'refrain', fromPort: 'key', toModule: 'changes', toPort: 'keyCV' },
                 { fromModule: 'refrain', fromPort: 'harm', toModule: 'arp', toPort: 'chordCV' },
                 { fromModule: 'refrain', fromPort: 'energy', toModule: 'cascade', toPort: 'fillCV' },

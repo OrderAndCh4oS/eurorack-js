@@ -2,7 +2,7 @@
  * Custom Modules
  *
  * Exercises every custom-rendered module in one diagnostic patch:
- * sequencer, looper, recorder, scope, spectrum, plot, spectrogram, VU meter,
+ * sequencers, looper, recorder, scope, spectrum, plot, spectrogram, VU meter,
  * joystick, low pass gate, and ensemble oscillator.
  */
 export default {
@@ -119,6 +119,12 @@ export default {
                 "type": "ensemble-vco",
                 "row": 3,
                 "index": 2
+            },
+            {
+                "id": "refrain",
+                "type": "refrain",
+                "row": 3,
+                "index": 3
             }
         ],
         "params": {
@@ -260,6 +266,19 @@ export default {
                 "deleteNote": 0,
                 "resetScale": 0,
                 "scaleMemory": {}
+            },
+            "refrain": {
+                "seed": 42,
+                "length": 4,
+                "amount": 1,
+                "chance": 20,
+                "mutateKey": 1,
+                "mutateHarm": 1,
+                "mutateEnergy": 1,
+                "mutateMod": 1,
+                "mutate": 0,
+                "anchor": 0,
+                "recall": 0
             }
         },
         "cables": [
@@ -267,6 +286,12 @@ export default {
                 "fromModule": "clock",
                 "fromPort": "clock",
                 "toModule": "seq",
+                "toPort": "clock"
+            },
+            {
+                "fromModule": "clock",
+                "fromPort": "clock",
+                "toModule": "refrain",
                 "toPort": "clock"
             },
             {
@@ -322,6 +347,12 @@ export default {
                 "fromPort": "outA",
                 "toModule": "vca",
                 "toPort": "ch2In"
+            },
+            {
+                "fromModule": "refrain",
+                "fromPort": "mod",
+                "toModule": "vca",
+                "toPort": "ch2CV"
             },
             {
                 "fromModule": "joy",

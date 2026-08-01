@@ -420,7 +420,7 @@
 
         <main>
             <header class="hero">
-                <div class="eyebrow">Visual architecture reference · July 2026</div>
+                <div class="eyebrow">Visual architecture reference · Current system</div>
                 <h1>Voltages in.<br>Sound out.</h1>
                 <p class="hero-copy">A complete visual tour of the browser-based Eurorack emulator: who owns state, how patches become an atomic audio graph, where DSP runs, and how UI, MIDI, plugins, telemetry, and tests fit around the real-time core.</p>
                 <div class="facts" aria-label="Project facts">
@@ -574,11 +574,11 @@ flowchart TB
 
             <section id="patch-sound">
                 <div class="section-head">
-                    <div><div class="eyebrow">03 · Patch to sound</div><h2>A topology is a transaction</h2></div>
-                    <p>Every structural change becomes a revision. The worklet builds the candidate graph completely before swapping it into the live audio path.</p>
+                    <div><div class="eyebrow">03 · Patch to sound</div><h2>The audio graph swaps atomically</h2></div>
+                    <p>Rack edits update visible state immediately and publish a revision asynchronously. Full patch loads additionally wait for activation and roll back on failure.</p>
                 </div>
                 <article class="card">
-                    <div class="card-head"><div><h3>End-to-end activation</h3><p>From a user action to the next audible render quantum.</p></div><span class="tag">Sequence</span></div>
+                    <div class="card-head"><div><h3>End-to-end activation</h3><p>Both paths receive the same atomic worklet swap, but only patch loading is a host-side transaction.</p></div><span class="tag">Sequence</span></div>
                     <div class="diagram"><pre class="mermaid">
 sequenceDiagram
     autonumber
@@ -590,9 +590,15 @@ sequenceDiagram
     participant P as Processor
     participant G as compileGraph()
 
-    U->>A: add module / move cable / load patch
+    U->>A: structural edit or load patch
     A->>H: authoritative command
-    H->>S: validate and mutate state
+    alt ordinary rack edit
+        H->>S: validate + mutate state
+        H-->>A: visible rack state updates immediately
+    else full patch load
+        H->>H: normalize patch + snapshot current state
+        H->>S: install candidate state + UI mirrors
+    end
     H->>E: setPatchState(runtime patch)
     E->>E: load required plugin worklets
     E->>P: topology(revision N)
@@ -604,15 +610,16 @@ sequenceDiagram
         P->>P: swap active modules + graph
         P-->>E: topology-active(N)
         E-->>H: resolve activation
-        H-->>A: commit visible patch result
+        Note over H,A: loadPatch emits patch-loaded after acknowledgement<br/>Ordinary edit was already visible
     else validation or compilation fails
         G-->>P: error
         P-->>E: host-error(N)
         E-->>H: reject activation
         Note over P: Previous audio graph stays active
+        Note over H,S: Failed loadPatch: restore snapshot + resynchronize worklet<br/>Failed ordinary edit: emit audio-error and keep visible state
     end
                     </pre></div>
-                    <div class="insight"><strong>Atomicity</strong><span>A compilation failure never leaves a half-connected rack. The previous graph keeps running until the full replacement is acknowledged.</span></div>
+                    <div class="insight"><strong>Atomicity</strong><span>The worklet never exposes a half-compiled graph. Ordinary edits are optimistic on the main thread; <code>loadPatch()</code> is the path that awaits activation and restores its snapshot if activation fails.</span></div>
                 </article>
             </section>
 
@@ -633,7 +640,7 @@ flowchart TB
     COND --> SORT["Topological sort"]
     SORT --> TIE["Tie break: manifest order →<br/>rack order → instance ID"]
     TIE --> ROUTE["Create direct and delayed routes"]
-    ROUTE --> PLAN["Execution plan:<br/>ordered modules + routes + normals"]
+    ROUTE --> PLAN["Execution plan:<br/>ordered modules + direct / delayed routes"]
     V -. invalid .-> ERR["Reject candidate topology"]
 
     classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
@@ -650,19 +657,22 @@ flowchart TB
                         <div class="diagram compact"><pre class="mermaid">
 flowchart LR
     subgraph BLOCK_N["Render block N"]
-        A["Module A"] -->|"direct route"| B["Module B"]
-        B -->|"write block N"| D[("delay buffer")]
-        OLD[("block N−1")] -->|"feedback input"| A
+        DAB[("A→B delay<br/>block N−1")] --> B["Module B"]
+        DBA[("B→A delay<br/>block N−1")] --> A["Module A"]
+        A --> NAB[("A→B output<br/>block N")]
+        B --> NBA[("B→A output<br/>block N")]
     end
-    D -.->|"becomes"| OLD
+    NAB -.->|"commitFeedback()"| DAB
+    NBA -.->|"commitFeedback()"| DBA
 
-    SELF["Self-feedback module"] --> SD[("one-block delay")]
-    SD --> SELF
+    SD[("self delay<br/>block N−1")] --> SELF["Self-feedback module"]
+    SELF --> SN[("self output<br/>block N")]
+    SN -.->|"commitFeedback()"| SD
 
     classDef dsp fill:#271f3b,stroke:#b59af3,color:#fff;
     classDef data fill:#17301f,stroke:#79d991,color:#fff;
     class A,B,SELF dsp;
-    class D,OLD,SD data;
+    class DAB,DBA,NAB,NBA,SD,SN data;
                         </pre></div>
                         <div class="insight"><strong>Why</strong><span>The delay makes cycles deterministic and prevents execution order from secretly changing feedback behavior.</span></div>
                     </article>
@@ -671,43 +681,52 @@ flowchart LR
                 <div class="notes">
                     <div class="note"><b>Input cardinality</b><p>One source per input. UI patching replaces an occupied input; imported duplicate destinations are rejected.</p></div>
                     <div class="note"><b>Output cardinality</b><p>Outputs can fan out to any number of inputs. Fan-in requires an explicit mixer or logic module.</p></div>
-                    <div class="note"><b>Disconnection</b><p>Removing a cable restores the destination buffer to the port’s declared normal voltage.</p></div>
+                    <div class="note"><b>Input lifecycle</b><p>Buffers initialize to their declared normal. Routes overwrite connected inputs each block; topology connection changes call the lifecycle hooks, and disconnection restores the normal.</p></div>
                 </div>
             </section>
 
             <section id="audio">
                 <div class="section-head">
                     <div><div class="eyebrow">05 · Audio render loop</div><h2>One block at a time</h2></div>
-                    <p>At each quantum the processor timestamps MIDI, routes stable buffers, processes modules in dependency order, isolates failures, and sums output sinks to stereo.</p>
+                    <p>At each quantum the processor maps timestamped MIDI to sample offsets, routes stable buffers, processes modules in dependency order, commits feedback, and renders the output sinks.</p>
                 </div>
                 <article class="card">
                     <div class="card-head"><div><h3>Worklet render quantum</h3><p>The hot path that must remain allocation-conscious and browser-independent.</p></div><span class="tag">Real-time loop</span></div>
                     <div class="diagram"><pre class="mermaid">
-flowchart LR
-    START["process() quantum"] --> MIDI["Begin MIDI block<br/>compute sample offsets"]
-    MIDI --> NORMALS["Restore unconnected<br/>input normals"]
-    NORMALS --> NEXT{"Next module in<br/>compiled order"}
+flowchart TB
+    START["process() quantum"] --> SIZE["Adapt block size and rebuild<br/>instances if the quantum changed"]
+    SIZE --> CLEAR["Clear Web Audio<br/>stereo output"]
+    CLEAR --> MIDI["Begin MIDI block<br/>map timestamps to sample offsets"]
+    MIDI --> NEXT{"Next module in<br/>compiled order"}
     NEXT --> ROUTE["Copy source samples into<br/>stable destination buffers"]
-    ROUTE --> RUN["instance.process()"]
+    ROUTE --> SINK{"audio-output role?"}
+    SINK -->|"yes · defer sink"| MORE{"More modules?"}
+    SINK -->|"no"| DISABLED{"Already disabled?"}
+    DISABLED -->|"yes"| ZERO["Zero module outputs"]
+    DISABLED -->|"no"| RUN["instance.process()"]
     RUN --> OK{"Threw?"}
-    OK -->|"no"| EVENTS["Drain bounded events<br/>and capture profiling"]
+    OK -->|"no"| EVENTS["Record optional module timing<br/>drain infrequent module events"]
     OK -->|"yes"| DISABLE["Disable instance<br/>zero its outputs"]
-    EVENTS --> MORE{"More modules?"}
+    ZERO --> MORE
+    EVENTS --> MORE
     DISABLE --> MORE
     MORE -->|"yes"| NEXT
-    MORE -->|"no"| SUM["Sum audio-output sinks<br/>scale ±5V to ±1 · hard-limit stereo"]
-    SUM --> TELEMETRY{"~30 Hz telemetry tick?"}
+    MORE -->|"no"| COMMIT["commitFeedback()<br/>store block N for block N+1"]
+    COMMIT --> END["End MIDI block"]
+    END --> SUM["Sum audio-output sinks<br/>finite samples · volume 0…1 · meter LEDs"]
+    SUM --> LIMIT["Scale ±5V to ±1<br/>hard-limit stereo to −1…1"]
+    LIMIT --> TELEMETRY{"~30 Hz telemetry tick?"}
     TELEMETRY -->|"yes"| POST["Post params, LEDs,<br/>declared fields/history"]
-    TELEMETRY -->|"no"| END["End MIDI block"]
-    POST --> END
-    END --> RETURN["Return true"]
+    TELEMETRY -->|"no"| PROFILE["Record optional<br/>block timing"]
+    POST --> PROFILE
+    PROFILE --> RETURN["Return true"]
 
     classDef dsp fill:#271f3b,stroke:#b59af3,color:#fff;
     classDef data fill:#17301f,stroke:#79d991,color:#fff;
     classDef bad fill:#3a181d,stroke:#ff7b83,color:#fff;
-    class START,NEXT,ROUTE,RUN,EVENTS,MORE,SUM,TELEMETRY,END,RETURN dsp;
-    class MIDI,NORMALS,POST data;
-    class OK,DISABLE bad;
+    class START,SIZE,CLEAR,NEXT,ROUTE,RUN,EVENTS,MORE,COMMIT,END,SUM,LIMIT,TELEMETRY,PROFILE,RETURN dsp;
+    class MIDI,POST,ZERO data;
+    class SINK,DISABLED,OK,DISABLE bad;
                     </pre></div>
                     <div class="insight"><strong>Fault isolation</strong><span>A module exception disables only that instance and zeros its outputs; the rest of the rack continues rendering.</span></div>
                 </article>
@@ -913,7 +932,7 @@ flowchart LR
             <section id="patches">
                 <div class="section-head">
                     <div><div class="eyebrow">09 · Patches &amp; state</div><h2>Persist the score, not the instrument’s RAM</h2></div>
-                    <p>Patch schema v3 stores a strict, portable rack description. Runtime-only buffers are captured separately when audio stops and restored only to the next topology.</p>
+                    <p>Patch schema v3 stores a strict, portable rack description. Runtime-only buffers are captured separately, retained with the live module state, and restored when the worklet instance is recreated.</p>
                 </div>
                 <div class="grid-2">
                     <article class="card">
@@ -958,13 +977,14 @@ flowchart TB
     L1 --> CAP["captureRuntimeState()"]
     L2 --> CAP
     CAP --> STOP["Audio stop"]
-    STOP --> NEXT["Next runtime topology only"]
-    NEXT --> RESTORE["restoreRuntimeState()"]
+    STOP --> HOSTSTATE["Retain with live<br/>module state"]
+    HOSTSTATE --> RECREATE["Recreate worklet<br/>DSP instance"]
+    RECREATE --> RESTORE["restoreRuntimeState()"]
 
     classDef data fill:#17301f,stroke:#79d991,color:#fff;
     classDef host fill:#102b32,stroke:#57d5e8,color:#fff;
     class CONFIG,P1,P2,JSON data;
-    class LIVE,L1,L2,CAP,STOP,NEXT,RESTORE host;
+    class LIVE,L1,L2,CAP,STOP,HOSTSTATE,RECREATE,RESTORE host;
                         </pre></div>
                         <div class="insight"><strong>Timeout</strong><span>Topology acknowledgements and runtime-state requests have a five-second timeout; runtime capture failure cannot prevent audio shutdown.</span></div>
                     </article>
@@ -1156,7 +1176,7 @@ flowchart TB
             </section>
 
             <footer>
-                Generated from the repository’s July 2026 architecture contract and implementation. Mermaid diagrams render client-side from a pinned CDN build; the surrounding guide remains readable if the renderer is unavailable.
+                Generated from the repository’s current architecture contract and implementation. Mermaid diagrams render client-side from a pinned CDN build; the surrounding guide remains readable if the renderer is unavailable.
             </footer>
         </main>
     </div>

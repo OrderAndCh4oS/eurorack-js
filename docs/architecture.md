@@ -24,13 +24,13 @@ Audio requires `AudioWorklet` in a secure context. There is no ScriptProcessor, 
 ### From Patch to Sound
 
 1. `EurorackApp` turns DOM, cable, patch, and MIDI interactions into host commands.
-2. `RackHost` mutates `RackState`, validates plugin ownership, and sends a versioned topology to `AudioWorkletEngine`.
+2. `RackHost` mutates `RackState`, validates plugin ownership, and sends a versioned topology to `AudioWorkletEngine`. Ordinary structural edits update visible state immediately; full patch loading snapshots the prior state and waits for activation.
 3. `EurorackProcessor` creates the worklet DSP instances and compiles cable routes with `compileGraph()`.
-4. Each audio block copies source voltages into stable destination buffers and processes modules in dependency order.
-5. Modules marked `role: 'audio-output'` are summed into the browser's stereo output.
+4. Each audio block copies source voltages into stable destination buffers, processes non-output modules in dependency order, and commits every feedback delay at the block boundary.
+5. Modules marked `role: 'audio-output'` are routed but not processed as ordinary DSP modules. Their inputs are sanitized, volume-scaled, summed, converted from Eurorack voltage, and hard-limited into the browser's stereo output.
 6. Bounded telemetry returns LEDs and display state to stable main-thread UI mirrors.
 
-Patch activation is atomic: the host waits for the worklet to acknowledge the requested topology revision. A compilation failure leaves the previous audio graph active.
+Worklet topology activation is atomic: a compilation failure leaves the previous audio graph active. Ordinary rack edits publish revisions asynchronously and report activation errors without rolling back visible state. `RackHost.loadPatch()` is transactional: it waits for the replacement revision, emits `patch-loaded` only after acknowledgement, and restores the prior rack and worklet topology on failure.
 
 ## Module Instances
 
@@ -134,7 +134,7 @@ Default voltage contracts are:
 | `trigger` | 0V | 10V | 0V |
 | `any` | -10V | 10V | 0V |
 
-Use `voltage` to override known hardware behavior. The DSP input buffer must initialize to its declared `normal`. Input and output `Float32Array` identities are immutable for the DSP lifetime. Routing copies samples into input buffers; modules must not replace them or implement cable cleanup methods.
+Use `voltage` to override known hardware behavior. The DSP input buffer must initialize to its declared `normal`. Input and output `Float32Array` identities are immutable for the DSP lifetime. Routing overwrites connected destination buffers each block; unconnected buffers retain their normal, and topology disconnection explicitly restores it. The worklet calls optional `onInputConnected(port)` and `onInputDisconnected(port)` lifecycle hooks when topology connections change. Modules must not replace input arrays or implement their own cable cleanup methods.
 
 ### Custom Renderer Telemetry
 
@@ -171,7 +171,7 @@ The core recorder stores one-second stereo chunks and emits `recording-complete`
 
 ### MIDI Timing
 
-Raw MIDI messages cross to the worklet with an AudioContext timestamp. At the start of each render quantum, the MIDI service exposes non-destructive note and clock/transport event arrays containing `sampleOffset`. Every MIDI module sees the same block events; late events use offset zero and future events remain queued. CC, mod wheel, and pitch bend are block-rate state. DSP modules receive this service through `createDSP({ services })` and must not read browser globals.
+The main thread maps each raw MIDI message to an AudioContext timestamp before forwarding it. At the start of each render quantum, the worklet MIDI service maps due timestamps to `sampleOffset` and exposes non-destructive note and clock/transport event arrays. Every MIDI module sees the same block events; late events use offset zero and future events remain queued. CC, mod wheel, and pitch bend are block-rate state. DSP modules receive this service through `createDSP({ services })` and must not read browser globals.
 
 ### Worklet Profiling
 
@@ -195,6 +195,8 @@ Routing rules:
 - Valid endpoint moves replace the cable in rack state atomically and publish one topology revision, so the running AudioWorklet never receives a disconnected intermediate patch.
 
 If a module throws during `process()`, that instance is disabled and its outputs are zeroed while the rest of the graph continues. Topology compilation errors reject the revision and leave the prior graph active.
+
+The production render order is: adapt to a changed render quantum if necessary; clear the browser output; begin the MIDI block; route and process modules in compiled order while deferring `audio-output` sinks; call `commitFeedback()`; end the MIDI block; sanitize, meter, volume-scale, and sum output sinks; scale ±5V to Web Audio ±1 and hard-limit both channels; publish declared telemetry when its approximately 30 Hz interval is due; record optional profiling; return.
 
 ## Patch Schema v3
 
@@ -221,15 +223,15 @@ Canonical patch state is:
 
 Only schema version 3 is accepted. Every parameter group must name an existing module, every parameter path must be declared by that module's UI control or state contract, and numeric leaves must be finite. Plugin patch contracts must match exactly; the application does not migrate older patch or plugin schemas.
 
-Runtime state such as looper buffers is separate from persisted patch state. `RackHost` captures supported runtime state when audio stops and includes it only in the next worklet topology.
+Bulk runtime state such as Looper audio buffers and CV Recorder lane buffers is separate from persisted patch state. `RackHost` captures supported state when audio stops, retains it with the live module state, and supplies it when the corresponding worklet DSP instance is recreated. Patch serialization and shared URLs exclude this data.
 
 Topology acknowledgements and runtime-state requests have a five-second timeout. Processor failure or shutdown rejects and clears all pending requests. Runtime-state capture failure is reported but cannot prevent audio shutdown.
 
 ## MIDI and Output
 
-Raw MIDI messages are forwarded to the worklet, where the shared MIDI service exposes note, clock, CC, pitch-bend, and modulation state to modules.
+Raw MIDI messages are timestamped against the AudioContext on the main thread and forwarded to the worklet, where the shared MIDI service exposes note and clock events with per-block sample offsets plus CC, pitch-bend, and modulation state.
 
-Modules marked `role: 'audio-output'` are worklet sinks. Their stereo inputs are summed into the single browser output, scaled from Eurorack ±5V to Web Audio ±1. Main-thread UI mirrors never create or connect audio nodes.
+Modules marked `role: 'audio-output'` are worklet sinks. The processor routes their inputs but skips their ordinary `process()` method. It replaces non-finite samples with zero, constrains volume and meter values to `0…1`, sums every sink, scales Eurorack ±5V to Web Audio ±1, and hard-limits the final stereo channels to `−1…1`. Main-thread UI mirrors never create or connect audio nodes.
 
 ## Repository Map
 

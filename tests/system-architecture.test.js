@@ -22,10 +22,12 @@ const CATEGORY_LABELS = {
 describe('visual system architecture guide', () => {
     let document;
     let definitions;
+    let writtenArchitecture;
 
     beforeAll(async () => {
         const html = readFileSync(resolve('src/system-architecture.html'), 'utf8');
         document = new DOMParser().parseFromString(html, 'text/html');
+        writtenArchitecture = readFileSync(resolve('docs/architecture.md'), 'utf8');
         definitions = await Promise.all(MODULE_MANIFEST.map(async entry => (
             (await entry.load()).default
         )));
@@ -73,10 +75,41 @@ describe('visual system architecture guide', () => {
         const pageText = document.body.textContent;
 
         expect(pageText).toContain('CV Recorder lane buffers');
+        expect(pageText).toContain('Retain with live');
+        expect(pageText).toContain('Recreate worklet');
         expect(pageText).toContain('hard-limit stereo');
         expect(pageText).toContain('immutable deployed core-token snapshot');
         expect(pageText).toContain('ordered-module digest');
         expect(pageText).not.toContain('Gesture recordings');
+        expect(pageText).not.toContain('Next runtime topology only');
+        expect(pageText).not.toContain('July 2026');
         expect(document.querySelectorAll('#quality > .grid-2 > article.card')).toHaveLength(2);
+    });
+
+    it('matches the production graph and render-loop ordering', () => {
+        const graphSection = document.querySelector('#graph').textContent;
+        const audioSection = document.querySelector('#audio').textContent;
+
+        expect(graphSection).toContain('commitFeedback()');
+        expect(graphSection).not.toContain('direct route');
+        expect(audioSection).toContain('audio-output role?');
+        expect(audioSection).toContain('commitFeedback()');
+        expect(audioSection).toContain('End MIDI block');
+        expect(audioSection).toContain('finite samples · volume 0…1 · meter LEDs');
+        expect(audioSection).not.toContain('Restore unconnected');
+        expect(audioSection.indexOf('commitFeedback()')).toBeLessThan(audioSection.indexOf('End MIDI block'));
+        expect(audioSection.indexOf('End MIDI block')).toBeLessThan(audioSection.indexOf('Sum audio-output sinks'));
+    });
+
+    it('distinguishes optimistic rack edits from transactional patch loading', () => {
+        const activationSection = document.querySelector('#patch-sound').textContent;
+
+        expect(activationSection).toContain('visible rack state updates immediately');
+        expect(activationSection).toContain('restore snapshot + resynchronize worklet');
+        expect(activationSection).toContain('Ordinary edits are optimistic on the main thread');
+        expect(writtenArchitecture).toContain('Ordinary rack edits publish revisions asynchronously');
+        expect(writtenArchitecture).toContain('`RackHost.loadPatch()` is transactional');
+        expect(writtenArchitecture).toContain('topology disconnection explicitly restores it');
+        expect(writtenArchitecture).toContain('hard-limits the final stereo channels');
     });
 });

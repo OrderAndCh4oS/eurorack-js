@@ -1,0 +1,30 @@
+:root { color-scheme: light; --paper: #f0eee2; --ink: #0b0b09; --accent: #ff4a0a; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.7 "Courier New", Courier, monospace; }
+a { color: inherit; text-underline-offset: 4px; overflow-wrap: anywhere; }
+a:hover { text-decoration-thickness: 2px; }
+a:focus-visible { outline: 3px solid var(--accent); outline-offset: 5px; }
+.skip-link { position: absolute; left: 16px; top: -100px; padding: 8px; background: var(--accent); z-index: 1; }
+.skip-link:focus { top: 8px; }
+.site-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 24px; border-bottom: 3px solid var(--ink); font-size: 13px; font-weight: 700; text-transform: uppercase; }
+.wordmark { text-decoration: none; letter-spacing: 1px; }
+.rack-link { display: inline-block; border: 2px solid var(--ink); padding: 8px 14px; background: var(--accent); text-decoration: none; }
+main { width: min(100% - 48px, 1000px); margin: 0 auto 64px; }
+.document-header { padding: 52px 0 28px; border-bottom: 3px solid var(--ink); margin-bottom: 36px; }
+.eyebrow, .updated { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+.eyebrow { font-weight: 700; margin: 0 0 12px; }
+h1 { font-size: clamp(32px, 6vw, 64px); line-height: 1; letter-spacing: -2px; text-transform: uppercase; margin: 0 0 22px; }
+.intro { font-size: 19px; max-width: 65ch; margin: 0 0 20px; }
+.updated { margin: 0; }
+.quick-note { border: 2px solid var(--ink); border-left: 12px solid var(--accent); padding: 18px 22px; margin: 32px 0; }
+.quick-note p { margin: 0; }
+section { padding: 12px 0 22px; border-bottom: 1px solid var(--ink); }
+h2 { font-size: 22px; line-height: 1.25; margin: 18px 0; }
+p, ul { max-width: 80ch; }
+p { margin: 14px 0; }
+ul { padding-left: 24px; }
+li { margin: 10px 0; }
+.site-footer { padding: 24px; border-top: 3px solid var(--ink); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px; font-size: 13px; }
+.site-footer p { margin: 0; }
+.site-footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
+@media (max-width: 600px) { body { font-size: 15px; } .site-header, .site-footer { padding: 16px; } main { width: calc(100% - 32px); } .document-header { padding-top: 32px; } h1 { letter-spacing: -1px; } .intro { font-size: 17px; } .quick-note { padding: 14px 16px; } h2 { font-size: 20px; } }

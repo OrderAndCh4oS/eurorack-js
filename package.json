@@ -4,6 +4,12 @@
   "type": "module",
   "description": "Eurorack synthesizer emulator",
   "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:test-previews": "node scripts/build-test-previews.mjs",
+    "dev": "npm run build && node --env-file-if-exists=.env.local scripts/dev-server.mjs",
+    "dev:test": "npm run build && NODE_ENV=test EURORACK_TEST_BACKEND=1 node scripts/dev-server.mjs",
+    "db:migrate": "node --env-file-if-exists=.env.local db/migrate.mjs",
+    "db:cleanup": "node --env-file-if-exists=.env.local db/cleanup.mjs",
     "test": "vitest run",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
@@ -11,9 +17,25 @@
     "test:e2e": "playwright test",
     "audit:dsp": "node scripts/dsp-audit.mjs"
   },
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "@vercel/cli-config": { "zod": "4.6.6" }
+  },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
+    "esbuild": "0.28.2",
     "jsdom": "^25.0.0",
     "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1163.0",
+    "@vercel/blob": "2.8.2",
+    "better-auth": "1.7.18",
+    "html-to-image": "1.11.13",
+    "pg": "8.23.1",
+    "sharp": "0.35.5",
+    "ulid": "3.0.2"
   }
 }

@@ -17,60 +17,6 @@
     --tool-font: 'Courier New', 'IBM Plex Mono', monospace;
 }
 
-:root.theme-industrial.theme-dark {
-    color-scheme: dark;
-    --tool-page: #ff3f08;
-    --tool-surface: #ff3f08;
-    --tool-surface-alt: #10110e;
-    --tool-control: #10110e;
-    --tool-control-ink: #ff3f08;
-    --tool-ink: #10110e;
-    --tool-muted: #4b1b0d;
-    --tool-border: #10110e;
-    --tool-accent: #10110e;
-    --tool-accent-ink: #ff3f08;
-    --tool-success: #10110e;
-    --tool-error: #10110e;
-}
-
-:root.theme-classic.theme-light {
-    color-scheme: light;
-    --tool-page: #ede9dc;
-    --tool-surface: #f4f1e7;
-    --tool-surface-alt: #e4dfd2;
-    --tool-control: #ffffff;
-    --tool-control-ink: #151515;
-    --tool-ink: #151515;
-    --tool-muted: #6f6a60;
-    --tool-border: #b8b1a4;
-    --tool-accent: #a04030;
-    --tool-accent-ink: #ffffff;
-    --tool-success: #2f7548;
-    --tool-error: #a43d38;
-    --tool-radius: 4px;
-    --tool-border-width: 1px;
-    --tool-font: 'Helvetica Neue', Arial, sans-serif;
-}
-
-:root.theme-classic.theme-dark {
-    color-scheme: dark;
-    --tool-page: #1a1a1a;
-    --tool-surface: #252525;
-    --tool-surface-alt: #2a2a2a;
-    --tool-control: #333333;
-    --tool-control-ink: #f5f5f5;
-    --tool-ink: #f5f5f5;
-    --tool-muted: #999999;
-    --tool-border: #555555;
-    --tool-accent: #c9a227;
-    --tool-accent-ink: #151515;
-    --tool-success: #5cb878;
-    --tool-error: #e5746e;
-    --tool-radius: 4px;
-    --tool-border-width: 1px;
-    --tool-font: 'Helvetica Neue', Arial, sans-serif;
-}
-
 * {
     box-sizing: border-box;
 }
@@ -576,39 +522,6 @@ input[type='number'] {
     border-right: var(--tool-border-width) solid var(--tool-border);
     border-bottom: 3px solid var(--tool-border);
     border-left: var(--tool-border-width) solid var(--tool-border);
-}
-
-:root.theme-industrial.theme-dark .status {
-    background: var(--tool-surface);
-}
-
-:root.theme-industrial.theme-dark .status.error,
-:root.theme-industrial.theme-dark .status.connected {
-    color: var(--tool-ink);
-}
-
-:root.theme-industrial.theme-dark .knob::before {
-    background: var(--tool-accent-ink);
-}
-
-:root.theme-industrial.theme-dark .knob-value {
-    color: var(--tool-ink);
-}
-
-:root.theme-industrial.theme-dark .keyboard,
-:root.theme-industrial.theme-dark .drum-pad {
-    background: var(--tool-surface-alt);
-    color: var(--tool-accent-ink);
-}
-
-:root.theme-industrial.theme-dark .drum-pad .pad-note,
-:root.theme-industrial.theme-dark .drum-pad .pad-key {
-    color: #c7350b;
-}
-
-:root.theme-industrial.theme-dark .drum-pad.active {
-    background: var(--tool-ink);
-    color: var(--tool-accent-ink);
 }
 
 @media (max-width: 700px) {

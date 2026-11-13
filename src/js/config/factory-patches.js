@@ -1,12 +1,7 @@
 /**
- * Factory preset patches for the eurorack synthesizer
- *
- * Re-exports from individual patch files in the patches/ directory.
- * Each patch file contains:
- *   - name: Display name
- *   - factory: true (marks as read-only factory patch)
- *   - state: Canonical v3 patch state:
- *     {version, plugins, modules, params, cables, midiMappings}
+ * Complete built-in patch exports for regression checks and archive tooling.
+ * Browser library code should import TEST_PATCHES from ./test-patches.js so
+ * archived musical examples are not part of its eager import graph.
  */
-
-export { FACTORY_PATCHES } from './patches/index.js';
+export { FACTORY_PATCHES, ARCHIVED_DEMO_PATCHES } from './patches/index.js';
+export { TEST_PATCHES } from './test-patches.js';

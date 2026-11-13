@@ -21,7 +21,7 @@ Hard requirements:
 - Add the matching static import to `src/js/rack/core-definitions.js` in manifest order so the module is registered in the AudioWorklet.
 - Update `AGENTS.md`, `README.md`, and `docs/creating-modules.md` if the module adds a new module, pattern, category guidance, or workflow detail.
 - Create a factory test patch at `src/js/config/patches/test-{moduleId}.js` that demonstrates the module connected to audible or visible output.
-- Import that patch in `src/js/config/patches/index.js` and add it to `FACTORY_PATCHES` so it appears in the app dropdown.
+- Import that patch in `src/js/config/test-patches.js` and add it to `TEST_PATCHES` so it appears in the dedicated Test patches view. The full regression catalogue includes it automatically.
 - Use exact port names from each module definition's `ui.inputs[]` and `ui.outputs[]`; do not guess cable ports.
 - Use `signal` plus explicit voltage normals where needed. Keep one source per input and use explicit utility modules for fan-in.
 - Keep unrelated changes out of the module work.
@@ -55,7 +55,7 @@ Hard requirements:
 - Add the matching static import to `src/js/rack/core-definitions.js` in manifest order so the module is registered in the AudioWorklet.
 - Update `AGENTS.md`, `README.md`, and `docs/creating-modules.md` if the module adds a new module, pattern, category guidance, or workflow detail.
 - Create a factory test patch at `src/js/config/patches/test-matrix.js` that demonstrates the module connected to audible or visible output.
-- Import that patch in `src/js/config/patches/index.js` and add it to `FACTORY_PATCHES` so it appears in the app dropdown.
+- Import that patch in `src/js/config/test-patches.js` and add it to `TEST_PATCHES` so it appears in the dedicated Test patches view. The full regression catalogue includes it automatically.
 - Use exact port names from each module definition's `ui.inputs[]` and `ui.outputs[]`; do not guess cable ports.
 - Use `signal` plus explicit voltage normals where needed. Keep one source per input and use explicit utility modules for fan-in.
 - Keep unrelated changes out of the module work.

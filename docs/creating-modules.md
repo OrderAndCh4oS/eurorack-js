@@ -569,7 +569,9 @@ export default {
 };
 ~~~
 
-Import the file in **src/js/config/patches/index.js** and add it to FACTORY_PATCHES.
+For a module or integration test, import the file in **src/js/config/test-patches.js** and add it to `TEST_PATCHES`. It appears in the dedicated **Test patches** view and is automatically included in the complete `FACTORY_PATCHES` regression catalogue. The app imports this test catalogue directly so archived examples are not loaded with the test view.
+
+Retained musical examples are exported as `ARCHIVED_DEMO_PATCHES` from **src/js/config/patches/index.js** and are available in the [importable archive](../archive/demo-patches/README.md). Update that archive's JSON alongside source changes. New user/community compositions belong in the patch library rather than the built-in test catalogue.
 
 Patch rules:
 
@@ -579,7 +581,8 @@ Patch rules:
 - Each destination has one source; outputs may fan out.
 - Plugin patches declare every owning plugin contract they use.
 - test-{module} patches isolate one target with only necessary support modules.
-- Multi-module musical ideas use demo naming and grouping.
+- Test entries can cover multiple modules when their purpose is an integration check.
+- Retained musical demos, sound effects, and drum compositions stay in the archive, outside the Test patches view.
 
 Update README.md, AGENTS.md, research, and queue status for a built-in module. Update this guide only for a reusable authoring pattern.
 

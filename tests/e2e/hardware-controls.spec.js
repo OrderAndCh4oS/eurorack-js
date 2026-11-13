@@ -1,12 +1,12 @@
+import { openTestPatch } from './patch-library-helpers.js';
 import { expect, test } from '@playwright/test';
 
 const loadFactoryPatch = async (page, name, moduleId) => {
-    await page.locator('#patchSelect').selectOption(name);
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, name);
     await page.waitForFunction(id => window.eurorackApp.state.getModule(id), moduleId);
 };
 
-test('themes recent-module hardware controls and keeps Probability Sequencer tactile', async ({ page }) => {
+test('keeps recent-module hardware controls consistent in Industrial Light', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));
 
@@ -30,72 +30,38 @@ test('themes recent-module hardware controls and keeps Probability Sequencer tac
     expect(statusCenters[3] - statusCenters[0]).toBeGreaterThan(100);
     expect(statusCenters).toEqual([...statusCenters].sort((a, b) => a - b));
 
-    const snapshots = {};
-    for (const theme of ['industrial', 'classic']) {
-        for (const mode of ['light', 'dark']) {
-            await page.evaluate(({ theme, mode }) => {
-                window.eurorackApp.setTheme(theme);
-                window.eurorackApp.setThemeMode(mode);
-            }, { theme, mode });
-
-            snapshots[`${theme}-${mode}`] = await panel.evaluate(element => {
-                const readStyle = selector => {
-                    const style = getComputedStyle(element.querySelector(selector));
-                    return {
-                        backgroundColor: style.backgroundColor,
-                        backgroundImage: style.backgroundImage,
-                        borderColor: style.borderTopColor,
-                        borderRadius: style.borderTopLeftRadius,
-                        boxShadow: style.boxShadow,
-                        color: style.color,
-                        transform: style.transform
-                    };
-                };
-                const button = element.querySelector('.prob-seq-step:not(.selected)');
-                const idleButton = readStyle('.prob-seq-step:not(.selected)');
-                button.classList.add('active');
-                const activeButton = readStyle('.prob-seq-step.active');
-                button.classList.remove('active');
-                return {
-                    button: idleButton,
-                    activeButton,
-                    select: readStyle('.hardware-select')
-                };
-            });
-        }
-    }
-
-    expect(new Set(Object.values(snapshots).map(value => JSON.stringify(value.button))).size)
-        .toBeGreaterThanOrEqual(3);
-    expect(snapshots['industrial-light'].button.borderRadius).toBe('0px');
-    expect(snapshots['industrial-dark'].button.borderRadius).toBe('0px');
-    expect(snapshots['classic-light'].button.borderRadius).toBe('3px');
-    expect(snapshots['classic-dark'].button.borderRadius).toBe('3px');
-    Object.values(snapshots).forEach(snapshot => {
-        expect(snapshot.button.transform).toBe('none');
-        expect(snapshot.activeButton.transform).toBe('none');
+    const styles = await panel.evaluate(element => {
+        const readStyle = selector => {
+            const style = getComputedStyle(element.querySelector(selector));
+            return {
+                backgroundImage: style.backgroundImage,
+                borderRadius: style.borderTopLeftRadius,
+                boxShadow: style.boxShadow,
+                transform: style.transform
+            };
+        };
+        const button = element.querySelector('.prob-seq-step:not(.selected)');
+        const idleButton = readStyle('.prob-seq-step:not(.selected)');
+        button.classList.add('active');
+        const activeButton = readStyle('.prob-seq-step.active');
+        button.classList.remove('active');
+        return {
+            button: idleButton,
+            activeButton,
+            select: readStyle('.hardware-select')
+        };
     });
-    for (const mode of ['light', 'dark']) {
-        const industrial = snapshots[`industrial-${mode}`];
-        expect(industrial.button.backgroundImage).toBe('none');
-        expect(industrial.button.boxShadow).toBe('none');
-        expect(industrial.select.boxShadow).toBe('none');
 
-        const classic = snapshots[`classic-${mode}`];
-        expect(classic.button.backgroundImage).toContain('linear-gradient');
-        expect(classic.button.boxShadow).not.toBe('none');
-        expect(classic.select.backgroundImage).toContain('linear-gradient');
-        expect(classic.select.boxShadow).not.toBe('none');
-    }
+    expect(styles.button.borderRadius).toBe('0px');
+    expect(styles.button.transform).toBe('none');
+    expect(styles.activeButton.transform).toBe('none');
+    expect(styles.button.backgroundImage).toBe('none');
+    expect(styles.button.boxShadow).toBe('none');
+    expect(styles.select.boxShadow).toBe('none');
 
     await loadFactoryPatch(page, 'Test - CV Recorder', 'recorder');
     await expect(page.locator('#module-recorder .action-btn')).toHaveCount(4);
     await expect(page.locator('#module-recorder .switch')).toHaveCount(3);
-    await page.evaluate(() => {
-        window.eurorackApp.setTheme('industrial');
-        window.eurorackApp.setThemeMode('dark');
-    });
-    await page.waitForTimeout(120);
     const establishedIndustrialStyles = await page.locator('#module-recorder').evaluate(element => {
         const action = getComputedStyle(element.querySelector('.action-btn'));
         const toggle = element.querySelector('.switch');

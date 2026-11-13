@@ -8,7 +8,6 @@ describe('MIDI tool launch buttons', () => {
         document.body.innerHTML = `
             <button id="startButton"></button>
             <button id="clearCables"></button>
-            <button id="copyPatch"></button>
             <button id="midiLearnBtn"></button>
             <button id="midiControllerBtn"></button>
             <button id="midiDrumControllerBtn"></button>
@@ -32,7 +31,7 @@ describe('MIDI tool launch buttons', () => {
         document.getElementById('midiControllerBtn').click();
         document.getElementById('midiDrumControllerBtn').click();
 
-        expect(openSpy).toHaveBeenNthCalledWith(1, 'midi-controller.html', '_blank', 'noopener,noreferrer');
-        expect(openSpy).toHaveBeenNthCalledWith(2, 'midi-drum-controller.html', '_blank', 'noopener,noreferrer');
+        expect(openSpy).toHaveBeenNthCalledWith(1, '/midi-controller.html', '_blank', 'noopener,noreferrer');
+        expect(openSpy).toHaveBeenNthCalledWith(2, '/midi-drum-controller.html', '_blank', 'noopener,noreferrer');
     });
 });

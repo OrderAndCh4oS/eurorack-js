@@ -1,25 +1,17 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     CABLE_OPACITY_STORAGE_KEY,
-    EurorackApp,
-    THEME_MODE_STORAGE_KEY,
-    THEME_STORAGE_KEY
+    EurorackApp
 } from '../../src/js/app/app.js';
 
 function setupDOM() {
     document.body.innerHTML = `
         <button id="startButton"></button>
         <button id="clearCables"></button>
-        <button id="copyPatch"></button>
         <button id="midiLearnBtn"></button>
         <button id="midiControllerBtn"></button>
         <button id="midiDrumControllerBtn"></button>
         <footer class="app-footer">
-            <select id="themeSelect">
-                <option value="industrial">Industrial</option>
-                <option value="classic">Classic</option>
-            </select>
-            <button id="themeModeToggle"></button>
             <button id="cableOpacityToggle"></button>
         </footer>
         <div id="rack-container"></div>
@@ -29,7 +21,7 @@ function setupDOM() {
     `;
 }
 
-describe('EurorackApp skin toggle', () => {
+describe('EurorackApp fixed appearance and cable opacity', () => {
     beforeEach(() => {
         setupDOM();
         document.body.className = '';
@@ -37,6 +29,7 @@ describe('EurorackApp skin toggle', () => {
     });
 
     afterEach(() => {
+        vi.restoreAllMocks();
         document.body.innerHTML = '';
         document.body.className = '';
         localStorage.clear();
@@ -45,42 +38,41 @@ describe('EurorackApp skin toggle', () => {
     it('defaults to the industrial light theme', () => {
         const app = new EurorackApp(document);
         app.cacheElements();
-        app.applySavedSkin();
+        app.applySkin();
 
         expect(document.body.classList.contains('theme-industrial')).toBe(true);
         expect(document.body.classList.contains('theme-light')).toBe(true);
         expect(document.body.classList.contains('skin-factory')).toBe(true);
-        expect(document.getElementById('themeSelect').value).toBe('industrial');
-        expect(document.getElementById('themeModeToggle').textContent).toBe('Dark: Off');
+        expect(app.theme).toBe('industrial');
+        expect(app.themeMode).toBe('light');
     });
 
-    it('selects and persists the theme from the footer', () => {
+    it('discards retired classic and dark preferences without affecting saved patches', () => {
+        document.body.className = 'theme-classic theme-dark cables-dimmed';
+        localStorage.setItem('eurorack-theme', 'classic');
+        localStorage.setItem('eurorack-theme-mode', 'dark');
+        localStorage.setItem('eurorack-patches', '{"saved":true}');
         const app = new EurorackApp(document);
         app.cacheElements();
-        app.applySavedSkin();
-        app.bindEvents();
+        app.applySkin();
 
-        document.getElementById('themeSelect').value = 'classic';
-        document.getElementById('themeSelect').dispatchEvent(new Event('change'));
-
-        expect(document.body.classList.contains('theme-classic')).toBe(true);
-        expect(document.body.classList.contains('skin-factory')).toBe(false);
-        expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('classic');
+        expect(document.body.classList.contains('theme-classic')).toBe(false);
+        expect(document.body.classList.contains('theme-dark')).toBe(false);
+        expect(document.body.classList.contains('theme-industrial')).toBe(true);
+        expect(document.body.classList.contains('theme-light')).toBe(true);
+        expect(document.body.classList.contains('cables-dimmed')).toBe(true);
+        expect(localStorage.getItem('eurorack-theme')).toBeNull();
+        expect(localStorage.getItem('eurorack-theme-mode')).toBeNull();
+        expect(localStorage.getItem('eurorack-patches')).toBe('{"saved":true}');
     });
 
-    it('toggles and persists dark mode from the footer', () => {
+    it('keeps Industrial Light when storage access is blocked', () => {
+        vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('blocked'); });
+        document.body.className = 'theme-classic theme-dark';
         const app = new EurorackApp(document);
         app.cacheElements();
-        app.applySavedSkin();
-        app.bindEvents();
-
-        document.getElementById('themeModeToggle').click();
-
-        expect(document.body.classList.contains('theme-dark')).toBe(true);
-        expect(document.body.classList.contains('theme-light')).toBe(false);
-        expect(document.getElementById('themeModeToggle').classList.contains('active')).toBe(true);
-        expect(document.getElementById('themeModeToggle').textContent).toBe('Dark: On');
-        expect(localStorage.getItem(THEME_MODE_STORAGE_KEY)).toBe('dark');
+        expect(() => app.applySkin()).not.toThrow();
+        expect(document.body.className).toBe('theme-industrial theme-light skin-factory');
     });
 
     it('dims cable rendering without changing the rack cable state', () => {

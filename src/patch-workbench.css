@@ -144,37 +144,6 @@
 .patch-completion.selected small { color: inherit; }
 .patch-completion.unavailable { opacity: .45; cursor: not-allowed; }
 
-body.theme-classic .patch-workbench {
-    --patch-bg: var(--classic-panel);
-    --patch-surface: var(--classic-surface);
-    --patch-editor: var(--classic-bg);
-    --patch-console: var(--classic-panel-2);
-    --patch-border: var(--classic-border);
-    --patch-border-soft: var(--classic-border);
-    --patch-text: var(--classic-text);
-    --patch-editor-text: var(--classic-control-text);
-    --patch-muted: var(--classic-muted);
-    --patch-completion: var(--classic-surface);
-    --patch-completion-selected: #3976a8;
-    --patch-accent: #2f7d47;
-    --patch-accent-text: #fff;
-}
-
-body.theme-classic.theme-light .patch-workbench {
-    --patch-success: #1c7438;
-    --patch-warning: #8a5b00;
-    --patch-error: #b42318;
-    --syntax-keyword: #6f2dbd;
-    --syntax-literal: #a33b00;
-    --syntax-string: #176b35;
-    --syntax-number: #a64b00;
-    --syntax-comment: #777168;
-    --syntax-method: #005cc5;
-    --syntax-function: #087184;
-    --syntax-property: #86520a;
-    box-shadow: 0 -4px 18px rgba(45, 39, 30, 0.22);
-}
-
 body.skin-factory .patch-workbench {
     --patch-bg: var(--factory-paper);
     --patch-surface: var(--factory-panel-light);
@@ -227,20 +196,6 @@ body.skin-factory .patch-workbench-toolbar input:focus {
     color: var(--patch-accent-text);
     background: var(--patch-accent);
     outline: none;
-}
-
-body.theme-industrial.theme-dark .patch-workbench {
-    --patch-success: #7bdc91;
-    --patch-warning: #f2c66d;
-    --patch-error: #ff7d7d;
-    --syntax-keyword: #d8a0ef;
-    --syntax-literal: #ff9b72;
-    --syntax-string: #b6dc8c;
-    --syntax-number: #ff9b72;
-    --syntax-comment: #7f8b80;
-    --syntax-method: #8ab4f8;
-    --syntax-function: #8bd5ca;
-    --syntax-property: #e9c46a;
 }
 
 @media (max-width: 760px) {

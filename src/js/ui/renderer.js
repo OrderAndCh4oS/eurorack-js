@@ -39,7 +39,7 @@ export function injectModuleCSS(moduleType, css) {
     injectedModuleCSS.add(moduleType);
 }
 
-function createBoundToolkit(moduleId, onParamChange, onCleanup, registerParamControl) {
+function createBoundToolkit(moduleId, onParamChange, onCleanup, registerParamControl, preview = false, onPreviewError = null) {
     const toolkit = createModuleToolkit();
     return {
         ...toolkit,
@@ -95,6 +95,23 @@ function createBoundToolkit(moduleId, onParamChange, onCleanup, registerParamCon
             return element;
         },
         animate(draw) {
+            if (preview) {
+                let cancelled = false;
+                // A screenshot uses idle display state and must not start a
+                // live animation loop in its offscreen rendering document.
+                queueMicrotask(() => {
+                    if (cancelled) return;
+                    try {
+                        draw();
+                    } catch (error) {
+                        if (onPreviewError) onPreviewError(error);
+                        else throw error;
+                    }
+                });
+                const stop = () => { cancelled = true; };
+                onCleanup?.(stop);
+                return stop;
+            }
             let frameId = null;
             let running = true;
             const tick = () => {
@@ -199,7 +216,7 @@ export function renderModule(definition, moduleId, context) {
         if (!paramControls.has(param)) paramControls.set(param, []);
         paramControls.get(param).push({ element, sync });
     };
-    const toolkit = createBoundToolkit(moduleId, handleParamChange, onCleanup, registerParamControl);
+    const toolkit = createBoundToolkit(moduleId, handleParamChange, onCleanup, registerParamControl, context.preview === true, context.onPreviewError);
 
     // Create module panel
     const panel = createPanel({

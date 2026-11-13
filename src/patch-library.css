@@ -1,0 +1,63 @@
+body { --library-paper: #eceae2; --library-ink: #171813; --library-muted: #5e5d55; --library-accent: #e85b21; --library-line: #77786e; --library-toolbar: 38px; }
+body.skin-factory { --library-paper: var(--factory-paper); --library-ink: var(--factory-ink); --library-muted: var(--factory-ink); --library-accent: var(--factory-orange); --library-line: var(--factory-ink); }
+[hidden] { display: none !important; }
+.patch-navigation, .patch-library, .patch-dialog, .patch-notice { color: var(--library-ink); background: var(--library-paper); font-size: 13px; line-height: 1.4; font-family: inherit; }
+.patch-navigation { position: fixed; top: 0; left: 0; right: 0; height: var(--library-toolbar); display: flex; align-items: center; gap: 6px; padding: 0 8px; border-bottom: 3px solid var(--library-line); z-index: 201; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.patch-view-tabs { display: flex; flex: 0 0 auto; gap: 4px; }
+.patch-navigation button, .patch-library button, .patch-library input, .patch-library a.patch-button, .patch-dialog button, .patch-dialog input, .patch-dialog select, .patch-dialog textarea, .patch-notice button { color: inherit; background: var(--library-paper); font: inherit; border: 2px solid var(--library-line); border-radius: 0; padding: 8px 12px; box-shadow: none; }
+.patch-navigation button, .patch-library button, .patch-library a.patch-button, .patch-dialog button, .patch-notice button { cursor: pointer; font-size: 12px; font-weight: 900; text-decoration: none; }
+.patch-navigation button { padding: 5px 9px; font-size: 10px; line-height: normal; text-transform: uppercase; white-space: nowrap; }
+.patch-navigation button[aria-current="page"], .patch-library .primary, .patch-dialog .primary { background: var(--library-accent); color: var(--factory-action-ink, #111); }
+.patch-navigation button:hover, .patch-library button:hover, .patch-dialog button:hover, .patch-notice button:hover { background: var(--library-accent); color: var(--factory-action-ink, #111); }
+.patch-navigation button:focus-visible, .patch-library :focus-visible, .patch-dialog :focus-visible { outline: 3px solid var(--library-accent); outline-offset: 2px; }
+.patch-library button:disabled, .patch-dialog button:disabled { opacity: .55; cursor: wait; }
+#activePatchLabel { padding: 0 10px; flex: 1 0 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px; }
+#patchAccount { border-left: 2px solid var(--library-line); margin-left: auto; }
+body #toolbar, body.skin-factory #toolbar { top: var(--library-toolbar); height: var(--library-toolbar); }
+body.patch-library-open #toolbar { display: none; }
+body .app-container, body.skin-factory .app-container { margin-top: calc(var(--library-toolbar) * 2); height: calc(100vh - var(--library-toolbar) * 2); }
+.patch-library { position: fixed; inset: var(--library-toolbar) 0 0; overflow-y: auto; z-index: 100; padding: 0 24px 40px; }
+.patch-library-header { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding: 26px 0 22px; border-bottom: 3px solid var(--library-line); }
+.patch-library h1 { font-size: clamp(25px, 4vw, 42px); line-height: 1; font-weight: 900; text-transform: uppercase; letter-spacing: -1px; }
+.patch-library-kicker { font-size: 11px; font-weight: 900; text-transform: uppercase; margin-bottom: 10px; }
+.patch-library-intro { max-width: 620px; margin-top: 12px; font-size: 13px; }
+.patch-library-search { display: flex; align-items: stretch; max-width: 430px; width: 100%; }
+.patch-library-search input { min-width: 0; flex: 1; border-right: 0; user-select: text; }
+.patch-library-section { margin-top: 24px; }
+.patch-library-section > h2 { font-size: 12px; text-transform: uppercase; padding: 10px 12px; border: 2px solid var(--library-line); border-left: 12px solid var(--library-accent); }
+.patch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); border-left: 2px solid var(--library-line); }
+.patch-entry { min-width: 0; border-right: 2px solid var(--library-line); border-bottom: 2px solid var(--library-line); display: flex; flex-direction: column; }
+.patch-preview-frame { height: 210px; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); place-items: center; overflow: hidden; border-bottom: 2px solid var(--library-line); background: #171813; color: #d8d5c6; }
+.patch-preview-frame img { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; max-width: 100%; max-height: 100%; object-fit: contain; }
+.patch-preview-placeholder { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; padding: 12px; }
+.patch-entry-caption { padding: 14px 16px; flex: 1; }
+.patch-entry h3 { font-size: 17px; line-height: 1.2; margin: 5px 0 8px; }
+.patch-entry p { font-size: 12px; margin-top: 6px; overflow-wrap: anywhere; }
+.patch-entry a { color: inherit; text-underline-offset: 3px; }
+.patch-entry-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 10px; text-transform: uppercase; font-weight: 900; }
+.patch-entry-actions { display: flex; flex-wrap: wrap; border-top: 1px solid var(--library-line); }
+.patch-entry-actions button, .patch-entry-actions a.patch-button { flex: 1 0 auto; border: 0; border-right: 1px solid var(--library-line); border-bottom: 1px solid var(--library-line); padding: 10px; font-size: 11px; }
+.patch-entry-actions button[aria-pressed="true"] { background: var(--library-accent); color: var(--factory-action-ink, #111); }
+.patch-empty { padding: 28px 16px; border: 2px solid var(--library-line); border-top: 0; }
+.patch-load-more { margin-top: 20px; }
+.footer-legal-row, .patch-library-footer nav { display: flex; flex-wrap: wrap; gap: 16px; }
+.footer-about { flex: 1 1 220px; }
+.footer-legal-row { align-self: stretch; justify-content: flex-end; border-top: 1px solid currentColor; padding-top: 8px; }
+body .app-footer .footer-legal-row a, body.skin-factory .app-footer .footer-legal-row a { border: 0; border-radius: 0; padding: 0; background: transparent; font-size: 10px; text-decoration: underline; text-underline-offset: 3px; }
+.patch-library-footer { margin-top: 24px; padding-top: 12px; border-top: 2px solid var(--library-line); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.patch-library-footer a { color: inherit; text-underline-offset: 3px; }
+.patch-notice { position: fixed; z-index: 220; right: 16px; bottom: 16px; max-width: min(620px, calc(100vw - 32px)); border: 3px solid var(--library-line); border-left: 12px solid var(--library-accent); padding: 12px 16px; }
+.patch-notice p { margin-bottom: 8px; user-select: text; }
+.patch-notice button { margin: 3px 6px 0 0; padding: 5px 8px; }
+.patch-dialog { width: min(540px, calc(100vw - 28px)); max-height: calc(100vh - 28px); margin: auto; border: 3px solid var(--library-line); padding: 24px; }
+.patch-dialog::backdrop { background: rgb(0 0 0 / .6); }
+.patch-dialog h2 { text-transform: uppercase; font-size: 24px; line-height: 1.1; margin-bottom: 18px; }
+.patch-dialog label { display: grid; gap: 6px; margin: 14px 0; font-size: 12px; font-weight: 900; }
+.patch-dialog input, .patch-dialog textarea, .patch-dialog select { width: 100%; user-select: text; font-size: 14px; }
+.patch-dialog textarea { resize: vertical; min-height: 80px; }
+.patch-dialog p { margin: 12px 0; font-size: 13px; }
+.patch-dialog-actions { display: flex; justify-content: end; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.patch-dialog-error { border-left: 4px solid var(--library-accent); padding-left: 10px; }
+.patch-dialog [data-save-help] { font-size: 12px; }
+@media (max-width: 1500px) { .patch-navigation { padding-inline: 4px; } .patch-navigation button { padding-inline: 6px; font-size: 9px; } }
+@media (max-width: 760px) { .patch-library { padding: 0 12px 24px; } .patch-library-header { align-items: stretch; flex-direction: column; } .patch-library-search { max-width: none; } #activePatchLabel { display: none; } .patch-preview-frame { height: 190px; } }

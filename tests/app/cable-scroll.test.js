@@ -5,7 +5,6 @@ function setupDOM() {
     document.body.innerHTML = `
         <button id="startButton"></button>
         <button id="clearCables"></button>
-        <button id="copyPatch"></button>
         <button id="midiLearnBtn"></button>
         <button id="midiControllerBtn"></button>
         <button id="midiDrumControllerBtn"></button>

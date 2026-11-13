@@ -1,93 +1,8 @@
 /**
- * Factory Patches Index
- *
- * Aggregates all factory patches from individual files.
- * Each patch file exports a default object with:
- *   - name: Display name
- *   - factory: true (marks as read-only factory patch)
- *   - state: Canonical v3 patch state
+ * Complete built-in patch catalogue for regression checks and archive export.
+ * The application imports TEST_PATCHES directly from ../test-patches.js.
  */
-
-// Test patches - Modules
-import testVcoOnly from './test-vco-only.js';
-import testLfoVcoPitch from './test-lfo-vco-pitch.js';
-import testVcfResonance from './test-vcf-resonance.js';
-import testAdsrEnvelope from './test-adsr-envelope.js';
-import testNoiseOutput from './test-noise-output.js';
-import testShPitch from './test-sh-pitch.js';
-import testClockDivisions from './test-clock-divisions.js';
-import testQuantizerScales from './test-quantizer-scales.js';
-import testArpeggiator from './test-arpeggiator.js';
-import testScopeSinewave from './test-scope-sinewave.js';
-import testSequencer from './test-sequencer.js';
-import testProbSeq from './test-prob-seq.js';
-import testSeqSwitch from './test-seq-switch.js';
-import testEuclid from './test-euclid.js';
-import testChangesCascade from './test-changes-cascade.js';
-import testRefrain from './test-refrain.js';
-import testSwing from './test-swing.js';
-import testBurst from './test-burst.js';
-import testGateDelay from './test-gate-delay.js';
-import testQuadLfo from './test-quad-lfo.js';
-import testLpg from './test-lpg.js';
-import testLogic from './test-logic.js';
-import testMult from './test-mult.js';
-import testMatrix from './test-matrix.js';
-import testJoystick from './test-joystick.js';
-import testCvRec from './test-cv-rec.js';
-import testPitchTracker from './test-pitch-tracker.js';
-import testWavetable from './test-wavetable.js';
-import testComplexVco from './test-complex-vco.js';
-import testEnsembleVco from './test-ensemble-vco.js';
-import testPluck from './test-pluck.js';
-import testFormant from './test-formant.js';
-import testResbank from './test-resbank.js';
-import testFold from './test-fold.js';
-import testRing from './test-ring.js';
-import testVocoder from './test-vocoder.js';
-import testRnd from './test-rnd.js';
-import testEnvf from './test-envf.js';
-import testEnvfSidechain from './test-envf-sidechain.js';
-import testFunc from './test-func.js';
-import testFuncEnvelope from './test-func-envelope.js';
-import testFuncLfo from './test-func-lfo.js';
-import testFuncSlew from './test-func-slew.js';
-import testFuncEoc from './test-func-eoc.js';
-import testDelay from './test-delay.js';
-import testTape from './test-tape.js';
-import testReverb from './test-reverb.js';
-import testChorus from './test-chorus.js';
-import testPhaser from './test-phaser.js';
-import testFlanger from './test-flanger.js';
-import testCrush from './test-crush.js';
-import testLoop from './test-loop.js';
-import testGranulita from './test-granulita.js';
-import testShimmer from './test-shimmer.js';
-import testDb from './test-db.js';
-import testPwm from './test-pwm.js';
-import testTuring from './test-turing.js';
-import testOchd from './test-ochd.js';
-import testChaos from './test-chaos.js';
-import testCmp2 from './test-cmp2.js';
-import testComp from './test-comp.js';
-import testAttenuverter from './test-attenuverter.js';
-import testSlew from './test-slew.js';
-import testSpectrum from './test-spectrum.js';
-import testPlot from './test-plot.js';
-import testSpectrogram from './test-spectrogram.js';
-import testCustomModules from './test-custom-modules.js';
-
-// Test patches - MIDI
-import testMidiCv from './test-midi-cv.js';
-import testMidi4 from './test-midi-4.js';
-import testMidiCc from './test-midi-cc.js';
-import testMidiClk from './test-midi-clk.js';
-import testMidiDrum from './test-midi-drum.js';
-
-// Test patches - Drums
-import testSnareOnly from './test-snare-only.js';
-import testKickOnly from './test-kick-only.js';
-import testHatOnly from './test-hat-only.js';
+import { TEST_PATCHES } from '../test-patches.js';
 
 // Demo patches
 import demoMelodicArp from './demo-melodic-arp.js';
@@ -130,91 +45,8 @@ import drumsSnareRoll from './drums-snare-roll.js';
 import drumsHatPatterns from './drums-hat-patterns.js';
 import drumsFullKit from './drums-full-kit.js';
 
-/**
- * All factory patches keyed by name
- */
-export const FACTORY_PATCHES = {
-    // Test patches - Modules
-    [testVcoOnly.name]: testVcoOnly,
-    [testLfoVcoPitch.name]: testLfoVcoPitch,
-    [testVcfResonance.name]: testVcfResonance,
-    [testAdsrEnvelope.name]: testAdsrEnvelope,
-    [testNoiseOutput.name]: testNoiseOutput,
-    [testShPitch.name]: testShPitch,
-    [testClockDivisions.name]: testClockDivisions,
-    [testQuantizerScales.name]: testQuantizerScales,
-    [testArpeggiator.name]: testArpeggiator,
-    [testScopeSinewave.name]: testScopeSinewave,
-    [testSequencer.name]: testSequencer,
-    [testProbSeq.name]: testProbSeq,
-    [testSeqSwitch.name]: testSeqSwitch,
-    [testEuclid.name]: testEuclid,
-    [testChangesCascade.name]: testChangesCascade,
-    [testRefrain.name]: testRefrain,
-    [testSwing.name]: testSwing,
-    [testBurst.name]: testBurst,
-    [testGateDelay.name]: testGateDelay,
-    [testQuadLfo.name]: testQuadLfo,
-    [testLpg.name]: testLpg,
-    [testLogic.name]: testLogic,
-    [testMult.name]: testMult,
-    [testMatrix.name]: testMatrix,
-    [testJoystick.name]: testJoystick,
-    [testCvRec.name]: testCvRec,
-    [testPitchTracker.name]: testPitchTracker,
-    [testWavetable.name]: testWavetable,
-    [testComplexVco.name]: testComplexVco,
-    [testEnsembleVco.name]: testEnsembleVco,
-    [testPluck.name]: testPluck,
-    [testFormant.name]: testFormant,
-    [testResbank.name]: testResbank,
-    [testFold.name]: testFold,
-    [testRing.name]: testRing,
-    [testVocoder.name]: testVocoder,
-    [testRnd.name]: testRnd,
-    [testEnvf.name]: testEnvf,
-    [testEnvfSidechain.name]: testEnvfSidechain,
-    [testFunc.name]: testFunc,
-    [testFuncEnvelope.name]: testFuncEnvelope,
-    [testFuncLfo.name]: testFuncLfo,
-    [testFuncSlew.name]: testFuncSlew,
-    [testFuncEoc.name]: testFuncEoc,
-    [testDelay.name]: testDelay,
-    [testTape.name]: testTape,
-    [testReverb.name]: testReverb,
-    [testChorus.name]: testChorus,
-    [testPhaser.name]: testPhaser,
-    [testFlanger.name]: testFlanger,
-    [testCrush.name]: testCrush,
-    [testLoop.name]: testLoop,
-    [testGranulita.name]: testGranulita,
-    [testShimmer.name]: testShimmer,
-    [testDb.name]: testDb,
-    [testPwm.name]: testPwm,
-    [testTuring.name]: testTuring,
-    [testOchd.name]: testOchd,
-    [testChaos.name]: testChaos,
-    [testCmp2.name]: testCmp2,
-    [testComp.name]: testComp,
-    [testAttenuverter.name]: testAttenuverter,
-    [testSlew.name]: testSlew,
-    [testSpectrum.name]: testSpectrum,
-    [testPlot.name]: testPlot,
-    [testSpectrogram.name]: testSpectrogram,
-    [testCustomModules.name]: testCustomModules,
-
-    // Test patches - MIDI
-    [testMidiCv.name]: testMidiCv,
-    [testMidi4.name]: testMidi4,
-    [testMidiCc.name]: testMidiCc,
-    [testMidiClk.name]: testMidiClk,
-    [testMidiDrum.name]: testMidiDrum,
-
-    // Test patches - Drums
-    [testSnareOnly.name]: testSnareOnly,
-    [testKickOnly.name]: testKickOnly,
-    [testHatOnly.name]: testHatOnly,
-
+/** Musical examples retained for later import, outside the main library. */
+export const ARCHIVED_DEMO_PATCHES = {
     // Demo patches
     [demoMelodicArp.name]: demoMelodicArp,
     [demoPulsingBass.name]: demoPulsingBass,
@@ -256,3 +88,6 @@ export const FACTORY_PATCHES = {
     [drumsHatPatterns.name]: drumsHatPatterns,
     [drumsFullKit.name]: drumsFullKit
 };
+
+/** All built-in source patches, including the archived examples. */
+export const FACTORY_PATCHES = { ...TEST_PATCHES, ...ARCHIVED_DEMO_PATCHES };

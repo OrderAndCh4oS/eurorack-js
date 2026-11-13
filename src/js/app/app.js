@@ -4,8 +4,11 @@ import {
     CATEGORY_ORDER,
     CATEGORY_LABELS
 } from '../index.js';
-import { CABLE_COLORS, PATCH_STORAGE_KEY } from '../config/constants.js';
-import { FACTORY_PATCHES } from '../config/factory-patches.js';
+import { CABLE_COLORS } from '../config/constants.js';
+import { TEST_PATCHES } from '../config/test-patches.js';
+import { PatchLibrary } from '../ui/patch-library.js';
+import { LocalPatchStore } from '../patches/local-patch-store.js';
+import { parsePatchLocation } from '../patches/cloud-client.js';
 import { createCablePath, getJackCenter } from '../cables/cable-manager.js';
 import { createMidiManager } from '../midi/midi-manager.js';
 import { cleanupRenderedModule, renderModule, syncParamToModuleUI, updateModuleLEDs } from '../ui/renderer.js';
@@ -17,15 +20,12 @@ import {
     PATCH_VERSION,
     createPatchUrlHash,
     normalizePatch,
-    normalizePatchCollection,
     parsePatchUrlHash
 } from './patch-format.js';
 import { adjustColor, getModuleColorToken, isHexColor } from '../utils/color.js';
 
 export const PATCH_EXPORT_SCHEMA = 'eurorack-js/patch-export';
 export const PATCH_EXPORT_VERSION = 1;
-export const THEME_STORAGE_KEY = 'eurorack-theme';
-export const THEME_MODE_STORAGE_KEY = 'eurorack-theme-mode';
 export const CABLE_OPACITY_STORAGE_KEY = 'eurorack-cables-full-opacity';
 const CABLE_DRAG_THRESHOLD_PX = 4;
 
@@ -71,7 +71,8 @@ function createUserPatch(name, rawPatch) {
         name: patchName,
         factory: false,
         created,
-        state: normalizePatch(rawPatch?.state || rawPatch)
+        state: normalizePatch(rawPatch?.state || rawPatch),
+        ...(rawPatch?.provenance ? { provenance: { ...rawPatch.provenance, verified: false } } : {})
     };
 }
 
@@ -85,7 +86,8 @@ function createCanonicalPatch(name, rawPatchOrState, {
         name: patchName,
         factory,
         created: created || rawPatch?.created || new Date().toISOString(),
-        state: normalizePatch(rawPatch?.state || rawPatch)
+        state: normalizePatch(rawPatch?.state || rawPatch),
+        ...(rawPatch?.provenance ? { provenance: { ...rawPatch.provenance, verified: false } } : {})
     };
 }
 
@@ -127,7 +129,7 @@ function parsePatchCollection(collection) {
     const names = [];
     entries.forEach(([key, rawPatch]) => {
         const patch = createUserPatch(rawPatch.name || key, rawPatch);
-        patches[patch.name] = patch;
+        Object.defineProperty(patches, patch.name, { value: patch, enumerable: true, writable: true, configurable: true });
         names.push(patch.name);
     });
 
@@ -137,7 +139,7 @@ function parsePatchCollection(collection) {
 export function createPatchExport(patch, {
     exportedAt = new Date().toISOString()
 } = {}) {
-    const canonicalPatch = createCanonicalPatch(patch?.name || 'Untitled Patch', patch, {
+    const canonicalPatch = createCanonicalPatch(patch?.name || 'Untitled', patch, {
         factory: patch?.factory === true,
         created: patch?.created
     });
@@ -199,12 +201,14 @@ export class EurorackApp {
         this.themeMode = 'light';
         this.cablesFullOpacity = true;
         this.patchWorkbench = null;
+        this.patchLibrary = null;
+        this.localPatches = new LocalPatchStore();
     }
 
     async init() {
         await this.host.init();
         this.cacheElements();
-        this.applySavedSkin();
+        this.applySkin();
         this.applySavedCableOpacity();
         this.populateSidebar();
         this.host.subscribe(event => {
@@ -214,9 +218,16 @@ export class EurorackApp {
         // MIDI permission can remain pending until the browser/user resolves it.
         // Rack startup and client-side tools must not wait on that external prompt.
         void this.initMidi().catch(error => console.error('Failed to initialize MIDI:', error));
-        this.cleanUserPatches();
         this.initPatchBank();
-        await this.loadPatchFromUrlHash();
+        const recovered = await this.patchLibrary?.restoreDraft();
+        if (!recovered) {
+            if (this.patchLibrary) await this.patchLibrary.run(() => {
+                const location = parsePatchLocation(window.location.hash, window.location.pathname);
+                if (location?.source === 'cloud' || location?.source === 'local') { void this.patchLibrary.run(() => this.patchLibrary.loadLocation()); return; }
+                return this.loadPatchFromUrlHash();
+            });
+            else await this.loadPatchFromUrlHash();
+        }
         this.patchWorkbench = createPatchWorkbench({
             app: this,
             document: this.document,
@@ -229,8 +240,6 @@ export class EurorackApp {
         this.cableSvg = this.document.getElementById('cable-svg');
         this.rackContainer = this.document.getElementById('rack-container');
         this.startButton = this.document.getElementById('startButton');
-        this.themeSelect = this.document.getElementById('themeSelect');
-        this.themeModeToggle = this.document.getElementById('themeModeToggle');
         this.cableOpacityToggle = this.document.getElementById('cableOpacityToggle');
         this.syncRowElements();
     }
@@ -377,42 +386,24 @@ export class EurorackApp {
 
         this.startButton.addEventListener('click', () => { void this.toggleAudio(); });
         this.document.getElementById('clearCables').addEventListener('click', () => this.clearAllCables());
-        this.document.getElementById('copyPatch').addEventListener('click', () => this.copyPatchToClipboard());
         this.document.getElementById('sharePatch')?.addEventListener('click', () => this.sharePatchUrl());
-        this.document.getElementById('exportPatch')?.addEventListener('click', () => this.exportCurrentPatchToFile());
-        this.document.getElementById('importPatch')?.addEventListener('click', () => {
-            this.document.getElementById('patchFileInput')?.click();
-        });
-        this.document.getElementById('patchFileInput')?.addEventListener('change', event => {
-            const file = event.target.files?.[0];
-            if (file) this.importPatchFile(file);
-            event.target.value = '';
-        });
         this.document.getElementById('midiLearnBtn').addEventListener('click', () => this.toggleMidiLearnMode());
-        this.document.getElementById('midiControllerBtn').addEventListener('click', () => this.openMidiTool('midi-controller.html'));
-        this.document.getElementById('midiDrumControllerBtn').addEventListener('click', () => this.openMidiTool('midi-drum-controller.html'));
-        this.themeSelect?.addEventListener('change', event => this.setTheme(event.target.value));
-        this.themeModeToggle?.addEventListener('click', () => this.toggleThemeMode());
+        this.document.getElementById('midiControllerBtn').addEventListener('click', () => this.openMidiTool('/midi-controller.html'));
+        this.document.getElementById('midiDrumControllerBtn').addEventListener('click', () => this.openMidiTool('/midi-drum-controller.html'));
         this.cableOpacityToggle?.addEventListener('click', () => this.toggleCableOpacity());
         this.document.getElementById('addRackRow')?.addEventListener('click', () => this.addRackRow());
         this.document.getElementById('removeRackRow')?.addEventListener('click', () => this.removeRackRow());
     }
 
-    applySavedSkin() {
-        let savedTheme = 'industrial';
-        let savedMode = 'light';
+    applySkin() {
+        this.document.body.classList.remove('theme-classic', 'theme-dark');
+        this.document.body.classList.add('theme-industrial', 'theme-light', 'skin-factory');
         try {
-            savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || '';
-            savedMode = localStorage.getItem(THEME_MODE_STORAGE_KEY) || 'light';
-            if (!savedTheme) {
-                savedTheme = 'industrial';
-            }
+            localStorage.removeItem('eurorack-theme');
+            localStorage.removeItem('eurorack-theme-mode');
         } catch {
-            savedTheme = 'industrial';
-            savedMode = 'light';
+            // Retired preferences never affect the fixed Industrial Light appearance.
         }
-        this.setTheme(savedTheme, { persist: false, render: false });
-        this.setThemeMode(savedMode, { persist: false });
     }
 
     applySavedCableOpacity() {
@@ -444,51 +435,6 @@ export class EurorackApp {
 
     toggleCableOpacity() {
         this.setCableOpacity(!this.cablesFullOpacity);
-    }
-
-    setTheme(theme, { persist = true, render = true } = {}) {
-        this.theme = theme === 'classic' ? 'classic' : 'industrial';
-        this.document.body.classList.toggle('theme-industrial', this.theme === 'industrial');
-        this.document.body.classList.toggle('theme-classic', this.theme === 'classic');
-        this.document.body.classList.toggle('skin-factory', this.theme === 'industrial');
-        if (this.themeSelect) {
-            this.themeSelect.value = this.theme;
-        }
-        if (persist) {
-            try {
-                localStorage.setItem(THEME_STORAGE_KEY, this.theme);
-            } catch {
-                // Ignore storage failures; the theme still applies for this session.
-            }
-        }
-        if (render) this.renderAllCables();
-    }
-
-    setThemeMode(mode, { persist = true } = {}) {
-        this.themeMode = mode === 'dark' ? 'dark' : 'light';
-        this.document.body.classList.toggle('theme-dark', this.themeMode === 'dark');
-        this.document.body.classList.toggle('theme-light', this.themeMode === 'light');
-        if (this.themeModeToggle) {
-            this.themeModeToggle.classList.toggle('active', this.themeMode === 'dark');
-            this.themeModeToggle.textContent = this.themeMode === 'dark' ? 'Dark: On' : 'Dark: Off';
-            this.themeModeToggle.setAttribute('aria-pressed', this.themeMode === 'dark' ? 'true' : 'false');
-        }
-        if (persist) {
-            try {
-                localStorage.setItem(THEME_MODE_STORAGE_KEY, this.themeMode);
-            } catch {
-                // Ignore storage failures; the theme mode still applies for this session.
-            }
-        }
-        this.renderAllCables();
-    }
-
-    toggleThemeMode() {
-        this.setThemeMode(this.themeMode === 'dark' ? 'light' : 'dark');
-    }
-
-    toggleSkin() {
-        this.setTheme(this.theme === 'industrial' ? 'classic' : 'industrial');
     }
 
     markEmptyRows() {
@@ -1025,65 +971,27 @@ export class EurorackApp {
     }
 
     getUserPatches() {
-        try {
-            return JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY) || '{}');
-        } catch {
-            return {};
-        }
+        return this.localPatches.read();
     }
 
     saveUserPatches(patches) {
-        const canonicalPatches = normalizePatchCollection(patches);
-        localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(canonicalPatches));
+        // Preserve unavailable records and local provenance outside the strict v3 state.
+        this.localPatches.write(patches);
     }
 
     cleanUserPatches() {
-        const current = this.getUserPatches();
-        const cleaned = {};
-        let changed = false;
-
-        Object.entries(current).forEach(([name, patch]) => {
-            try {
-                cleaned[name] = normalizePatchCollection({ [name]: patch })[name];
-            } catch {
-                changed = true;
-            }
-        });
-
-        if (changed) {
-            localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(cleaned));
-        }
+        // Older versions deleted unsupported entries here. Keep them available for export.
+        return this.getUserPatches();
     }
 
     getPatchList() {
-        return { ...FACTORY_PATCHES, ...this.getUserPatches() };
+        return { ...TEST_PATCHES, ...this.getUserPatches() };
     }
 
     initPatchBank() {
-        this.updatePatchSelect();
-
-        this.document.getElementById('savePatch').addEventListener('click', async () => {
-            const input = this.document.getElementById('patchName');
-            if (await this.savePatch(input.value)) {
-                this.document.getElementById('patchSelect').value = input.value.trim();
-                input.value = '';
-            }
-        });
-        this.document.getElementById('loadPatch').addEventListener('click', async () => {
-            const select = this.document.getElementById('patchSelect');
-            if (select.value) await this.loadPatch(select.value);
-        });
-        this.document.getElementById('deletePatch').addEventListener('click', () => {
-            const select = this.document.getElementById('patchSelect');
-            if (select.value) this.deletePatch(select.value);
-        });
-        this.document.getElementById('patchName').addEventListener('keypress', event => {
-            if (event.key === 'Enter') this.document.getElementById('savePatch').click();
-        });
-        this.document.getElementById('patchSelect').addEventListener('dblclick', async () => {
-            const select = this.document.getElementById('patchSelect');
-            if (select.value) await this.loadPatch(select.value);
-        });
+        if (this.document.getElementById('patchLibrary')) {
+            this.patchLibrary = new PatchLibrary({ app: this, local: this.localPatches }).init();
+        }
     }
 
     getPatchUrlOptions() {
@@ -1094,26 +1002,18 @@ export class EurorackApp {
     }
 
     async savePatch(name) {
-        if (!name?.trim()) {
-            alert('Please enter a patch name');
-            return false;
-        }
-        const patches = this.getUserPatches();
-        const patchName = name.trim();
-        const patch = createCanonicalPatch(patchName, this.host.serializePatch());
-        patches[patchName] = patch;
-        this.saveUserPatches(patches);
-        this.updatePatchSelect();
+        if (!name?.trim()) { alert('Please enter a patch name'); return false; }
         try {
-            await this.updatePatchUrl(patch);
-        } catch (error) {
-            alert(`Failed to update share URL: ${error.message}`);
-            return false;
-        }
-        return true;
+            const state = this.host.serializePatch();
+            const saved = this.localPatches.save({ name, state }, { key: name.trim() });
+            this.patchLibrary?.setActive(saved, JSON.stringify(state));
+            this.updatePatchSelect();
+            return true;
+        } catch (error) { alert(`Failed to save patch: ${error.message}`); return false; }
     }
 
-    async loadPatchState(patchState) {
+    async loadPatchState(patchState, { managed = false } = {}) {
+        if (this.patchLibrary && !managed) return this.patchLibrary.replaceState(patchState);
         const normalized = normalizePatch(patchState, { registry: pluginRegistry });
         try {
             await this.host.loadPatch(normalized);
@@ -1126,61 +1026,28 @@ export class EurorackApp {
     }
 
     async loadPatch(name) {
-        const patch = this.getPatchList()[name];
-        if (!patch) {
-            alert('Patch not found');
-            return false;
-        }
-        const normalized = normalizePatch(patch);
-        const loaded = await this.loadPatchState(normalized);
-        if (loaded) {
-            try {
-                await this.updatePatchUrl({
-                    name: patch.name || name,
-                    factory: false,
-                    state: normalized
-                });
-            } catch (error) {
-                alert(`Failed to update share URL: ${error.message}`);
-                return false;
-            }
-        }
+        const local = this.getUserPatches();
+        const localPatch = Object.hasOwn(local, name) ? local[name] : null;
+        const patch = localPatch || (Object.hasOwn(TEST_PATCHES, name) ? TEST_PATCHES[name] : null);
+        if (!patch) { alert('Patch not found'); return false; }
+        if (this.patchLibrary) return this.patchLibrary.open({ ...patch, source: localPatch ? 'local' : 'test', key: name, canEdit: !!localPatch });
+        const loaded = await this.loadPatchState(normalizePatch(patch));
+        const input = this.document.getElementById('patchName'); if (input) input.value = patch.name || name;
         return loaded;
     }
 
     deletePatch(name) {
-        if (FACTORY_PATCHES[name]) {
-            alert('Cannot delete factory patches');
-            return false;
-        }
         const patches = this.getUserPatches();
-        if (!patches[name]) return false;
+        if (!Object.hasOwn(patches, name)) return false;
         if (!confirm(`Delete patch "${name}"?`)) return false;
-        delete patches[name];
-        this.saveUserPatches(patches);
+        this.localPatches.remove(name);
         this.updatePatchSelect();
         return true;
     }
 
     updatePatchSelect() {
-        const select = this.document.getElementById('patchSelect');
-        while (select.children.length > 1) select.removeChild(select.lastChild);
-
-        const addGroup = (label, names) => {
-            if (!names.length) return;
-            const group = this.document.createElement('optgroup');
-            group.label = label;
-            names.forEach(name => {
-                const option = this.document.createElement('option');
-                option.value = name;
-                option.textContent = name;
-                group.appendChild(option);
-            });
-            select.appendChild(group);
-        };
-
-        addGroup('Factory Patches', Object.keys(FACTORY_PATCHES).sort());
-        addGroup('My Patches', Object.keys(this.getUserPatches()).sort());
+        // Public method retained for JSON import callers; the library owns presentation.
+        if (this.patchLibrary?.view !== 'rack') this.patchLibrary?.render();
     }
 
     async updatePatchUrl(patch) {
@@ -1201,36 +1068,32 @@ export class EurorackApp {
 
         let patch;
         try {
+            if (parsePatchLocation(win.location.hash, win.location.pathname)?.source === 'cloud') return this.patchLibrary?.loadLocation() || false;
             patch = await parsePatchUrlHash(win.location.hash, this.getPatchUrlOptions());
         } catch (error) {
-            alert(`Failed to load shared patch URL: ${error.message}`);
+            alert(`Could not open this patch: ${error.message}`);
             return false;
         }
 
         if (!patch) return false;
         const loaded = await this.loadPatchState(patch.state);
         const input = this.document.getElementById('patchName');
-        const select = this.document.getElementById('patchSelect');
+        if (!loaded) return false;
         if (input) input.value = patch.name;
-        if (select) select.value = '';
+        this.patchLibrary?.setActive({ source: 'snapshot', name: patch.name, state: patch.state });
         return loaded;
     }
 
     copyPatchToClipboard() {
         const json = JSON.stringify(this.host.serializePatch(), null, 4);
-        navigator.clipboard.writeText(json).then(() => {
-            const btn = this.document.getElementById('copyPatch');
-            const oldText = btn.textContent;
-            btn.textContent = 'Copied!';
-            setTimeout(() => { btn.textContent = oldText; }, 1500);
-        }).catch(() => alert('Failed to copy to clipboard'));
+        return this.writeClipboardText(json).catch(() => alert('Failed to copy to clipboard'));
     }
 
     async getPatchUrl(patch) {
         const win = this.document.defaultView || (typeof window !== 'undefined' ? window : null);
         if (!win?.location) return '';
 
-        const nextUrl = new URL(win.location.href);
+        const nextUrl = new URL('/', win.location.href);
         nextUrl.hash = await createPatchUrlHash(patch, this.getPatchUrlOptions());
         return nextUrl.toString();
     }
@@ -1252,7 +1115,7 @@ export class EurorackApp {
             await this.updatePatchUrl(patch);
             url = await this.getPatchUrl(patch);
         } catch (error) {
-            alert(`Failed to create share URL: ${error.message}`);
+            alert(`Could not create a link: ${error.message}`);
             return false;
         }
 
@@ -1260,24 +1123,23 @@ export class EurorackApp {
             const btn = this.document.getElementById('sharePatch');
             if (!btn) return true;
             const oldText = btn.textContent;
-            btn.textContent = 'Copied!';
+            btn.textContent = 'Link copied.';
             setTimeout(() => { btn.textContent = oldText; }, 1500);
             return true;
         }).catch(() => {
-            alert('Failed to copy share URL');
+            alert('Could not copy the link. Try again.');
             return false;
         });
     }
 
     getCurrentPatchName() {
         const inputName = this.document.getElementById('patchName')?.value;
-        const selectedName = this.document.getElementById('patchSelect')?.value;
-        return normalizePatchName(inputName || selectedName || 'Untitled Patch');
+        return normalizePatchName(inputName || this.patchLibrary?.active?.name || 'Untitled');
     }
 
     exportCurrentPatchToFile() {
         const name = this.getCurrentPatchName();
-        const patch = createCanonicalPatch(name, this.host.serializePatch());
+        const patch = createCanonicalPatch(name, { state: this.host.serializePatch(), provenance: this.patchLibrary?.active?.provenance });
         const json = JSON.stringify(createPatchExport(patch), null, 2);
         const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -1308,16 +1170,15 @@ export class EurorackApp {
 
             if (imported.type === 'single') {
                 const patch = imported.patches[imported.names[0]];
-                await this.loadPatchState(patch.state);
-                await this.updatePatchUrl(patch);
+                const loaded = await this.loadPatchState(patch.state);
+                if (!loaded) return { importedCount: 0, cancelled: true };
+                this.patchLibrary?.setActive({ ...patch, source: 'local', key: patch.name, canEdit: true });
+                const input = this.document.getElementById('patchName'); if (input) input.value = patch.name;
             }
 
             const patches = { ...this.getUserPatches(), ...imported.patches };
             this.saveUserPatches(patches);
             this.updatePatchSelect();
-
-            const select = this.document.getElementById('patchSelect');
-            if (select) select.value = '';
 
             return {
                 importedCount: imported.names.length,

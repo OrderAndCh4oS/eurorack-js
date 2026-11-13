@@ -1,32 +1,31 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import {
-    applyMidiToolTheme,
-    readMidiToolTheme,
-    THEME_MODE_STORAGE_KEY,
-    THEME_STORAGE_KEY
-} from '../../src/js/app/midi-tool-theme.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { applyMidiToolTheme } from '../../src/js/app/midi-tool-theme.js';
 
-describe('MIDI tool theme synchronization', () => {
+describe('MIDI tool fixed Industrial Light appearance', () => {
     afterEach(() => {
+        vi.restoreAllMocks();
         document.documentElement.className = '';
         localStorage.clear();
     });
 
     it('uses the app industrial light defaults', () => {
-        expect(readMidiToolTheme()).toEqual({ theme: 'industrial', mode: 'light' });
+        expect(applyMidiToolTheme()).toEqual({ theme: 'industrial', mode: 'light' });
     });
 
-    it('applies the saved classic dark theme', () => {
-        localStorage.setItem(THEME_STORAGE_KEY, 'classic');
-        localStorage.setItem(THEME_MODE_STORAGE_KEY, 'dark');
+    it('removes retired classic and dark preferences', () => {
+        document.documentElement.className = 'theme-classic theme-dark';
+        localStorage.setItem('eurorack-theme', 'classic');
+        localStorage.setItem('eurorack-theme-mode', 'dark');
 
-        expect(applyMidiToolTheme()).toEqual({ theme: 'classic', mode: 'dark' });
-        expect(document.documentElement.classList.contains('theme-classic')).toBe(true);
-        expect(document.documentElement.classList.contains('theme-dark')).toBe(true);
+        expect(applyMidiToolTheme()).toEqual({ theme: 'industrial', mode: 'light' });
+        expect(document.documentElement.className).toBe('theme-industrial theme-light');
+        expect(localStorage.getItem('eurorack-theme')).toBeNull();
+        expect(localStorage.getItem('eurorack-theme-mode')).toBeNull();
     });
 
-    it('falls back when storage access fails', () => {
-        const storage = { getItem() { throw new Error('blocked'); } };
-        expect(readMidiToolTheme(storage)).toEqual({ theme: 'industrial', mode: 'light' });
+    it('still applies Industrial Light when storage access fails', () => {
+        vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('blocked'); });
+        expect(applyMidiToolTheme()).toEqual({ theme: 'industrial', mode: 'light' });
+        expect(document.documentElement.className).toBe('theme-industrial theme-light');
     });
 });

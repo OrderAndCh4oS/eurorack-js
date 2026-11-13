@@ -1,0 +1,367 @@
+{
+  "name": "Afterimage",
+  "factory": false,
+  "state": {
+    "version": 3,
+    "plugins": {
+      "core": 1
+    },
+    "modules": [
+      {
+        "id": "pulse",
+        "type": "clk",
+        "row": 1,
+        "index": 0
+      },
+      {
+        "id": "bars",
+        "type": "div",
+        "row": 1,
+        "index": 1
+      },
+      {
+        "id": "melody",
+        "type": "seq",
+        "row": 1,
+        "index": 2
+      },
+      {
+        "id": "gaps",
+        "type": "prob-seq",
+        "row": 1,
+        "index": 3
+      },
+      {
+        "id": "hold",
+        "type": "sh",
+        "row": 1,
+        "index": 4
+      },
+      {
+        "id": "glass",
+        "type": "pluck",
+        "row": 1,
+        "index": 5
+      },
+      {
+        "id": "drift",
+        "type": "ochd",
+        "row": 1,
+        "index": 6
+      },
+      {
+        "id": "depth",
+        "type": "atten",
+        "row": 1,
+        "index": 7
+      },
+      {
+        "id": "roots",
+        "type": "seq",
+        "row": 2,
+        "index": 0
+      },
+      {
+        "id": "bass",
+        "type": "pluck",
+        "row": 2,
+        "index": 1
+      },
+      {
+        "id": "echo",
+        "type": "tape",
+        "row": 2,
+        "index": 2
+      },
+      {
+        "id": "balance",
+        "type": "mix",
+        "row": 2,
+        "index": 3
+      },
+      {
+        "id": "space",
+        "type": "verb",
+        "row": 2,
+        "index": 4
+      },
+      {
+        "id": "lift",
+        "type": "comp",
+        "row": 2,
+        "index": 5
+      },
+      {
+        "id": "output",
+        "type": "out",
+        "row": 2,
+        "index": 6
+      }
+    ],
+    "params": {
+      "pulse": {
+        "rate": 0.301
+      },
+      "bars": {
+        "rate1": 0.063,
+        "rate2": 0.313
+      },
+      "melody": {
+        "length": 7,
+        "step1": 0.375,
+        "step2": 0.083,
+        "step3": 0.375,
+        "step4": 0.5,
+        "step5": 0.667,
+        "step6": 0.708,
+        "step7": 0.667
+      },
+      "gaps": {
+        "seed": 17429,
+        "fallbackBpm": 192,
+        "steps": [
+          {
+            "enabled": 1,
+            "probability": 100,
+            "ratchets": 1,
+            "condition": 0
+          },
+          {
+            "enabled": 1,
+            "probability": 80,
+            "ratchets": 1,
+            "condition": 0
+          },
+          {
+            "enabled": 1,
+            "probability": 100,
+            "ratchets": 1,
+            "condition": 0
+          },
+          {
+            "enabled": 1,
+            "probability": 55,
+            "ratchets": 1,
+            "condition": 0
+          },
+          {
+            "enabled": 1,
+            "probability": 100,
+            "ratchets": 1,
+            "condition": 0
+          },
+          {
+            "enabled": 1,
+            "probability": 75,
+            "ratchets": 1,
+            "condition": 0
+          },
+          {
+            "enabled": 1,
+            "probability": 100,
+            "ratchets": 1,
+            "condition": 0
+          },
+          {
+            "enabled": 1,
+            "probability": 40,
+            "ratchets": 1,
+            "condition": 0
+          }
+        ]
+      },
+      "glass": {
+        "pitch": 0.45,
+        "decay": 0.64,
+        "damp": 0.58,
+        "position": 0.3
+      },
+      "roots": {
+        "length": 4,
+        "range": 0,
+        "step1": 0.25,
+        "step2": 0.417,
+        "step3": 0.083,
+        "step4": 0.667
+      },
+      "bass": {
+        "pitch": 0,
+        "decay": 0.78,
+        "damp": 0.48,
+        "position": 0.43
+      },
+      "drift": {
+        "rate": 0.22,
+        "rateCvAmt": 0
+      },
+      "depth": {
+        "atten1": 0.54,
+        "atten2": 0.52
+      },
+      "echo": {
+        "time": 0.572,
+        "feedback": 0.44,
+        "mix": 0.34,
+        "drive": 0.12,
+        "age": 0.55,
+        "lowCut": 0.35,
+        "wow": 0.08,
+        "crinkle": 0.02,
+        "headMode": 0
+      },
+      "balance": {
+        "lvl1": 0.66,
+        "lvl2": 0.52,
+        "lvl3": 0,
+        "lvl4": 0
+      },
+      "space": {
+        "time": 0.68,
+        "damp": 0.58,
+        "mix": 0.28
+      },
+      "lift": {
+        "ratio": 0,
+        "makeup": 0.95
+      },
+      "output": {
+        "volume": 0.85
+      }
+    },
+    "cables": [
+      {
+        "fromModule": "pulse",
+        "fromPort": "clock",
+        "toModule": "bars",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "pulse",
+        "fromPort": "clock",
+        "toModule": "melody",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "pulse",
+        "fromPort": "clock",
+        "toModule": "gaps",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "melody",
+        "fromPort": "cv",
+        "toModule": "hold",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "gaps",
+        "fromPort": "gate",
+        "toModule": "hold",
+        "toPort": "trig1"
+      },
+      {
+        "fromModule": "gaps",
+        "fromPort": "gate",
+        "toModule": "glass",
+        "toPort": "trigger"
+      },
+      {
+        "fromModule": "hold",
+        "fromPort": "out1",
+        "toModule": "glass",
+        "toPort": "vOct"
+      },
+      {
+        "fromModule": "bars",
+        "fromPort": "out1",
+        "toModule": "roots",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "roots",
+        "fromPort": "cv",
+        "toModule": "bass",
+        "toPort": "vOct"
+      },
+      {
+        "fromModule": "roots",
+        "fromPort": "gate",
+        "toModule": "bass",
+        "toPort": "trigger"
+      },
+      {
+        "fromModule": "drift",
+        "fromPort": "out4",
+        "toModule": "depth",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "drift",
+        "fromPort": "out6",
+        "toModule": "depth",
+        "toPort": "in2"
+      },
+      {
+        "fromModule": "depth",
+        "fromPort": "out1",
+        "toModule": "glass",
+        "toPort": "positionCV"
+      },
+      {
+        "fromModule": "depth",
+        "fromPort": "out2",
+        "toModule": "glass",
+        "toPort": "dampCV"
+      },
+      {
+        "fromModule": "glass",
+        "fromPort": "out",
+        "toModule": "echo",
+        "toPort": "audio"
+      },
+      {
+        "fromModule": "echo",
+        "fromPort": "out",
+        "toModule": "balance",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "bass",
+        "fromPort": "out",
+        "toModule": "balance",
+        "toPort": "in2"
+      },
+      {
+        "fromModule": "balance",
+        "fromPort": "out",
+        "toModule": "space",
+        "toPort": "audioL"
+      },
+      {
+        "fromModule": "space",
+        "fromPort": "outL",
+        "toModule": "lift",
+        "toPort": "inL"
+      },
+      {
+        "fromModule": "space",
+        "fromPort": "outR",
+        "toModule": "lift",
+        "toPort": "inR"
+      },
+      {
+        "fromModule": "lift",
+        "fromPort": "outL",
+        "toModule": "output",
+        "toPort": "L"
+      },
+      {
+        "fromModule": "lift",
+        "fromPort": "outR",
+        "toModule": "output",
+        "toPort": "R"
+      }
+    ],
+    "midiMappings": {}
+  }
+}

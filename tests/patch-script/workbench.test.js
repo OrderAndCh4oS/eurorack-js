@@ -141,6 +141,19 @@ describe('PatchWorkbench', () => {
         workbench.dispose();
     });
 
+    it('does not report success or replace the applied fingerprint when rack replacement is cancelled', async () => {
+        const { workbench, app } = createWorkbench();
+        workbench.editor.value = `patch().module('vco', 'osc')`;
+        workbench.lastAppliedFingerprint = 'previous rack';
+        app.loadPatchState.mockResolvedValue(false);
+
+        expect(await workbench.apply()).toBe(false);
+        expect(workbench.lastAppliedFingerprint).toBe('previous rack');
+        expect(workbench.status.textContent).not.toContain('Applied atomically');
+        expect(app.host.serializePatch().modules).toHaveLength(0);
+        workbench.dispose();
+    });
+
     it('renders contextual completion and accepts it with Tab', () => {
         const { workbench } = createWorkbench();
         workbench.editor.value = `patch().module('vco', 'osc').connect('osc.ra`;

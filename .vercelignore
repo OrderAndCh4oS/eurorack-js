@@ -1,0 +1,15 @@
+.env*
+.git/
+.codex/
+.agents/
+.worktrees/
+.workspaces/
+.idea/
+.astro/
+node_modules/
+dist/
+test-results/
+playwright-report/
+tests/
+research/
+archive/

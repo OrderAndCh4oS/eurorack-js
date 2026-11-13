@@ -381,7 +381,7 @@ export class PatchWorkbench {
         const compiled = await this.validate();
         if (!compiled) return false;
         try {
-            await this.app.loadPatchState(compiled.patch);
+            if (await this.app.loadPatchState(compiled.patch) === false) return false;
             this.lastAppliedFingerprint = patchFingerprint(this.app.host.serializePatch());
             this.setStatus('Applied atomically', 'success');
             this.log('success', 'Patch applied and topology acknowledged');

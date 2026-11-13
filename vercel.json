@@ -1,0 +1,24 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node scripts/vercel-build.mjs",
+  "outputDirectory": "dist",
+  "framework": null,
+  "headers": [
+    { "source": "/patch-previews/:path*", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
+  ],
+  "functions": { "api/index.js": { "maxDuration": 30, "includeFiles": "src/{index.html,js/modules/**}" } },
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api?__path=/api/:path*" },
+    { "source": "/patches/:id/images/:previewId/:variant", "destination": "/api?__path=/patches/:id/images/:previewId/:variant" },
+    { "source": "/patches/:id", "destination": "/api?__path=/patches/:id" },
+    { "source": "/patches", "destination": "/index.html" },
+    { "source": "/privacy-policy", "destination": "/privacy-policy.html" },
+    { "source": "/terms-of-service", "destination": "/terms-of-service.html" }
+  ],
+  "redirects": [
+    { "source": "/:path*", "has": [{ "type": "host", "value": "eurorack-js.vercel.app" }], "destination": "https://eurorackjs.orderandchaos.xyz/:path*", "permanent": true },
+    { "source": "/patches/", "destination": "/patches", "permanent": true },
+    { "source": "/privacy", "destination": "/privacy-policy", "permanent": true },
+    { "source": "/terms", "destination": "/terms-of-service", "permanent": true }
+  ]
+}

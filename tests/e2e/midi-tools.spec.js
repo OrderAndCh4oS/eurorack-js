@@ -6,7 +6,7 @@ const tools = [
 ];
 
 for (const tool of tools) {
-    test(`${tool.title} follows the saved theme and fits mobile`, async ({ page }) => {
+    test(`${tool.title} ignores retired themes and fits mobile`, async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });
         await page.addInitScript(() => {
             localStorage.setItem('eurorack-theme', 'classic');
@@ -15,8 +15,8 @@ for (const tool of tools) {
 
         await page.goto(tool.path);
 
-        await expect(page.locator('html')).toHaveClass(/theme-classic/);
-        await expect(page.locator('html')).toHaveClass(/theme-dark/);
+        await expect(page.locator('html')).toHaveClass('theme-industrial theme-light');
+        expect(await page.evaluate(() => [localStorage.getItem('eurorack-theme'), localStorage.getItem('eurorack-theme-mode')])).toEqual([null, null]);
         await expect(page.getByRole('heading', { level: 1, name: tool.title })).toBeVisible();
         await expect(page.locator('.controller-grid')).toBeVisible();
         expect(await page.evaluate(() => document.body.scrollWidth)).toBeLessThanOrEqual(390);

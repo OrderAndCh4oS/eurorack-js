@@ -1,3 +1,4 @@
+import { openTestPatch, openArchivedPatch } from './patch-library-helpers.js';
 import { expect, test } from '@playwright/test';
 
 test.describe.configure({ mode: 'serial' });
@@ -9,8 +10,7 @@ test('runs the custom-module patch and switches topology while audio is active',
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
 
-    await page.locator('#patchSelect').selectOption('Test - Custom Modules');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Custom Modules');
     await page.waitForFunction(() => window.eurorackApp.state.getModule('scope'));
 
     await page.locator('#startButton').click();
@@ -38,8 +38,7 @@ test('runs the custom-module patch and switches topology while audio is active',
     expect(scopeHistory.displaySize).toBeGreaterThanOrEqual(scopeHistory.samplesPerScreen);
 
     const revision = await page.evaluate(() => window.eurorackApp.host.engine.revision);
-    await page.locator('#patchSelect').selectOption('Test - Chorus');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Chorus');
     await page.waitForFunction(previousRevision => (
         window.eurorackApp.state.getModule('chorus') &&
         window.eurorackApp.host.engine?.revision > previousRevision
@@ -56,8 +55,7 @@ test('runs the Refrain composition patch and delivers every transient action to 
 
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test - Refrain');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Refrain');
     await page.waitForFunction(() => window.eurorackApp.state.getModule('scope'));
 
     await page.locator('#startButton').click();
@@ -146,8 +144,7 @@ test('records and replays the CV Recorder test patch through the production work
 
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test - CV Recorder');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - CV Recorder');
     await page.waitForFunction(() => window.eurorackApp.state.getModule('recorder'));
     await page.locator('#startButton').click();
 
@@ -251,8 +248,7 @@ test('runs the Pitch Tracker audition and exposes valid pitch and gate activity'
 
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test - Pitch Tracker');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Pitch Tracker');
     await page.waitForFunction(() => window.eurorackApp.state.getModule('scope'));
     await page.locator('#startButton').click();
 
@@ -285,8 +281,7 @@ test('runs both Shimmer comparison routes with active wet and pitched tails', as
 
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test - Shimmer');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Shimmer');
     await page.waitForFunction(() => window.eurorackApp.state.getModule('regenSpectrum'));
     await page.locator('#startButton').click();
 
@@ -323,8 +318,7 @@ test('runs the Vocoder broadband patch and exposes its direct Sibilance path', a
 
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test - Vocoder');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Vocoder');
     await page.waitForFunction(() => window.eurorackApp.state.getModule('modMix'));
     await page.locator('#startButton').click();
 
@@ -368,8 +362,7 @@ test('runs Probability Sequencer with a Pluck tail beyond its trigger', async ({
 
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test - Probability Sequencer');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Probability Sequencer');
     await page.waitForFunction(() => window.eurorackApp.state.getModule('pluck'));
     await page.locator('#startButton').click();
 
@@ -392,14 +385,13 @@ test('runs Probability Sequencer with a Pluck tail beyond its trigger', async ({
     expect(pageErrors).toEqual([]);
 });
 
-test('themes Reset, Mutate, and Recall actions in every rack theme and mode', async ({ page }) => {
+test('styles Reset, Mutate, and Recall actions consistently in Industrial Light', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));
 
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test - Refrain');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Refrain');
     await page.waitForFunction(() => (
         window.eurorackApp.state.getModule('refrain') &&
         window.eurorackApp.state.getModule('changes') &&
@@ -412,89 +404,61 @@ test('themes Reset, Mutate, and Recall actions in every rack theme and mode', as
         '#module-refrain .action-btn[data-param="mutate"]',
         '#module-refrain .action-btn[data-param="recall"]'
     ];
-    const snapshots = {};
-
-    for (const theme of ['industrial', 'classic']) {
-        for (const mode of ['light', 'dark']) {
-            await page.evaluate(({ theme, mode }) => {
-                window.eurorackApp.setTheme(theme);
-                window.eurorackApp.setThemeMode(mode);
-            }, { theme, mode });
-            await page.waitForTimeout(120);
-
-            snapshots[`${theme}-${mode}`] = await page.evaluate(selectors => {
-                const buttons = selectors.map(selector => document.querySelector(selector));
-                const readStyle = button => {
-                    const style = getComputedStyle(button);
-                    return {
-                        backgroundColor: style.backgroundColor,
-                        backgroundImage: style.backgroundImage,
-                        borderColor: style.borderTopColor,
-                        borderRadius: style.borderTopLeftRadius,
-                        boxShadow: style.boxShadow,
-                        color: style.color,
-                        fontFamily: style.fontFamily,
-                        fontSize: style.fontSize,
-                        fontWeight: style.fontWeight,
-                        height: style.height,
-                        textTransform: style.textTransform,
-                        transform: style.transform
-                    };
-                };
-                const idle = buttons.map(readStyle);
-                buttons.forEach(button => {
-                    button.style.transition = 'none';
-                    button.classList.add('active');
-                });
-                void document.body.offsetHeight;
-                const active = buttons.map(readStyle);
-                buttons.forEach(button => {
-                    button.classList.remove('active');
-                    button.style.removeProperty('transition');
-                });
-                return {
-                    labels: buttons.map(button => button.textContent),
-                    idle,
-                    active
-                };
-            }, selectors);
-        }
-    }
-
-    Object.values(snapshots).forEach(snapshot => {
-        expect(snapshot.labels).toEqual(['Reset', 'Reset', 'Mutate', 'Recall']);
-        expect(new Set(snapshot.idle.map(style => JSON.stringify(style))).size).toBe(1);
-        snapshot.idle.forEach((style, index) => {
-            expect(style.fontSize).toBe('7px');
-            expect(style.textTransform).toBe('uppercase');
-            expect(style.transform).toBe('none');
-            expect(snapshot.active[index].transform).toBe('none');
-            expect(snapshot.active[index].backgroundColor).not.toBe(style.backgroundColor);
+    const snapshot = await page.evaluate(selectors => {
+        const buttons = selectors.map(selector => document.querySelector(selector));
+        const readStyle = button => {
+            const style = getComputedStyle(button);
+            return {
+                backgroundColor: style.backgroundColor,
+                backgroundImage: style.backgroundImage,
+                borderColor: style.borderTopColor,
+                borderRadius: style.borderTopLeftRadius,
+                boxShadow: style.boxShadow,
+                color: style.color,
+                fontFamily: style.fontFamily,
+                fontSize: style.fontSize,
+                fontWeight: style.fontWeight,
+                height: style.height,
+                textTransform: style.textTransform,
+                transform: style.transform
+            };
+        };
+        const idle = buttons.map(readStyle);
+        buttons.forEach(button => {
+            button.style.transition = 'none';
+            button.classList.add('active');
         });
+        void document.body.offsetHeight;
+        const active = buttons.map(readStyle);
+        buttons.forEach(button => {
+            button.classList.remove('active');
+            button.style.removeProperty('transition');
+        });
+        return {
+            labels: buttons.map(button => button.textContent),
+            idle,
+            active
+        };
+    }, selectors);
+
+    expect(snapshot.labels).toEqual(['Reset', 'Reset', 'Mutate', 'Recall']);
+    expect(new Set(snapshot.idle.map(style => JSON.stringify(style))).size).toBe(1);
+    snapshot.idle.forEach((style, index) => {
+        expect(style.fontSize).toBe('7px');
+        expect(style.textTransform).toBe('uppercase');
+        expect(style.transform).toBe('none');
+        expect(style.borderRadius).toBe('0px');
+        expect(style.height).toBe('18px');
+        expect(snapshot.active[index].transform).toBe('none');
+        expect(snapshot.active[index].backgroundColor).not.toBe(style.backgroundColor);
     });
-
-    expect(snapshots['industrial-light'].idle[0].borderRadius).toBe('0px');
-    expect(snapshots['industrial-dark'].idle[0].borderRadius).toBe('0px');
-    expect(snapshots['classic-light'].idle[0].borderRadius).toBe('3px');
-    expect(snapshots['classic-dark'].idle[0].borderRadius).toBe('3px');
-    expect(snapshots['industrial-light'].idle[0].height).toBe('18px');
-    expect(snapshots['classic-light'].idle[0].height).toBe('20px');
-
-    for (const theme of ['industrial', 'classic']) {
-        expect(
-            JSON.stringify(snapshots[`${theme}-light`].idle[0])
-        ).not.toBe(
-            JSON.stringify(snapshots[`${theme}-dark`].idle[0])
-        );
-    }
     expect(pageErrors).toEqual([]);
 });
 
 test('collects opt-in AudioWorklet profiling without module failures', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test - Chorus');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Chorus');
     await page.waitForFunction(() => window.eurorackApp.state.getModule('chorus'));
     await page.locator('#startButton').click();
     await expect(page.locator('#startButton')).toHaveClass(/active/);
@@ -527,17 +491,15 @@ test('loads compact and generative synth voice demos while audio is active', asy
 
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await expect(page.locator('#patchSelect option', { hasText: 'Demo - Synth Voice' })).toHaveCount(12);
+    await expect(page.locator('#patchSelect')).toHaveCount(0);
 
-    await page.locator('#patchSelect').selectOption('Demo - Synth Voice 01 - Subtractive');
-    await page.locator('#loadPatch').click();
+    await openArchivedPatch(page, 'Demo - Synth Voice 01 - Subtractive');
     await page.waitForFunction(() => window.eurorackApp.state.getModule('seq'));
     await page.locator('#startButton').click();
     await expect(page.locator('#startButton')).toHaveClass(/active/);
 
     const revision = await page.evaluate(() => window.eurorackApp.host.engine.revision);
-    await page.locator('#patchSelect').selectOption('Demo - Synth Voice 12 - Dynamic Generative');
-    await page.locator('#loadPatch').click();
+    await openArchivedPatch(page, 'Demo - Synth Voice 12 - Dynamic Generative');
     await page.waitForFunction(previousRevision => (
         window.eurorackApp.state.getModule('cycle') &&
         window.eurorackApp.state.getModule('waveVca') &&
@@ -555,8 +517,7 @@ test('runs the round-robin demo with audible alternating voice output', async ({
 
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Demo - Round Robin - Alternating Voices');
-    await page.locator('#loadPatch').click();
+    await openArchivedPatch(page, 'Demo - Round Robin - Alternating Voices');
     await page.waitForFunction(() => (
         window.eurorackApp.state.getModule('pitchRoute') &&
         window.eurorackApp.state.getModule('pitchHold') &&
@@ -589,8 +550,7 @@ test('fits the ensemble oscillator inside one module and runs its worklet DSP', 
 
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test - Ensemble VCO');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Ensemble VCO');
     await page.waitForFunction(() => window.eurorackApp.state.getModule('ensemble'));
 
     const bounds = await page.locator('#module-ensemble').evaluate(panel => {
@@ -620,8 +580,7 @@ test('fits every resonator bank socket inside its module and runs its worklet DS
 
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test - Resonator Bank');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Resonator Bank');
     await page.waitForFunction(() => window.eurorackApp.state.getModule('resbank'));
 
     const bounds = await page.locator('#module-resbank').evaluate(panel => {

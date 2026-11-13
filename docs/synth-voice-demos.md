@@ -1,6 +1,6 @@
 # Voice Demos
 
-The factory patch menu includes twelve numbered `Demo - Synth Voice` patches that explain reusable Eurorack signal-flow principles.
+The [musical patch archive](../archive/demo-patches/README.md) includes twelve numbered `Demo - Synth Voice` patches that explain reusable Eurorack signal-flow principles. Download and import the [JSON collection](../archive/demo-patches/patches.json) to add them to this browser. They are retained for later use outside the main patch catalogue; the dedicated **Test patches** view contains module and integration checks.
 
 These are learning demos, not isolated module test patches. Open them in order to build up the signal-flow model, or treat each as a starting point and move one cable at a time.
 

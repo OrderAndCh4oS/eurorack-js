@@ -6,9 +6,15 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 
 ![Evolving Drone Patch](screen-grab.png)
 
-## Learning Patches
+## Saving and sharing patches
 
-The factory patch menu includes a numbered **Demo - Synth Voice** series for reusable patching principles. See [Voice Demos](docs/synth-voice-demos.md) for expected sounds, listening exercises, source material, and deliberate software adaptations.
+**My patches** holds browser saves and signed-in account patches. Account patches can be private or public; **Public patches** offers rack images, thumbs-up and independent copies with original creator credit. Copies start private and require another Save before publishing. Saved `/patches/<ULID>` pages have social cards; **Copy snapshot link** still shares the current unsaved rack directly in the URL.
+
+Run `npm run dev` for the built app and local API. Account features require [cloud setup](docs/cloud-setup.md); browser saves, imports, exports and Test patches work without cloud credentials.
+
+## Test and Learning Patches
+
+Open **Test patches** to browse built-in module and integration patches with rack previews. Musical examples are retained in the [patch archive](archive/demo-patches/README.md), including the numbered **Demo - Synth Voice** series. Import the [archived JSON collection](archive/demo-patches/patches.json) when you want to use them. See [Voice Demos](docs/synth-voice-demos.md) for expected sounds, listening exercises, source material, and deliberate software adaptations.
 
 ## Modules
 
@@ -188,8 +194,9 @@ src/js/
 │   └── cable-manager.js  # Cable rendering & connections
 ├── config/
 │   ├── constants.js      # System constants
-│   ├── factory-patches.js # Aggregate factory patch export
-│   └── patches/           # Factory patch definitions
+│   ├── test-patches.js    # Test patches shown in the app
+│   ├── factory-patches.js # Complete regression/archive exports
+│   └── patches/           # Retained test and example source files
 ├── modules/              # Module definitions
 │   └── {moduleId}/
 │       └── index.js      # DSP + UI
@@ -316,10 +323,10 @@ npm test         # Run tests
 npm run test:e2e # Run Chromium AudioWorklet smoke tests
 npm run audit:dsp # Run deterministic DSP audit scenarios
 npm run audit:dsp -- --matrix --strict-voltage # Enforce every declared voltage contract
-python3 -m http.server 8000 --directory src
+npm run dev      # Build browser dependencies and start the app/API
 ```
 
-Open `http://localhost:8000`. AudioWorklet requires a supported browser and secure context; localhost qualifies for local development.
+Open `http://127.0.0.1:4176`. AudioWorklet requires a supported browser and secure context; localhost qualifies for local development.
 
 Use `npm run audit:dsp -- --matrix --strict-voltage` to cover 44.1, 48, and 96 kHz at 128- and 512-sample block sizes and fail on contract violations. See [the sound engineering audit](research/sound-engineering-review.md) for scope, limitations, and current priorities.
 

@@ -1,20 +1,17 @@
+import { openTestPatch, openArchivedPatch } from './patch-library-helpers.js';
 import { expect, test } from '@playwright/test';
 
-test('toggles cable opacity above the theme controls without changing connections', async ({ page }) => {
+test('toggles cable opacity beside Clear Cables without changing connections', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test - Chorus');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Chorus');
     await page.waitForFunction(() => window.eurorackApp.state.getModule('chorus'));
 
     const toggle = page.locator('#cableOpacityToggle');
-    const themeRow = page.locator('.footer-theme-row');
     const cables = page.locator('#cable-svg .cable');
     const before = await page.evaluate(() => structuredClone(window.eurorackApp.state.cables));
-    const toggleBox = await toggle.boundingBox();
-    const themeBox = await themeRow.boundingBox();
-
-    expect(toggleBox.y + toggleBox.height).toBeLessThanOrEqual(themeBox.y);
+    expect(await toggle.evaluate(element => element.previousElementSibling?.id)).toBe('clearCables');
+    await expect(page.locator('#toolbar #cableOpacityToggle')).toBeVisible();
     await expect(toggle).toHaveText('Cables: Full');
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
     await expect(cables.first()).toHaveCSS('opacity', '1');
@@ -72,8 +69,7 @@ test('toggles cable opacity above the theme controls without changing connection
 test('connected cable ends can be preserved, moved, and extended with Shift', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('#patchSelect').selectOption('Test - Chorus');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Chorus');
     await page.waitForFunction(() => window.eurorackApp.state.getModule('chorus'));
 
     const source = page.locator('.jack.input[data-module="chorus"][data-port="inL"]');
@@ -112,8 +108,7 @@ test('connected cable ends can be preserved, moved, and extended with Shift', as
         cable.fromModule === 'vco' && cable.toModule === 'chorus' && cable.toPort === 'inL'
     )))).toBe(false);
 
-    await page.locator('#patchSelect').selectOption('Test - Chorus');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Chorus');
     await expect.poll(() => page.evaluate(() => window.eurorackApp.state.cables.some(cable => (
         cable.fromModule === 'vco' && cable.toModule === 'chorus' && cable.toPort === 'inL'
     )))).toBe(true);
@@ -152,8 +147,7 @@ test('connected cable ends can be preserved, moved, and extended with Shift', as
     await page.locator('#startButton').click();
     await expect(page.locator('#startButton')).not.toHaveClass(/active/);
 
-    await page.locator('#patchSelect').selectOption('Test - Chorus');
-    await page.locator('#loadPatch').click();
+    await openTestPatch(page, 'Test - Chorus');
     await expect.poll(() => page.evaluate(() => window.eurorackApp.state.cables.some(cable => (
         cable.fromModule === 'vco' && cable.toModule === 'chorus' && cable.toPort === 'inL'
     )))).toBe(true);

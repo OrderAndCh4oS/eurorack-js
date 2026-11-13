@@ -58,8 +58,9 @@ src/js/
 │   ├── worklet-engine.js  # Main-thread worklet controller
 │   └── worklet/           # Audio-thread processor/plugin registry
 ├── config/
-│   ├── factory-patches.js # Aggregate factory patch export
-│   └── patches/           # Factory patch definitions
+│   ├── test-patches.js    # Dedicated Test patches view catalogue
+│   ├── factory-patches.js # Complete regression/archive exports
+│   └── patches/           # Retained test and example definitions
 └── patches/               # Patch serialization
 
 tests/dsp/{module}.test.js # Module tests
@@ -288,16 +289,18 @@ Port names are source-defined in each module's `ui.inputs[]` and `ui.outputs[]`.
 ### Adding a New Patch
 
 1. Create file: `src/js/config/patches/{name}.js`
-2. Import in `src/js/config/patches/index.js`
-3. Add to `FACTORY_PATCHES` export
-4. Run focused tests: `npm test -- tests/config/factory-patches.test.js tests/app/patch-format.test.js`
+2. For a module or integration test, import in `src/js/config/test-patches.js`
+3. Add to `TEST_PATCHES` for the dedicated Test patches view; the complete `FACTORY_PATCHES` regression aggregate includes it automatically
+4. Run focused tests: `npm test -- tests/config/patch-catalogs.test.js tests/config/factory-patches.test.js tests/app/patch-format.test.js`
+
+The app imports `TEST_PATCHES` directly. Retained musical demos, SFX, and drum compositions are exported separately as `ARCHIVED_DEMO_PATCHES` from `src/js/config/patches/index.js`, with an importable collection and source index in `archive/demo-patches/`. Keep them outside the main and Test patches views. Update the archive JSON whenever an archived source changes.
 
 ## Updating Patches
 
 When module specs change (renamed/removed params, inputs, outputs, switches):
 1. Search: `rg "moduleName|paramName|portName" src/js/config/patches tests`
 2. Update all `params` and `cables` references
-3. Update every factory patch and test fixture to the new contract; unsupported versions are rejected rather than migrated
+3. Update every test patch, archived source and JSON copy, and test fixture to the new contract; unsupported versions are rejected rather than migrated
 
 ## Troubleshooting
 

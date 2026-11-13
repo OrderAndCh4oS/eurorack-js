@@ -238,7 +238,7 @@ Modules marked `role: 'audio-output'` are worklet sinks. The processor routes th
 | Area | Responsibility |
 |---|---|
 | `src/js/app/app.js` | DOM orchestration, cable interaction, patch controls, MIDI setup, and audio start/stop UI |
-| `src/midi-*.html`, `src/midi-tools.css` | Standalone MIDI performance tools sharing the app's saved theme and light/dark mode |
+| `src/midi-*.html`, `src/midi-tools.css` | Standalone MIDI performance tools sharing the app's Industrial Light appearance |
 | `src/js/app/rack-host.js` | Authoritative module, parameter, cable, patch, runtime-state, and audio lifecycle API |
 | `src/js/app/rack-state.js` | Serializable modules, rows, params, cables, and MIDI mappings |
 | `src/js/app/patch-format.js` | Strict patch v3, dependency, parameter, and endpoint validation |
@@ -260,8 +260,10 @@ Modules marked `role: 'audio-output'` are worklet sinks. The processor routes th
 | `src/js/utils/fft.js` | Optional preallocated, calibrated real FFT analysis |
 | `src/js/utils/color.js` | Internal theme-token and fallback color handling |
 | `src/js/utils/nested-access.js` | Internal validated parameter/port path access with stable-buffer copying |
-| `src/js/config/patches/` | Individual factory patch definitions |
-| `src/js/config/patches/index.js` | Factory patch aggregation and display ordering |
+| `src/js/config/patches/` | Retained test and musical example source files |
+| `src/js/config/test-patches.js` | Standalone catalogue for the Test patches view; imports no archived examples |
+| `src/js/config/patches/index.js` | Archived musical examples and complete factory regression aggregate |
+| `archive/demo-patches/` | Importable JSON collection and source index for musical examples retained for later use |
 | `src/js/index.js` | Public host, plugin, contract, renderer, toolkit, and utility exports |
 | `tests/dsp/` | Focused module behavior and voltage-contract tests |
 | `tests/audio/` | Graph and AudioWorklet integration tests |
@@ -276,5 +278,6 @@ Modules marked `role: 'audio-output'` are worklet sinks. The processor routes th
 - **Change the patch schema or persistence**: edit `app/patch-format.js`, app import/export handling, and patch tests together.
 - **Change module panels**: edit the module's `ui`/`render` definition and shared renderer/toolkit only when the behavior is reusable.
 - **Add a DSP primitive**: add a focused utility with boundary tests, migrate only behaviorally equivalent call sites, export module-facing APIs from `src/js/index.js`, and update the module creation guide.
-- **Add a factory patch**: add one file under `config/patches/` and register it in that directory's `index.js`.
+- **Add a test patch**: add one file under `config/patches/` and register it in `config/test-patches.js` for the Test patches view and complete regression catalogue.
+- **Update an archived example**: edit its retained source under `config/patches/` and update `archive/demo-patches/patches.json`; keep the archive round-trip tests passing.
 - **Change the public API**: edit `src/js/index.js` and update the architecture/module-authoring documentation.

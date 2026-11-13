@@ -3,11 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <title>Eurorack JS by orderandchaos</title>
-    <link rel="stylesheet" href="./patch-workbench.css">
+    <link rel="stylesheet" href="/patch-workbench.css">
     <script>
         window.va = window.va || function () {
             (window.vaq = window.vaq || []).push(arguments);
         };
+        // Register before the deferred client can emit its first page view.
+        // https://vercel.com/docs/analytics/redacting-sensitive-data
+        window.va('beforeSend', function (event) {
+            try {
+                const url = new URL(event.url);
+                url.search = '';
+                url.hash = '';
+                if (/^\/patches\/[0-7][0-9A-HJKMNP-TV-Z]{25}(?:\/|$)/i.test(url.pathname)) {
+                    url.pathname = '/patches/[id]';
+                }
+                return { ...event, url: url.toString() };
+            } catch {
+                return null;
+            }
+        });
     </script>
     <script defer src="/_vercel/insights/script.js"></script>
     <style>
@@ -808,8 +823,7 @@
             z-index: 1;
         }
 
-        .footer-cable-row,
-        .footer-theme-row {
+        .footer-links-row {
             align-items: center;
             display: flex;
             flex-wrap: wrap;
@@ -1038,294 +1052,6 @@
             --module-color-dark: #655141;
         }
 
-        body.theme-classic.theme-dark {
-            --classic-bg: #1a1a1a;
-            --classic-panel: #252525;
-            --classic-panel-2: #2a2a2a;
-            --classic-surface: #333;
-            --classic-surface-hover: #444;
-            --classic-border: #444;
-            --classic-text: #f5f5f5;
-            --classic-muted: #888;
-            --classic-faint: #666;
-            --classic-module-text: #ddd;
-            --classic-control-text: #fff;
-            --classic-rack-top: #555;
-            --classic-rack-bottom: #333;
-        }
-
-        body.theme-classic.theme-light {
-            --classic-bg: #ede9dc;
-            --classic-panel: #f4f1e7;
-            --classic-panel-2: #e4dfd2;
-            --classic-surface: #ffffff;
-            --classic-surface-hover: #e8e2d4;
-            --classic-border: #b8b1a4;
-            --classic-text: #151515;
-            --classic-muted: #6f6a60;
-            --classic-faint: #8d877c;
-            --classic-module-text: #171713;
-            --classic-control-text: #111;
-            --classic-rack-top: #d7d0c2;
-            --classic-rack-bottom: #bdb5a7;
-        }
-
-        body.theme-classic {
-            background: var(--classic-bg);
-            color: var(--classic-text);
-        }
-
-        body.theme-classic #toolbar {
-            background: linear-gradient(to bottom, var(--classic-panel-2), var(--classic-panel));
-            border-bottom: 1px solid var(--classic-border);
-            color: var(--classic-text);
-        }
-
-        body.theme-classic .toolbar-divider {
-            background: var(--classic-border);
-        }
-
-        body.theme-classic .toolbar-label,
-        body.theme-classic .sidebar-category,
-        body.theme-classic .sidebar-module-hp,
-        body.theme-classic .cable-hints,
-        body.theme-classic .app-footer .footer-control {
-            color: var(--classic-muted);
-        }
-
-        body.theme-classic .app-footer {
-            color: var(--classic-muted);
-            gap: 8px;
-        }
-
-        body.theme-classic .app-footer .footer-control {
-            font-size: 10px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        body.theme-classic #toolbar button,
-        body.theme-classic #toolbar select,
-        body.theme-classic #toolbar input[type="text"],
-        body.theme-classic .app-footer button,
-        body.theme-classic .app-footer select,
-        body.theme-classic .app-footer a {
-            background: var(--classic-surface);
-            border: 1px solid var(--classic-border);
-            color: var(--classic-control-text);
-        }
-
-        body.theme-classic .app-footer button,
-        body.theme-classic .app-footer a {
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-size: 11px;
-            font-weight: bold;
-            padding: 6px 12px;
-            white-space: nowrap;
-        }
-
-        body.theme-classic .app-footer a {
-            max-width: 120px;
-        }
-
-        body.theme-classic .app-footer select {
-            appearance: none;
-            background: var(--classic-surface);
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: normal;
-            max-width: 128px;
-            min-width: 96px;
-            padding: 6px 10px;
-        }
-
-        body.theme-classic .app-footer button:focus-visible,
-        body.theme-classic .app-footer select:focus-visible,
-        body.theme-classic .app-footer a:focus-visible {
-            outline: 2px solid #58a6ff;
-            outline-offset: 2px;
-        }
-
-        body.theme-classic #toolbar button:hover,
-        body.theme-classic #toolbar select:hover,
-        body.theme-classic #toolbar input[type="text"]:focus,
-        body.theme-classic .app-footer button:hover,
-        body.theme-classic .app-footer select:hover,
-        body.theme-classic .app-footer a:hover,
-        body.theme-classic .app-footer button.active {
-            background: var(--classic-surface-hover);
-            color: var(--classic-text);
-            text-decoration: none;
-        }
-
-        body.theme-classic #toolbar input[type="text"]::placeholder {
-            color: var(--classic-faint);
-        }
-
-        body.theme-classic .app-container,
-        body.theme-classic .rack-container {
-            background: var(--classic-bg);
-        }
-
-        body.theme-classic .sidebar {
-            background: linear-gradient(to bottom, var(--classic-panel), var(--classic-bg));
-            border-right: 1px solid var(--classic-border);
-        }
-
-        body.theme-classic .sidebar-module:hover {
-            background: var(--classic-surface-hover);
-        }
-
-        body.theme-classic .sidebar-module-name,
-        body.theme-classic .module-label,
-        body.theme-classic .knob-label,
-        body.theme-classic .jack-label,
-        body.theme-classic .section-label,
-        body.theme-classic .rec-led-label,
-        body.theme-classic .rec-time:not(.recording),
-        body.theme-classic .rec-jack-label,
-        body.theme-classic .scope-section-label,
-        body.theme-classic .spectrum-section-label,
-        body.theme-classic .spectrum-freq-labels,
-        body.theme-classic .plot-section-label,
-        body.theme-classic .plot-stats,
-        body.theme-classic .spectrogram-section-label,
-        body.theme-classic .spectrogram-labels,
-        body.theme-classic .db-channel-label,
-        body.theme-classic .db-section-label,
-        body.theme-classic .seq-io-label {
-            color: var(--classic-module-text);
-        }
-
-        body.theme-classic .section-label {
-            border-top-color: var(--classic-border);
-        }
-
-        body.theme-classic .action-btn {
-            background: var(--classic-surface);
-            border-color: var(--classic-border);
-            color: var(--classic-module-text);
-            box-shadow:
-                0 1px 2px rgba(0,0,0,0.22),
-                inset 0 1px 0 rgba(255,255,255,0.12);
-        }
-
-        body.theme-classic .action-btn:hover {
-            background: var(--classic-surface-hover);
-        }
-
-        body.theme-classic .action-btn:focus-visible {
-            outline-color: color-mix(in srgb, var(--module-color) 62%, #58a6ff);
-        }
-
-        body.theme-classic.theme-dark .action-btn.active,
-        body.theme-classic.theme-dark .action-btn.is-pending,
-        body.theme-classic.theme-dark .action-btn:active {
-            background: color-mix(in srgb, var(--module-color) 76%, #111);
-            border-color: color-mix(in srgb, var(--module-color) 56%, #ddd);
-            color: #fff;
-        }
-
-        body.theme-classic.theme-light .action-btn.active,
-        body.theme-classic.theme-light .action-btn.is-pending,
-        body.theme-classic.theme-light .action-btn:active {
-            background: color-mix(in srgb, var(--module-color) 56%, #f7f4ea);
-            border-color: color-mix(in srgb, var(--module-color) 72%, #5f5b52);
-            color: #171713;
-            box-shadow:
-                0 0 4px color-mix(in srgb, var(--module-color) 42%, transparent),
-                inset 0 1px 0 rgba(255,255,255,0.4);
-        }
-
-        body.theme-classic .rack {
-            background: linear-gradient(to bottom, var(--classic-panel-2), var(--classic-bg));
-        }
-
-        body.theme-classic .rack-row::before {
-            background: linear-gradient(to bottom, var(--classic-rack-top), var(--classic-border));
-        }
-
-        body.theme-classic .rack-row::after {
-            background: linear-gradient(to bottom, var(--classic-border), var(--classic-rack-bottom));
-        }
-
-        body.theme-classic.theme-light .module {
-            background: linear-gradient(
-                to bottom,
-                color-mix(in srgb, var(--module-color) 64%, #f3eee3),
-                color-mix(in srgb, var(--module-color) 52%, #ddd5c8)
-            ) !important;
-            border-left-color: var(--classic-border);
-        }
-
-        body.theme-classic.theme-light .module-label {
-            text-shadow: none;
-        }
-
-        body.theme-classic.theme-light .drop-indicator {
-            border-color: #8f897d;
-        }
-
-        body.theme-classic.theme-light .knob {
-            background: linear-gradient(145deg, #f7f4ea, #c9c1b3);
-            border-color: #5f5b52;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.25), inset 0 1px 1px rgba(255,255,255,0.75);
-        }
-
-        body.theme-classic.theme-light .knob::after {
-            background: #171713;
-            box-shadow: none;
-        }
-
-        body.theme-classic.theme-light .jack {
-            background: #f6f2e7;
-            border-color: #5f5b52;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.24);
-        }
-
-        body.theme-classic.theme-light .jack.output {
-            border-color: #b84635;
-        }
-
-        body.theme-classic.theme-light .jack.input {
-            border-color: #3f8a4f;
-        }
-
-        body.theme-classic.theme-light .jack::after {
-            background: #171713;
-            border-color: #171713;
-        }
-
-        body.theme-classic.theme-light .switch,
-        body.theme-classic.theme-light .octave-btn,
-        body.theme-classic.theme-light .toggle-btn {
-            background: #f6f2e7;
-            border-color: #5f5b52;
-            color: #171713;
-        }
-
-        body.theme-classic.theme-light .octave-btn.active {
-            background: linear-gradient(to bottom, #8b5cf6, #6d28d9);
-            border-color: #7c5fc4;
-            color: #fff;
-            box-shadow: 0 0 5px rgba(109, 40, 217, 0.38);
-        }
-
-        body.theme-classic.theme-light .toggle-btn.active {
-            background: linear-gradient(to bottom, #2fbf68, #1f8f4f);
-            border-color: #247a47;
-            color: #fff;
-            box-shadow: 0 0 4px rgba(31, 143, 79, 0.38);
-        }
-
-        body.theme-classic.theme-light .seq-gate-btn.active {
-            background: #4f4;
-            border-color: #3f8a4f;
-            color: #171713;
-            box-shadow: 0 0 8px #4f4;
-        }
-
         /* Factory skin - technical deployment sheet / terminal console */
         body.skin-factory {
             --factory-black: #171813;
@@ -1410,80 +1136,6 @@
             --factory-module-header: #cbc6ba;
         }
 
-        body.theme-industrial.theme-dark {
-            --factory-black: #080907;
-            --factory-ink: #b7b3a8;
-            --factory-action-ink: #10110e;
-            --factory-paper: #171813;
-            --factory-paper-dim: #1f211d;
-            --factory-panel-light: #121713;
-            --factory-panel: #161b17;
-            --factory-panel-mid: #1b211d;
-            --factory-panel-dark: #232923;
-            --factory-panel-cool: #171d1c;
-            --factory-grid: rgba(183,179,168,0.12);
-        }
-
-        body.theme-industrial.theme-dark .module-color-one {
-            --factory-module-dark-bg: #0d0e0d;
-            --factory-module-dark-header: #20211f;
-        }
-
-        body.theme-industrial.theme-dark .module-color-two {
-            --factory-module-dark-bg: #121312;
-            --factory-module-dark-header: #252622;
-        }
-
-        body.theme-industrial.theme-dark .module-color-three {
-            --factory-module-dark-bg: #171817;
-            --factory-module-dark-header: #2b2c28;
-        }
-
-        body.theme-industrial.theme-dark .module-color-four {
-            --factory-module-dark-bg: #1c1d1b;
-            --factory-module-dark-header: #30312c;
-        }
-
-        body.theme-industrial.theme-dark .module-color-five {
-            --factory-module-dark-bg: #22221f;
-            --factory-module-dark-header: #363630;
-        }
-
-        body.theme-industrial.theme-dark .module-color-six {
-            --factory-module-dark-bg: #151615;
-            --factory-module-dark-header: #292a26;
-        }
-
-        body.theme-industrial.theme-dark .module-color-seven {
-            --factory-module-dark-bg: #1a1b1a;
-            --factory-module-dark-header: #2e2f2a;
-        }
-
-        body.theme-industrial.theme-dark .module-color-eight {
-            --factory-module-dark-bg: #242421;
-            --factory-module-dark-header: #383832;
-        }
-
-        body.theme-industrial.theme-dark .module-color-nine {
-            --factory-module-dark-bg: #191a19;
-            --factory-module-dark-header: #2d2e29;
-        }
-
-        body.theme-industrial.theme-dark .module-color-ten {
-            --factory-module-dark-bg: #20201e;
-            --factory-module-dark-header: #34342f;
-        }
-
-        body.theme-industrial.theme-dark .module-color-eleven {
-            --factory-module-dark-bg: #161817;
-            --factory-module-dark-header: #2a2c28;
-        }
-
-        body.theme-industrial.theme-dark .module-color-twelve {
-            --factory-module-dark-bg: #262623;
-            --factory-module-dark-header: #3a3933;
-        }
-
         body.skin-factory::before {
             content: '';
             position: fixed;
@@ -1493,11 +1145,6 @@
             opacity: 0.05;
             background: var(--factory-paper);
             mix-blend-mode: screen;
-        }
-
-        body.theme-industrial.theme-dark::before {
-            opacity: 0.03;
-            mix-blend-mode: normal;
         }
 
         body.skin-factory #toolbar {
@@ -1537,10 +1184,6 @@
             font-family: inherit;
             font-weight: 900;
             text-transform: uppercase;
-        }
-
-        body.theme-industrial.theme-dark #toolbar input[type="text"]::placeholder {
-            color: rgba(183,179,168,0.58);
         }
 
         body.skin-factory #toolbar button:hover,
@@ -1592,10 +1235,6 @@
             padding: 8px 10px;
         }
 
-        body.theme-industrial.theme-dark .sidebar-module {
-            background: rgba(23,24,19,0.96);
-        }
-
         body.skin-factory .sidebar-module:hover {
             background: var(--factory-orange);
             color: var(--factory-action-ink, var(--factory-ink));
@@ -1611,11 +1250,6 @@
             border: 2px solid var(--factory-ink);
             background: var(--factory-module-bg) !important;
             filter: saturate(0.2) contrast(1.4);
-        }
-
-        body.theme-industrial.theme-dark .sidebar-module-color {
-            background: var(--factory-module-dark-bg) !important;
-            filter: saturate(1.08) contrast(1.18);
         }
 
         body.skin-factory .sidebar-module-name,
@@ -1672,13 +1306,6 @@
                 inset 0 18px 0 var(--factory-module-header, var(--factory-panel-light));
         }
 
-        body.theme-industrial.theme-dark .module {
-            background: var(--factory-module-dark-bg) !important;
-            box-shadow:
-                inset 0 0 0 1px rgba(183,179,168,0.14),
-                inset 0 18px 0 var(--factory-module-dark-header);
-        }
-
         body.skin-factory .module::before {
             content: '';
             position: absolute;
@@ -1690,10 +1317,6 @@
             border-bottom: 1px solid var(--factory-ink);
             pointer-events: none;
             z-index: 0;
-        }
-
-        body.theme-industrial.theme-dark .module::before {
-            background: var(--factory-module-dark-header);
         }
 
         body.skin-factory .module-label {
@@ -1941,7 +1564,7 @@
             border-radius: 0;
         }
 
-        /* Shared hardware controls: four deliberately distinct theme/mode palettes. */
+        /* Shared hardware controls: Industrial Light palette. */
         body.theme-industrial.theme-light {
             --hw-face-top: #fbf8ec;
             --hw-face-bottom: #c9c3b3;
@@ -1959,63 +1582,6 @@
             --hw-display-bg: #151813;
             --hw-display-ink: #bcff9e;
             --hw-display-muted: #82a979;
-        }
-
-        body.theme-industrial.theme-dark {
-            --hw-face-top: #3a3c35;
-            --hw-face-bottom: #171813;
-            --hw-face-hover: #474a40;
-            --hw-edge: #b7b3a8;
-            --hw-ink: #f0eee2;
-            --hw-muted: #aaa69b;
-            --hw-accent: var(--factory-orange, #ff4a0a);
-            --hw-active-ink: #10110e;
-            --hw-highlight: rgba(255, 255, 255, 0.14);
-            --hw-shadow: rgba(0, 0, 0, 0.82);
-            --hw-well: #090a08;
-            --hw-track: #050605;
-            --hw-radius: 0px;
-            --hw-display-bg: #070a07;
-            --hw-display-ink: #b8ff9b;
-            --hw-display-muted: #78a46e;
-        }
-
-        body.theme-classic.theme-light {
-            --hw-face-top: #fffdf7;
-            --hw-face-bottom: #c9c1b3;
-            --hw-face-hover: #ffffff;
-            --hw-edge: #5f5b52;
-            --hw-ink: #171713;
-            --hw-muted: #6f6a60;
-            --hw-accent: color-mix(in srgb, var(--module-color, #7255a5) 74%, #6d28d9);
-            --hw-active-ink: #ffffff;
-            --hw-highlight: rgba(255, 255, 255, 0.92);
-            --hw-shadow: rgba(54, 47, 39, 0.38);
-            --hw-well: #aaa295;
-            --hw-track: #625d53;
-            --hw-radius: 3px;
-            --hw-display-bg: #20241e;
-            --hw-display-ink: #c9f7b8;
-            --hw-display-muted: #91aa89;
-        }
-
-        body.theme-classic.theme-dark {
-            --hw-face-top: #5b5b5b;
-            --hw-face-bottom: #292929;
-            --hw-face-hover: #696969;
-            --hw-edge: #111111;
-            --hw-ink: #f4f4f4;
-            --hw-muted: #aaa;
-            --hw-accent: color-mix(in srgb, var(--module-color, #7255a5) 72%, #a78bfa);
-            --hw-active-ink: #ffffff;
-            --hw-highlight: rgba(255, 255, 255, 0.2);
-            --hw-shadow: rgba(0, 0, 0, 0.72);
-            --hw-well: #171717;
-            --hw-track: #0b0b0b;
-            --hw-radius: 3px;
-            --hw-display-bg: #101410;
-            --hw-display-ink: #b8ffac;
-            --hw-display-muted: #77a272;
         }
 
         body .module .hardware-button {
@@ -2226,33 +1792,33 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="/patch-library.css">
 </head>
 <body class="theme-industrial theme-light skin-factory">
+<nav class="patch-navigation" aria-label="Patch views">
+    <div class="patch-view-tabs">
+        <button type="button" data-patch-view="rack" aria-current="page">Rack</button>
+        <button type="button" data-patch-view="mine">My patches</button>
+        <button type="button" data-patch-view="public">Public patches</button>
+        <button type="button" data-patch-view="tests">Test patches</button>
+    </div>
+    <span id="activePatchLabel">Unsaved rack</span>
+    <button id="patchAccount" type="button">Sign in</button>
+</nav>
 <div id="toolbar">
     <div class="toolbar-section">
         <button id="startButton">▶ Start</button>
     </div>
     <div class="toolbar-divider"></div>
-    <div class="toolbar-section toolbar-patches">
-        <span class="toolbar-label">Patches</span>
-        <select id="patchSelect">
-            <option value="">-- Select --</option>
-        </select>
-        <button id="loadPatch">Load</button>
-        <button id="deletePatch" class="danger">Del</button>
-    </div>
-    <div class="toolbar-divider"></div>
     <div class="toolbar-section">
-        <input type="text" id="patchName" placeholder="New patch...">
+        <input type="text" id="patchName" aria-label="Current patch name" placeholder="Untitled">
         <button id="savePatch" class="primary">Save</button>
+        <button id="savePatchCopy">Save a copy</button>
     </div>
     <div class="toolbar-divider"></div>
     <div class="toolbar-section">
-        <button id="copyPatch">Copy</button>
-        <button id="sharePatch">Share</button>
-        <button id="exportPatch">Export</button>
-        <button id="importPatch">Import</button>
-        <input type="file" id="patchFileInput" accept="application/json,.json" hidden>
+        <button id="sharePatch">Copy snapshot link</button>
+        <button id="savedPatchLink" hidden>Copy URL</button>
     </div>
     <div class="toolbar-spacer"></div>
     <div class="toolbar-section">
@@ -2265,6 +1831,14 @@
         <button id="addRackRow">+ Row</button>
         <button id="removeRackRow">- Row</button>
         <button id="clearCables">Clear Cables</button>
+        <button
+            id="cableOpacityToggle"
+            class="active"
+            type="button"
+            title="Dim or restore patch cables without changing connections"
+            aria-controls="cable-svg"
+            aria-pressed="true"
+        >Cables: Full</button>
     </div>
     <div class="toolbar-divider"></div>
     <div class="toolbar-section">
@@ -2272,9 +1846,11 @@
     </div>
 </div>
 
+<div id="patchNotice" class="patch-notice" role="status" aria-live="polite" hidden></div>
+<section id="patchLibrary" class="patch-library" aria-label="Patch library" hidden></section>
 <svg id="cable-svg"></svg>
 
-<div class="app-container">
+<div class="app-container" id="rackView">
     <div class="sidebar" id="sidebar">
         <!-- Module categories populated by JS -->
     </div>
@@ -2290,31 +1866,19 @@
                 Right-click or drop cable on empty space to remove
             </div>
             <footer class="app-footer">
-                <div class="footer-cable-row">
-                    <button
-                        id="cableOpacityToggle"
-                        class="active"
-                        type="button"
-                        title="Dim or restore patch cables without changing connections"
-                        aria-controls="cable-svg"
-                        aria-pressed="true"
-                    >Cables: Full</button>
-                </div>
-                <div class="footer-theme-row">
-                    <label class="footer-control" for="themeSelect">Theme</label>
-                    <select id="themeSelect" title="Select app theme">
-                        <option value="industrial" selected>Industrial</option>
-                        <option value="classic">Classic</option>
-                    </select>
-                    <button id="themeModeToggle" type="button" title="Toggle dark mode" aria-pressed="false">Dark: Off</button>
-                    <a href="./system-architecture.html" target="_blank" rel="noopener noreferrer">Architecture</a>
+                <div class="footer-links-row">
                     <a href="https://github.com/OrderAndCh4oS/eurorack-js" target="_blank" rel="noopener noreferrer">GitHub repo</a>
                 </div>
+                <nav class="footer-legal-row" aria-label="Legal">
+                    <span class="footer-about">Eurorack · A modular synthesizer in your browser</span>
+                    <a href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy</a>
+                    <a href="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms</a>
+                </nav>
             </footer>
         </div>
     </div>
 </div>
 
-<script type="module" src="./js/app/app.js"></script>
+<script type="module" src="/js/app/app.js"></script>
 </body>
 </html>

@@ -1,29 +1,15 @@
-export const THEME_STORAGE_KEY = 'eurorack-theme';
-export const THEME_MODE_STORAGE_KEY = 'eurorack-theme-mode';
-
-export function readMidiToolTheme(storage = globalThis.localStorage) {
+export function applyMidiToolTheme({ root = document.documentElement } = {}) {
+    root.classList.remove('theme-classic', 'theme-dark');
+    root.classList.add('theme-industrial', 'theme-light');
     try {
-        return {
-            theme: storage?.getItem(THEME_STORAGE_KEY) === 'classic' ? 'classic' : 'industrial',
-            mode: storage?.getItem(THEME_MODE_STORAGE_KEY) === 'dark' ? 'dark' : 'light'
-        };
+        globalThis.localStorage?.removeItem('eurorack-theme');
+        globalThis.localStorage?.removeItem('eurorack-theme-mode');
     } catch {
-        return { theme: 'industrial', mode: 'light' };
+        // Retired preferences never affect the fixed Industrial Light appearance.
     }
-}
-
-export function applyMidiToolTheme({ root = document.documentElement, storage = globalThis.localStorage } = {}) {
-    const { theme, mode } = readMidiToolTheme(storage);
-    root.classList.remove('theme-industrial', 'theme-classic', 'theme-light', 'theme-dark');
-    root.classList.add(`theme-${theme}`, `theme-${mode}`);
-    return { theme, mode };
+    return { theme: 'industrial', mode: 'light' };
 }
 
 if (typeof document !== 'undefined') {
     applyMidiToolTheme();
-    globalThis.addEventListener?.('storage', event => {
-        if (event.key === THEME_STORAGE_KEY || event.key === THEME_MODE_STORAGE_KEY) {
-            applyMidiToolTheme();
-        }
-    });
 }

@@ -2,3 +2,9 @@
 .worktrees/
 node_modules/
 test-results/
+playwright-report/
+dist/
+.vercel/
+.env*
+!.env.example
+.vercel

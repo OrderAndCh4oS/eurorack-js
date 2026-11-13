@@ -870,7 +870,7 @@ flowchart TB
                 <div class="notes">
                     <div class="note"><b>Transient actions</b><p>Trigger and momentary actions return to their declared defaults and release during renderer cleanup; toggle actions remain patch-persisted.</p></div>
                     <div class="note"><b>Cable focus</b><p>Dragging a cable automatically dims established routes while keeping the preview fully visible. The footer can also dim cables without changing connections.</p></div>
-                    <div class="note"><b>Theme layer</b><p>Shared module colour tokens and hardware controls map to Industrial or Classic palettes in both light and dark mode, keeping reusable controls consistent.</p></div>
+                    <div class="note"><b>Visual layer</b><p>Shared module colour tokens and hardware controls use the Industrial Light palette, keeping reusable controls consistent.</p></div>
                 </div>
             </section>
 
@@ -1167,7 +1167,7 @@ flowchart TB
                         <a href="./js/ui/renderer.js"><code>ui/renderer.js</code><span>Declarative/custom panel rendering and mirror synchronization.</span></a>
                         <a href="./js/ui/toolkit/index.js"><code>ui/toolkit/</code><span>Reusable controls, layout, and pointer interactions.</span></a>
                         <a href="https://github.com/OrderAndCh4oS/eurorack-js/tree/main/src/js/modules" target="_blank" rel="noopener noreferrer"><code>modules/{moduleId}/</code><span>Self-contained DSP, UI, render, telemetry, and browser hooks.</span></a>
-                        <a href="https://github.com/OrderAndCh4oS/eurorack-js/tree/main/src/js/config/patches" target="_blank" rel="noopener noreferrer"><code>config/patches/</code><span>112 factory, demo, test, drum, and sound-design patches.</span></a>
+                        <a href="https://github.com/OrderAndCh4oS/eurorack-js/tree/main/src/js/config/patches" target="_blank" rel="noopener noreferrer"><code>config/patches/</code><span>112 factory source patches: 75 in Test patches and 37 archived musical examples.</span></a>
                         <a href="https://github.com/OrderAndCh4oS/eurorack-js/blob/main/scripts/dsp-audit.mjs" target="_blank" rel="noopener noreferrer"><code>scripts/dsp-audit.mjs</code><span>Matrix-based DSP regression and voltage audit runner.</span></a>
                         <a href="https://github.com/OrderAndCh4oS/eurorack-js/blob/main/docs/architecture.md" target="_blank" rel="noopener noreferrer"><code>docs/architecture.md</code><span>Canonical written runtime and schema reference.</span></a>
                         <a href="https://github.com/OrderAndCh4oS/eurorack-js/blob/main/docs/creating-modules.md" target="_blank" rel="noopener noreferrer"><code>docs/creating-modules.md</code><span>Built-in and trusted-plugin module authoring guide.</span></a>

@@ -195,7 +195,7 @@ Private saves can succeed while their preview is unavailable and offer a retry. 
 
 ## Saved patch URLs and social previews
 
-Use `/patches/<ulid>` as the canonical saved-patch URL. Public pages include their name, description, chosen public author name, original creator credit, rack preview, thumbs-up total, Open in rack, Save a copy, and sharing actions. Copy link and native/social sharing use this URL. Public browsing and opening require no login; cloud saves, forks, and reactions require login. The detail page does not start audio automatically.
+Use `/patches/<ulid>` as the canonical saved-patch URL, opening directly in the rack. The optional Details view includes the description, chosen public author name, original creator credit, rack preview, thumbs-up total, Save a copy, and sharing actions. Copy link and native/social sharing use the canonical rack URL. Public browsing and opening require no login; cloud saves, forks, and reactions require login. Audio starts only on request.
 
 Return metadata in the initial HTML: title and description, canonical URL, `og:type=website`, `og:title`, `og:description`, `og:url`, `og:site_name`, and an absolute HTTPS `og:image` with type, dimensions, and alt text. [Open Graph specification](https://ogp.me/) Add `twitter:card=summary_large_image`, title, description, image, and image alt text. The documented output examples provide the tag contract without requiring a framework migration. [Twitter metadata output](https://nextjs.org/docs/app/api-reference/functions/generate-metadata#twitter) Escape all user-provided metadata and bound its length.
 
@@ -226,12 +226,12 @@ Use these distinct navigation forms:
 | Location | Meaning |
 | --- | --- |
 | `/patches` | Public image catalogue. |
-| `/patches/<ulid>` | Canonical saved-patch page and social-sharing URL; access depends on visibility and ownership. |
-| `/patches/<ulid>?view=rack` | Open in rack entry; loads the editor, then normalizes the address bar to `/patches/<ulid>`. |
+| `/patches/<ulid>` | Canonical rack editor and social-sharing URL; access depends on visibility and ownership. |
+| `/patches/<ulid>?view=details` | Optional patch description, credits and social actions; Open in rack returns to the canonical URL. |
 | `/#saved=<ulid>` | Legacy editor links still load, then normalize to the canonical saved URL. |
 | `/#patch=gz1.…` | Existing unsaved embedded snapshot; loads without a backend. |
 
-Saving or opening an account patch updates the editor address to `/patches/<ulid>`. Refreshing that canonical address opens its detail page, where Open in rack resumes editing. New editor URL creation removes competing selectors. Reject ambiguous saved/snapshot links with an actionable message. Handle initial load, hash navigation, and back/forward navigation without update loops. Do not log auth tokens or patch contents. Saved link copying always emits the canonical path URL; unsaved snapshot URLs are rooted at `/#patch=`, never appended to a saved path.
+Saving or opening an account patch updates the editor address to `/patches/<ulid>`. Refreshing that address loads the saved rack directly. New editor URL creation removes competing selectors. Reject ambiguous saved/snapshot links with an actionable message. Handle initial load, hash navigation, and back/forward navigation without update loops. Do not log auth tokens or patch contents. Saved link copying always emits the canonical path URL; unsaved snapshot URLs are rooted at `/#patch=`, never appended to a saved path.
 
 Before replacing an edited rack, offer Save / Discard / Cancel. Snapshot dirty state at the start of a fetch and recheck before application so edits made while the request was pending cannot be lost. Disable overlapping rack replacement while worklet activation is pending. Capture the exact snapshot for an outgoing save; edits made during the request stay marked unsaved after it completes.
 

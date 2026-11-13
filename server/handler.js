@@ -31,7 +31,7 @@ export function createHandler({ store, authenticate = async () => null, authHand
                 ...(!enabled ? { message: configurationMessage || 'Account saving is unavailable. Try again later.' } : {}) });
             const detail = /^\/patches\/([0-7][0-9A-HJKMNP-TV-Z]{25})$/.exec(path);
             if (!enabled) {
-                if (detail && method === 'GET') return new Response(patchHtml(null, origin, detail[1]), { status: 503, headers: { ...securityHeaders, 'Content-Type': 'text/html; charset=utf-8' } });
+                if (detail && method === 'GET') return new Response(await rackPage(null, origin, detail[1]), { status: 503, headers: { ...securityHeaders, 'Content-Type': 'text/html; charset=utf-8' } });
                 throw new HttpError(503, 'cloud_not_configured', configurationMessage || 'Account saving is unavailable. Try again later.');
             }
             if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
@@ -83,8 +83,9 @@ export function createHandler({ store, authenticate = async () => null, authHand
                 // Social HTML always uses anonymous visibility. Owner data is fetched by the page
                 // using its session, so crawlers and intermediary caches never see private metadata.
                 try { patch = await service.get(detail[1], null); } catch (error) { if (error.status !== 404) throw error; }
-                if (url.searchParams.get('view') === 'rack') {
+                if (url.searchParams.get('view') !== 'details') {
                     return new Response(method === 'HEAD' ? null : await rackPage(patch, origin, detail[1]), {
+                        status: patch ? 200 : 404,
                         headers: { ...securityHeaders, 'Content-Type': 'text/html; charset=utf-8',
                             'Content-Security-Policy': "object-src 'none'; base-uri 'self'; frame-ancestors 'none'" }
                     });

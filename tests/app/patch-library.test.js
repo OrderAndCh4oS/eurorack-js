@@ -8,7 +8,7 @@ const state = () => ({ version: 3, plugins: { core: 1 }, modules: [], params: {}
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 function setup() {
     let current = state();
-    document.body.innerHTML = '<input id="patchName" value="My rack"><div id="patchLibrary" hidden></div><div id="rackView"></div><span id="activePatchLabel"></span><div id="patchNotice"></div><button id="savedPatchLink"></button>';
+    document.body.innerHTML = '<input id="patchName" value="My rack"><div id="patchLibrary" hidden></div><div id="rackView"></div><span id="activePatchLabel"></span><div id="patchNotice"></div><button id="savedPatchLink"></button><button id="savedPatchDetails" hidden></button>';
     const app = { document, host: { serializePatch: () => structuredClone(current) }, theme: 'industrial', themeMode: 'light', renderAllCables: vi.fn(),
         getCurrentPatchName: () => document.getElementById('patchName').value, loadPatchState: vi.fn(async value => { current = structuredClone(value); }), writeClipboardText: vi.fn(async () => {}) };
     const cloud = { get: vi.fn(), create: vi.fn(), copy: vi.fn(), update: vi.fn(), uploadPreview: vi.fn(), cancel: vi.fn() };
@@ -22,7 +22,7 @@ beforeEach(() => {
 });
 
 describe('patch library coordination', () => {
-    it.each([`/#saved=${id}`, `/patches/${id}?view=rack`])('opens %s and keeps the canonical saved URL', async location => {
+    it.each([`/patches/${id}`, `/#saved=${id}`, `/patches/${id}?view=rack`])('opens %s and keeps the canonical saved URL', async location => {
         const { cloud, library } = setup(); library.config.enabled = true;
         window.history.replaceState(null, '', location);
         cloud.get.mockResolvedValue({ id, name: 'Saved rack', state: state(), visibility: 'public' });
@@ -31,6 +31,13 @@ describe('patch library coordination', () => {
         expect(library.active.id).toBe(id);
         expect(window.location.pathname).toBe(`/patches/${id}`);
         expect(window.location.search).toBe(''); expect(window.location.hash).toBe('');
+    });
+    it('offers saved patch details only for account patches', () => {
+        const { library } = setup();
+        library.setActive({ source: 'cloud', id, name: 'Saved rack' });
+        expect(document.getElementById('savedPatchDetails').hidden).toBe(false);
+        library.setActive({ source: 'snapshot', name: 'Snapshot' });
+        expect(document.getElementById('savedPatchDetails').hidden).toBe(true);
     });
     it('clears the saved path when opening a local patch', async () => {
         const { library } = setup();
@@ -100,6 +107,17 @@ describe('patch library coordination', () => {
         const { app, library } = setup(); const draft = { ...state(), midiMappings: { retained: {} } }; library.ready = Promise.resolve();
         sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ state: draft, name: 'Draft', baseline: JSON.stringify(state()), createdAt: Date.now() }));
         expect(await library.restoreDraft()).toBe(true); expect(app.loadPatchState).toHaveBeenCalledWith(draft, { managed: true }); expect(library.isDirty()).toBe(true); expect(sessionStorage.getItem(DRAFT_KEY)).toBeNull();
+    });
+    it('loads the private saved target after signing in from an untouched empty rack', async () => {
+        const { app, cloud, library } = setup(); library.config.enabled = true;
+        window.history.replaceState(null, '', `/patches/${id}`);
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ state: state(), name: 'Untitled', active: null, baseline: JSON.stringify(state()), createdAt: Date.now() }));
+        expect(await library.restoreDraft()).toBe(false);
+        expect(app.loadPatchState).not.toHaveBeenCalled();
+        expect(sessionStorage.getItem(DRAFT_KEY)).toBeNull();
+        cloud.get.mockResolvedValue({ id, name: 'Private saved rack', state: state(), visibility: 'private', canEdit: true });
+        expect(await library.loadLocation()).toBe(true);
+        expect(library.active.id).toBe(id);
     });
     it('does not reattach a recovered cloud identity after another patch opens', async () => {
         const { cloud, library } = setup(); library.ready = Promise.resolve(); const pending = deferred(); cloud.get.mockReturnValue(pending.promise);
@@ -173,7 +191,7 @@ describe('local and network boundaries', () => {
         expect(() => parsePatchLocation('', '/patches/invalid')).toThrow('invalid');
         expect(parsePatchLocation('', '/patches')).toBeNull();
         expect(savedPatchUrl(id, 'https://rack.example')).toBe(`https://rack.example/patches/${id}`);
-        expect(rackPatchUrl(id, 'https://rack.example')).toBe(`https://rack.example/patches/${id}?view=rack`);
+        expect(rackPatchUrl(id, 'https://rack.example')).toBe(`https://rack.example/patches/${id}`);
     });
     it('uses same-origin cookie credentials and exposes typed revision errors', async () => {
         const fetch = vi.fn(async () => ({ ok: false, status: 409, json: async () => ({ error: { code: 'revision_conflict', message: 'Newer revision' } }) }));

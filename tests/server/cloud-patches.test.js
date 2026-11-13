@@ -154,16 +154,20 @@ describe('publication, previews and social pages', () => {
     });
     it('serves the saved rack editor at its canonical path without exposing private metadata', async () => {
         const patch = await published();
-        const path = `/patches/${patch.id}?view=rack`;
+        const path = `/patches/${patch.id}`;
         const response = await request(path);
         expect(response.status).toBe(200);
         const html = await response.text();
         expect(html).toContain('id="rackView"');
+        expect(html).not.toContain('id="patch-detail"');
         expect(html).toContain('src="/js/app/app.js"');
         expect(html).toContain('href="/patch-library.css"');
         expect(html).toContain(`property="og:url" content="https://rack.example/patches/${patch.id}"`);
         expect(html).not.toContain('#saved=');
         expect(html.match(/<title>/g)).toHaveLength(1);
+        const details = await (await request(`${path}?view=details`)).text();
+        expect(details).toContain('id="patch-detail"');
+        expect(details).toContain(`href="${path}">Open in rack`);
         await service.setVisibility(alice, patch.id, { expectedRevision: 1, visibility: 'private' });
         const privateHtml = await (await request(path, { user: 'alice' })).text();
         expect(privateHtml).toContain('id="rackView"');

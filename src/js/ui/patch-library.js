@@ -26,6 +26,12 @@ export class PatchLibrary {
         this.document.getElementById('savePatch')?.addEventListener('click', () => { void this.openSave(); });
         this.document.getElementById('savePatchCopy')?.addEventListener('click', () => { void this.openSave({ copy: true }); });
         this.document.getElementById('savedPatchLink')?.addEventListener('click', () => this.run(() => this.share(this.active)));
+        this.document.getElementById('savedPatchDetails')?.addEventListener('click', () => {
+            if (this.active?.source !== 'cloud') return;
+            const url = new URL(savedPatchUrl(this.active.id, this.window.location.origin));
+            url.searchParams.set('view', 'details');
+            this.window.location.assign(url.href);
+        });
         this.document.getElementById('patchAccount')?.addEventListener('click', () => this.run(() => this.user ? this.signOut() : this.signIn()));
         for (const event of ['input', 'change', 'pointerup', 'keyup']) this.document.addEventListener(event, () => queueMicrotask(() => this.updateActiveLabel()));
         this.window.addEventListener('hashchange', () => this.run(() => this.loadLocation()));
@@ -69,6 +75,7 @@ export class PatchLibrary {
         const label = this.document.getElementById('activePatchLabel');
         if (label) label.textContent = `${this.active?.name || 'Untitled'} · ${this.active ? sourceLabel(this.active) : 'Unsaved rack'}${this.isDirty() ? ' · Edited' : ''}`;
         const share = this.document.getElementById('savedPatchLink'); if (share) share.hidden = this.active?.source !== 'cloud';
+        const details = this.document.getElementById('savedPatchDetails'); if (details) details.hidden = this.active?.source !== 'cloud';
     }
     notice(message, actions = []) {
         const node = this.document.getElementById('patchNotice'); if (!node) return;
@@ -391,6 +398,15 @@ export class PatchLibrary {
         const raw = this.window.sessionStorage.getItem(DRAFT_KEY); if (!raw) return false;
         let draft; try { draft = JSON.parse(raw); } catch { return false; }
         if (Date.now() - draft.createdAt > 86400000) return false;
+        let target;
+        try { target = parsePatchLocation(this.window.location.hash, this.window.location.pathname); } catch { /* Normal route loading reports invalid links. */ }
+        // Signing in from a private saved URL must resume loading that patch,
+        // rather than restore the untouched empty rack shown before sign-in.
+        if (target?.source === 'cloud' && !draft.active && !draft.intent &&
+            draft.state?.modules?.length === 0 && snapshot(draft.state) === draft.baseline) {
+            this.window.sessionStorage.removeItem(DRAFT_KEY);
+            return false;
+        }
         await this.app.loadPatchState(draft.state, { managed: true });
         this.setActive(draft.active?.source === 'cloud' ? null : draft.active, draft.baseline);
         const name = this.document.getElementById('patchName'); if (name) name.value = draft.name;

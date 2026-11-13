@@ -52,7 +52,7 @@ Records store exact v3 JSON and generated SHA-256 state fingerprints. ULIDs iden
 
 Public `/patches/:id` HTML has initial Open Graph/Twitter metadata with a canonical saved URL and rack-only PNG. Private or missing pages always emit a generic noindex shell, even for an owner; the browser then fetches private data with its session. Text is escaped and HTML has a restrictive content security policy. The existing `#patch=` embedded snapshot URL is independent.
 
-Open in rack uses `/patches/:id?view=rack` to load the editor, then removes the query. Saving or opening an account patch also sets the address to `/patches/:id`; legacy `#saved=` links normalize to it. Both server HTML views use the same anonymous-only metadata, with social descriptions limited to 200 characters. Public images permit cross-origin embeds and anonymous CORS reads; private images retain same-origin CORP and no CORS permission. GET and HEAD recheck image access after object retrieval and remain uncached.
+The canonical `/patches/:id` URL opens directly in the rack, including on refresh. Saving or opening an account patch also sets that address; legacy `#saved=` and `?view=rack` links normalize to it. The optional Details view uses `?view=details` for description, creator credit and social actions. Both server HTML views use the same anonymous-only metadata, with social descriptions limited to 200 characters. Public images permit cross-origin embeds and anonymous CORS reads; private images retain same-origin CORP and no CORS permission. GET and HEAD recheck image access after object retrieval and remain uncached.
 
 ## Limits and verification
 

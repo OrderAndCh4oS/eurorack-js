@@ -3,7 +3,7 @@ import { ulid } from 'ulid';
 
 const origin = 'http://127.0.0.1:4176';
 
-test('uses one saved URL from details, the rack and legacy links while keeping snapshots separate', async ({ browser }) => {
+test('opens saved URLs directly in the rack, including reloads, while keeping details and snapshots separate', async ({ browser }) => {
     const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
     await context.addCookies([{ name: 'eurorack-test-user', value: 'alice', url: origin }]);
     const response = await context.request.post(`${origin}/api/patches`, {
@@ -20,9 +20,19 @@ test('uses one saved URL from details, the rack and legacy links while keeping s
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     try {
         await page.goto(canonical);
+        await page.waitForFunction(id => window.eurorackApp?.patchLibrary?.active?.id === id, saved.id);
+        await expect(page).toHaveURL(canonical);
+        await expect(page.locator('#module-osc')).toBeVisible();
+        await page.reload();
+        await page.waitForFunction(id => window.eurorackApp?.patchLibrary?.active?.id === id, saved.id);
+        await expect(page).toHaveURL(canonical);
+        await expect(page.locator('#module-osc')).toBeVisible();
+
+        await page.getByRole('button', { name: 'Details', exact: true }).click();
+        await expect(page).toHaveURL(`${canonical}?view=details`);
         await expect(page.getByRole('heading', { name: saved.name, exact: true })).toBeVisible();
         const open = page.getByRole('link', { name: 'Open in rack', exact: true });
-        await expect(open).toHaveAttribute('href', `${canonical}?view=rack`);
+        await expect(open).toHaveAttribute('href', canonical);
         await open.click();
         await page.waitForFunction(id => window.eurorackApp?.patchLibrary?.active?.id === id, saved.id);
         await expect(page).toHaveURL(canonical);

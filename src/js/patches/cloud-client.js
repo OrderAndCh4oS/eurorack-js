@@ -10,9 +10,7 @@ export function savedPatchUrl(id, base = globalThis.location?.origin) {
     return new URL(`/patches/${id}`, base).href;
 }
 export function rackPatchUrl(id, base = globalThis.location?.origin) {
-    const url = new URL(savedPatchUrl(id, base));
-    url.searchParams.set('view', 'rack');
-    return url.href;
+    return savedPatchUrl(id, base);
 }
 export function parsePatchLocation(hash, pathname = '') {
     const params = new URLSearchParams(hash.replace(/^#/, ''));

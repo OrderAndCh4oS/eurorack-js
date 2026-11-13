@@ -88,6 +88,8 @@ test('two users publish, like, fork, resave and revoke public image access', asy
         expect(publishedFork.visibility).toBe('public'); expect(publishedFork.savedAfterCopyAt).toBeTruthy();
 
         await bob.page.goto(`${origin}/patches/${forkId}`);
+        await pageRackReady(bob.page, forkId);
+        await bob.page.getByRole('button', { name: 'Details', exact: true }).click();
         await expect(bob.page.getByRole('heading', { name: `${name} fork` })).toBeVisible();
         await expect(bob.page.getByText('Original by Alice', { exact: true })).toBeVisible();
         await expect(bob.page.getByRole('link', { name: 'Share on Bluesky' })).toBeVisible();
@@ -105,3 +107,8 @@ test('two users publish, like, fork, resave and revoke public image access', asy
         expect(errors).toEqual([]);
     } finally { await Promise.allSettled([alice.context.close(), bob.context.close(), anonymous.close()]); }
 });
+
+async function pageRackReady(page, id) {
+    await page.waitForFunction(patchId => window.eurorackApp?.patchLibrary?.active?.id === patchId, id);
+    await expect(page.locator('#rackView')).toBeVisible();
+}

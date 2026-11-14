@@ -57,7 +57,8 @@ test('two users publish, like, fork, resave and revoke public image access', asy
         expect(html).toContain('name="twitter:card" content="summary_large_image"');
         expect(html).toContain('property="og:image"'); expect(html).not.toContain('fixture-alice');
         const image = await anonymous.request.get(`${origin}${publicRecord.images.social}`);
-        expect(image.status()).toBe(200); expect(image.headers()['cache-control']).toContain('no-store');
+        expect(image.status()).toBe(200); expect(image.headers()['cache-control']).toContain('must-revalidate');
+        expect(image.headers()['vercel-cdn-cache-control']).toBe('no-store');
         expect((await image.body()).subarray(1, 4).toString()).toBe('PNG');
 
         await bob.page.locator('[data-patch-view="public"]').click();

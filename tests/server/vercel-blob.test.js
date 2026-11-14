@@ -18,14 +18,23 @@ describe('private Vercel Blob image storage', () => {
         expect(config).toEqual({ provider: 'vercel-blob', enabled: true, token });
         expect(readImageConfig({ BLOB_READ_WRITE_TOKEN: '  ' }).enabled).toBe(false);
     });
-    it('uploads immutable private paths, reads without provider cache, and exposes no provider URLs', async () => {
+    it('uploads immutable private paths, reuses the private provider cache, and exposes no provider URLs', async () => {
         const bytes = Buffer.from('rack PNG fixture'); const sdk = sdkWithBytes(bytes); const path = key();
         const store = createVercelBlobImageStore({ BLOB_READ_WRITE_TOKEN: token }, sdk);
         expect(await store.put(path, bytes)).toBeUndefined();
-        expect(sdk.put).toHaveBeenCalledWith(path, bytes, { token, access: 'private', addRandomSuffix: false, allowOverwrite: false, contentType: 'image/png', cacheControlMaxAge: 60 });
+        expect(sdk.put).toHaveBeenCalledWith(path, bytes, { token, access: 'private', addRandomSuffix: false, allowOverwrite: false, contentType: 'image/png', cacheControlMaxAge: 31536000 });
         expect(await store.get(path)).toEqual(bytes);
-        expect(sdk.get).toHaveBeenCalledWith(path, { token, access: 'private', useCache: false });
+        expect(sdk.get).toHaveBeenCalledWith(path, { token, access: 'private', useCache: true });
         await store.delete(path); expect(sdk.del).toHaveBeenCalledWith(path, { token });
+    });
+    it('stores precomputed WebP thumbnails with their actual MIME type', async () => {
+        const bytes = Buffer.from('webp fixture'), sdk = sdkWithBytes(bytes);
+        const store = createVercelBlobImageStore({ BLOB_READ_WRITE_TOKEN: token }, sdk);
+        const path = `rack-previews/${ulid()}/thumbnail.webp`;
+        await store.put(path, bytes, { contentType: 'image/webp' });
+        expect(sdk.put.mock.calls[0][2]).toMatchObject({ contentType: 'image/webp', allowOverwrite: false, access: 'private' });
+        await expect(store.put(path, bytes)).rejects.toMatchObject({ status: 400 });
+        await expect(store.put(path.replace('thumbnail', 'social'), bytes, { contentType: 'image/webp' })).rejects.toMatchObject({ status: 400 });
     });
     it('rejects arbitrary provider URLs and paths before sending credentials', async () => {
         const sdk = sdkWithBytes(Buffer.from('x')); const store = createVercelBlobImageStore({ BLOB_READ_WRITE_TOKEN: token }, sdk);

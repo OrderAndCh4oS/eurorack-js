@@ -3,6 +3,7 @@
   "buildCommand": "node scripts/vercel-build.mjs",
   "outputDirectory": "dist",
   "framework": null,
+  "crons": [{ "path": "/api/internal/cleanup-previews", "schedule": "0 5 * * *" }],
   "headers": [
     { "source": "/patch-previews/:path*", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
   ],

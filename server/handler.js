@@ -3,6 +3,7 @@ import { LIMITS, HttpError, assert, id } from './validation.js';
 import { patchHtml } from './html.js';
 import { rackPage } from './rack-page.js';
 import { readConfig } from './config.js';
+import { timingSafeEqual } from 'node:crypto';
 
 const securityHeaders = { 'Cache-Control': 'private, no-store, max-age=0', 'Vercel-CDN-Cache-Control': 'no-store',
     'CDN-Cache-Control': 'no-store', Vary: 'Cookie', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin' };
@@ -21,7 +22,7 @@ async function readJson(request) {
         assert(value && !Array.isArray(value) && typeof value === 'object', 'Expected a JSON object.'); return value;
     } catch (error) { if (error instanceof HttpError) throw error; throw new HttpError(400, 'invalid_json', 'Invalid JSON request.'); }
 }
-export function createHandler({ store, authenticate = async () => null, authHandler, imageStore, baseUrl = 'http://localhost:3000', enabled = true, configurationMessage, service: suppliedService, ...serviceOptions } = {}) {
+export function createHandler({ store, authenticate = async () => null, authHandler, imageStore, baseUrl = 'http://localhost:3000', enabled = true, configurationMessage, cleanupSecret, service: suppliedService, ...serviceOptions } = {}) {
     const service = suppliedService || (store && createPatchService({ store, imageStore, ...serviceOptions }));
     const origin = new URL(baseUrl).origin;
     return async request => {
@@ -40,6 +41,12 @@ export function createHandler({ store, authenticate = async () => null, authHand
             }
             if (path.startsWith('/api/auth/')) {
                 assert(authHandler, 'Sign-in is unavailable. Try again later.', 503, 'auth_unavailable'); return authHandler(request);
+            }
+            if (path === '/api/internal/cleanup-previews' && method === 'GET') {
+                const provided = Buffer.from(request.headers.get('authorization') || '');
+                const expected = Buffer.from(`Bearer ${cleanupSecret || ''}`);
+                assert(cleanupSecret && provided.length === expected.length && timingSafeEqual(provided, expected), 'Unauthorized.', 401, 'unauthorized');
+                return json(await service.cleanupPreviews());
             }
             const user = await authenticate(request);
             if (path === '/api/me' && method === 'GET') return json({ configured: true, user: await service.me(user) });
@@ -72,12 +79,18 @@ export function createHandler({ store, authenticate = async () => null, authHand
             }
             const image = /^\/patches\/([^/]+)\/images\/([^/]+)\/(full|thumbnail|social)(?:\.png)?$/.exec(path);
             if (image && ['GET', 'HEAD'].includes(method)) {
-                const { bytes, visibility } = await service.image(user, image[1], image[2], image[3], { includeAccess: true });
+                const { bytes, visibility, contentType, etag, length, notModified } = await service.image(user, image[1], image[2], image[3], {
+                    includeAccess: true, ifNoneMatch: request.headers.get('if-none-match'), head: method === 'HEAD'
+                });
                 // Public previews must be embeddable by social sites. Private images keep
                 // their session checks and same-origin restriction, including after a toggle.
                 const publicImage = visibility === 'public';
-                return new Response(method === 'HEAD' ? null : bytes, { headers: { ...securityHeaders,
-                    'Content-Type': 'image/png', 'Content-Disposition': 'inline',
+                return new Response(method === 'HEAD' || notModified ? null : bytes, { status: notModified ? 304 : 200, headers: { ...securityHeaders,
+                    // Browser storage is allowed, but every reuse revalidates current
+                    // visibility. Shared response caches remain disabled above.
+                    'Cache-Control': 'private, no-cache, max-age=0, must-revalidate', ETag: etag,
+                    'Content-Type': contentType, 'Content-Disposition': 'inline',
+                    ...(!notModified ? { 'Content-Length': String(length) } : {}),
                     'Cross-Origin-Resource-Policy': publicImage ? 'cross-origin' : 'same-origin',
                     ...(publicImage ? { 'Access-Control-Allow-Origin': '*' } : {}) } });
             }
@@ -115,7 +128,7 @@ export async function productionHandler(request) {
         const [{ Pool }, { createAuth }, { PostgresStore }, { createImageStore }] = await Promise.all([import('pg'), import('./auth.js'), import('./postgres-store.js'), import('./image-store.js')]);
         const pool = new Pool({ connectionString: config.databaseUrl, max: 3, idleTimeoutMillis: 20000, connectionTimeoutMillis: 10000 });
         const auth = createAuth(pool, process.env);
-        return createHandler({ store: new PostgresStore(pool), baseUrl: config.baseUrl, authHandler: request => auth.handler(request),
+        return createHandler({ store: new PostgresStore(pool), baseUrl: config.baseUrl, cleanupSecret: process.env.CRON_SECRET, authHandler: request => auth.handler(request),
             authenticate: async request => (await auth.api.getSession({ headers: request.headers }))?.user || null,
             imageStore: config.imagesEnabled ? await createImageStore(process.env) : undefined });
     })().catch(error => { production = undefined; throw error; });

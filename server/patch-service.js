@@ -2,8 +2,10 @@ import { ulid } from 'ulid';
 import { LIMITS, assert, id, revision, hash, textField, publicName, visibility, validateState, HttpError } from './validation.js';
 import { rasterVariants } from './image-store.js';
 import { cataloguePage } from './catalogue-pagination.js';
+import { createImageByteCache } from './image-byte-cache.js';
 
 export function createPatchService({ store, imageStore, now = () => new Date(), generateId = ulid, contracts }) {
+    const imageBytes = createImageByteCache();
     const timestamp = () => now().toISOString();
     function signedIn(user) { assert(user?.id, 'Sign in to continue.', 401, 'sign_in_required'); return user; }
     function accessible(patch, user) { assert(patch && (patch.visibility === 'public' || patch.ownerId === user?.id), 'Patch not found.', 404, 'not_found'); return patch; }
@@ -68,8 +70,8 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 parentCreatorName: patch.parentId ? name(context.parentCreator(patch), patch.parentCreatorName) : null, parentRevision: patch.parentRevision,
                 parentAvailable: !!parent && (parent.visibility === 'public' || parent.ownerId === user?.id),
                 rootAvailable: !!root && (root.visibility === 'public' || root.ownerId === user?.id) },
-            ...(await tx.likes(patch.id, user?.id)),
-            images: patch.previewId ? Object.fromEntries(['thumbnail', 'full', 'social'].map(variant => [variant, `/patches/${patch.id}/images/${patch.previewId}/${variant}.png`])) : null
+            ...(context.likes?.get(patch.id) || await tx.likes(patch.id, user?.id)),
+            images: patch.previewId ? Object.fromEntries(['thumbnail', 'full', 'social'].map(variant => [variant, `/patches/${patch.id}/images/${patch.previewId}/${variant}${variant === 'thumbnail' ? '' : '.png'}`])) : null
         };
     }
     function labels(body, previous) {
@@ -104,6 +106,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 const hasPrevious = page.direction === 'previous' ? hasMore : !!page.boundary;
                 const hasNext = page.direction === 'previous' ? !!page.boundary : hasMore;
                 const context = await projectionContext(tx, selected);
+                context.likes = await tx.likesFor(selected.map(p => p.id), user?.id);
                 return {
                     patches: await Promise.all(selected.map(async p => ({ ...await project(tx, p, user, false, context), ...(sort === 'popular' ? { popularityCount: p.popularityCount } : {}) }))),
                     nextCursor: selected.length && hasNext ? page.cursorFor(selected.at(-1), 'next') : null,
@@ -122,9 +125,9 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
             const uploaded = [];
             try {
                 for (const [name, variant] of Object.entries(variants)) {
-                    const key = `rack-previews/${previewId}/${name}.png`;
-                    uploaded.push(key); await imageStore.put(key, variant.body);
-                    record.variants[name] = { key, bytes: variant.body.length, width: variant.width, height: variant.height };
+                    const key = `rack-previews/${previewId}/${name}.${variant.format}`;
+                    uploaded.push(key); await imageStore.put(key, variant.body, { contentType: variant.contentType });
+                    record.variants[name] = { key, bytes: variant.body.length, width: variant.width, height: variant.height, contentType: variant.contentType };
                     record.bytes += variant.body.length;
                 }
                 await store.transaction(async tx => {
@@ -250,26 +253,27 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 return tx.likes(patchId, user.id);
             });
         },
-        async image(user, patchId, previewId, variant, { includeAccess = false } = {}) {
+        async image(user, patchId, previewId, variant, { includeAccess = false, ifNoneMatch, head = false } = {}) {
             id(patchId); id(previewId); assert(['full', 'thumbnail', 'social'].includes(variant), 'Image not found.', 404, 'not_found');
             assert(imageStore, 'Previews are unavailable. Try again later.', 503, 'images_unavailable');
-            const preview = await store.transaction(async tx => {
-                const patch = accessible(await tx.getPatch(patchId), user);
-                assert(patch.previewId === previewId, 'Image not found.', 404, 'not_found');
-                const image = await tx.getPreview(previewId);
-                assert(image && image.stateHash === patch.stateHash, 'Image not found.', 404, 'not_found'); return image;
-            });
+            // One fresh joined read, without the global mutation lock. Never cache
+            // authorization: this runs even on a byte-cache hit or conditional GET.
+            const access = accessible(await store.getImageAccess(patchId, previewId), user);
+            const stored = access.variants[variant];
+            assert(stored, 'Image not found.', 404, 'not_found');
+            const contentType = stored.contentType || 'image/png';
+            const etag = `"${hash({ key: stored.key, bytes: stored.bytes, contentType })}"`;
+            const notModified = typeof ifNoneMatch === 'string' && ifNoneMatch.split(',').some(value => value.trim() === '*' || value.trim().replace(/^W\//, '') === etag);
+            const headers = { visibility: access.visibility, contentType, etag, length: stored.bytes };
+            if (includeAccess && (notModified || head)) return { ...headers, bytes: null, notModified };
             let bytes;
-            try { bytes = await imageStore.get(preview.variants[variant].key); }
+            try { bytes = await imageBytes.get(stored.key, () => imageStore.get(stored.key)); }
             catch { throw new HttpError(503, 'image_unavailable', 'Preview unavailable. Try again later.'); }
             // Storage may be slow. Recheck visibility and the active image after retrieval so a
             // privacy change or newer saved rack cannot be overtaken by an in-flight download.
-            const visibility = await store.transaction(async tx => {
-                const patch = accessible(await tx.getPatch(patchId), user);
-                assert(patch.previewId === previewId && patch.stateHash === preview.stateHash, 'Image not found.', 404, 'not_found');
-                return patch.visibility;
-            });
-            return includeAccess ? { bytes, visibility } : bytes;
+            const latest = accessible(await store.getImageAccess(patchId, previewId), user);
+            assert(latest.stateHash === access.stateHash && latest.variants[variant]?.key === stored.key, 'Image not found.', 404, 'not_found');
+            return includeAccess ? { ...headers, bytes, visibility: latest.visibility, length: bytes.length } : bytes;
         },
         async cleanupPreviews() {
             assert(imageStore, 'Image storage is not configured.', 503);
@@ -278,19 +282,22 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
             const removed = await store.transaction(async tx => {
                 let removed = 0;
                 const candidates = new Set();
-                for (const preview of await tx.listPreviews()) {
-                    if (now().getTime() - Date.parse(preview.createdAt) < 86400000 || await tx.previewReferences(preview.id)) continue;
+                const before = new Date(now().getTime() - 86400000).toISOString();
+                for (const preview of await tx.listUnusedPreviews(before, 25)) {
                     for (const variant of Object.values(preview.variants)) candidates.add(variant.key);
                     await tx.deletePreview(preview.id); removed++;
                 }
                 for (const key of candidates) if (await tx.objectReferences(key) === 0) await tx.addGarbage(key);
                 return removed;
             });
-            for (const key of await store.listGarbage()) {
+            const garbage = await store.listGarbage(75);
+            for (let offset = 0; offset < garbage.length; offset += 5) {
                 // Only internally generated immutable keys are ever enqueued. Once their final
                 // association is removed, neither a copy nor a save can introduce a new one.
-                try { await imageStore.delete(key); await store.deleteGarbage(key); }
-                catch { /* The durable queue retains failed deletions for the next run. */ }
+                await Promise.all(garbage.slice(offset, offset + 5).map(async key => {
+                    try { await imageStore.delete(key); await store.deleteGarbage(key); }
+                    catch { /* The durable queue retains failed deletions for the next run. */ }
+                }));
             }
             return { removed, pendingObjects: await store.garbageCount() };
         }

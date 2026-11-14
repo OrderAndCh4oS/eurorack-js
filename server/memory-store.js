@@ -10,6 +10,15 @@ export class MemoryStore {
         try { return await work(this); } catch (error) { this.data = before; throw error; } finally { release(); }
     }
     async getPatch(id) { return structuredClone(this.data.patches.get(id)); }
+    async getImageAccess(patchId, previewId) {
+        // Image reads are outside transaction callbacks. Wait for any pending
+        // mutation so the snapshot cannot expose data that might roll back.
+        await this.queue;
+        const patch = this.data.patches.get(patchId), preview = this.data.previews.get(previewId);
+        if (!patch || patch.previewId !== previewId || !preview || preview.stateHash !== patch.stateHash) return undefined;
+        return structuredClone({ ownerId: patch.ownerId, visibility: patch.visibility, previewId,
+            stateHash: patch.stateHash, variants: preview.variants });
+    }
     async getPatches(ids) { return structuredClone(ids.map(id => this.data.patches.get(id)).filter(Boolean)); }
     async getPatchOwners(ids) {
         const wanted = new Set(ids), owners = new Map();
@@ -46,9 +55,21 @@ export class MemoryStore {
     async deletePreview(id) { this.data.previews.delete(id); }
     async previewReferences(id) { return [...this.data.patches.values()].filter(p => p.previewId === id).length; }
     async listPreviews() { return structuredClone([...this.data.previews.values()]); }
+    async listUnusedPreviews(beforeISO, limit = 25) {
+        if (!Number.isInteger(limit) || limit < 1 || limit > 25) throw new RangeError('Preview cleanup batch must be between 1 and 25.');
+        const referenced = new Set([...this.data.patches.values()].map(patch => patch.previewId));
+        const before = Date.parse(beforeISO);
+        return structuredClone([...this.data.previews.values()]
+            .filter(preview => Date.parse(preview.createdAt) < before && !referenced.has(preview.id))
+            .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt) || a.id.localeCompare(b.id))
+            .slice(0, limit));
+    }
     async objectReferences(key) { return [...this.data.previews.values()].filter(p => Object.values(p.variants).some(v => v.key === key)).length; }
     async addGarbage(key) { this.data.garbage.add(key); }
-    async listGarbage() { return [...this.data.garbage]; }
+    async listGarbage(limit = 75) {
+        if (!Number.isInteger(limit) || limit < 1 || limit > 75) throw new RangeError('Image cleanup batch must be between 1 and 75.');
+        return [...this.data.garbage].slice(0, limit);
+    }
     async garbageCount() { return this.data.garbage.size; }
     async deleteGarbage(key) { this.data.garbage.delete(key); }
     async setLike(patchId, userId, liked, createdAt = new Date().toISOString()) {
@@ -57,6 +78,12 @@ export class MemoryStore {
         this.data.likes.set(patchId, users);
     }
     async likes(patchId, userId) { const users = this.data.likes.get(patchId) || new Map(); return { likeCount: users.size, likedByMe: users.has(userId) }; }
+    async likesFor(patchIds, userId) {
+        return new Map(patchIds.map(patchId => {
+            const users = this.data.likes.get(patchId);
+            return [patchId, { likeCount: users?.size || 0, likedByMe: users?.has(userId) || false }];
+        }));
+    }
     async consumeRate(key, bucket, maximum) {
         const fullKey = `${key}:${bucket}`;
         const count = (this.data.rates.get(fullKey) || 0) + 1;

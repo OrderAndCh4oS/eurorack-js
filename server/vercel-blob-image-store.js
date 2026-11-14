@@ -7,19 +7,22 @@ export function createVercelBlobImageStore(env = process.env, sdk = { put, get, 
     const token = env.BLOB_READ_WRITE_TOKEN;
     assert(typeof token === 'string' && token.trim(), 'Private Vercel Blob storage is not configured.', 503, 'images_unavailable');
     function checkKey(key) {
-        assert(typeof key === 'string' && /^rack-previews\/[0-7][0-9A-HJKMNP-TV-Z]{25}\/(full|thumbnail|social)\.png$/.test(key), 'Invalid rack image key.');
+        assert(typeof key === 'string' && /^rack-previews\/[0-7][0-9A-HJKMNP-TV-Z]{25}\/(?:(?:full|thumbnail|social)\.png|thumbnail\.webp)$/.test(key), 'Invalid rack image key.');
     }
     return {
-        async put(key, body) {
+        async put(key, body, { contentType = 'image/png' } = {}) {
             checkKey(key);
+            assert(contentType === (key.endsWith('.webp') ? 'image/webp' : 'image/png'), 'Invalid rack image type.');
             assert(body.byteLength <= LIMITS.imageBytes, 'Rack image is too large.', 413, 'image_too_large');
             const result = await sdk.put(key, body, { token, access: 'private', addRandomSuffix: false,
-                allowOverwrite: false, contentType: 'image/png', cacheControlMaxAge: 60 });
+                allowOverwrite: false, contentType, cacheControlMaxAge: 31536000 });
             assert(result.pathname === key, 'Image storage returned an unexpected path.', 503, 'image_unavailable');
         },
         async get(key) {
             checkKey(key);
-            const result = await sdk.get(key, { token, access: 'private', useCache: false });
+            // Keys are immutable. Cache bytes in Blob's private CDN; current patch
+            // visibility is checked by the application before and after each read.
+            const result = await sdk.get(key, { token, access: 'private', useCache: true });
             assert(result?.statusCode === 200 && result.stream, 'Rack image is unavailable.', 503, 'image_unavailable');
             if (result.blob.size !== null && !(result.blob.size <= LIMITS.imageBytes)) {
                 await result.stream.cancel().catch(() => {});

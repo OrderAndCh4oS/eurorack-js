@@ -66,11 +66,11 @@ export class PatchLibrary {
     }
     async initializeCloud() {
         this.config = await this.cloud.configuration();
-        if (this.config.enabled) await this.refreshSession();
+        if (this.config.enabled) await this.refreshSession({ refreshView: false });
         this.updateAccount();
         if (this.view !== 'rack') this.show(this.view, { preserveFocus: true });
     }
-    async refreshSession() {
+    async refreshSession({ refreshView = true } = {}) {
         const request = ++this.sessionRequest, account = this.accountGeneration;
         try {
             const { user } = await this.cloud.me();
@@ -85,8 +85,8 @@ export class PatchLibrary {
                 if (this.active?.source === 'cloud' && this.user) this.setActive(null, this.baseline);
             }
             this.user = user; this.updateAccount();
-            if (changed && this.surface && this.view !== 'rack') this.show(this.view, { preserveFocus: true });
-            else if (renamed) await this.refreshAttribution();
+            if (refreshView && changed && this.surface && this.view !== 'rack') this.show(this.view, { preserveFocus: true });
+            else if (refreshView && renamed) await this.refreshAttribution();
         } catch (error) { if (request === this.sessionRequest && account === this.accountGeneration && error.name !== 'AbortError') this.notice(error.message); }
     }
     updateAccount() {
@@ -119,7 +119,7 @@ export class PatchLibrary {
             this.active = { ...active, authorName: record.authorName, provenance: { ...active.provenance,
                 originalCreatorName: record.provenance?.originalCreatorName, parentCreatorName: record.provenance?.parentCreatorName } };
         }));
-        if (this.view === 'public' || this.view === 'mine') requests.push(this.fetchList(this.view === 'public'));
+        if (this.view === 'public' || this.view === 'mine') requests.push(this.fetchList(this.view === 'public', this.cursor, { preservePreviews: true }));
         await Promise.allSettled(requests);
     }
     openProfile() {
@@ -258,11 +258,11 @@ export class PatchLibrary {
         });
         this.revealActiveTab();
         if (view === 'rack') { requestAnimationFrame(() => this.app.renderAllCables()); return; }
-        this.render({ preserveFocus });
-        if (view === 'public' && this.config.enabled) void this.fetchList(true);
-        if (view === 'mine' && this.user) void this.fetchList(false);
+        if (view === 'public' && this.config.enabled) void this.fetchList(true, this.cursor, { preserveFocus });
+        else if (view === 'mine' && this.user) void this.fetchList(false, this.cursor, { preserveFocus });
+        else this.render({ preserveFocus });
     }
-    render({ preserveFocus = true } = {}) {
+    render({ preserveFocus = true, previewImages } = {}) {
         if (!this.surface || this.view === 'rack') return;
         const focused = preserveFocus && this.surface.contains(this.document.activeElement) ? this.document.activeElement : null;
         const focusName = ['q', 'sort', 'period'].includes(focused?.name) ? focused.name : null;
@@ -294,9 +294,9 @@ export class PatchLibrary {
         if (this.view === 'mine') {
             try { this.localSection('This browser', this.local.list(), 'local', 'localCursor'); }
             catch (error) { this.section('This browser', [], error.message); }
-            this.cloudSection('My account', 'account', this.user ? this.query ? 'No matching patches.' : 'No patches saved to your account.' : this.config.enabled ? 'Sign in to save patches across devices.' : 'Account saving is unavailable. Try again later.');
+            this.cloudSection('My account', 'account', this.user ? this.query ? 'No matching patches.' : 'No patches saved to your account.' : this.config.enabled ? 'Sign in to save patches across devices.' : 'Account saving is unavailable. Try again later.', previewImages);
         }
-        if (this.view === 'public') this.cloudSection('Shared racks', 'public', this.config.enabled ? this.query ? 'No matching patches.' : 'No public patches yet.' : 'Public patches are unavailable. Try again later.');
+        if (this.view === 'public') this.cloudSection('Shared racks', 'public', this.config.enabled ? this.query ? 'No matching patches.' : 'No public patches yet.' : 'Public patches are unavailable. Try again later.', previewImages);
         this.surface.setAttribute('aria-busy', String(!!this.listLoading[this.view === 'public' ? 'public' : this.view === 'mine' ? 'account' : 'tests']));
         const footer = element(this.document, 'footer', undefined, 'patch-library-footer');
         const legal = element(this.document, 'nav'); legal.setAttribute('aria-label', 'Legal');
@@ -320,9 +320,9 @@ export class PatchLibrary {
             if (error.code === 'invalid_cursor') section.append(this.pageLink('First page', cursorKey, null));
         }
     }
-    cloudSection(title, list, empty) {
+    cloudSection(title, list, empty, previewImages) {
         const error = this.listErrors[list];
-        const section = this.section(title, this[`${list}Patches`], this.listLoading[list] ? 'Loading patches…' : error ? 'Could not load patches. Try again.' : empty, this.listPages[list]);
+        const section = this.section(title, this[`${list}Patches`], this.listLoading[list] ? 'Loading patches…' : error ? 'Could not load patches. Try again.' : empty, this.listPages[list], 'cursor', previewImages);
         if (error) {
             section.append(this.button('Try again', () => this.fetchList(list === 'public')));
             if (this.cursor) section.append(this.pageLink('First page', 'cursor', null));
@@ -340,10 +340,10 @@ export class PatchLibrary {
         });
         return link;
     }
-    section(title, records, empty, page = {}, cursorKey = 'cursor') {
+    section(title, records, empty, page = {}, cursorKey = 'cursor', previewImages) {
         const section = element(this.document, 'section', undefined, 'patch-library-section'); section.append(element(this.document, 'h2', `${title}${records.length ? ` · ${records.length}` : ''}`));
         if (!records.length) section.append(element(this.document, 'p', empty, 'patch-empty'));
-        else { const grid = element(this.document, 'div', undefined, 'patch-grid'); records.forEach(record => grid.append(this.entry(record))); section.append(grid); }
+        else { const grid = element(this.document, 'div', undefined, 'patch-grid'); records.forEach(record => grid.append(this.entry(record, previewImages))); section.append(grid); }
         if (page.previousCursor || page.nextCursor) {
             const navigation = element(this.document, 'nav', undefined, 'patch-pagination'); navigation.setAttribute('aria-label', `${title} pages`);
             if (page.previousCursor) navigation.append(this.pageLink('Previous', cursorKey, page.previousCursor, 'prev'));
@@ -352,12 +352,17 @@ export class PatchLibrary {
         }
         this.surface.append(section); return section;
     }
-    entry(record) {
+    entry(record, previewImages) {
         const card = element(this.document, 'article', undefined, 'patch-entry'); card.dataset.patchName = record.name; card.dataset.patchSource = record.source; if (record.id) card.dataset.patchId = record.id;
+        if (record.visibility) card.dataset.patchVisibility = record.visibility;
         const frame = element(this.document, 'div', undefined, 'patch-preview-frame');
         frame.append(element(this.document, 'span', 'Rack preview', 'patch-preview-placeholder'));
         if (record.images?.thumbnail) {
-            const img = element(this.document, 'img'); img.src = record.images.thumbnail; img.alt = `Rack for ${record.name}`; img.loading = 'lazy'; img.decoding = 'async'; frame.replaceChildren(img);
+            const previous = previewImages?.get(record.id);
+            const img = previous?.url === record.images.thumbnail && previous.visibility === record.visibility ? previous.image : element(this.document, 'img');
+            img.alt = `Rack for ${record.name}`; img.loading = 'lazy'; img.decoding = 'async';
+            if (img.getAttribute('src') !== record.images.thumbnail) img.src = record.images.thumbnail;
+            frame.replaceChildren(img);
         } else if (record.state) this.observePreview(frame, record);
         card.append(frame);
         const caption = element(this.document, 'div', undefined, 'patch-entry-caption'); const meta = element(this.document, 'div', undefined, 'patch-entry-meta');
@@ -419,19 +424,29 @@ export class PatchLibrary {
             frame.renderPreview = render; this.observer.observe(frame);
         } else { frame.firstChild.textContent = 'Preview unavailable'; }
     }
-    async fetchList(publicOnly, cursor = this.cursor) {
+    async fetchList(publicOnly, cursor = this.cursor, { preserveFocus = true, preservePreviews = false } = {}) {
         if (!this.config.enabled || (!publicOnly && !this.user)) return;
         const generation = this.renderGeneration, account = this.accountGeneration;
         const list = publicOnly ? 'public' : 'account'; const request = ++this.listRequests[list];
         const current = () => generation === this.renderGeneration && account === this.accountGeneration && request === this.listRequests[list];
-        this[`${list}Patches`] = []; this.listPages[list] = {}; this.listErrors[list] = null; this.listLoading[list] = true; this.render();
+        // A metadata refresh can retain decoded images, but only for records the
+        // fresh response still allows this account to see. This map lives for
+        // one page request; account/view changes and removed images cannot reuse it.
+        const previewImages = new Map();
+        if (preservePreviews) this.surface.querySelectorAll('.patch-entry[data-patch-source="cloud"]').forEach(card => {
+            const image = card.querySelector('.patch-preview-frame img');
+            if (image?.complete && image.naturalWidth > 0) previewImages.set(card.dataset.patchId, {
+                image, url: image.getAttribute('src'), visibility: card.dataset.patchVisibility
+            });
+        });
+        this[`${list}Patches`] = []; this.listPages[list] = {}; this.listErrors[list] = null; this.listLoading[list] = true; this.render({ preserveFocus });
         try {
             const result = await this.cloud.list({ publicOnly, cursor, query: this.query, ...(publicOnly ? { sort: this.sort, period: this.period } : {}) });
             if (!current()) return;
             this[`${list}Patches`] = result.patches.map(record => ({ ...record, source: 'cloud' }));
             this.listPages[list] = { nextCursor: result.nextCursor, previousCursor: result.previousCursor };
         } catch (error) { if (current() && error.name !== 'AbortError') this.listErrors[list] = error; }
-        finally { if (current()) { this.listLoading[list] = false; this.render(); } }
+        finally { if (current()) { this.listLoading[list] = false; this.render({ previewImages }); } }
     }
     async confirmReplace() {
         if (!this.isDirty()) return true;

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import sharp from 'sharp';
 import { ulid, isValid } from 'ulid';
 import { MemoryStore } from '../../server/memory-store.js';
@@ -117,6 +117,111 @@ describe('cloud identity, access and revisions', () => {
 });
 
 describe('publication, previews and social pages', () => {
+    it('runs bounded scheduled cleanup only with the server secret, without a user session', async () => {
+        const cleanup = vi.fn(async () => ({ removed: 0, pendingObjects: 0 }));
+        const authenticate = vi.fn();
+        const secret = 'x'.repeat(48);
+        const secured = createHandler({ service: { cleanupPreviews: cleanup }, authenticate, cleanupSecret: secret });
+        const url = 'https://rack.example/api/internal/cleanup-previews';
+        for (const authorization of ['', 'Bearer wrong', `Bearer ${'y'.repeat(48)}`]) {
+            expect((await secured(new Request(url, { headers: { authorization } }))).status).toBe(401);
+        }
+        expect(cleanup).not.toHaveBeenCalled(); expect(authenticate).not.toHaveBeenCalled();
+        const result = await secured(new Request(url, { headers: { authorization: `Bearer ${secret}` } }));
+        expect(result.status).toBe(200); expect(cleanup).toHaveBeenCalledTimes(1);
+        expect(result.headers.get('cache-control')).toContain('no-store');
+        const unconfigured = createHandler({ service: { cleanupPreviews: cleanup } });
+        expect((await unconfigured(new Request(url, { headers: { authorization: 'Bearer ' } }))).status).toBe(401);
+        expect(cleanup).toHaveBeenCalledTimes(1);
+    });
+    it('precomputes bounded thumbnail, full and social sizes only on upload', async () => {
+        png = await sharp({ create: { width: 1800, height: 1500, channels: 3, background: '#f0eee2' } }).png().toBuffer();
+        const writes = vi.spyOn(images, 'put');
+        const patch = await published();
+        const saved = await store.getPreview(patch.previewId);
+        expect(writes).toHaveBeenCalledTimes(3);
+        expect(saved.variants.thumbnail).toMatchObject({ contentType: 'image/webp', height: 420 });
+        expect(saved.variants.thumbnail.width).toBeLessThanOrEqual(640);
+        expect(saved.variants.full.width).toBeLessThanOrEqual(1600);
+        expect(saved.variants.full.height).toBeLessThanOrEqual(1600);
+        expect(saved.variants.social).toMatchObject({ width: 1200, height: 630, contentType: 'image/png' });
+        expect(saved.bytes).toBeLessThanOrEqual(LIMITS.imageBytes);
+        for (const [variant, path] of Object.entries(patch.images)) {
+            const response = await request(path);
+            const metadata = await sharp(Buffer.from(await response.arrayBuffer())).metadata();
+            expect(metadata.format).toBe(variant === 'thumbnail' ? 'webp' : 'png');
+        }
+        expect(writes).toHaveBeenCalledTimes(3);
+        expect(forwardedRequest(new Request(`https://rack.example/api?__path=${patch.images.thumbnail}`)).url).toBe(`https://rack.example${patch.images.thumbnail}`);
+    });
+    it('reuses immutable bytes and revalidates cached browser images without reading Blob', async () => {
+        const patch = await published();
+        const reads = vi.spyOn(images, 'get');
+        const first = await request(patch.images.thumbnail);
+        const firstBytes = Buffer.from(await first.arrayBuffer());
+        const etag = first.headers.get('etag');
+        expect(etag).toMatch(/^"[a-f0-9]{64}"$/);
+        const second = await request(patch.images.thumbnail);
+        expect(Buffer.from(await second.arrayBuffer())).toEqual(firstBytes);
+        for (const validator of [etag, `W/${etag}`, `"older", ${etag}`, '*']) {
+            const cached = await request(patch.images.thumbnail, { headers: { 'if-none-match': validator } });
+            expect(cached.status).toBe(304);
+            expect((await cached.arrayBuffer()).byteLength).toBe(0);
+            expect(cached.headers.get('etag')).toBe(etag);
+            expect(cached.headers.get('vary')).toBe('Cookie');
+            expect(cached.headers.get('cache-control')).toContain('must-revalidate');
+            expect(cached.headers.get('cdn-cache-control')).toBe('no-store');
+        }
+        expect(reads).toHaveBeenCalledTimes(1);
+        expect((await request(patch.images.thumbnail, { headers: { 'if-none-match': '"wrong"' } })).status).toBe(200);
+        expect(reads).toHaveBeenCalledTimes(1);
+    });
+    it('checks access on warm and conditional cache hits after privacy changes and deletion', async () => {
+        const patch = await published();
+        const initial = await request(patch.images.thumbnail);
+        const headers = { 'if-none-match': initial.headers.get('etag') };
+        await service.setVisibility(alice, patch.id, { expectedRevision: 1, visibility: 'private' });
+        for (const user of [undefined, 'bob']) {
+            expect((await request(patch.images.thumbnail, { user, headers })).status).toBe(404);
+            expect((await request(patch.images.thumbnail, { user })).status).toBe(404);
+        }
+        const owner = await request(patch.images.thumbnail, { user: 'alice', headers });
+        expect(owner.status).toBe(304);
+        expect(owner.headers.get('cross-origin-resource-policy')).toBe('same-origin');
+        expect(owner.headers.has('access-control-allow-origin')).toBe(false);
+        await service.remove(alice, patch.id, { expectedRevision: 2 });
+        expect((await request(patch.images.thumbnail, { user: 'alice', headers })).status).toBe(404);
+    });
+    it('answers HEAD without downloading any image and keeps legacy PNG previews working', async () => {
+        const patch = await published();
+        // Existing stored previews have PNG bytes and no contentType metadata.
+        const saved = await store.getPreview(patch.previewId);
+        saved.variants.thumbnail = { ...saved.variants.full };
+        delete saved.variants.thumbnail.contentType;
+        await store.transaction(tx => tx.putPreview(saved));
+        const reads = vi.spyOn(images, 'get');
+        const head = await request(patch.images.thumbnail, { method: 'HEAD' });
+        expect(head.status).toBe(200); expect(head.headers.get('content-type')).toBe('image/png');
+        expect(Number(head.headers.get('content-length'))).toBe(saved.variants.thumbnail.bytes);
+        expect(reads).not.toHaveBeenCalled();
+        const conditional = await request(patch.images.thumbnail, { headers: { 'if-none-match': head.headers.get('etag') } });
+        expect(conditional.status).toBe(304); expect(reads).not.toHaveBeenCalled();
+        const legacy = await request(`${patch.images.thumbnail}.png`);
+        expect(legacy.status).toBe(200); expect(legacy.headers.get('content-type')).toBe('image/png');
+        expect((await sharp(Buffer.from(await legacy.arrayBuffer())).metadata()).format).toBe('png');
+    });
+    it('newly saved previews change every image URL and reject old cached versions', async () => {
+        const patch = await published();
+        const previous = await request(patch.images.thumbnail);
+        const nextPreview = await preview();
+        const next = await service.update(alice, patch.id, { state: state(), previewId: nextPreview.id, expectedRevision: 1 });
+        for (const variant of ['thumbnail', 'full', 'social']) {
+            expect(next.images[variant]).not.toBe(patch.images[variant]);
+            expect((await request(patch.images[variant], { user: 'alice', headers: { 'if-none-match': previous.headers.get('etag') } })).status).toBe(404);
+            expect((await request(next.images[variant])).status).toBe(200);
+        }
+        expect((await request(next.images.thumbnail)).headers.get('etag')).not.toBe(previous.headers.get('etag'));
+    });
     it('allows public social embeds but keeps private images same-origin for GET and HEAD', async () => {
         const patch = await published();
         const path = patch.images.social;
@@ -125,7 +230,8 @@ describe('publication, previews and social pages', () => {
             expect(response.status).toBe(200);
             expect(response.headers.get('cross-origin-resource-policy')).toBe('cross-origin');
             expect(response.headers.get('access-control-allow-origin')).toBe('*');
-            expect(response.headers.get('cache-control')).toContain('no-store');
+            expect(response.headers.get('cache-control')).toBe('private, no-cache, max-age=0, must-revalidate');
+            expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
             const body = await response.arrayBuffer();
             expect(body.byteLength > 0).toBe(method === 'GET');
         }
@@ -135,7 +241,7 @@ describe('publication, previews and social pages', () => {
             expect(owner.status).toBe(200);
             expect(owner.headers.get('cross-origin-resource-policy')).toBe('same-origin');
             expect(owner.headers.has('access-control-allow-origin')).toBe(false);
-            expect(owner.headers.get('cache-control')).toContain('no-store');
+            expect(owner.headers.get('cache-control')).toContain('must-revalidate');
             expect((await request(path, { method })).status).toBe(404);
             expect((await request(path, { method, user: 'bob' })).status).toBe(404);
         }
@@ -370,6 +476,6 @@ describe('bounded validation, catalogue and quotas', () => {
         expect(uploaded.status).toBe(201); const image = await uploaded.json();
         const response = await request('/api/patches', { user: 'alice', method: 'POST', body: draft({ visibility: 'public', previewId: image.id }) });
         expect(response.status).toBe(201); const patch = await response.json();
-        const result = await request(patch.images.thumbnail); expect(result.status).toBe(200); expect(result.headers.get('content-type')).toBe('image/png');
+        const result = await request(patch.images.thumbnail); expect(result.status).toBe(200); expect(result.headers.get('content-type')).toBe('image/webp');
     });
 });

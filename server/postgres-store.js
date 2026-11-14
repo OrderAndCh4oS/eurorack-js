@@ -14,6 +14,15 @@ export class PostgresStore {
         } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
     }
     async getPatch(id) { return (await this.query('SELECT data FROM patch_records WHERE id=$1', [id])).rows[0]?.data; }
+    async getImageAccess(patchId, previewId) {
+        // One statement gives a consistent snapshot without taking the global write
+        // lock or transferring the patch's rack state for each thumbnail request.
+        return (await this.query(`SELECT p.data->>'ownerId' AS "ownerId", p.data->>'visibility' AS visibility,
+            p.data->>'previewId' AS "previewId", p.data->>'stateHash' AS "stateHash", v.data->'variants' AS variants
+            FROM patch_records p JOIN patch_previews v ON v.id=p.data->>'previewId'
+                AND v.data->>'stateHash'=p.data->>'stateHash'
+            WHERE p.id=$1 AND v.id=$2`, [patchId, previewId])).rows[0];
+    }
     async getPatches(ids) { return ids.length ? (await this.query('SELECT data FROM patch_records WHERE id=ANY($1::text[])', [ids])).rows.map(row => row.data) : []; }
     async getPatchOwners(ids) {
         return new Map(ids.length ? (await this.query('SELECT patch_id, owner_id FROM patch_requests WHERE patch_id=ANY($1::text[])', [ids])).rows.map(row => [row.patch_id, row.owner_id]) : []);
@@ -62,9 +71,19 @@ export class PostgresStore {
     async deletePreview(id) { await this.query('DELETE FROM patch_previews WHERE id=$1', [id]); }
     async previewReferences(id) { return (await this.query("SELECT count(*)::int AS count FROM patch_records WHERE data->>'previewId'=$1", [id])).rows[0].count; }
     async listPreviews() { return (await this.query('SELECT data FROM patch_previews')).rows.map(r => r.data); }
+    async listUnusedPreviews(beforeISO, limit = 25) {
+        if (!Number.isInteger(limit) || limit < 1 || limit > 25) throw new RangeError('Preview cleanup batch must be between 1 and 25.');
+        return (await this.query(`SELECT v.data FROM patch_previews v
+            WHERE (v.data->>'createdAt')::timestamptz < $1::timestamptz
+                AND NOT EXISTS (SELECT 1 FROM patch_records p WHERE p.data->>'previewId'=v.id)
+            ORDER BY (v.data->>'createdAt')::timestamptz, v.id LIMIT $2`, [beforeISO, limit])).rows.map(row => row.data);
+    }
     async objectReferences(key) { return (await this.query("SELECT count(*)::int AS count FROM patch_previews WHERE EXISTS (SELECT 1 FROM jsonb_each(data->'variants') v WHERE v.value->>'key'=$1)", [key])).rows[0].count; }
     async addGarbage(key) { await this.query('INSERT INTO patch_image_garbage(key) VALUES($1) ON CONFLICT DO NOTHING', [key]); }
-    async listGarbage() { return (await this.query('SELECT key FROM patch_image_garbage ORDER BY created_at LIMIT 1000')).rows.map(row => row.key); }
+    async listGarbage(limit = 75) {
+        if (!Number.isInteger(limit) || limit < 1 || limit > 75) throw new RangeError('Image cleanup batch must be between 1 and 75.');
+        return (await this.query('SELECT key FROM patch_image_garbage ORDER BY created_at,key LIMIT $1', [limit])).rows.map(row => row.key);
+    }
     async garbageCount() { return (await this.query('SELECT count(*)::int AS count FROM patch_image_garbage')).rows[0].count; }
     async deleteGarbage(key) { await this.query('DELETE FROM patch_image_garbage WHERE key=$1', [key]); }
     async setLike(patchId, userId, liked, createdAt = new Date().toISOString()) {
@@ -73,6 +92,15 @@ export class PostgresStore {
     }
     async likes(patchId, userId) {
         return (await this.query('SELECT count(*)::int AS "likeCount", COALESCE(bool_or(user_id=$2),false) AS "likedByMe" FROM patch_likes WHERE patch_id=$1', [patchId, userId || ''])).rows[0];
+    }
+    async likesFor(patchIds, userId) {
+        const counts = new Map(patchIds.map(patchId => [patchId, { likeCount: 0, likedByMe: false }]));
+        if (!counts.size) return counts;
+        const { rows } = await this.query(`SELECT patch_id, count(*)::int AS "likeCount",
+            COALESCE(bool_or(user_id=$2),false) AS "likedByMe" FROM patch_likes
+            WHERE patch_id=ANY($1::text[]) GROUP BY patch_id`, [[...counts.keys()], userId || '']);
+        for (const { patch_id, likeCount, likedByMe } of rows) counts.set(patch_id, { likeCount, likedByMe });
+        return counts;
     }
     async consumeRate(key, bucket, maximum) {
         const result = await this.query('INSERT INTO patch_rate_limits(key,bucket,count) VALUES($1,$2,1) ON CONFLICT(key,bucket) DO UPDATE SET count=patch_rate_limits.count+1 RETURNING count', [key, bucket]);

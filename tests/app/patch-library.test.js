@@ -24,6 +24,60 @@ beforeEach(() => {
 });
 
 describe('patch library coordination', () => {
+    it('fetches the initial signed-in catalogue only once', async () => {
+        const { cloud, library } = setup(); library.view = 'public';
+        cloud.configuration.mockResolvedValue({ enabled: true });
+        cloud.me.mockResolvedValue({ user: { id: 'alice', name: 'Alice' } });
+        await library.initializeCloud();
+        expect(cloud.list).toHaveBeenCalledOnce();
+    });
+    it('does not recreate stale thumbnail cards while loading another filter', async () => {
+        const { cloud, library } = setup(); library.config.enabled = true; library.view = 'public';
+        library.publicPatches = [{ id, source: 'cloud', name: 'Old filter', images: { thumbnail: '/old.png' } }];
+        const pending = deferred(); cloud.list.mockReturnValue(pending.promise);
+        const entry = vi.spyOn(library, 'entry');
+        library.show('public');
+        expect(entry).not.toHaveBeenCalled();
+        expect(document.querySelector('.patch-entry')).toBeNull();
+        pending.resolve({ patches: [{ id, name: 'New filter', images: { thumbnail: '/new.png' } }] });
+        await vi.waitFor(() => expect(document.querySelector('.patch-entry h3').textContent).toBe('New filter'));
+        expect(document.querySelector('.patch-entry img').getAttribute('src')).toBe('/new.png');
+    });
+    it('reuses a loaded thumbnail after a fresh attribution result confirms the same image and visibility', async () => {
+        const { cloud, library } = setup(); library.config.enabled = true; library.view = 'public';
+        const record = { id, source: 'cloud', name: 'Existing rack', authorName: 'Before', visibility: 'public', images: { thumbnail: '/rack.png' } };
+        library.publicPatches = [record]; library.render();
+        const image = document.querySelector('.patch-entry img');
+        Object.defineProperties(image, { complete: { value: true }, naturalWidth: { value: 100 } });
+        cloud.list.mockResolvedValue({ patches: [{ ...record, authorName: 'After' }] });
+        await library.refreshAttribution();
+        expect(document.querySelector('.patch-entry img')).toBe(image);
+        expect(document.querySelector('.patch-entry').textContent).toContain('By After');
+    });
+    it.each(['removed', 'replaced', 'private'])('does not reuse a thumbnail when the refreshed patch is %s', async change => {
+        const { cloud, library } = setup(); library.config.enabled = true; library.view = 'public';
+        const record = { id, source: 'cloud', name: 'Existing rack', visibility: 'public', images: { thumbnail: '/rack.png' } };
+        library.publicPatches = [record]; library.render();
+        const image = document.querySelector('.patch-entry img');
+        Object.defineProperties(image, { complete: { value: true }, naturalWidth: { value: 100 } });
+        const patches = change === 'removed' ? [] : [{ ...record, ...(change === 'private' ? { visibility: 'private' } : { images: { thumbnail: '/replacement.png' } }) }];
+        cloud.list.mockResolvedValue({ patches });
+        await library.refreshAttribution();
+        expect(document.querySelector('.patch-entry img')).not.toBe(image);
+        expect(image.isConnected).toBe(false);
+    });
+    it('does not restore a thumbnail when an attribution request outlives its account', async () => {
+        const { cloud, library } = setup(); library.config.enabled = true; library.view = 'public';
+        const record = { id, source: 'cloud', name: 'Existing rack', visibility: 'public', images: { thumbnail: '/rack.png' } };
+        library.publicPatches = [record]; library.render();
+        const image = document.querySelector('.patch-entry img');
+        Object.defineProperties(image, { complete: { value: true }, naturalWidth: { value: 100 } });
+        const pending = deferred(); cloud.list.mockReturnValue(pending.promise);
+        const refresh = library.refreshAttribution(); library.accountGeneration++;
+        pending.resolve({ patches: [record] }); await refresh;
+        expect(image.isConnected).toBe(false);
+        expect(document.querySelector('.patch-entry img')).toBeNull();
+    });
     it.each([`/patches/${id}`, `/#saved=${id}`, `/patches/${id}?view=rack`])('opens %s and keeps the canonical saved URL', async location => {
         const { cloud, library } = setup(); library.config.enabled = true;
         window.history.replaceState(null, '', location);

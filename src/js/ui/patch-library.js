@@ -95,7 +95,16 @@ export class PatchLibrary {
             button.textContent = this.user ? 'Sign out' : 'Sign in'; button.title = this.user ? `Signed in as ${this.user.name}` : 'Sign in with Google';
         }
         const profile = this.document.getElementById('patchProfile'); if (profile) profile.hidden = !this.user;
+        this.revealActiveTab();
         this.document.querySelectorAll('[data-profile-name]').forEach(node => { node.textContent = this.user ? `By ${this.user.name}` : ''; });
+    }
+    revealActiveTab() {
+        const tab = this.document.querySelector('.patch-view-tabs [aria-current="page"]');
+        if (!tab) return;
+        const strip = tab.parentElement, bounds = strip.getBoundingClientRect(), item = tab.getBoundingClientRect();
+        // Move only the horizontal tab strip, preserving the rack and gallery scroll positions.
+        if (item.left < bounds.left) strip.scrollLeft -= bounds.left - item.left;
+        else if (item.right > bounds.right) strip.scrollLeft += item.right - bounds.right;
     }
     async refreshAttribution() {
         const generation = ++this.profileGeneration, account = this.accountGeneration, active = this.active;
@@ -247,6 +256,7 @@ export class PatchLibrary {
         this.document.querySelectorAll('[data-patch-view]').forEach(button => {
             if (button.dataset.patchView === view) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
         });
+        this.revealActiveTab();
         if (view === 'rack') { requestAnimationFrame(() => this.app.renderAllCables()); return; }
         this.render({ preserveFocus });
         if (view === 'public' && this.config.enabled) void this.fetchList(true);
@@ -320,8 +330,9 @@ export class PatchLibrary {
             section.append(this.pageLink('First page', 'cursor', null));
         }
     }
-    pageLink(label, cursorKey, cursor) {
+    pageLink(label, cursorKey, cursor, relation) {
         const link = element(this.document, 'a', label, 'patch-button');
+        if (relation) link.rel = relation;
         link.href = catalogueUrl({ ...this.catalogueState(), [cursorKey]: cursor }, this.window.location.origin);
         link.addEventListener('click', event => {
             if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -335,8 +346,8 @@ export class PatchLibrary {
         else { const grid = element(this.document, 'div', undefined, 'patch-grid'); records.forEach(record => grid.append(this.entry(record))); section.append(grid); }
         if (page.previousCursor || page.nextCursor) {
             const navigation = element(this.document, 'nav', undefined, 'patch-pagination'); navigation.setAttribute('aria-label', `${title} pages`);
-            if (page.previousCursor) navigation.append(this.pageLink('Previous', cursorKey, page.previousCursor));
-            if (page.nextCursor) navigation.append(this.pageLink('Next', cursorKey, page.nextCursor));
+            if (page.previousCursor) navigation.append(this.pageLink('Previous', cursorKey, page.previousCursor, 'prev'));
+            if (page.nextCursor) navigation.append(this.pageLink('Next', cursorKey, page.nextCursor, 'next'));
             section.append(navigation);
         }
         this.surface.append(section); return section;

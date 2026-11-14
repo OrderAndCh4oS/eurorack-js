@@ -70,6 +70,9 @@ test('keeps public sorting, time filters and search in shareable paginated URLs'
     expect(requests.at(-1)).toMatchObject({ q: 'drift', sort: 'popular', period: 'week', cursor: 'next-page' });
     await page.reload();
     await expect.poll(() => names(page)).toEqual(['popular week drift C', 'popular week drift D']);
+    const previousBounds = await pagination.getByRole('link', { name: 'Previous', exact: true }).boundingBox();
+    const paginationBounds = await pagination.boundingBox();
+    expect(previousBounds.x).toBe(paginationBounds.x);
 
     await page.locator('.patch-entry').first().getByRole('button', { name: 'Open in rack', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/patches/${nextPatchId}$`));
@@ -102,6 +105,51 @@ test('keeps public sorting, time filters and search in shareable paginated URLs'
     await page.getByRole('button', { name: 'Search', exact: true }).click();
     await expect.poll(() => names(page)).toEqual(['newest all bell A', 'newest all bell B']);
     expect(new URL(page.url()).searchParams.get('q')).toBe('bell');
+});
+
+test('phone navigation keeps the current view and account controls visible', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 320, height: 740 }, isMobile: true, hasTouch: true });
+    try {
+        await context.addCookies([{ name: 'eurorack-test-user', value: 'alice', url: 'http://127.0.0.1:4176' }]);
+        const page = await context.newPage();
+        await page.goto('/patches?view=tests');
+        await expect(page.locator('.patch-entry')).toHaveCount(24);
+        const profile = page.getByRole('button', { name: 'My profile', exact: true });
+        await expect(profile).toBeVisible();
+        expect(await page.evaluate(() => innerWidth)).toBe(320);
+        const checkNavigation = async label => {
+            const current = page.getByRole('button', { name: label, exact: true });
+            await expect(current).toHaveAttribute('aria-current', 'page');
+            await expect.poll(async () => {
+                const tab = await current.boundingBox();
+                const strip = await page.locator('.patch-view-tabs').boundingBox();
+                return tab.x >= strip.x - 1 && tab.x + tab.width <= strip.x + strip.width + 1;
+            }).toBe(true);
+            for (const button of [profile, page.getByRole('button', { name: 'Sign out', exact: true })]) {
+                const box = await button.boundingBox();
+                expect(box.x).toBeGreaterThanOrEqual(0);
+                expect(box.x + box.width).toBeLessThanOrEqual(320);
+            }
+        };
+        await checkNavigation('Test patches');
+        await page.locator('.patch-entry').first().getByRole('button', { name: 'Open in rack', exact: true }).click();
+        await checkNavigation('Rack');
+        await expect(page.locator('#startButton')).toBeVisible();
+        await page.goBack();
+        await checkNavigation('Test patches');
+        await expect(page.locator('#toolbar')).toBeHidden();
+        const library = await page.locator('#patchLibrary').evaluate(node => ({ width: node.clientWidth, contentWidth: node.scrollWidth }));
+        expect(library.contentWidth).toBe(library.width);
+        await profile.click();
+        const dialog = page.getByRole('dialog');
+        await expect(dialog.getByLabel('Public name', { exact: true })).toBeVisible();
+        const bounds = await dialog.boundingBox();
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(320);
+        await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    } finally {
+        await context.close();
+    }
 });
 
 test('paginates browser saves and resets their cursor when searching', async ({ page }) => {

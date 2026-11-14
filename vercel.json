@@ -17,7 +17,7 @@
     { "source": "/terms-of-service", "destination": "/terms-of-service.html" }
   ],
   "redirects": [
-    { "source": "/:path*", "has": [{ "type": "host", "value": "eurorack-js.vercel.app" }], "destination": "https://eurorackjs.orderandchaos.xyz/:path*", "permanent": true },
+    { "source": "/:path((?!api/internal/cleanup-previews(?:/|$)).*)", "has": [{ "type": "host", "value": "eurorack-js.vercel.app" }], "destination": "https://eurorackjs.orderandchaos.xyz/:path*", "permanent": true },
     { "source": "/patches/", "destination": "/patches", "permanent": true },
     { "source": "/privacy", "destination": "/privacy-policy", "permanent": true },
     { "source": "/terms", "destination": "/terms-of-service", "permanent": true }

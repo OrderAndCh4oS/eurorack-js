@@ -59,8 +59,9 @@ export class CloudClient {
         catch (error) { if (error.name === 'AbortError') throw error; return { enabled: false, authEnabled: false, imagesEnabled: false }; }
     }
     me() { return this.request('/api/me'); }
-    list({ publicOnly = false, cursor, query = '' } = {}) {
+    list({ publicOnly = false, cursor, query = '', sort = 'newest', period = 'all' } = {}) {
         const params = new URLSearchParams(); if (cursor) params.set('cursor', cursor); if (query) params.set('q', query);
+        if (publicOnly) { params.set('sort', sort); params.set('period', period); }
         return this.request(`/api/${publicOnly ? 'public-patches' : 'patches'}?${params}`);
     }
     get(id) { return this.request(`/api/patches/${id}`); }

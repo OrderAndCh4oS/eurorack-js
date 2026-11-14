@@ -23,11 +23,22 @@ export class PostgresStore {
         const result = (await this.query('SELECT p.data,r.patch_id,r.request_hash FROM patch_requests r LEFT JOIN patch_records p ON p.id=r.patch_id WHERE r.owner_id=$1 AND r.request_id=$2', [ownerId, requestId])).rows[0];
         return result ? result.data || { id: result.patch_id, requestHash: result.request_hash, deleted: true } : undefined;
     }
-    async listPatches({ ownerId, publicOnly, query = '', before, limit }) {
-        return (await this.query(`SELECT data FROM patch_records WHERE ($1::text IS NULL OR data->>'ownerId'=$1)
-            AND (NOT $2::boolean OR data->>'visibility'='public') AND ($3::text IS NULL OR id<$3)
-            AND strpos(lower(concat(data->>'name',' ',data->>'description',' ',data->>'authorName')),lower($4))>0
-            ORDER BY id DESC LIMIT $5`, [ownerId || null, !!publicOnly, before || null, query, limit])).rows.map(row => row.data);
+    async listPatches({ ownerId, publicOnly, query = '', sort, asOf, since, direction, boundary, limit }) {
+        // Only these server-selected SQL fragments vary; all request values remain parameters.
+        const operator = direction === 'previous' ? '>' : '<';
+        const order = direction === 'previous' ? 'ASC' : 'DESC';
+        const score = sort === 'popular' ? `(SELECT count(*)::int FROM patch_likes l WHERE l.patch_id=p.id
+            AND l.created_at <= $4::timestamptz AND ($5::timestamptz IS NULL OR l.created_at >= $5::timestamptz))` : '0';
+        return (await this.query(`WITH ranked AS (
+            SELECT p.id, p.data, ${score} AS score FROM patch_records p
+            WHERE ($1::text IS NULL OR p.data->>'ownerId'=$1) AND (NOT $2::boolean OR p.data->>'visibility'='public')
+            AND strpos(lower(concat(p.data->>'name',' ',p.data->>'description',' ',p.data->>'authorName')),lower($3))>0
+            AND (p.data->>'createdAt')::timestamptz <= $4::timestamptz
+            AND ($5::timestamptz IS NULL OR $5::timestamptz <= $4::timestamptz)
+        ) SELECT data, score FROM ranked
+            WHERE ($6::text IS NULL OR (score, id) ${operator} ($7::int, $6::text))
+            ORDER BY score ${order}, id ${order} LIMIT $8`,
+        [ownerId || null, !!publicOnly, query, asOf, since, boundary?.id || null, boundary?.score ?? null, limit])).rows.map(row => ({ ...row.data, popularityCount: row.score }));
     }
     async totals(ownerId) {
         const result = await this.query(`SELECT count(*)::int AS count, COALESCE(sum((data->>'stateBytes')::int),0)::bigint AS "stateBytes",
@@ -45,8 +56,8 @@ export class PostgresStore {
     async listGarbage() { return (await this.query('SELECT key FROM patch_image_garbage ORDER BY created_at LIMIT 1000')).rows.map(row => row.key); }
     async garbageCount() { return (await this.query('SELECT count(*)::int AS count FROM patch_image_garbage')).rows[0].count; }
     async deleteGarbage(key) { await this.query('DELETE FROM patch_image_garbage WHERE key=$1', [key]); }
-    async setLike(patchId, userId, liked) {
-        if (liked) await this.query('INSERT INTO patch_likes(patch_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING', [patchId, userId]);
+    async setLike(patchId, userId, liked, createdAt = new Date().toISOString()) {
+        if (liked) await this.query('INSERT INTO patch_likes(patch_id,user_id,created_at) VALUES($1,$2,$3) ON CONFLICT DO NOTHING', [patchId, userId, createdAt]);
         else await this.query('DELETE FROM patch_likes WHERE patch_id=$1 AND user_id=$2', [patchId, userId]);
     }
     async likes(patchId, userId) {

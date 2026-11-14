@@ -1,6 +1,7 @@
 import { ulid } from 'ulid';
 import { LIMITS, assert, id, revision, hash, textField, publicName, visibility, validateState, HttpError } from './validation.js';
 import { rasterVariants } from './image-store.js';
+import { cataloguePage } from './catalogue-pagination.js';
 
 export function createPatchService({ store, imageStore, now = () => new Date(), generateId = ulid, contracts }) {
     const timestamp = () => now().toISOString();
@@ -49,14 +50,24 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
     }
     return {
         async get(patchId, user) { return store.transaction(async tx => project(tx, accessible(await tx.getPatch(id(patchId)), user), user)); },
-        async list({ user, publicOnly = false, query, before, limit = LIMITS.pageSize }) {
+        async list({ user, publicOnly = false, query, before, sort = 'newest', period = 'all', limit = LIMITS.pageSize }) {
             if (!publicOnly) signedIn(user);
-            if (before) id(before, 'cursor');
             assert(Number.isInteger(limit) && limit > 0 && limit <= 50, 'Page size must be between 1 and 50.');
             query = textField(query, 'Search', 100, '');
+            const ownerId = publicOnly ? undefined : user.id;
+            const page = cataloguePage({ publicOnly, ownerId, query, sort, period, limit, cursor: before, now: now() });
             return store.transaction(async tx => {
-                const records = await tx.listPatches({ ownerId: publicOnly ? undefined : user.id, publicOnly, query, before, limit: limit + 1 });
-                return { patches: await Promise.all(records.slice(0, limit).map(p => project(tx, p, user, false))), nextCursor: records.length > limit ? records[limit - 1].id : null };
+                const records = await tx.listPatches({ ownerId, publicOnly, query, sort, ...page, limit: limit + 1 });
+                const hasMore = records.length > limit;
+                const selected = records.slice(0, limit);
+                if (page.direction === 'previous') selected.reverse();
+                const hasPrevious = page.direction === 'previous' ? hasMore : !!page.boundary;
+                const hasNext = page.direction === 'previous' ? !!page.boundary : hasMore;
+                return {
+                    patches: await Promise.all(selected.map(async p => ({ ...await project(tx, p, user, false), ...(sort === 'popular' ? { popularityCount: p.popularityCount } : {}) }))),
+                    nextCursor: selected.length && hasNext ? page.cursorFor(selected.at(-1), 'next') : null,
+                    previousCursor: selected.length && hasPrevious ? page.cursorFor(selected[0], 'previous') : null
+                };
             });
         },
         async uploadPreview(user, body, bytes) {
@@ -192,7 +203,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 const patch = accessible(await tx.getPatch(patchId), user);
                 assert(patch.visibility === 'public', 'Patch not found.', 404, 'not_found');
                 assert(patch.ownerId !== user.id, 'You cannot like your own patch.', 400, 'own_patch_like');
-                await rate(tx, user, 'like', 60); await tx.setLike(patchId, user.id, liked);
+                await rate(tx, user, 'like', 60); await tx.setLike(patchId, user.id, liked, timestamp());
                 return tx.likes(patchId, user.id);
             });
         },

@@ -1,6 +1,7 @@
 import { TEST_PATCHES } from '../config/test-patches.js';
 import { CloudClient, newRequestId, parsePatchLocation, savedPatchUrl, rackPatchUrl } from '../patches/cloud-client.js';
 import { LocalPatchStore } from '../patches/local-patch-store.js';
+import { parseCatalogueLocation, catalogueUrl, paginateLocalPatches } from '../patches/catalogue-state.js';
 
 export const DRAFT_KEY = 'eurorack-login-draft-v1';
 const LIBRARY_VIEWS = {
@@ -23,11 +24,15 @@ export class PatchLibrary {
         this.active = null; this.baseline = snapshot(app.host.serializePatch()); this.view = 'rack';
         this.config = { enabled: false }; this.user = null; this.accountGeneration = 0; this.loadGeneration = 0; this.renderGeneration = 0;
         this.accountPatches = []; this.publicPatches = []; this.query = ''; this.replacing = false; this.listRequests = { public: 0, account: 0 };
+        this.sort = 'newest'; this.period = 'all'; this.cursor = null; this.localCursor = null;
+        this.listPages = { public: {}, account: {} }; this.listLoading = {}; this.listErrors = {};
+        this.catalogueLocations = {};
+        this.rackLocation = parseCatalogueLocation(this.window.location) ? new URL('/', this.window.location.origin).href : this.window.location.href;
     }
     init() {
         this.surface = this.document.getElementById('patchLibrary');
         if (!this.surface) return this;
-        this.document.querySelectorAll('[data-patch-view]').forEach(button => button.addEventListener('click', () => this.show(button.dataset.patchView)));
+        this.document.querySelectorAll('[data-patch-view]').forEach(button => button.addEventListener('click', () => this.navigate(button.dataset.patchView)));
         this.document.getElementById('savePatch')?.addEventListener('click', () => { void this.openSave(); });
         this.document.getElementById('savePatchCopy')?.addEventListener('click', () => { void this.openSave({ copy: true }); });
         this.document.getElementById('savedPatchLink')?.addEventListener('click', () => this.run(() => this.share(this.active)));
@@ -39,20 +44,29 @@ export class PatchLibrary {
         });
         this.document.getElementById('patchAccount')?.addEventListener('click', () => this.run(() => this.user ? this.signOut() : this.signIn()));
         for (const event of ['input', 'change', 'pointerup', 'keyup']) this.document.addEventListener(event, () => queueMicrotask(() => this.updateActiveLabel()));
-        this.window.addEventListener('hashchange', () => this.run(() => this.loadLocation()));
-        this.window.addEventListener('popstate', () => this.run(() => this.loadLocation()));
+        const locationChanged = () => {
+            if (this.handledLocation === this.window.location.href) return;
+            const destination = this.window.location.href;
+            const previous = this.view === 'rack' ? this.rackLocation : this.catalogueLocations[this.view];
+            this.handledLocation = destination;
+            void this.run(() => this.loadLocation()).then(loaded => {
+                if (!loaded && previous && this.window.location.href === destination) this.writeLocation(previous, 'replace');
+            });
+        };
+        this.window.addEventListener('hashchange', locationChanged);
+        this.window.addEventListener('popstate', locationChanged);
         this.window.addEventListener('beforeunload', event => { if (!this.redirecting && this.isDirty()) { event.preventDefault(); event.returnValue = ''; } });
         this.window.addEventListener('focus', () => { if (this.config.enabled) void this.refreshSession(); });
         this.updateActiveLabel();
         this.ready = this.initializeCloud();
-        if (this.window.location.pathname.replace(/\/$/, '') === '/patches') this.show('public');
+        if (parseCatalogueLocation(this.window.location)) this.applyCatalogueLocation();
         return this;
     }
     async initializeCloud() {
         this.config = await this.cloud.configuration();
         if (this.config.enabled) await this.refreshSession();
         this.updateAccount();
-        if (this.view !== 'rack') this.show(this.view);
+        if (this.view !== 'rack') this.show(this.view, { preserveFocus: true });
     }
     async refreshSession() {
         try {
@@ -60,11 +74,12 @@ export class PatchLibrary {
             const changed = (this.user?.id || null) !== (user?.id || null);
             if (changed) {
                 this.accountGeneration++; this.cloud.cancel(); this.accountPatches = []; this.publicPatches = [];
+                this.listPages = { public: {}, account: {} }; this.listLoading = {}; this.listErrors = {};
                 void this.previewLoader().then(module => module.clearPatchPreviewCache?.()).catch(() => {});
                 if (this.active?.source === 'cloud' && this.user) this.setActive(null, this.baseline);
             }
             this.user = user; this.updateAccount();
-            if (changed && this.surface && this.view !== 'rack') this.show(this.view);
+            if (changed && this.surface && this.view !== 'rack') this.show(this.view, { preserveFocus: true });
         } catch (error) { if (error.name !== 'AbortError') this.notice(error.message); }
     }
     updateAccount() {
@@ -102,7 +117,42 @@ export class PatchLibrary {
         const button = element(this.document, 'button', label, className); button.type = 'button';
         button.addEventListener('click', handler); return button;
     }
-    show(view) {
+    catalogueState() {
+        return { view: this.view, query: this.query, sort: this.sort, period: this.period, cursor: this.cursor, localCursor: this.localCursor };
+    }
+    writeLocation(url, mode = 'push') {
+        if (this.window.location.href !== url) this.window.history[mode === 'replace' ? 'replaceState' : 'pushState'](null, '', url);
+        this.handledLocation = this.window.location.href;
+    }
+    navigate(view) {
+        if (view === this.view) return;
+        if (this.view === 'rack') this.rackLocation = this.window.location.href;
+        if (view === 'rack') {
+            this.loadGeneration++;
+            this.writeLocation(this.rackLocation); this.show('rack'); return;
+        }
+        this.writeLocation(this.catalogueLocations[view] || catalogueUrl({ view }, this.window.location.origin));
+        this.applyCatalogueLocation();
+    }
+    navigateCatalogue(changes) {
+        const filtersChanged = ['query', 'sort', 'period'].some(key => Object.hasOwn(changes, key));
+        const state = { ...this.catalogueState(), ...(filtersChanged ? { cursor: null, localCursor: null } : {}), ...changes };
+        if (state.sort !== 'popular') state.period = 'all';
+        this.writeLocation(catalogueUrl(state, this.window.location.origin));
+        this.applyCatalogueLocation();
+    }
+    applyCatalogueLocation() {
+        const state = parseCatalogueLocation(this.window.location);
+        if (!state) return false;
+        this.loadGeneration++;
+        Object.assign(this, state);
+        this.searchDraft = state.query;
+        const url = catalogueUrl(state, this.window.location.origin);
+        this.writeLocation(url, 'replace'); this.catalogueLocations[state.view] = url;
+        this.show(state.view); this.surface.scrollTop = 0;
+        return true;
+    }
+    show(view, { preserveFocus = false } = {}) {
         this.view = view; this.renderGeneration++; this.observer?.disconnect(); this.previewAbort?.abort();
         this.updateDocumentTitle();
         this.document.body.classList.toggle('patch-library-open', view !== 'rack');
@@ -114,31 +164,46 @@ export class PatchLibrary {
             if (button.dataset.patchView === view) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
         });
         if (view === 'rack') { requestAnimationFrame(() => this.app.renderAllCables()); return; }
-        this.render();
+        this.render({ preserveFocus });
         if (view === 'public' && this.config.enabled) void this.fetchList(true);
         if (view === 'mine' && this.user) void this.fetchList(false);
     }
-    render() {
+    render({ preserveFocus = true } = {}) {
         if (!this.surface || this.view === 'rack') return;
+        const focused = preserveFocus && this.surface.contains(this.document.activeElement) ? this.document.activeElement : null;
+        const focusName = ['q', 'sort', 'period'].includes(focused?.name) ? focused.name : null;
+        const searchDraft = focusName === 'q' ? { value: focused.value, start: focused.selectionStart, end: focused.selectionEnd } : null;
         this.observer?.disconnect(); this.previewAbort?.abort(); this.previewAbort = new AbortController(); this.surface.replaceChildren();
         const [title, intro] = LIBRARY_VIEWS[this.view];
         const header = element(this.document, 'header', undefined, 'patch-library-header');
         const heading = element(this.document, 'div'); heading.append(element(this.document, 'h1', title), element(this.document, 'p', intro, 'patch-library-intro')); header.append(heading);
-        if (this.view !== 'mine') {
-            const form = element(this.document, 'form', undefined, 'patch-library-search'); const input = element(this.document, 'input'); input.type = 'search'; input.placeholder = `Search ${title.toLowerCase()}`; input.setAttribute('aria-label', input.placeholder); input.value = this.query;
-            const button = element(this.document, 'button', 'Search'); button.type = 'submit'; form.append(input, button);
-            form.addEventListener('submit', event => { event.preventDefault(); this.query = input.value.trim().slice(0, 100); if (this.view === 'public') void this.fetchList(true); else this.render(); }); header.append(form);
+        const controls = element(this.document, 'div', undefined, 'patch-library-controls');
+        const form = element(this.document, 'form', undefined, 'patch-library-search'); const input = element(this.document, 'input'); input.type = 'search'; input.name = 'q'; input.maxLength = 100; input.placeholder = `Search ${title.toLowerCase()}`; input.setAttribute('aria-label', input.placeholder); input.value = this.searchDraft ?? this.query;
+        input.addEventListener('input', () => { this.searchDraft = input.value; });
+        const button = element(this.document, 'button', 'Search'); button.type = 'submit'; form.append(input, button);
+        form.addEventListener('submit', event => { event.preventDefault(); this.navigateCatalogue({ query: input.value.trim().slice(0, 100) }); }); controls.append(form);
+        if (this.view === 'public') {
+            const filters = element(this.document, 'div', undefined, 'patch-library-filters');
+            const select = (labelText, name, options, value) => {
+                const label = element(this.document, 'label', labelText); const field = element(this.document, 'select'); field.name = name;
+                for (const [key, text] of options) { const option = element(this.document, 'option', text); option.value = key; field.append(option); }
+                field.value = value; label.append(field); filters.append(label);
+                field.addEventListener('change', () => this.navigateCatalogue({ [name]: field.value }));
+            };
+            select('Sort by', 'sort', [['newest', 'Newest'], ['popular', 'Most popular']], this.sort);
+            if (this.sort === 'popular') select('Time period', 'period', [['all', 'All time'], ['day', 'Past day'], ['week', 'Past week'], ['month', 'Past month'], ['year', 'Past year']], this.period);
+            controls.append(filters);
         }
+        header.append(controls);
         this.surface.append(header);
-        if (this.view === 'tests') this.section('Module tests', Object.entries(TEST_PATCHES).filter(([name]) => name.toLowerCase().includes(this.query.toLowerCase())).map(([name, patch]) => ({ ...patch, source: 'test', key: name })), 'No matching patches.');
+        if (this.view === 'tests') this.localSection('Module tests', Object.entries(TEST_PATCHES).map(([name, patch]) => ({ ...patch, source: 'test', key: name })), 'tests', 'cursor');
         if (this.view === 'mine') {
-            try { this.section('This browser', this.local.list(), 'No patches saved in this browser.'); }
+            try { this.localSection('This browser', this.local.list(), 'local', 'localCursor'); }
             catch (error) { this.section('This browser', [], error.message); }
-            this.section('My account', this.accountPatches, this.user ? 'No patches saved to your account.' : this.config.enabled ? 'Sign in to save patches across devices.' : 'Account saving is unavailable. Try again later.');
+            this.cloudSection('My account', 'account', this.user ? this.query ? 'No matching patches.' : 'No patches saved to your account.' : this.config.enabled ? 'Sign in to save patches across devices.' : 'Account saving is unavailable. Try again later.');
         }
-        if (this.view === 'public') this.section('Shared racks', this.publicPatches, this.config.enabled ? this.query ? 'No matching patches.' : 'No public patches yet.' : 'Public patches are unavailable. Try again later.');
-        const next = this.view === 'public' ? this.publicCursor : this.accountCursor;
-        if (next) this.surface.append(this.button('Load more', () => this.run(() => this.fetchList(this.view === 'public', next)), 'patch-load-more'));
+        if (this.view === 'public') this.cloudSection('Shared racks', 'public', this.config.enabled ? this.query ? 'No matching patches.' : 'No public patches yet.' : 'Public patches are unavailable. Try again later.');
+        this.surface.setAttribute('aria-busy', String(!!this.listLoading[this.view === 'public' ? 'public' : this.view === 'mine' ? 'account' : 'tests']));
         const footer = element(this.document, 'footer', undefined, 'patch-library-footer');
         const legal = element(this.document, 'nav'); legal.setAttribute('aria-label', 'Legal');
         legal.append(element(this.document, 'span', 'Eurorack · A modular synthesizer in your browser', 'footer-about'));
@@ -146,12 +211,51 @@ export class PatchLibrary {
             const link = element(this.document, 'a', label); link.href = path; link.target = '_blank'; link.rel = 'noopener noreferrer'; legal.append(link);
         }
         footer.append(legal); this.surface.append(footer);
+        if (focusName) {
+            const field = this.surface.querySelector(`[name="${focusName}"]`);
+            if (field && searchDraft) { field.value = searchDraft.value; field.setSelectionRange(searchDraft.start, searchDraft.end); }
+            field?.focus({ preventScroll: true });
+        }
     }
-    section(title, records, empty) {
+    localSection(title, records, kind, cursorKey) {
+        try {
+            const page = paginateLocalPatches(records, { query: this.query, cursor: this[cursorKey], kind });
+            this.section(title, page.patches, this.query ? 'No matching patches.' : kind === 'local' ? 'No patches saved in this browser.' : 'No patches found.', page, cursorKey);
+        } catch (error) {
+            const section = this.section(title, [], error.message);
+            if (error.code === 'invalid_cursor') section.append(this.pageLink('First page', cursorKey, null));
+        }
+    }
+    cloudSection(title, list, empty) {
+        const error = this.listErrors[list];
+        const section = this.section(title, this[`${list}Patches`], this.listLoading[list] ? 'Loading patches…' : error ? 'Could not load patches. Try again.' : empty, this.listPages[list]);
+        if (error) {
+            section.append(this.button('Try again', () => this.fetchList(list === 'public')));
+            if (this.cursor) section.append(this.pageLink('First page', 'cursor', null));
+        } else if (this.cursor && !this.listLoading[list] && !this[`${list}Patches`].length && (list === 'public' || this.user)) {
+            section.append(this.pageLink('First page', 'cursor', null));
+        }
+    }
+    pageLink(label, cursorKey, cursor) {
+        const link = element(this.document, 'a', label, 'patch-button');
+        link.href = catalogueUrl({ ...this.catalogueState(), [cursorKey]: cursor }, this.window.location.origin);
+        link.addEventListener('click', event => {
+            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault(); this.navigateCatalogue({ [cursorKey]: cursor });
+        });
+        return link;
+    }
+    section(title, records, empty, page = {}, cursorKey = 'cursor') {
         const section = element(this.document, 'section', undefined, 'patch-library-section'); section.append(element(this.document, 'h2', `${title}${records.length ? ` · ${records.length}` : ''}`));
         if (!records.length) section.append(element(this.document, 'p', empty, 'patch-empty'));
         else { const grid = element(this.document, 'div', undefined, 'patch-grid'); records.forEach(record => grid.append(this.entry(record))); section.append(grid); }
-        this.surface.append(section);
+        if (page.previousCursor || page.nextCursor) {
+            const navigation = element(this.document, 'nav', undefined, 'patch-pagination'); navigation.setAttribute('aria-label', `${title} pages`);
+            if (page.previousCursor) navigation.append(this.pageLink('Previous', cursorKey, page.previousCursor));
+            if (page.nextCursor) navigation.append(this.pageLink('Next', cursorKey, page.nextCursor));
+            section.append(navigation);
+        }
+        this.surface.append(section); return section;
     }
     entry(record) {
         const card = element(this.document, 'article', undefined, 'patch-entry'); card.dataset.patchName = record.name; card.dataset.patchSource = record.source; if (record.id) card.dataset.patchId = record.id;
@@ -166,6 +270,9 @@ export class PatchLibrary {
         caption.append(meta, element(this.document, 'h3', record.name));
         if (record.authorName) caption.append(element(this.document, 'p', `${record.canEdit ? 'By you' : `By ${record.authorName}`}`));
         if (record.description) caption.append(element(this.document, 'p', record.description));
+        if (this.view === 'public' && this.sort === 'popular' && this.period !== 'all' && Number.isInteger(record.popularityCount)) {
+            caption.append(element(this.document, 'p', `${record.popularityCount} thumbs-ups in the past ${this.period}.`, 'patch-popularity'));
+        }
         if (record.provenance?.parentId) {
             caption.append(element(this.document, 'p', `Original by ${record.provenance.originalCreatorName}${record.source === 'local' ? ' (imported credit)' : ''}`));
             if (record.provenance.parentAvailable && record.source === 'cloud') { const link = element(this.document, 'a', 'Source patch'); link.href = `/patches/${record.provenance.parentId}`; caption.append(link); }
@@ -217,16 +324,19 @@ export class PatchLibrary {
             frame.renderPreview = render; this.observer.observe(frame);
         } else { frame.firstChild.textContent = 'Preview unavailable'; }
     }
-    async fetchList(publicOnly, cursor) {
+    async fetchList(publicOnly, cursor = this.cursor) {
         if (!this.config.enabled || (!publicOnly && !this.user)) return;
         const generation = this.renderGeneration, account = this.accountGeneration;
         const list = publicOnly ? 'public' : 'account'; const request = ++this.listRequests[list];
+        const current = () => generation === this.renderGeneration && account === this.accountGeneration && request === this.listRequests[list];
+        this[`${list}Patches`] = []; this.listPages[list] = {}; this.listErrors[list] = null; this.listLoading[list] = true; this.render();
         try {
-            const result = await this.cloud.list({ publicOnly, cursor, query: publicOnly ? this.query : '' });
-            if (generation !== this.renderGeneration || account !== this.accountGeneration || request !== this.listRequests[list]) return;
-            const key = publicOnly ? 'publicPatches' : 'accountPatches'; const records = result.patches.map(record => ({ ...record, source: 'cloud' }));
-            this[key] = cursor ? [...this[key], ...records] : records; this[publicOnly ? 'publicCursor' : 'accountCursor'] = result.nextCursor; this.render();
-        } catch (error) { if (error.name !== 'AbortError' && generation === this.renderGeneration && account === this.accountGeneration && request === this.listRequests[list]) this.notice(error.message, [['Retry', () => this.fetchList(publicOnly, cursor)]]); }
+            const result = await this.cloud.list({ publicOnly, cursor, query: this.query, ...(publicOnly ? { sort: this.sort, period: this.period } : {}) });
+            if (!current()) return;
+            this[`${list}Patches`] = result.patches.map(record => ({ ...record, source: 'cloud' }));
+            this.listPages[list] = { nextCursor: result.nextCursor, previousCursor: result.previousCursor };
+        } catch (error) { if (current() && error.name !== 'AbortError') this.listErrors[list] = error; }
+        finally { if (current()) { this.listLoading[list] = false; this.render(); } }
     }
     async confirmReplace() {
         if (!this.isDirty()) return true;
@@ -237,41 +347,54 @@ export class PatchLibrary {
     }
     async replaceState(state, record = null, { skipPrompt = false } = {}) {
         if (this.replacing) throw new Error('A patch is still opening.');
-        this.replacing = true; this.loadGeneration++; const account = this.accountGeneration;
+        this.replacing = true; const request = ++this.loadGeneration; const account = this.accountGeneration;
         try {
             if (!skipPrompt && !await this.confirmReplace()) return false;
             if (record?.source === 'cloud' && account !== this.accountGeneration) return false;
             await this.app.loadPatchState(state, { managed: true });
-            this.setActive(record?.source === 'cloud' && account !== this.accountGeneration ? null : record); this.show('rack'); return true;
+            this.setActive(record?.source === 'cloud' && account !== this.accountGeneration ? null : record);
+            if (request === this.loadGeneration) this.show('rack');
+            return true;
         } finally { this.replacing = false; }
     }
-    async open(record, { updateLocation = true } = {}) {
+    async open(record, { updateLocation = true, history = this.view === 'rack' ? 'replace' : 'push' } = {}) {
         if (this.replacing) throw new Error('A patch is still opening.');
         const request = ++this.loadGeneration, account = this.accountGeneration;
         const loaded = record.source === 'cloud' ? { ...await this.cloud.get(record.id), source: 'cloud' } : record;
         if (request !== this.loadGeneration || account !== this.accountGeneration) return false;
         const success = await this.replaceState(loaded.state, loaded);
-        if (success && updateLocation) this.setLocation(loaded.source === 'cloud' ? loaded.id : null);
+        if (success && updateLocation) this.setLocation(loaded.source === 'cloud' ? loaded.id : null, history);
         return success;
     }
-    setLocation(id) {
+    setLocation(id, history = 'replace') {
         const url = new URL(id ? savedPatchUrl(id, this.window.location.origin) : '/', this.window.location.origin);
-        this.window.history.replaceState(null, '', url);
+        this.rackLocation = url.href;
+        if (this.view === 'rack') this.writeLocation(url.href, history);
     }
     async loadLocation() {
+        if (this.applyCatalogueLocation()) return true;
+        const href = this.window.location.href;
+        if (href === this.rackLocation && this.view !== 'rack') { this.loadGeneration++; this.show('rack'); return true; }
         const location = parsePatchLocation(this.window.location.hash, this.window.location.pathname);
         if (location?.source === 'cloud') {
             await this.ready;
+            if (href !== this.window.location.href) return false;
             if (!this.config.enabled) throw new Error('Could not open this patch. Try again.');
-            return this.open(location);
+            return this.open(location, { history: 'replace' });
         }
         if (location?.source === 'local') {
             const record = this.local.list().find(patch => patch.id === location.id);
             if (!record) throw new Error('This patch is not saved in this browser.');
-            return this.open(record, { updateLocation: false });
+            const success = await this.open(record, { updateLocation: false });
+            if (success) this.rackLocation = href;
+            return success;
         }
-        if (location?.source === 'snapshot') return this.app.loadPatchFromUrlHash();
-        return false;
+        if (location?.source === 'snapshot') {
+            const success = await this.app.loadPatchFromUrlHash();
+            if (success) this.rackLocation = href;
+            return success;
+        }
+        this.loadGeneration++; this.rackLocation = href; this.show('rack'); return true;
     }
     choose(title, message, choices) {
         return new Promise(resolve => {
@@ -447,6 +570,7 @@ export class PatchLibrary {
         await this.cloud.signOut();
         void this.previewLoader().then(module => module.clearPatchPreviewCache?.()).catch(() => {});
         this.accountGeneration++; this.user = null; this.accountPatches = []; this.publicPatches = [];
+        this.listPages = { public: {}, account: {} }; this.listLoading = {}; this.listErrors = {};
         if (this.active?.source === 'cloud') this.setActive(null, snapshot({}));
         this.updateAccount(); this.show(this.view); this.notice('Signed out.');
     }

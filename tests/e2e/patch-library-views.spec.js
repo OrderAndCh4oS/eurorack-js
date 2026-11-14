@@ -23,7 +23,8 @@ test('browses illustrated test racks and saves an independent local copy', async
     await expect(page.locator('#patchSelect')).toHaveCount(0);
     await page.locator('[data-patch-view="tests"]').click();
     await expect(page).toHaveTitle('Test patches · Eurorack');
-    await expect(page.locator('.patch-entry')).toHaveCount(75);
+    await expect(page).toHaveURL(/\/patches\?view=tests$/);
+    await expect(page.locator('.patch-entry')).toHaveCount(24);
     // Wait for each first-row image, rather than whichever asynchronous capture
     // finishes first. Intrinsic image height must never overflow its fixed frame.
     for (let index = 0; index < 3; index++) await expectPreviewFits(page.locator('.patch-entry').nth(index));
@@ -35,8 +36,10 @@ test('browses illustrated test racks and saves an independent local copy', async
     const before = await page.evaluate(() => window.eurorackApp.host.serializePatch());
     await page.locator('[data-patch-view="mine"]').click();
     await expect(page).toHaveTitle('My patches · Eurorack');
+    await expect(page).toHaveURL(/\/patches\?view=mine$/);
     await page.locator('[data-patch-view="public"]').click();
     await expect(page).toHaveTitle('Public patches · Eurorack');
+    await expect(page).toHaveURL(/\/patches$/);
     await page.getByRole('searchbox').fill('Chorus');
     await expect(page).toHaveTitle('Public patches · Eurorack');
     await page.locator('[data-patch-view="rack"]').click();

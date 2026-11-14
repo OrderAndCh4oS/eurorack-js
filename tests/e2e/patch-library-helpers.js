@@ -1,5 +1,7 @@
 export async function openTestPatch(page, name) {
     await page.locator('[data-patch-view="tests"]').click();
+    await page.getByRole('searchbox').fill(name);
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
     await page.locator('.patch-entry').filter({ has: page.getByRole('heading', { name, exact: true }) }).getByRole('button', { name: 'Open in rack', exact: true }).click();
     const discard = page.getByRole('button', { name: 'Discard changes', exact: true });
     if (await discard.isVisible()) await discard.click();

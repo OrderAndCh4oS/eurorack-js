@@ -71,6 +71,20 @@ describe('patch library coordination', () => {
         pending.resolve({ id, name: 'Stale', state: state() });
         expect(await open).toBe(false); expect(library.active.name).toBe('Latest'); expect(app.loadPatchState).toHaveBeenCalledTimes(1);
     });
+    it('keeps catalogue navigation when an in-flight rack load finishes', async () => {
+        const { app, cloud, library } = setup(); const pending = deferred();
+        cloud.get.mockResolvedValue({ id, name: 'Loaded rack', state: state() });
+        app.loadPatchState.mockReturnValue(pending.promise);
+        const open = library.open({ source: 'cloud', id });
+        await vi.waitFor(() => expect(app.loadPatchState).toHaveBeenCalled());
+        library.navigate('public'); pending.resolve();
+        expect(await open).toBe(true);
+        expect(library.view).toBe('public'); expect(window.location.pathname).toBe('/patches');
+        expect(document.title).toBe('Public patches · Eurorack');
+        library.navigate('rack');
+        expect(window.location.pathname).toBe(`/patches/${id}`);
+        expect(document.title).toBe('Loaded rack · Eurorack');
+    });
     it('saves an edited cloud fork privately and keeps newer rack edits dirty', async () => {
         const { cloud, library, edit } = setup(); library.config = { enabled: true, imagesEnabled: false }; library.user = { id: 'me', name: 'Maker' };
         const source = { source: 'cloud', id, name: 'Original', state: state(), visibility: 'public', revision: 3, canEdit: false };
@@ -139,6 +153,46 @@ describe('patch library coordination', () => {
         old.resolve({ patches: [{ id, name: 'Old' }], nextCursor: null }); await first;
         expect(library.publicPatches[0].name).toBe('New');
     });
+    it('reads catalogue filters from the URL and clears page cursors when filters change', () => {
+        const { library } = setup();
+        window.history.replaceState(null, '', '/patches?q=drum&sort=popular&period=week&cursor=next-page');
+        library.applyCatalogueLocation();
+        expect(library.catalogueState()).toMatchObject({ view: 'public', query: 'drum', sort: 'popular', period: 'week', cursor: 'next-page' });
+        expect(document.querySelector('[name="q"]').value).toBe('drum');
+        expect(document.querySelector('[name="period"]').value).toBe('week');
+        library.navigateCatalogue({ period: 'month' });
+        expect(new URLSearchParams(window.location.search).get('period')).toBe('month');
+        expect(new URLSearchParams(window.location.search).has('cursor')).toBe(false);
+        library.navigateCatalogue({ sort: 'newest' });
+        expect(window.location.search).toBe('?q=drum');
+        expect(document.querySelector('[name="period"]')).toBeNull();
+    });
+    it('replaces a result page and sends its search, sort, period and cursor to the server', async () => {
+        const { cloud, library } = setup(); library.config.enabled = true;
+        library.query = 'drum'; library.sort = 'popular'; library.period = 'day'; library.cursor = 'next-page';
+        library.publicPatches = [{ id, name: 'Old page' }];
+        cloud.list = vi.fn().mockResolvedValue({ patches: [{ id, name: 'New page' }], nextCursor: 'page-three', previousCursor: 'page-one' });
+        await library.fetchList(true);
+        expect(cloud.list).toHaveBeenCalledWith({ publicOnly: true, query: 'drum', sort: 'popular', period: 'day', cursor: 'next-page' });
+        expect(library.publicPatches.map(patch => patch.name)).toEqual(['New page']);
+        expect(library.listPages.public).toEqual({ nextCursor: 'page-three', previousCursor: 'page-one' });
+    });
+    it('keeps later results when an obsolete page request fails', async () => {
+        const { cloud, library } = setup(); library.config.enabled = true;
+        let fail; const old = new Promise((resolve, reject) => { fail = reject; });
+        cloud.list = vi.fn().mockReturnValueOnce(old).mockResolvedValueOnce({ patches: [{ id, name: 'Latest page' }], nextCursor: null, previousCursor: null });
+        const first = library.fetchList(true, 'old-page');
+        await library.fetchList(true, 'new-page'); fail(new Error('Old request failed')); await first;
+        expect(library.publicPatches[0].name).toBe('Latest page');
+        expect(library.listErrors.public).toBeNull(); expect(library.listLoading.public).toBe(false);
+    });
+    it('searches account pages without sending public ranking filters', async () => {
+        const { cloud, library } = setup(); library.config.enabled = true; library.user = { id: 'me' };
+        library.query = 'bass'; library.cursor = 'account-page';
+        cloud.list = vi.fn().mockResolvedValue({ patches: [], nextCursor: null, previousCursor: null });
+        await library.fetchList(false);
+        expect(cloud.list).toHaveBeenCalledWith({ publicOnly: false, query: 'bass', cursor: 'account-page' });
+    });
     it('never uploads a private snapshot to an account that changed during capture', async () => {
         const { cloud, library } = setup(); library.config = { enabled: true, imagesEnabled: true }; library.user = { id: 'account-a', name: 'A' };
         const pending = deferred(); const capture = vi.fn(() => pending.promise); library.previewLoader = async () => ({ capturePatchPreview: capture });
@@ -176,6 +230,18 @@ describe('patch library coordination', () => {
 });
 
 describe('local and network boundaries', () => {
+    it('encodes catalogue filters and opaque cursors in API URLs', async () => {
+        const fetch = vi.fn(async () => ({ ok: true, json: async () => ({ patches: [] }) }));
+        const client = new CloudClient({ fetch });
+        await client.list({ publicOnly: true, query: 'kick & snare', sort: 'popular', period: 'month', cursor: 'opaque+/=' });
+        const url = new URL(fetch.mock.calls[0][0], window.location.origin);
+        expect(url.pathname).toBe('/api/public-patches');
+        expect(Object.fromEntries(url.searchParams)).toEqual({ q: 'kick & snare', sort: 'popular', period: 'month', cursor: 'opaque+/=' });
+        await client.list({ query: 'bass', cursor: 'account-cursor' });
+        const account = new URL(fetch.mock.calls[1][0], window.location.origin);
+        expect(account.pathname).toBe('/api/patches');
+        expect(Object.fromEntries(account.searchParams)).toEqual({ q: 'bass', cursor: 'account-cursor' });
+    });
     it('preserves unsupported local entries and prevents copying over an existing name', () => {
         const store = new LocalPatchStore(); store.write({ Legacy: { state: { version: 1 } } });
         store.save({ name: 'Fresh', state: state(), id }); expect(store.read().Legacy.state.version).toBe(1);

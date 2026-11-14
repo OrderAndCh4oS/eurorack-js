@@ -4,7 +4,7 @@ body.skin-factory { --library-paper: var(--factory-paper); --library-ink: var(--
 .patch-navigation, .patch-library, .patch-dialog, .patch-notice { color: var(--library-ink); background: var(--library-paper); font-size: 13px; line-height: 1.4; font-family: inherit; }
 .patch-navigation { position: fixed; top: 0; left: 0; right: 0; height: var(--library-toolbar); display: flex; align-items: center; gap: 6px; padding: 0 8px; border-bottom: 3px solid var(--library-line); z-index: 201; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
 .patch-view-tabs { display: flex; flex: 0 0 auto; gap: 4px; }
-.patch-navigation button, .patch-library button, .patch-library input, .patch-library a.patch-button, .patch-dialog button, .patch-dialog input, .patch-dialog select, .patch-dialog textarea, .patch-notice button { color: inherit; background: var(--library-paper); font: inherit; border: 2px solid var(--library-line); border-radius: 0; padding: 8px 12px; box-shadow: none; }
+.patch-navigation button, .patch-library button, .patch-library input, .patch-library select, .patch-library a.patch-button, .patch-dialog button, .patch-dialog input, .patch-dialog select, .patch-dialog textarea, .patch-notice button { color: inherit; background: var(--library-paper); font: inherit; border: 2px solid var(--library-line); border-radius: 0; padding: 8px 12px; box-shadow: none; }
 .patch-navigation button, .patch-library button, .patch-library a.patch-button, .patch-dialog button, .patch-notice button { cursor: pointer; font-size: 12px; font-weight: 900; text-decoration: none; }
 .patch-navigation button { padding: 5px 9px; font-size: 10px; line-height: normal; text-transform: uppercase; white-space: nowrap; }
 .patch-navigation button[aria-current="page"], .patch-library .primary, .patch-dialog .primary { background: var(--library-accent); color: var(--factory-action-ink, #111); }
@@ -21,8 +21,12 @@ body .app-container, body.skin-factory .app-container { margin-top: calc(var(--l
 .patch-library h1 { font-size: clamp(25px, 4vw, 42px); line-height: 1; font-weight: 900; text-transform: uppercase; letter-spacing: -1px; }
 .patch-library-kicker { font-size: 11px; font-weight: 900; text-transform: uppercase; margin-bottom: 10px; }
 .patch-library-intro { max-width: 620px; margin-top: 12px; font-size: 13px; }
-.patch-library-search { display: flex; align-items: stretch; max-width: 430px; width: 100%; }
+.patch-library-controls { display: grid; gap: 10px; flex: 0 1 430px; min-width: 260px; }
+.patch-library-search { display: flex; align-items: stretch; width: 100%; }
 .patch-library-search input { min-width: 0; flex: 1; border-right: 0; user-select: text; }
+.patch-library-filters { display: flex; gap: 10px; }
+.patch-library-filters label { display: grid; gap: 4px; flex: 1; min-width: 0; font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.patch-library-filters select { width: 100%; min-width: 0; font-size: 12px; cursor: pointer; }
 .patch-library-section { margin-top: 24px; }
 .patch-library-section > h2 { font-size: 12px; text-transform: uppercase; padding: 10px 12px; border: 2px solid var(--library-line); border-left: 12px solid var(--library-accent); }
 .patch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); border-left: 2px solid var(--library-line); }
@@ -39,7 +43,9 @@ body .app-container, body.skin-factory .app-container { margin-top: calc(var(--l
 .patch-entry-actions button, .patch-entry-actions a.patch-button { flex: 1 0 auto; border: 0; border-right: 1px solid var(--library-line); border-bottom: 1px solid var(--library-line); padding: 10px; font-size: 11px; }
 .patch-entry-actions button[aria-pressed="true"] { background: var(--library-accent); color: var(--factory-action-ink, #111); }
 .patch-empty { padding: 28px 16px; border: 2px solid var(--library-line); border-top: 0; }
-.patch-load-more { margin-top: 20px; }
+.patch-pagination { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.patch-pagination a:last-child { margin-left: auto; }
+.patch-popularity { color: var(--library-muted); }
 .footer-legal-row, .patch-library-footer nav { display: flex; flex-wrap: wrap; gap: 16px; }
 .footer-about { flex: 1 1 220px; }
 .footer-legal-row { align-self: stretch; justify-content: flex-end; border-top: 1px solid currentColor; padding-top: 8px; }
@@ -60,4 +66,4 @@ body .app-footer .footer-legal-row a, body.skin-factory .app-footer .footer-lega
 .patch-dialog-error { border-left: 4px solid var(--library-accent); padding-left: 10px; }
 .patch-dialog [data-save-help] { font-size: 12px; }
 @media (max-width: 1500px) { .patch-navigation { padding-inline: 4px; } .patch-navigation button { padding-inline: 6px; font-size: 9px; } }
-@media (max-width: 760px) { .patch-library { padding: 0 12px 24px; } .patch-library-header { align-items: stretch; flex-direction: column; } .patch-library-search { max-width: none; } #activePatchLabel { display: none; } .patch-preview-frame { height: 190px; } }
+@media (max-width: 760px) { .patch-library { padding: 0 12px 24px; } .patch-library-header { align-items: stretch; flex-direction: column; } .patch-library-controls { flex-basis: auto; min-width: 0; width: 100%; } #activePatchLabel { display: none; } .patch-preview-frame { height: 190px; } }

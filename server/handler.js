@@ -43,8 +43,10 @@ export function createHandler({ store, authenticate = async () => null, authHand
             }
             const user = await authenticate(request);
             if (path === '/api/me' && method === 'GET') return json({ configured: true, user: user ? { id: user.id, name: user.name?.includes('@') ? 'Patch maker' : (user.name || 'Patch maker') } : null });
-            if (path === '/api/public-patches' && method === 'GET') return json(await service.list({ user, publicOnly: true, query: url.searchParams.get('q') || '', before: url.searchParams.get('cursor'), limit: Number(url.searchParams.get('limit') || LIMITS.pageSize) }));
-            if (path === '/api/patches' && method === 'GET') return json(await service.list({ user, before: url.searchParams.get('cursor'), limit: Number(url.searchParams.get('limit') || LIMITS.pageSize) }));
+            if ((path === '/api/public-patches' || path === '/api/patches') && method === 'GET') return json(await service.list({
+                user, publicOnly: path === '/api/public-patches', query: url.searchParams.get('q') || '', before: url.searchParams.get('cursor'),
+                sort: url.searchParams.get('sort') || 'newest', period: url.searchParams.get('period') || 'all', limit: Number(url.searchParams.get('limit') || LIMITS.pageSize)
+            }));
             if (path === '/api/patches' && method === 'POST') return json(await service.create(user, await readJson(request)), 201);
             if (path === '/api/patch-previews' && method === 'POST') {
                 assert(user, 'Sign in to upload a rack preview.', 401, 'sign_in_required');

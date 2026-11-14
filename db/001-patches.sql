@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS patch_likes (
     created_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (patch_id, user_id)
 );
+CREATE INDEX IF NOT EXISTS patch_likes_period ON patch_likes (patch_id, created_at);
 CREATE TABLE IF NOT EXISTS patch_rate_limits (
     key text NOT NULL,
     bucket bigint NOT NULL,

@@ -14,6 +14,16 @@ export class PostgresStore {
         } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
     }
     async getPatch(id) { return (await this.query('SELECT data FROM patch_records WHERE id=$1', [id])).rows[0]?.data; }
+    async getPatches(ids) { return ids.length ? (await this.query('SELECT data FROM patch_records WHERE id=ANY($1::text[])', [ids])).rows.map(row => row.data) : []; }
+    async getPatchOwners(ids) {
+        return new Map(ids.length ? (await this.query('SELECT patch_id, owner_id FROM patch_requests WHERE patch_id=ANY($1::text[])', [ids])).rows.map(row => [row.patch_id, row.owner_id]) : []);
+    }
+    async getProfiles(ids) {
+        return new Map(ids.length ? (await this.query('SELECT user_id AS id, name FROM patch_profiles WHERE user_id=ANY($1::text[])', [ids])).rows.map(row => [row.id, row]) : []);
+    }
+    async putProfile(profile) {
+        await this.query('INSERT INTO patch_profiles(user_id,name,updated_at) VALUES($1,$2,$3) ON CONFLICT(user_id) DO UPDATE SET name=EXCLUDED.name, updated_at=EXCLUDED.updated_at', [profile.id, profile.name, profile.updatedAt]);
+    }
     async putPatch(record) {
         await this.query('INSERT INTO patch_records(id,data) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data', [record.id, record]);
         await this.query('INSERT INTO patch_requests(owner_id,request_id,patch_id,request_hash) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING', [record.ownerId, record.requestId, record.id, record.requestHash]);
@@ -31,8 +41,9 @@ export class PostgresStore {
             AND l.created_at <= $4::timestamptz AND ($5::timestamptz IS NULL OR l.created_at >= $5::timestamptz))` : '0';
         return (await this.query(`WITH ranked AS (
             SELECT p.id, p.data, ${score} AS score FROM patch_records p
+            LEFT JOIN patch_profiles profile ON profile.user_id=p.data->>'ownerId'
             WHERE ($1::text IS NULL OR p.data->>'ownerId'=$1) AND (NOT $2::boolean OR p.data->>'visibility'='public')
-            AND strpos(lower(concat(p.data->>'name',' ',p.data->>'description',' ',p.data->>'authorName')),lower($3))>0
+            AND strpos(lower(concat(p.data->>'name',' ',p.data->>'description',' ',COALESCE(profile.name,p.data->>'authorName'))),lower($3))>0
             AND (p.data->>'createdAt')::timestamptz <= $4::timestamptz
             AND ($5::timestamptz IS NULL OR $5::timestamptz <= $4::timestamptz)
         ) SELECT data, score FROM ranked

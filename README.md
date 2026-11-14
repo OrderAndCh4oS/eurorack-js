@@ -10,6 +10,8 @@ Browser-based Eurorack modular synthesizer emulator. Patch virtual modules toget
 
 **My patches** holds browser saves and signed-in account patches. Account patches can be private or public; **Public patches** offers rack images, thumbs-up and independent copies with original creator credit. Copies start private and require another Save before publishing. Saved `/patches/<ULID>` pages have social cards; **Copy snapshot link** still shares the current unsaved rack directly in the URL.
 
+Signed-in users can change their public name in **My profile**. It updates creator credits across their existing account patches and cloud copies, without resaving each rack.
+
 Run `npm run dev` for the built app and local API. Account features require [cloud setup](docs/cloud-setup.md); browser saves, imports, exports and Test patches work without cloud credentials.
 
 ## Test and Learning Patches

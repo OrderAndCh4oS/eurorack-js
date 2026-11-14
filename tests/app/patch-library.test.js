@@ -8,10 +8,12 @@ const state = () => ({ version: 3, plugins: { core: 1 }, modules: [], params: {}
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 function setup() {
     let current = state();
-    document.body.innerHTML = '<input id="patchName" value="My rack"><div id="patchLibrary" hidden></div><div id="rackView"></div><span id="activePatchLabel"></span><div id="patchNotice"></div><button id="savedPatchLink"></button><button id="savedPatchDetails" hidden></button>';
+    document.body.innerHTML = '<input id="patchName" value="My rack"><div id="patchLibrary" hidden></div><div id="rackView"></div><span id="activePatchLabel"></span><div id="patchNotice"></div><button id="savedPatchLink"></button><button id="savedPatchDetails" hidden></button><div class="patch-account-actions"><button id="patchProfile" hidden>My profile</button><button id="patchAccount"></button></div>';
     const app = { document, host: { serializePatch: () => structuredClone(current) }, theme: 'industrial', themeMode: 'light', renderAllCables: vi.fn(),
         getCurrentPatchName: () => document.getElementById('patchName').value, loadPatchState: vi.fn(async value => { current = structuredClone(value); }), writeClipboardText: vi.fn(async () => {}) };
-    const cloud = { get: vi.fn(), create: vi.fn(), copy: vi.fn(), update: vi.fn(), uploadPreview: vi.fn(), cancel: vi.fn() };
+    const cloud = { get: vi.fn(), create: vi.fn(), copy: vi.fn(), update: vi.fn(), uploadPreview: vi.fn(), cancel: vi.fn(),
+        updateProfile: vi.fn(), me: vi.fn(async () => ({ user: null })), signOut: vi.fn(async () => {}),
+        configuration: vi.fn(async () => ({ enabled: false })), list: vi.fn(async () => ({ patches: [], nextCursor: null, previousCursor: null })) };
     const library = new PatchLibrary({ app, cloud, createId: async () => id }); library.surface = document.getElementById('patchLibrary');
     return { app, cloud, library, edit: value => { current = value; } };
 }
@@ -229,7 +231,117 @@ describe('patch library coordination', () => {
     });
 });
 
+describe('public profile editing', () => {
+    it('opens profile settings beside the separate sign-out navigation action', async () => {
+        const { cloud, library } = setup(); library.user = { id: 'me', name: 'Maker' };
+        library.init(); await library.ready;
+        const account = document.getElementById('patchAccount');
+        const profile = document.getElementById('patchProfile');
+        expect(account.textContent).toBe('Sign out'); expect(profile.hidden).toBe(false);
+        expect(profile.nextElementSibling).toBe(account); profile.click();
+        expect(document.querySelector('dialog h2').textContent).toBe('My profile');
+        expect(document.querySelector('dialog input').value).toBe('Maker');
+        expect([...document.querySelectorAll('dialog button')].some(button => button.textContent === 'Sign out')).toBe(false);
+        [...document.querySelectorAll('dialog button')].find(button => button.textContent === 'Cancel').click(); account.click();
+        await vi.waitFor(() => expect(cloud.signOut).toHaveBeenCalledOnce());
+        await vi.waitFor(() => expect(document.querySelector('dialog')).toBeNull());
+        expect(library.user).toBeNull(); expect(account.textContent).toBe('Sign in'); expect(profile.hidden).toBe(true);
+    });
+    it('hides the profile action when signed out', () => {
+        const { library } = setup(); library.updateAccount();
+        expect(document.getElementById('patchProfile').hidden).toBe(true);
+        expect(document.getElementById('patchAccount').textContent).toBe('Sign in');
+    });
+    it('renames globally without replacing dirty editor state, revision or catalogue URL', async () => {
+        const { app, cloud, library, edit } = setup(); library.user = { id: 'me', name: 'Old name' }; library.config.enabled = true;
+        const active = { id, source: 'cloud', name: 'Saved rack', authorName: 'Old name', revision: 2, state: state(), provenance: { originalCreatorName: 'Old name' } };
+        library.setActive(active); edit({ ...state(), midiMappings: { unsaved: {} } });
+        window.history.replaceState(null, '', '/patches?q=New&sort=popular&period=month&cursor=page-two');
+        library.view = 'public'; library.query = 'New'; library.sort = 'popular'; library.period = 'month'; library.cursor = 'page-two';
+        const url = window.location.href, baseline = library.baseline, dirtyState = app.host.serializePatch();
+        cloud.updateProfile.mockResolvedValue({ user: { id: 'me', name: 'New name' } });
+        cloud.get.mockResolvedValue({ ...active, authorName: 'New name', revision: 3, provenance: { originalCreatorName: 'New name' } });
+        cloud.list.mockResolvedValue({ patches: [{ ...active, authorName: 'New name' }], previousCursor: 'page-one', nextCursor: null });
+        const opened = library.openProfile(); document.querySelector('dialog input').value = '  New name  ';
+        document.querySelector('dialog form').dispatchEvent(new Event('submit', { cancelable: true }));
+        expect(await opened).toBe(true);
+        expect(cloud.updateProfile).toHaveBeenCalledWith('New name');
+        expect(library.user.name).toBe('New name'); expect(library.active.authorName).toBe('New name');
+        expect(library.active.provenance.originalCreatorName).toBe('New name'); expect(library.active.revision).toBe(2);
+        expect(library.publicPatches[0].authorName).toBe('New name');
+        expect(cloud.list).toHaveBeenCalledWith({ publicOnly: true, query: 'New', sort: 'popular', period: 'month', cursor: 'page-two' });
+        expect(app.host.serializePatch()).toEqual(dirtyState); expect(library.baseline).toBe(baseline); expect(library.isDirty()).toBe(true);
+        expect(app.loadPatchState).not.toHaveBeenCalled(); expect(window.location.href).toBe(url);
+        expect(document.getElementById('patchNotice').textContent).toContain('Profile updated.');
+    });
+    it.each(['   ', 'person@example.com', 'Name\nOther', 'Name\u2028Other', 'Name\u2029Other', 'x'.repeat(81)])('rejects invalid public name %j before saving', async value => {
+        const { cloud, library } = setup(); library.user = { id: 'me', name: 'Maker' };
+        const opened = library.openProfile(); const input = document.querySelector('dialog input');
+        // Text inputs strip newlines; control characters that remain are also rejected.
+        input.value = value.replace('\n', '\u0001');
+        document.querySelector('dialog form').dispatchEvent(new Event('submit', { cancelable: true }));
+        expect(cloud.updateProfile).not.toHaveBeenCalled(); expect(document.querySelector('dialog [role="alert"]').hidden).toBe(false);
+        [...document.querySelectorAll('dialog button')].find(button => button.textContent === 'Cancel').click(); expect(await opened).toBe(false);
+    });
+    it('keeps failed edits available for retry and prevents concurrent submits', async () => {
+        const { cloud, library } = setup(); library.user = { id: 'me', name: 'Maker' };
+        const pending = deferred(); cloud.updateProfile.mockReturnValueOnce(pending.promise).mockResolvedValueOnce({ user: { id: 'me', name: 'Changed' } });
+        const opened = library.openProfile(); const form = document.querySelector('dialog form'); form.elements.name.value = 'Changed';
+        form.dispatchEvent(new Event('submit', { cancelable: true })); form.dispatchEvent(new Event('submit', { cancelable: true }));
+        expect(cloud.updateProfile).toHaveBeenCalledOnce(); expect(form.elements.name.disabled).toBe(true);
+        pending.resolve(Promise.reject(new Error('Try again later.')));
+        await vi.waitFor(() => expect(document.querySelector('dialog [role="alert"]').textContent).toBe('Try again later.'));
+        expect(form.elements.name.value).toBe('Changed'); expect(form.elements.name.disabled).toBe(false);
+        form.dispatchEvent(new Event('submit', { cancelable: true })); expect(await opened).toBe(true);
+        expect(cloud.updateProfile).toHaveBeenCalledTimes(2);
+    });
+    it('does not apply a profile save after the account changes', async () => {
+        const { cloud, library } = setup(); library.user = { id: 'alice', name: 'Alice' };
+        const pending = deferred(); cloud.updateProfile.mockReturnValue(pending.promise);
+        const opened = library.openProfile(); document.querySelector('dialog input').value = 'Alice renamed';
+        document.querySelector('dialog form').dispatchEvent(new Event('submit', { cancelable: true }));
+        library.accountGeneration++; library.user = { id: 'bob', name: 'Bob' };
+        pending.resolve({ user: { id: 'alice', name: 'Alice renamed' } });
+        expect(await opened).toBe(false); expect(library.user).toEqual({ id: 'bob', name: 'Bob' }); expect(cloud.get).not.toHaveBeenCalled();
+        expect(document.querySelector('dialog')).toBeNull();
+    });
+    it('ignores an older session response after a successful profile save', async () => {
+        const { cloud, library } = setup(); library.user = { id: 'me', name: 'Old name' };
+        const pending = deferred(); cloud.me.mockReturnValue(pending.promise);
+        const refreshing = library.refreshSession();
+        cloud.updateProfile.mockResolvedValue({ user: { id: 'me', name: 'New name' } });
+        const opened = library.openProfile(); document.querySelector('dialog input').value = 'New name';
+        document.querySelector('dialog form').dispatchEvent(new Event('submit', { cancelable: true })); await opened;
+        pending.resolve({ user: { id: 'me', name: 'Old name' } }); await refreshing;
+        expect(library.user.name).toBe('New name'); expect(document.getElementById('patchAccount').title).toBe('Signed in as New name');
+    });
+    it('refreshes attribution when the same account was renamed in another tab', async () => {
+        const { cloud, library } = setup(); library.user = { id: 'me', name: 'Before' };
+        library.setActive({ id, source: 'cloud', name: 'Existing patch', authorName: 'Before', revision: 2 });
+        cloud.me.mockResolvedValue({ user: { id: 'me', name: 'After' } });
+        cloud.get.mockResolvedValue({ id, authorName: 'After', provenance: { originalCreatorName: 'After' } });
+        await library.refreshSession();
+        expect(library.user.name).toBe('After'); expect(library.active.authorName).toBe('After'); expect(library.active.revision).toBe(2);
+        expect(library.accountGeneration).toBe(0);
+    });
+    it('uses the account name in save dialogs and sends no per-patch name override', async () => {
+        const { cloud, library } = setup(); library.user = { id: 'me', name: 'Public maker' }; library.config.enabled = true;
+        cloud.create.mockResolvedValue({ id, name: 'My rack', state: state(), visibility: 'private', canEdit: true, authorName: 'Public maker' });
+        const saved = library.openSave({ destination: 'cloud' });
+        expect(document.querySelector('dialog [aria-label="Public name"]')).toBeNull();
+        expect(document.querySelector('dialog [data-profile-name]').textContent).toBe('By Public maker');
+        document.querySelector('dialog form').dispatchEvent(new Event('submit', { cancelable: true }));
+        expect(await saved).toBe(true); expect(cloud.create.mock.calls[0][0]).not.toHaveProperty('authorName');
+    });
+});
+
 describe('local and network boundaries', () => {
+    it('updates only the current public profile through the authenticated API', async () => {
+        const fetch = vi.fn(async () => ({ ok: true, json: async () => ({ user: { id: 'me', name: 'New name' } }) }));
+        const client = new CloudClient({ fetch });
+        await expect(client.updateProfile('New name')).resolves.toEqual({ user: { id: 'me', name: 'New name' } });
+        expect(fetch.mock.calls[0]).toEqual(['/api/me', expect.objectContaining({ method: 'PATCH', credentials: 'same-origin', cache: 'no-store', body: '{"name":"New name"}' })]);
+    });
     it('encodes catalogue filters and opaque cursors in API URLs', async () => {
         const fetch = vi.fn(async () => ({ ok: true, json: async () => ({ patches: [] }) }));
         const client = new CloudClient({ fetch });

@@ -23,6 +23,7 @@ export class PatchLibrary {
         this.cloud = cloud; this.local = local; this.createId = createId; this.previewLoader = previewLoader;
         this.active = null; this.baseline = snapshot(app.host.serializePatch()); this.view = 'rack';
         this.config = { enabled: false }; this.user = null; this.accountGeneration = 0; this.loadGeneration = 0; this.renderGeneration = 0;
+        this.sessionRequest = 0; this.profileGeneration = 0;
         this.accountPatches = []; this.publicPatches = []; this.query = ''; this.replacing = false; this.listRequests = { public: 0, account: 0 };
         this.sort = 'newest'; this.period = 'all'; this.cursor = null; this.localCursor = null;
         this.listPages = { public: {}, account: {} }; this.listLoading = {}; this.listErrors = {};
@@ -43,6 +44,7 @@ export class PatchLibrary {
             this.window.location.assign(url.href);
         });
         this.document.getElementById('patchAccount')?.addEventListener('click', () => this.run(() => this.user ? this.signOut() : this.signIn()));
+        this.document.getElementById('patchProfile')?.addEventListener('click', () => this.run(() => this.openProfile()));
         for (const event of ['input', 'change', 'pointerup', 'keyup']) this.document.addEventListener(event, () => queueMicrotask(() => this.updateActiveLabel()));
         const locationChanged = () => {
             if (this.handledLocation === this.window.location.href) return;
@@ -69,10 +71,14 @@ export class PatchLibrary {
         if (this.view !== 'rack') this.show(this.view, { preserveFocus: true });
     }
     async refreshSession() {
+        const request = ++this.sessionRequest, account = this.accountGeneration;
         try {
             const { user } = await this.cloud.me();
+            if (request !== this.sessionRequest || account !== this.accountGeneration) return;
             const changed = (this.user?.id || null) !== (user?.id || null);
+            const renamed = !changed && this.user?.name !== user?.name;
             if (changed) {
+                this.closeProfile?.();
                 this.accountGeneration++; this.cloud.cancel(); this.accountPatches = []; this.publicPatches = [];
                 this.listPages = { public: {}, account: {} }; this.listLoading = {}; this.listErrors = {};
                 void this.previewLoader().then(module => module.clearPatchPreviewCache?.()).catch(() => {});
@@ -80,11 +86,89 @@ export class PatchLibrary {
             }
             this.user = user; this.updateAccount();
             if (changed && this.surface && this.view !== 'rack') this.show(this.view, { preserveFocus: true });
-        } catch (error) { if (error.name !== 'AbortError') this.notice(error.message); }
+            else if (renamed) await this.refreshAttribution();
+        } catch (error) { if (request === this.sessionRequest && account === this.accountGeneration && error.name !== 'AbortError') this.notice(error.message); }
     }
     updateAccount() {
         const button = this.document.getElementById('patchAccount');
-        if (button) { button.textContent = this.user ? 'Sign out' : 'Sign in'; button.title = this.user ? `Signed in as ${this.user.name}` : 'Sign in with Google'; }
+        if (button) {
+            button.textContent = this.user ? 'Sign out' : 'Sign in'; button.title = this.user ? `Signed in as ${this.user.name}` : 'Sign in with Google';
+        }
+        const profile = this.document.getElementById('patchProfile'); if (profile) profile.hidden = !this.user;
+        this.document.querySelectorAll('[data-profile-name]').forEach(node => { node.textContent = this.user ? `By ${this.user.name}` : ''; });
+    }
+    async refreshAttribution() {
+        const generation = ++this.profileGeneration, account = this.accountGeneration, active = this.active;
+        this.listRequests.public++; this.listRequests.account++;
+        this.accountPatches = []; this.publicPatches = [];
+        this.listPages = { public: {}, account: {} }; this.listLoading = {}; this.listErrors = {};
+        const requests = [];
+        if (active?.source === 'cloud') requests.push(this.cloud.get(active.id).then(record => {
+            if (generation !== this.profileGeneration || account !== this.accountGeneration || active !== this.active) return;
+            // Refresh credits only: the editor may contain unsaved content and its
+            // saved revision must still detect concurrent patch edits.
+            this.active = { ...active, authorName: record.authorName, provenance: { ...active.provenance,
+                originalCreatorName: record.provenance?.originalCreatorName, parentCreatorName: record.provenance?.parentCreatorName } };
+        }));
+        if (this.view === 'public' || this.view === 'mine') requests.push(this.fetchList(this.view === 'public'));
+        await Promise.allSettled(requests);
+    }
+    openProfile() {
+        if (!this.user) return this.signIn();
+        if (this.profileDialog?.isConnected) { this.profileDialog.querySelector('input')?.focus(); return Promise.resolve(false); }
+        const generation = this.accountGeneration, accountId = this.user.id;
+        const currentAccount = () => generation === this.accountGeneration && accountId === this.user?.id;
+        return new Promise(resolve => {
+            const dialog = element(this.document, 'dialog', undefined, 'patch-dialog patch-profile-dialog');
+            const form = element(this.document, 'form');
+            const title = element(this.document, 'h2', 'My profile'); title.id = 'patch-profile-title'; dialog.setAttribute('aria-labelledby', title.id);
+            const label = element(this.document, 'label', 'Public name');
+            const name = element(this.document, 'input'); name.name = 'name'; name.required = true; name.maxLength = 80; name.value = this.user.name;
+            name.autocomplete = 'nickname'; name.setAttribute('aria-label', 'Public name'); name.setAttribute('aria-describedby', 'patch-profile-help'); label.append(name);
+            const help = element(this.document, 'p', 'Shown on all your public patches.'); help.id = 'patch-profile-help';
+            const error = element(this.document, 'p', '', 'patch-dialog-error'); error.hidden = true; error.setAttribute('role', 'alert');
+            const actions = element(this.document, 'div', undefined, 'patch-dialog-actions');
+            let saving = false, closed = false;
+            const finish = result => {
+                if (closed) return; closed = true; dialog.close?.(); dialog.remove();
+                if (this.profileDialog === dialog) { this.profileDialog = null; this.closeProfile = null; }
+                resolve(result);
+            };
+            const cancel = this.button('Cancel', () => { if (!saving) finish(false); });
+            const submit = element(this.document, 'button', 'Save profile', 'primary'); submit.type = 'submit';
+            const setSaving = value => {
+                saving = value; name.disabled = value; submit.disabled = value; cancel.disabled = value;
+                form.setAttribute('aria-busy', String(value));
+            };
+            actions.append(cancel, submit); form.append(title, label, help, error, actions); dialog.append(form);
+            this.profileDialog = dialog; this.closeProfile = () => finish(false);
+            dialog.addEventListener('cancel', event => { event.preventDefault(); if (!saving) finish(false); });
+            form.addEventListener('submit', async event => {
+                event.preventDefault(); if (saving || closed) return;
+                if (!currentAccount()) { finish(false); return; }
+                const publicName = name.value.trim(); error.hidden = true;
+                if (!publicName || publicName.length > 80 || /[\u0000-\u001f\u007f-\u009f\u2028\u2029@]/u.test(publicName)) {
+                    error.textContent = !publicName ? 'Enter a public name.' : publicName.length > 80 ? 'Use 80 characters or fewer.' : publicName.includes('@') ? 'Use a public name without an email address.' : 'Enter a valid public name.';
+                    error.hidden = false; name.focus(); return;
+                }
+                setSaving(true); submit.textContent = 'Saving…';
+                try {
+                    const { user } = await this.cloud.updateProfile(publicName);
+                    if (!currentAccount() || closed) { finish(false); return; }
+                    if (user?.id !== accountId) throw new Error('Your account changed. Close this window and try again.');
+                    this.sessionRequest++; this.user = user; this.updateAccount();
+                    await this.refreshAttribution();
+                    if (!currentAccount() || closed) { finish(false); return; }
+                    finish(true); this.notice('Profile updated.');
+                } catch (failure) {
+                    if (!currentAccount() || closed) { finish(false); return; }
+                    error.textContent = failure.message; error.hidden = false;
+                } finally {
+                    if (!closed) { setSaving(false); submit.textContent = 'Save profile'; }
+                }
+            });
+            this.document.body.append(dialog); dialog.showModal(); name.focus(); name.select();
+        });
     }
     isDirty() { return snapshot(this.app.host.serializePatch()) !== this.baseline; }
     setActive(record, baseline = snapshot(this.app.host.serializePatch())) {
@@ -426,9 +510,9 @@ export class PatchLibrary {
             for (const value of ['private', 'public']) { const option = element(this.document, 'option', value === 'private' ? 'Private — only you' : 'Public — anyone can view'); option.value = value; visibility.append(option); }
             visibility.value = copy ? 'private' : publish ? 'public' : record?.visibility || 'private'; visibility.disabled = copy;
             const description = field('Description (optional)', element(this.document, 'textarea')); description.name = 'description'; description.maxLength = 1000; description.value = record?.description || '';
-            const author = field('Public name', element(this.document, 'input')); author.name = 'authorName'; author.maxLength = 80; author.value = copy ? this.user?.name || '' : record?.authorName || this.user?.name || ''; author.placeholder = 'Shown on public patches';
+            const author = element(this.document, 'p', this.user ? `By ${this.user.name}` : '', 'patch-save-author'); author.dataset.profileName = ''; form.append(author);
             const help = element(this.document, 'p', '', 'patch-save-help'); help.dataset.saveHelp = ''; form.append(help);
-            const updateFields = () => { const cloud = target.value === 'cloud'; visibility.parentElement.hidden = !cloud; description.parentElement.hidden = !cloud; author.parentElement.hidden = !cloud; author.required = cloud;
+            const updateFields = () => { const cloud = target.value === 'cloud'; visibility.parentElement.hidden = !cloud; description.parentElement.hidden = !cloud; author.hidden = !cloud;
                 help.textContent = cloud ? copy ? 'Copies start private. Save again before publishing. The original creator stays credited.' : visibility.value === 'public' ? 'Anyone can open and copy this patch.' : 'Only you can open this patch.' : 'Saved in this browser only.'; };
             target.addEventListener('change', updateFields); visibility.addEventListener('change', updateFields); updateFields();
             if (!this.user && this.config.enabled) form.append(this.button('Sign in with Google', () => this.run(() => this.signIn({ action: 'save', copy }))));
@@ -440,7 +524,7 @@ export class PatchLibrary {
             let attempt;
             form.addEventListener('submit', async event => {
                 event.preventDefault(); if (saving) return; saving = true; submit.disabled = true; cancel.disabled = true; error.hidden = true;
-                const fields = { name: name.value.trim(), description: description.value.trim(), authorName: author.value.trim(), visibility: copy ? 'private' : visibility.value };
+                const fields = { name: name.value.trim(), description: description.value.trim(), visibility: copy ? 'private' : visibility.value };
                 try {
                     let saved;
                     if (target.value === 'local') {
@@ -567,7 +651,11 @@ export class PatchLibrary {
         return true;
     }
     async signOut() {
+        const account = this.accountGeneration, accountId = this.user?.id;
+        this.sessionRequest++;
         await this.cloud.signOut();
+        if (account !== this.accountGeneration || accountId !== this.user?.id) return;
+        this.closeProfile?.();
         void this.previewLoader().then(module => module.clearPatchPreviewCache?.()).catch(() => {});
         this.accountGeneration++; this.user = null; this.accountPatches = []; this.publicPatches = [];
         this.listPages = { public: {}, account: {} }; this.listLoading = {}; this.listErrors = {};

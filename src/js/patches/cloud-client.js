@@ -59,6 +59,7 @@ export class CloudClient {
         catch (error) { if (error.name === 'AbortError') throw error; return { enabled: false, authEnabled: false, imagesEnabled: false }; }
     }
     me() { return this.request('/api/me'); }
+    updateProfile(name) { return this.request('/api/me', { method: 'PATCH', body: { name } }); }
     list({ publicOnly = false, cursor, query = '', sort = 'newest', period = 'all' } = {}) {
         const params = new URLSearchParams(); if (cursor) params.set('cursor', cursor); if (query) params.set('q', query);
         if (publicOnly) { params.set('sort', sort); params.set('period', period); }

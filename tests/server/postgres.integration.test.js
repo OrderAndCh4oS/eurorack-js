@@ -32,7 +32,7 @@ suite('real PostgreSQL adapter and Better Auth migration', () => {
     afterAll(async () => { await pool?.end(); });
     it('uses the pinned auth schema and rejects a forged session', async () => {
         const rows = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
-        expect(rows.rows.map(row => row.table_name)).toEqual(expect.arrayContaining(['user', 'session', 'account', 'verification', 'rateLimit', 'patch_records', 'patch_requests']));
+        expect(rows.rows.map(row => row.table_name)).toEqual(expect.arrayContaining(['user', 'session', 'account', 'verification', 'rateLimit', 'patch_records', 'patch_requests', 'patch_profiles']));
         const session = await auth.api.getSession({ headers: new Headers({ cookie: 'better-auth.session_token=forged.signature' }) });
         expect(session).toBeNull();
     });
@@ -69,5 +69,46 @@ suite('real PostgreSQL adapter and Better Auth migration', () => {
         expect((await service.get(fork.id, other)).provenance.originalCreatorName).toBe('Fixture creator');
         expect((await store.likes(patch.id, other.id)).likeCount).toBe(0);
         await service.remove(other, fork.id, { expectedRevision: 1 });
+    });
+    it('joins current profile names before pagination and backfills deleted legacy parents idempotently', async () => {
+        const author = { id: `profile-${ulid()}`, name: 'Old alias' }, remixer = { id: `profile-${ulid()}`, name: 'Old remixer' }, third = { id: `profile-${ulid()}`, name: 'Third artist' };
+        const ownerIds = [author.id, remixer.id, third.id];
+        try {
+            const png = await sharp({ create: { width: 60, height: 40, channels: 3, background: '#f0eee2' } }).png().toBuffer();
+            const preview = await service.uploadPreview(author, { state }, png);
+            const originals = [];
+            for (let i = 0; i < 3; i++) originals.push(await service.create(author, { name: `Profile rack ${i}`, state, requestId: ulid(), visibility: 'public', previewId: preview.id }));
+            await service.create(author, { name: 'Private profile rack', state, requestId: ulid() });
+            const child = await service.copy(remixer, originals[0].id, { requestId: ulid(), expectedRevision: 1 });
+            await service.update(remixer, child.id, { state, expectedRevision: 1, visibility: 'public' });
+            const grandchild = await service.copy(third, child.id, { requestId: ulid(), expectedRevision: 2 });
+            // Simulate a pre-profile fork whose parent was deleted before migration.
+            await pool.query("UPDATE patch_records SET data=data-'parentCreatorId' WHERE id=$1", [grandchild.id]);
+            await service.remove(remixer, child.id, { expectedRevision: 2 });
+            const migration = await readFile(new URL('../../db/001-patches.sql', import.meta.url), 'utf8');
+            await pool.query(migration); await pool.query(migration);
+            expect((await store.getPatch(grandchild.id)).parentCreatorId).toBe(remixer.id);
+            const recordsBefore = (await pool.query("SELECT id,data FROM patch_records WHERE data->>'ownerId'=ANY($1::text[]) ORDER BY id", [ownerIds])).rows;
+            const requestsBefore = (await pool.query('SELECT * FROM patch_requests WHERE owner_id=ANY($1::text[]) ORDER BY patch_id', [ownerIds])).rows;
+            await service.updateProfile(author, { name: 'New_% Alias' }); await service.updateProfile(remixer, { name: 'Current remixer' });
+            expect(await service.me({ ...author, name: 'OAuth name' })).toEqual({ id: author.id, name: 'New_% Alias' });
+            const options = { publicOnly: true, query: 'new_%', limit: 2, sort: 'popular', period: 'month' };
+            const first = await service.list(options), second = await service.list({ ...options, before: first.nextCursor });
+            expect(first.patches).toHaveLength(2); expect(second.patches).toHaveLength(1);
+            expect([...first.patches, ...second.patches].every(p => p.authorName === 'New_% Alias')).toBe(true);
+            expect(new Set([...first.patches, ...second.patches].map(p => p.id)).size).toBe(3);
+            expect((await service.list({ user: author, query: 'new_%' })).patches).toHaveLength(4);
+            expect((await service.list({ publicOnly: true, query: 'Old alias' })).patches).toHaveLength(0);
+            expect((await service.get(grandchild.id, third)).provenance).toMatchObject({ originalCreatorName: 'New_% Alias', parentCreatorName: 'Current remixer', parentAvailable: false });
+            expect((await pool.query("SELECT id,data FROM patch_records WHERE data->>'ownerId'=ANY($1::text[]) ORDER BY id", [ownerIds])).rows).toEqual(recordsBefore);
+            expect((await pool.query('SELECT * FROM patch_requests WHERE owner_id=ANY($1::text[]) ORDER BY patch_id', [ownerIds])).rows).toEqual(requestsBefore);
+            await service.remove(author, originals[0].id, { expectedRevision: 1 });
+            expect((await service.get(grandchild.id, third)).provenance).toMatchObject({ originalCreatorName: 'New_% Alias', rootAvailable: false });
+        } finally {
+            await pool.query("DELETE FROM patch_records WHERE data->>'ownerId'=ANY($1::text[])", [ownerIds]);
+            await pool.query('DELETE FROM patch_profiles WHERE user_id=ANY($1::text[])', [ownerIds]);
+            await pool.query('DELETE FROM patch_requests WHERE owner_id=ANY($1::text[])', [ownerIds]);
+            await pool.query("DELETE FROM patch_previews WHERE data->>'ownerId'=ANY($1::text[])", [ownerIds]);
+        }
     });
 });

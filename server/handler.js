@@ -42,7 +42,8 @@ export function createHandler({ store, authenticate = async () => null, authHand
                 assert(authHandler, 'Sign-in is unavailable. Try again later.', 503, 'auth_unavailable'); return authHandler(request);
             }
             const user = await authenticate(request);
-            if (path === '/api/me' && method === 'GET') return json({ configured: true, user: user ? { id: user.id, name: user.name?.includes('@') ? 'Patch maker' : (user.name || 'Patch maker') } : null });
+            if (path === '/api/me' && method === 'GET') return json({ configured: true, user: await service.me(user) });
+            if (path === '/api/me' && method === 'PATCH') return json({ user: await service.updateProfile(user, await readJson(request)) });
             if ((path === '/api/public-patches' || path === '/api/patches') && method === 'GET') return json(await service.list({
                 user, publicOnly: path === '/api/public-patches', query: url.searchParams.get('q') || '', before: url.searchParams.get('cursor'),
                 sort: url.searchParams.get('sort') || 'newest', period: url.searchParams.get('period') || 'all', limit: Number(url.searchParams.get('limit') || LIMITS.pageSize)

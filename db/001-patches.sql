@@ -41,3 +41,15 @@ CREATE TABLE IF NOT EXISTS patch_rate_limits (
     count integer NOT NULL,
     PRIMARY KEY (key, bucket)
 );
+-- Public identity is independent of the Google account's name and email. Changing
+-- it updates attribution on read without changing rack revisions or fork lineage.
+CREATE TABLE IF NOT EXISTS patch_profiles (
+    user_id text PRIMARY KEY,
+    name text NOT NULL CHECK (length(name) BETWEEN 1 AND 80 AND position('@' IN name)=0),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS patch_request_patch ON patch_requests(patch_id);
+-- Requests outlive deleted patches, so older fork credits can retain the parent's
+-- stable creator identity even if that source patch was removed already.
+UPDATE patch_records p SET data=jsonb_set(p.data, '{parentCreatorId}', to_jsonb(r.owner_id))
+FROM patch_requests r WHERE p.data->>'parentId'=r.patch_id AND p.data->>'parentCreatorId' IS NULL;

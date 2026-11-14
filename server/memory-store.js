@@ -1,6 +1,6 @@
 // Explicit dependency for tests/local integration only. Production never imports this adapter.
 export class MemoryStore {
-    constructor() { this.data = { patches: new Map(), requests: new Map(), previews: new Map(), garbage: new Set(), likes: new Map(), rates: new Map() }; this.queue = Promise.resolve(); }
+    constructor() { this.data = { patches: new Map(), requests: new Map(), profiles: new Map(), previews: new Map(), garbage: new Set(), likes: new Map(), rates: new Map() }; this.queue = Promise.resolve(); }
     async transaction(work) {
         const previous = this.queue;
         let release;
@@ -10,6 +10,14 @@ export class MemoryStore {
         try { return await work(this); } catch (error) { this.data = before; throw error; } finally { release(); }
     }
     async getPatch(id) { return structuredClone(this.data.patches.get(id)); }
+    async getPatches(ids) { return structuredClone(ids.map(id => this.data.patches.get(id)).filter(Boolean)); }
+    async getPatchOwners(ids) {
+        const wanted = new Set(ids), owners = new Map();
+        for (const [key, request] of this.data.requests) if (wanted.has(request.id)) owners.set(request.id, key.slice(0, key.lastIndexOf(':')));
+        return owners;
+    }
+    async getProfiles(ids) { return new Map(ids.filter(id => this.data.profiles.has(id)).map(id => [id, structuredClone(this.data.profiles.get(id))])); }
+    async putProfile(profile) { this.data.profiles.set(profile.id, structuredClone(profile)); }
     async putPatch(record) {
         this.data.patches.set(record.id, structuredClone(record));
         this.data.requests.set(`${record.ownerId}:${record.requestId}`, { id: record.id, requestHash: record.requestHash });
@@ -22,7 +30,7 @@ export class MemoryStore {
     async listPatches({ ownerId, publicOnly, query = '', sort, asOf, since, direction, boundary, limit }) {
         const compare = (a, b) => b.popularityCount - a.popularityCount || b.id.localeCompare(a.id);
         const records = [...this.data.patches.values()]
-            .filter(p => (!ownerId || p.ownerId === ownerId) && (!publicOnly || p.visibility === 'public') && p.createdAt <= asOf && `${p.name} ${p.description} ${p.authorName}`.toLowerCase().includes(query.toLowerCase()))
+            .filter(p => (!ownerId || p.ownerId === ownerId) && (!publicOnly || p.visibility === 'public') && p.createdAt <= asOf && `${p.name} ${p.description} ${this.data.profiles.get(p.ownerId)?.name ?? p.authorName}`.toLowerCase().includes(query.toLowerCase()))
             .map(p => ({ ...p, popularityCount: sort === 'popular' ? [...(this.data.likes.get(p.id)?.values() || [])].filter(time => time <= asOf && (!since || time >= since)).length : 0 }))
             .filter(p => !boundary || (direction === 'previous' ? compare(p, { id: boundary.id, popularityCount: boundary.score }) < 0 : compare(p, { id: boundary.id, popularityCount: boundary.score }) > 0))
             .sort((a, b) => direction === 'previous' ? compare(b, a) : compare(a, b));

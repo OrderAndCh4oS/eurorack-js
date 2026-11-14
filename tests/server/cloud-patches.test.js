@@ -105,11 +105,14 @@ describe('cloud identity, access and revisions', () => {
             expect(response.headers.get('cache-control')).toContain('no-store');
         }
     });
-    it('allows owner display-name edits while preserving the original creator snapshot', async () => {
+    it('keeps creator names account-wide instead of accepting per-patch display-name edits', async () => {
         const patch = await service.create(alice, draft());
         const changed = await service.update(alice, patch.id, { state: state(), authorName: 'Alice Instruments', expectedRevision: 1 });
-        expect(changed.authorName).toBe('Alice Instruments');
+        expect(changed.authorName).toBe('Alice');
         expect(changed.provenance.originalCreatorName).toBe('Alice');
+        await service.updateProfile(alice, { name: 'Alice Instruments' });
+        expect(await service.get(patch.id, alice)).toMatchObject({ authorName: 'Alice Instruments', revision: 2,
+            provenance: { originalCreatorName: 'Alice Instruments' } });
     });
 });
 

@@ -9,6 +9,19 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
     function accessible(patch, user) { assert(patch && (patch.visibility === 'public' || patch.ownerId === user?.id), 'Patch not found.', 404, 'not_found'); return patch; }
     function owned(patch, user) { signedIn(user); assert(patch && patch.ownerId === user.id, 'Patch not found.', 404, 'not_found'); return patch; }
     function current(patch, expected) { assert(patch.revision === revision(expected), 'This patch has changed. Reload it or save a copy.', 409, 'revision_conflict'); }
+    function safeName(value) {
+        try { return publicName(value); } catch { return 'Patch maker'; }
+    }
+    async function profile(tx, user) {
+        const saved = (await tx.getProfiles([user.id])).get(user.id);
+        return { id: user.id, name: saved?.name || safeName(user.name) };
+    }
+    async function authorName(tx, user, body, fallback = user.name) {
+        // Older clients still send their cached patch credit. Accept a valid value
+        // but only profile editing may change the account's public identity.
+        if (body.authorName !== undefined) publicName(body.authorName);
+        return (await tx.getProfiles([user.id])).get(user.id)?.name || safeName(fallback);
+    }
     async function rate(tx, user, kind, maximum) {
         const allowed = await tx.consumeRate(`${kind}:${user.id}`, Math.floor(now().getTime() / 60000), maximum);
         assert(allowed, 'Too many requests. Try again in a minute.', 429, 'rate_limited');
@@ -25,18 +38,34 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
         assert(preview.stateHash === stateHash, 'The preview is out of date. Save the patch again.', 409, 'preview_mismatch');
         return preview;
     }
-    async function project(tx, patch, user, includeState = true) {
-        const parent = patch.parentId ? await tx.getPatch(patch.parentId) : null;
-        const root = patch.rootId !== patch.id ? await tx.getPatch(patch.rootId) : patch;
+    async function projectionContext(tx, patches) {
+        const relatedIds = [...new Set(patches.flatMap(p => [p.parentId, p.rootId]).filter(Boolean))];
+        const related = new Map((await tx.getPatches(relatedIds)).map(p => [p.id, p]));
+        for (const patch of patches) related.set(patch.id, patch);
+        const missingCreators = [...new Set(patches.flatMap(p => [
+            p.parentId && !p.parentCreatorId && !related.has(p.parentId) ? p.parentId : null,
+            p.rootId && !p.originalCreatorId && !related.has(p.rootId) ? p.rootId : null
+        ]).filter(Boolean))];
+        const previousOwners = missingCreators.length ? await tx.getPatchOwners(missingCreators) : new Map();
+        const parentCreator = patch => patch.parentCreatorId || related.get(patch.parentId)?.ownerId || previousOwners.get(patch.parentId);
+        const originalCreator = patch => patch.originalCreatorId || related.get(patch.rootId)?.ownerId || previousOwners.get(patch.rootId);
+        const profileIds = [...new Set(patches.flatMap(p => [p.ownerId, parentCreator(p), originalCreator(p)]).filter(Boolean))];
+        return { related, profiles: await tx.getProfiles(profileIds), parentCreator, originalCreator };
+    }
+    async function project(tx, patch, user, includeState = true, context) {
+        context ||= await projectionContext(tx, [patch]);
+        const parent = context.related.get(patch.parentId);
+        const root = context.related.get(patch.rootId);
+        const name = (userId, fallback) => context.profiles.get(userId)?.name || safeName(fallback);
         const canEdit = patch.ownerId === user?.id;
-        return { id: patch.id, name: patch.name, description: patch.description, authorName: patch.authorName,
+        return { id: patch.id, name: patch.name, description: patch.description, authorName: name(patch.ownerId, patch.authorName),
             revision: patch.revision, visibility: patch.visibility, previewId: patch.previewId, moduleCount: patch.state.modules.length,
             createdAt: patch.createdAt, updatedAt: patch.updatedAt, publishedAt: patch.publishedAt,
             savedAfterCopyAt: patch.savedAfterCopyAt,
             requiresSaveBeforePublish: !!patch.requiresSaveBeforePublish || (!!patch.parentId && !patch.savedAfterCopyAt), canEdit,
             ...(includeState ? { state: patch.state, stateHash: patch.stateHash } : {}),
-            provenance: { parentId: patch.parentId, rootId: patch.rootId, originalCreatorName: patch.originalCreatorName,
-                parentCreatorName: patch.parentCreatorName, parentRevision: patch.parentRevision,
+            provenance: { parentId: patch.parentId, rootId: patch.rootId, originalCreatorName: name(context.originalCreator(patch), patch.originalCreatorName),
+                parentCreatorName: patch.parentId ? name(context.parentCreator(patch), patch.parentCreatorName) : null, parentRevision: patch.parentRevision,
                 parentAvailable: !!parent && (parent.visibility === 'public' || parent.ownerId === user?.id),
                 rootAvailable: !!root && (root.visibility === 'public' || root.ownerId === user?.id) },
             ...(await tx.likes(patch.id, user?.id)),
@@ -49,6 +78,17 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
         return { name, description: textField(body.description, 'Description', 1000, previous?.description || '') };
     }
     return {
+        async me(user) { return user ? store.transaction(tx => profile(tx, signedIn(user))) : null; },
+        async updateProfile(user, body) {
+            signedIn(user);
+            assert(body && Object.keys(body).every(key => key === 'name') && typeof body.name === 'string', 'Enter a public name.');
+            const name = publicName(body.name);
+            return store.transaction(async tx => {
+                await rate(tx, user, 'profile', 10);
+                await tx.putProfile({ id: user.id, name, updatedAt: timestamp() });
+                return { id: user.id, name };
+            });
+        },
         async get(patchId, user) { return store.transaction(async tx => project(tx, accessible(await tx.getPatch(id(patchId)), user), user)); },
         async list({ user, publicOnly = false, query, before, sort = 'newest', period = 'all', limit = LIMITS.pageSize }) {
             if (!publicOnly) signedIn(user);
@@ -63,8 +103,9 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 if (page.direction === 'previous') selected.reverse();
                 const hasPrevious = page.direction === 'previous' ? hasMore : !!page.boundary;
                 const hasNext = page.direction === 'previous' ? !!page.boundary : hasMore;
+                const context = await projectionContext(tx, selected);
                 return {
-                    patches: await Promise.all(selected.map(async p => ({ ...await project(tx, p, user, false), ...(sort === 'popular' ? { popularityCount: p.popularityCount } : {}) }))),
+                    patches: await Promise.all(selected.map(async p => ({ ...await project(tx, p, user, false, context), ...(sort === 'popular' ? { popularityCount: p.popularityCount } : {}) }))),
                     nextCursor: selected.length && hasNext ? page.cursorFor(selected.at(-1), 'next') : null,
                     previousCursor: selected.length && hasPrevious ? page.cursorFor(selected[0], 'previous') : null
                 };
@@ -112,12 +153,12 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 const selectedVisibility = body.copy ? 'private' : requestedVisibility;
                 const preview = await previewFor(tx, body.previewId, user, validated.stateHash, selectedVisibility === 'public');
                 const patchId = generateId(); const time = timestamp();
-                const authorName = publicName(body.authorName ?? (user.name?.includes('@') ? undefined : user.name));
-                const patch = { id: patchId, ownerId: user.id, ...labels(body), ...validated, authorName,
+                const creatorName = await authorName(tx, user, body);
+                const patch = { id: patchId, ownerId: user.id, ...labels(body), ...validated, authorName: creatorName,
                     revision: 1, visibility: selectedVisibility, previewId: preview?.id || null,
                     createdAt: time, updatedAt: time, publishedAt: selectedVisibility === 'public' ? time : null,
                     requestId: body.requestId, requestHash: inputHash, parentId: null, parentRevision: null, rootId: patchId,
-                    originalCreatorId: user.id, originalCreatorName: authorName, parentCreatorName: null, savedAfterCopyAt: null,
+                    originalCreatorId: user.id, originalCreatorName: creatorName, parentCreatorId: null, parentCreatorName: null, savedAfterCopyAt: null,
                     requiresSaveBeforePublish: !!body.copy };
                 await tx.putPatch(patch); return project(tx, patch, user);
             });
@@ -133,7 +174,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 const preview = await previewFor(tx, previewId, user, validated.stateHash, selectedVisibility === 'public');
                 const time = timestamp();
                 const next = { ...patch, ...labels(body, patch), ...validated,
-                    authorName: body.authorName === undefined ? patch.authorName : publicName(body.authorName),
+                    authorName: await authorName(tx, user, body, patch.authorName),
                     visibility: selectedVisibility, previewId: preview?.id || null,
                     revision: patch.revision + 1, updatedAt: time,
                     savedAfterCopyAt: patch.parentId || patch.requiresSaveBeforePublish || patch.savedAfterCopyAt ? time : null,
@@ -188,12 +229,14 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                     }
                 }
                 const time = timestamp();
+                const sourceContext = await projectionContext(tx, [source]);
+                const sourceCredit = await project(tx, source, user, false, sourceContext);
                 const patch = { id: generateId(), ownerId: user.id, ...labels({ ...body, name: body.name ?? `${source.name.slice(0, 123)} copy` }),
-                    ...validated, authorName: publicName(body.authorName ?? (user.name?.includes('@') ? undefined : user.name)),
+                    ...validated, authorName: await authorName(tx, user, body),
                     revision: 1, visibility: 'private', previewId: preview?.id || null, createdAt: time, updatedAt: time, publishedAt: null,
                     requestId: body.requestId, requestHash: inputHash, parentId: source.id, parentRevision: source.revision, rootId: source.rootId,
-                    originalCreatorId: source.originalCreatorId, originalCreatorName: source.originalCreatorName,
-                    parentCreatorName: source.authorName, savedAfterCopyAt: null, requiresSaveBeforePublish: true };
+                    originalCreatorId: sourceContext.originalCreator(source) || source.ownerId, originalCreatorName: sourceCredit.provenance.originalCreatorName,
+                    parentCreatorId: source.ownerId, parentCreatorName: sourceCredit.authorName, savedAfterCopyAt: null, requiresSaveBeforePublish: true };
                 await tx.putPatch(patch); return project(tx, patch, user);
             });
         },

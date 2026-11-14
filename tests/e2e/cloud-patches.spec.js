@@ -67,7 +67,7 @@ test('two users publish, like, fork, resave and revoke public image access', asy
         await shared.getByRole('button', { name: 'Save a copy', exact: true }).click();
         dialog = bob.page.getByRole('dialog');
         await dialog.getByLabel('Patch name', { exact: true }).fill(`${name} fork`);
-        await expect(dialog.getByLabel('Public name', { exact: true })).toHaveValue('Bob');
+        await expect(dialog.getByLabel('Public name', { exact: true })).toHaveCount(0);
         await expect(dialog.getByLabel('Visibility', { exact: true })).toBeDisabled();
         await dialog.getByRole('button', { name: 'Save copy', exact: true }).click();
         await expect(dialog).toHaveCount(0, { timeout: 30000 });

@@ -12,7 +12,7 @@ body.skin-factory { --library-paper: var(--factory-paper); --library-ink: var(--
 .patch-navigation button:focus-visible, .patch-library :focus-visible, .patch-dialog :focus-visible { outline: 3px solid var(--library-accent); outline-offset: 2px; }
 .patch-library button:disabled, .patch-dialog button:disabled { opacity: .55; cursor: wait; }
 #activePatchLabel { padding: 0 10px; flex: 1 0 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px; }
-#patchAccount { border-left: 2px solid var(--library-line); margin-left: auto; }
+.patch-account-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 4px; margin-left: auto; }
 body #toolbar, body.skin-factory #toolbar { top: var(--library-toolbar); height: var(--library-toolbar); }
 body.patch-library-open #toolbar { display: none; }
 body .app-container, body.skin-factory .app-container { margin-top: calc(var(--library-toolbar) * 2); height: calc(100vh - var(--library-toolbar) * 2); }

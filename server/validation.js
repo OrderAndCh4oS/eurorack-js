@@ -103,5 +103,6 @@ export function validateState(raw, contracts = registry) {
 export function publicName(value) {
     const name = textField(value, 'Public name', 80, 'Patch maker');
     assert(name && !name.includes('@'), 'Use a public name, not an email address.');
+    assert(!/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(value ?? ''), 'Public name must be a single line without control characters.');
     return name;
 }

@@ -3,6 +3,11 @@ import { CloudClient, newRequestId, parsePatchLocation, savedPatchUrl, rackPatch
 import { LocalPatchStore } from '../patches/local-patch-store.js';
 
 export const DRAFT_KEY = 'eurorack-login-draft-v1';
+const LIBRARY_VIEWS = {
+    mine: ['My patches', 'Saved in this browser or your account.'],
+    public: ['Public patches', 'Shared patches to play and copy.'],
+    tests: ['Test patches', 'Patches for trying each module.']
+};
 const snapshot = state => JSON.stringify(state);
 const clone = value => JSON.parse(JSON.stringify(value));
 const sourceLabel = record => ({ test: 'Test patch', local: 'This browser', cloud: record.visibility === 'public' ? 'Public' : 'Private' }[record.source] || 'Unsaved rack');
@@ -68,10 +73,17 @@ export class PatchLibrary {
     }
     isDirty() { return snapshot(this.app.host.serializePatch()) !== this.baseline; }
     setActive(record, baseline = snapshot(this.app.host.serializePatch())) {
-        this.active = record; this.baseline = baseline; this.updateActiveLabel();
+        this.active = record; this.baseline = baseline;
         const input = this.document.getElementById('patchName'); if (input && record?.name) input.value = record.name;
+        this.updateActiveLabel();
+    }
+    updateDocumentTitle() {
+        const name = this.view === 'rack' ? this.app.getCurrentPatchName() : LIBRARY_VIEWS[this.view][0];
+        const title = `${name} · Eurorack`;
+        if (this.document.title !== title) this.document.title = title;
     }
     updateActiveLabel() {
+        this.updateDocumentTitle();
         const label = this.document.getElementById('activePatchLabel');
         if (label) label.textContent = `${this.active?.name || 'Untitled'} · ${this.active ? sourceLabel(this.active) : 'Unsaved rack'}${this.isDirty() ? ' · Edited' : ''}`;
         const share = this.document.getElementById('savedPatchLink'); if (share) share.hidden = this.active?.source !== 'cloud';
@@ -92,6 +104,7 @@ export class PatchLibrary {
     }
     show(view) {
         this.view = view; this.renderGeneration++; this.observer?.disconnect(); this.previewAbort?.abort();
+        this.updateDocumentTitle();
         this.document.body.classList.toggle('patch-library-open', view !== 'rack');
         const rack = this.document.getElementById('rackView') || this.document.querySelector('.app-container');
         if (rack) rack.hidden = view !== 'rack';
@@ -108,8 +121,7 @@ export class PatchLibrary {
     render() {
         if (!this.surface || this.view === 'rack') return;
         this.observer?.disconnect(); this.previewAbort?.abort(); this.previewAbort = new AbortController(); this.surface.replaceChildren();
-        const titles = { mine: ['My patches', 'Saved in this browser or your account.'], public: ['Public patches', 'Shared patches to play and copy.'], tests: ['Test patches', 'Patches for trying each module.'] };
-        const [title, intro] = titles[this.view];
+        const [title, intro] = LIBRARY_VIEWS[this.view];
         const header = element(this.document, 'header', undefined, 'patch-library-header');
         const heading = element(this.document, 'div'); heading.append(element(this.document, 'h1', title), element(this.document, 'p', intro, 'patch-library-intro')); header.append(heading);
         if (this.view !== 'mine') {
@@ -410,6 +422,7 @@ export class PatchLibrary {
         await this.app.loadPatchState(draft.state, { managed: true });
         this.setActive(draft.active?.source === 'cloud' ? null : draft.active, draft.baseline);
         const name = this.document.getElementById('patchName'); if (name) name.value = draft.name;
+        this.updateDocumentTitle();
         this.window.sessionStorage.removeItem(DRAFT_KEY);
         this.notice('Rack restored.');
         const restoredGeneration = this.loadGeneration; const restoredActive = this.active;

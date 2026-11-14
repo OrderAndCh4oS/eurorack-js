@@ -29,6 +29,7 @@ describe('patch library coordination', () => {
         expect(await library.loadLocation()).toBe(true);
         expect(cloud.get).toHaveBeenCalledWith(id);
         expect(library.active.id).toBe(id);
+        expect(document.title).toBe('Saved rack · Eurorack');
         expect(window.location.pathname).toBe(`/patches/${id}`);
         expect(window.location.search).toBe(''); expect(window.location.hash).toBe('');
     });
@@ -50,6 +51,7 @@ describe('patch library coordination', () => {
         app.loadPatchState.mockRejectedValue(new Error('worklet rejected'));
         await expect(library.replaceState(state(), { source: 'test', name: 'Next' })).rejects.toThrow('worklet rejected');
         expect(library.active.name).toBe('Original'); expect(library.replacing).toBe(false);
+        expect(document.title).toBe('Original · Eurorack');
     });
     it('does not apply an old account fetch after the account changes', async () => {
         const { app, cloud, library } = setup(); const pending = deferred(); cloud.get.mockReturnValue(pending.promise);
@@ -80,6 +82,7 @@ describe('patch library coordination', () => {
         pending.resolve({ id: '01K00000000000000000000001', name: 'Original (copy)', state: state(), visibility: 'private', revision: 1, canEdit: true });
         expect(await saved).toBe(true); expect(cloud.copy.mock.calls[0][1]).toMatchObject({ visibility: 'private', expectedRevision: 3, requestId: id });
         expect(library.active.id).not.toBe(id); expect(library.isDirty()).toBe(true);
+        expect(document.title).toBe('Original (copy) · Eurorack');
         expect(window.location.pathname).toBe(`/patches/${library.active.id}`); expect(window.location.hash).toBe('');
     });
     it('reuses the same request ID and payload on a failed create retry', async () => {
@@ -107,6 +110,7 @@ describe('patch library coordination', () => {
         const { app, library } = setup(); const draft = { ...state(), midiMappings: { retained: {} } }; library.ready = Promise.resolve();
         sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ state: draft, name: 'Draft', baseline: JSON.stringify(state()), createdAt: Date.now() }));
         expect(await library.restoreDraft()).toBe(true); expect(app.loadPatchState).toHaveBeenCalledWith(draft, { managed: true }); expect(library.isDirty()).toBe(true); expect(sessionStorage.getItem(DRAFT_KEY)).toBeNull();
+        expect(document.title).toBe('Draft · Eurorack');
     });
     it('loads the private saved target after signing in from an untouched empty rack', async () => {
         const { app, cloud, library } = setup(); library.config.enabled = true;

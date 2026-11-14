@@ -19,8 +19,10 @@ async function expectPreviewFits(entry) {
 test('browses illustrated test racks and saves an independent local copy', async ({ page }, testInfo) => {
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.goto('/'); await page.waitForFunction(() => window.eurorackApp?.host);
+    await expect(page).toHaveTitle('Untitled · Eurorack');
     await expect(page.locator('#patchSelect')).toHaveCount(0);
     await page.locator('[data-patch-view="tests"]').click();
+    await expect(page).toHaveTitle('Test patches · Eurorack');
     await expect(page.locator('.patch-entry')).toHaveCount(75);
     // Wait for each first-row image, rather than whichever asynchronous capture
     // finishes first. Intrinsic image height must never overflow its fixed frame.
@@ -29,14 +31,24 @@ test('browses illustrated test racks and saves an independent local copy', async
     await page.screenshot({ path: testInfo.outputPath('test-patches.png') });
     expect(await page.evaluate(() => window.eurorackApp.host.audioCtx)).toBeNull();
     await openTestPatch(page, 'Test - Chorus');
+    await expect(page).toHaveTitle('Test - Chorus · Eurorack');
     const before = await page.evaluate(() => window.eurorackApp.host.serializePatch());
     await page.locator('[data-patch-view="mine"]').click();
+    await expect(page).toHaveTitle('My patches · Eurorack');
+    await page.locator('[data-patch-view="public"]').click();
+    await expect(page).toHaveTitle('Public patches · Eurorack');
+    await page.getByRole('searchbox').fill('Chorus');
+    await expect(page).toHaveTitle('Public patches · Eurorack');
     await page.locator('[data-patch-view="rack"]').click();
+    await expect(page).toHaveTitle('Test - Chorus · Eurorack');
+    await page.locator('#patchName').fill('Edited chorus');
+    await expect(page).toHaveTitle('Edited chorus · Eurorack');
     expect(await page.evaluate(() => window.eurorackApp.host.serializePatch())).toEqual(before);
     await page.locator('#savePatchCopy').click();
     await page.getByRole('dialog').getByRole('textbox', { name: 'Patch name', exact: true }).fill('My chorus copy');
     await page.getByRole('dialog').getByRole('button', { name: 'Save copy', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page).toHaveTitle('My chorus copy · Eurorack');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('eurorack-patches'))['My chorus copy']);
     expect(saved.id).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/); expect(saved.state).toEqual(before);
     await page.locator('[data-patch-view="mine"]').click();

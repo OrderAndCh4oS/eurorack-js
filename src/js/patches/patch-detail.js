@@ -10,6 +10,7 @@ const status = message => { const target = document.getElementById('patch-status
 const button = (label, action) => { const value = node('button', label); value.type = 'button'; value.dataset.action = action; return value; };
 
 function render() {
+    document.title = `${record.name} · Eurorack`;
     const main = document.getElementById('patch-detail'); main.replaceChildren();
     main.append(node('p', record.visibility === 'public' ? 'PUBLIC PATCH' : 'PRIVATE PATCH'), node('h1', record.name), node('p', `${record.canEdit ? 'By you' : `By ${record.authorName}`} · ${record.moduleCount} modules`));
     if (record.provenance?.parentId) {

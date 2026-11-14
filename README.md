@@ -1,18 +1,29 @@
 # eurorack-js
 
-Browser-based Eurorack modular synthesizer emulator. Patch virtual modules together with cables to create sounds.
+Browser-based Eurorack modular synthesizer and patch-sharing community. Build a rack, make sounds, and share your patches for other people to play and remix.
 
 **[Try it live](https://eurorackjs.orderandchaos.xyz)**
 
 ![Evolving Drone Patch](screen-grab.png)
 
-## Saving and sharing patches
+## Patches and community
 
-**My patches** holds browser saves and signed-in account patches. Account patches can be private or public; **Public patches** offers rack images, thumbs-up and independent copies with original creator credit. Copies start private and require another Save before publishing. Saved `/patches/<ULID>` pages have social cards; **Copy snapshot link** still shares the current unsaved rack directly in the URL.
+Play the synth and explore public patches without an account. Sign in with Google to save patches to your account, publish your own, and give other people's patches a thumbs-up.
 
-Signed-in users can change their public name in **My profile**. It updates creator credits across their existing account patches and cloud copies, without resaving each rack.
+- **Discover patches.** Browse **Public patches** with rack previews, descriptions, and creator credits. Open any patch directly in the rack to play it or try changes.
+- **Find something new.** Search the catalogue and sort by **Newest** or **Most popular**, ranked by thumbs-up received across all time, the past day, week, month, or year. Search, filters, and cursor-based pagination live in the URL, so links, refresh, and browser back/forward preserve your place.
+- **Save privately or publish.** **My patches** brings together browser saves and account patches. Account patches can be private or public, and you can change their visibility later. Add a name and description when saving.
+- **Copy and remix.** **Save a copy** makes an independent patch, with the original creator credited and its source recorded like a fork. Copies start private; save again and choose Public when you're ready to share yours.
+- **Give a thumbs-up.** Like other people's public patches, or remove your thumbs-up later. These votes determine the popularity rankings.
+- **Choose your public name.** Open **My profile** beside Sign out to update the name shown on your patches and original-creator credits on copies. Existing credits update without resaving each rack; your email address is not displayed publicly.
 
-Run `npm run dev` for the built app and local API. Account features require [cloud setup](docs/cloud-setup.md); browser saves, imports, exports and Test patches work without cloud credentials.
+### Sharing links
+
+Saved account patches have a stable URL at `/patches/<ULID>`. **Copy URL** shares that address, and saving from the rack updates the browser URL to match. Visitors open the saved patch directly in the rack, and later saves appear at the same address. Private patches remain accessible only to their owner.
+
+Public saved patches include Open Graph and Twitter/X cards with the patch title, description, and a rack-only image. Rack previews are refreshed on save, with thumbnail, full-size, and social-card images generated then and cached for subsequent views.
+
+**Copy snapshot link** shares the current rack, including unsaved edits, inside the URL fragment (`#patch=…`). It is a fixed snapshot and does not follow later saves. Snapshot links do not have patch-specific social cards; use a public saved patch's **Copy URL** for those.
 
 ## Test and Learning Patches
 
@@ -202,7 +213,7 @@ src/js/
 ├── modules/              # Module definitions
 │   └── {moduleId}/
 │       └── index.js      # DSP + UI
-├── patches/              # Patch serialization
+├── patches/              # Serialization, account API client, catalogue URL state
 ├── rack/                 # Rack infrastructure
 │   ├── module-manifest.js # Module order, category taxonomy, dynamic imports
 │   ├── core-definitions.js # Static core imports for the audio worklet
@@ -210,6 +221,7 @@ src/js/
 │   └── registry.js       # Atomic trusted-plugin registry
 ├── ui/
 │   ├── renderer.js       # Module UI generation
+│   ├── patch-library.js  # Patch browsing, saving, sharing, and profiles
 │   └── toolkit/          # UI components
 └── utils/                # Utility functions
     ├── fft.js            # Preallocated, calibrated real FFT
@@ -221,6 +233,8 @@ src/js/
     ├── color.js
     └── voltage.js        # Shared voltage rail limiting
 ```
+
+Account and community features use a Node.js API on Vercel Functions, Better Auth for Google sign-in, Neon PostgreSQL for accounts, patches, copy lineage, and thumbs-up, and private Vercel Blob storage for rack images. The synthesizer and audio processing run in the browser. See [cloud setup](docs/cloud-setup.md) and [backend contracts](docs/cloud-backend.md) for configuration and access rules.
 
 Runtime invariants:
 
@@ -329,6 +343,8 @@ npm run dev      # Build browser dependencies and start the app/API
 ```
 
 Open `http://127.0.0.1:4176`. AudioWorklet requires a supported browser and secure context; localhost qualifies for local development.
+
+The rack, browser saves, snapshot links, and Test patches work without cloud credentials. To enable accounts and community features locally, follow [cloud setup](docs/cloud-setup.md) using [`.env.example`](.env.example).
 
 Use `npm run audit:dsp -- --matrix --strict-voltage` to cover 44.1, 48, and 96 kHz at 128- and 512-sample block sizes and fail on contract violations. See [the sound engineering audit](research/sound-engineering-review.md) for scope, limitations, and current priorities.
 

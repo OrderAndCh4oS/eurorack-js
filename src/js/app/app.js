@@ -385,7 +385,7 @@ export class EurorackApp {
         this.rackContainer?.addEventListener('scroll', () => this.renderAllCables(), { passive: true });
 
         this.startButton.addEventListener('click', () => { void this.toggleAudio(); });
-        this.document.getElementById('clearCables').addEventListener('click', () => this.clearAllCables());
+        this.document.getElementById('clearCables').addEventListener('click', () => { void this.confirmClearAllCables(); });
         this.document.getElementById('sharePatch')?.addEventListener('click', () => this.sharePatchUrl());
         this.document.getElementById('midiLearnBtn').addEventListener('click', () => this.toggleMidiLearnMode());
         this.document.getElementById('midiControllerBtn').addEventListener('click', () => this.openMidiTool('/midi-controller.html'));
@@ -889,6 +889,16 @@ export class EurorackApp {
     removeVisualCable(cable) {
         cable.pathEl?.remove();
         this.visualCables = this.visualCables.filter(item => item !== cable);
+    }
+
+    async confirmClearAllCables() {
+        const answer = await this.patchLibrary.choose('Clear all cables?',
+            'This will remove all cables from the rack. Are you sure?',
+            [['cancel', 'Cancel'], ['clear', 'Clear cables']]);
+        if (answer === 'clear') {
+            this.clearAllCables();
+            this.patchLibrary.updateActiveLabel();
+        }
     }
 
     clearAllCables() {

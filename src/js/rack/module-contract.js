@@ -130,6 +130,19 @@ export function validateModuleDefinition(definition, {
         }
     });
 
+    if (definition.diagnostics !== undefined) {
+        const diagnostics = definition.diagnostics;
+        assert(diagnostics && typeof diagnostics === 'object' && !Array.isArray(diagnostics),
+            `Module "${moduleId}" has an invalid diagnostics contract`);
+        const terminalInputs = diagnostics.terminalInputs === undefined ? [] : diagnostics.terminalInputs;
+        assert(Array.isArray(terminalInputs), `Module "${moduleId}" diagnostics.terminalInputs must be an array`);
+        assertUnique(terminalInputs, port => port, 'diagnostic terminal input', moduleId);
+        terminalInputs.forEach(port => {
+            assert(inputs.some(input => input.port === port),
+                `Module "${moduleId}" has unknown diagnostic terminal input "${port}"`);
+        });
+    }
+
     if (!instantiate) return definition;
 
     const dsp = definition.createDSP({ sampleRate, bufferSize: blockSize, blockSize, audioCtx: null });

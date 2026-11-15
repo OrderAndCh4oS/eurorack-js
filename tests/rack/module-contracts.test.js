@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CATEGORY_ORDER, MODULE_MANIFEST, MODULE_ORDER } from '../../src/js/rack/module-manifest.js';
 import { CORE_MODULE_DEFINITIONS } from '../../src/js/rack/core-definitions.js';
 import { PluginRegistry } from '../../src/js/rack/registry.js';
-import { SIGNAL_TYPES, getModulePorts } from '../../src/js/rack/module-contract.js';
+import { SIGNAL_TYPES, getModulePorts, validateModuleDefinition } from '../../src/js/rack/module-contract.js';
 import { getNestedValue } from '../../src/js/utils/nested-access.js';
 import { cleanupRenderedModule, renderModule } from '../../src/js/ui/renderer.js';
 
@@ -174,6 +174,22 @@ describe('module contracts', () => {
                 expect(dsp.outputs, `${definition.id} missing outputs.${output.port}`).toHaveProperty(output.port);
             });
         });
+    });
+
+    it('validates diagnostic terminal inputs against the declared input ports', () => {
+        const base = {
+            id: 'monitor', name: 'Monitor', createDSP: vi.fn(),
+            ui: { inputs: [{ id: 'signal', port: 'signal', signal: 'any' }] }
+        };
+        const validate = diagnostics => validateModuleDefinition({ ...base, diagnostics }, { instantiate: false });
+        expect(() => validate({ terminalInputs: ['signal'] })).not.toThrow();
+        expect(() => validate(null)).toThrow('diagnostics');
+        expect(() => validate([])).toThrow('diagnostics');
+        expect(() => validate({ terminalInputs: 'signal' })).toThrow('terminalInputs must be an array');
+        expect(() => validate({ terminalInputs: null })).toThrow('terminalInputs must be an array');
+        expect(() => validate({ terminalInputs: ['output'] })).toThrow('unknown diagnostic terminal input');
+        expect(() => validate({ terminalInputs: ['signal', 'signal'] })).toThrow('duplicate diagnostic terminal input');
+        expect(base.createDSP).not.toHaveBeenCalled();
     });
 
     it('declares finite voltage contracts and stable block buffers', async () => {

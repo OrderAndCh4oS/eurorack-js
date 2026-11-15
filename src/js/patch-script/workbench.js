@@ -1,6 +1,5 @@
-import { compilePatchDescription } from './compiler.js';
 import { getPatchScriptCompletions } from './completion.js';
-import { evaluatePatchScript } from './evaluator.js';
+import { PatchDraftService, draftError } from './draft-service.js';
 import { formatPatchScript } from './formatter.js';
 import { PatchScriptStore } from './storage.js';
 import { highlightPatchScript } from './syntax-highlighter.js';
@@ -62,7 +61,7 @@ function caretCoordinates(textarea, documentRef) {
 }
 
 export class PatchWorkbench {
-    constructor({ app, document: documentRef = document, registry, store = null } = {}) {
+    constructor({ app, document: documentRef = document, registry, store = null, evaluate, createId } = {}) {
         this.app = app;
         this.document = documentRef;
         this.registry = registry;
@@ -77,6 +76,10 @@ export class PatchWorkbench {
         this.currentRackSource = null;
         this.sessionSeeded = false;
         this.sessionHasWork = false;
+        this.drafts = new PatchDraftService({app, registry, document: documentRef, evaluate, createId});
+        this.lastDraftSource = null;
+        this.lastDraftScriptId = null;
+        this.operationPending = false;
     }
 
     init() {
@@ -349,19 +352,37 @@ export class PatchWorkbench {
         this.syntaxHighlight.scrollLeft = this.editor.scrollLeft;
     }
 
-    async compileEditor() {
-        const description = await evaluatePatchScript(this.editor.value);
-        return compilePatchDescription(description, {
-            registry: this.registry,
-            sampleRate: this.app.host.sampleRate,
-            blockSize: this.app.host.blockSize
-        });
+    stageAgentScript(source) {
+        if (this.operationPending) throw draftError('busy', 'A patch operation is still running.');
+        if (typeof source !== 'string' || source.length > 65536) throw draftError('source-limit', 'Use a script of at most 64 KiB.');
+        // A new local script preserves the user's current code and makes agent edits reviewable.
+        clearTimeout(this.autosaveTimer);
+        if (![CURRENT_RACK_SCRIPT_ID, STARTER_SCRIPT_ID].includes(this.scriptSelect.value)) {
+            this.store.update(this.scriptSelect.value, {source: this.editor.value});
+        }
+        this.sessionHasWork = true;
+        const script = this.store.create('Agent patch', source);
+        this.refreshScriptList();
+        this.loadScript(script.id);
+        this.app.patchLibrary?.show('rack');
+        this.toggle(true);
     }
 
-    async validate() {
+    async validateDraft(options = {}) {
+        if (this.operationPending) throw draftError('busy', 'A patch operation is still running.');
+        this.operationPending = true;
+        const source = this.editor.value;
+        const scriptId = this.scriptSelect.value;
+        this.lastCompiled = null;
         this.setStatus('Validating…');
         try {
-            this.lastCompiled = await this.compileEditor();
+            const compiled = await this.drafts.validate(source, options);
+            if (source !== this.editor.value || scriptId !== this.scriptSelect.value) {
+                throw draftError('source-changed', 'The code changed. Validate again.');
+            }
+            this.lastCompiled = compiled;
+            this.lastDraftSource = source;
+            this.lastDraftScriptId = scriptId;
             const diagnostics = this.lastCompiled.diagnostics;
             this.log('success', `Valid: ${diagnostics.moduleCount} modules, ${diagnostics.cableCount} cables`);
             this.log('info', `Processing order: ${diagnostics.processOrder.join(' → ') || '(empty)'}`);
@@ -369,28 +390,45 @@ export class PatchWorkbench {
             diagnostics.warnings.forEach(warning => this.log('warning', warning));
             this.setStatus(`Valid · ${diagnostics.moduleCount} modules · ${diagnostics.warnings.length} warnings`, 'success');
             this.updateCompletions();
-            return this.lastCompiled;
+            return compiled;
         } catch (error) {
             this.log('error', error.message);
             this.setStatus(error.message, 'error');
-            return null;
-        }
+            throw error;
+        } finally { this.operationPending = false; }
+    }
+
+    async validate() {
+        try { return await this.validateDraft(); } catch { return null; }
     }
 
     async apply() {
-        const compiled = await this.validate();
+        const compiled = this.lastCompiled && this.lastDraftSource === this.editor.value && this.lastDraftScriptId === this.scriptSelect.value
+            ? this.lastCompiled : await this.validate();
         if (!compiled) return false;
         try {
-            if (await this.app.loadPatchState(compiled.patch) === false) return false;
+            return (await this.applyDraft(compiled.draftId)).applied;
+        } catch { return false; }
+    }
+
+    async applyDraft(draftId, {signal} = {}) {
+        if (this.operationPending) throw draftError('busy', 'A patch operation is still running.');
+        this.operationPending = true;
+        try {
+            const result = await this.drafts.apply(draftId, {signal, isCurrent: () =>
+                this.lastCompiled?.draftId === draftId && this.lastDraftSource === this.editor.value &&
+                this.lastDraftScriptId === this.scriptSelect.value});
+            if (!result.applied) return result;
+            this.lastDraftSource = null;
             this.lastAppliedFingerprint = patchFingerprint(this.app.host.serializePatch());
             this.setStatus('Applied atomically', 'success');
             this.log('success', 'Patch applied and topology acknowledged');
-            return true;
+            return result;
         } catch (error) {
             this.log('error', `Apply failed: ${error.message}`);
             this.setStatus(`Apply failed: ${error.message}`, 'error');
-            return false;
-        }
+            throw error;
+        } finally { this.operationPending = false; }
     }
 
     snapshot() {
@@ -582,6 +620,7 @@ export class PatchWorkbench {
     dispose() {
         clearTimeout(this.autosaveTimer);
         this.unsubscribeHost?.();
+        this.drafts.dispose();
         this.drawer?.remove();
     }
 }

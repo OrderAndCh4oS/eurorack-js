@@ -1,0 +1,43 @@
+.rack-debugger {
+    --debug-paper: var(--factory-paper, #f0eee2);
+    --debug-ink: var(--factory-ink, #171813);
+    --debug-accent: var(--factory-orange, #ff5018);
+    position: relative;
+    z-index: 101;
+    flex: 0 0 280px;
+    width: 280px;
+    min-width: 0;
+    height: calc(100% - var(--rack-debugger-workbench-height, 0px));
+    overflow-y: auto;
+    color: var(--debug-ink);
+    background: var(--debug-paper);
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+    overscroll-behavior: contain;
+}
+.rack-debugger-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px; border-bottom: 2px solid var(--debug-ink); border-left: 10px solid var(--debug-accent); }
+.rack-debugger-header h2 { font-size: 12px; font-weight: 900; text-transform: uppercase; }
+.rack-debugger button { color: inherit; background: transparent; border: 0; border-radius: 0; box-shadow: none; font: inherit; cursor: pointer; text-align: left; }
+.rack-debugger .rack-debugger-close { padding: 4px 6px; border: 2px solid var(--debug-ink); font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.rack-debugger button:hover { color: var(--factory-action-ink, #111); background: var(--debug-accent); }
+.rack-debugger :focus-visible { outline: 3px solid var(--debug-ink); outline-offset: -3px; }
+.rack-debugger-summary { padding: 12px; font-size: 12px; font-weight: 900; }
+.rack-debugger-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--debug-ink); }
+.rack-debugger-issue { border-bottom: 1px solid var(--debug-ink); }
+.rack-debugger .rack-debugger-finding { display: flex; align-items: flex-start; gap: 9px; padding: 12px; width: 100%; min-height: 44px; }
+.rack-debugger-number, .rack-debugger-marker { display: grid; place-items: center; flex: 0 0 auto; min-width: 20px; height: 20px; padding-inline: 3px; border: 2px solid var(--debug-ink, var(--factory-ink)); background: var(--debug-accent, var(--factory-orange)); color: var(--factory-action-ink, #111); font-size: 10px; line-height: 1; font-weight: 900; }
+.rack-debugger-finding-text { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.rack-debugger-module-name { font-size: 11px; }
+.rack-debugger-message { font-size: 12px; line-height: 1.4; }
+.rack-debugger-note { padding: 12px; font-size: 11px; }
+body.skin-factory .module.rack-debugger-flagged { outline: 3px solid var(--factory-orange); outline-offset: -3px; }
+body.skin-factory .module.rack-debugger-flagged:focus-visible { outline-color: var(--factory-ink); outline-style: dashed; }
+.rack-debugger-marker { position: absolute; left: 0; top: 20px; z-index: 11; pointer-events: none; }
+@media (max-width: 760px) {
+    #rackView.rack-debugger-open { display: grid; grid-template-columns: 180px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .rack-debugger-open > .sidebar { grid-column: 1; grid-row: 2; min-height: 0; }
+    .rack-debugger-open > .rack-container { grid-column: 2; grid-row: 2; min-height: 0; }
+    .rack-debugger { grid-column: 1 / -1; grid-row: 1; width: auto; height: auto; max-height: min(32vh, calc(100vh - var(--library-toolbar) * 2 - var(--rack-debugger-workbench-height, 0px))); border-bottom: 3px solid var(--debug-ink); }
+    .rack-debugger-header { padding-block: 6px; }
+}

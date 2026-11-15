@@ -1,4 +1,4 @@
-import { cp, mkdir, rm } from 'node:fs/promises';
+import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 
@@ -19,4 +19,20 @@ await build({
     bundle: true, format: 'esm', platform: 'browser', target: ['es2022'],
     minify: true, sourcemap: false, legalComments: 'eof'
 });
+// Bundle the evaluator's entire dependency graph into a disposable opaque-origin
+// iframe. Blob workers inherit the creator's CSP: no network or external scripts.
+const worker = await build({
+    entryPoints: [`${root}/src/js/patch-script/evaluator-worker.js`],
+    bundle: true, format: 'iife', platform: 'browser', target: ['es2022'],
+    write: false, minify: true, legalComments: 'none'
+});
+const sandbox = await build({
+    entryPoints: [`${root}/src/js/patch-script/evaluator-sandbox.js`],
+    bundle: true, format: 'iife', platform: 'browser', target: ['es2022'],
+    define: { __PATCH_WORKER_SOURCE__: JSON.stringify(worker.outputFiles[0].text) },
+    write: false, minify: true, legalComments: 'none'
+});
+const policy = "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'";
+const sandboxScript = sandbox.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
+await writeFile(`${out}/patch-script-sandbox.html`, `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${policy}"><title>Patch evaluator</title></head><body><script>${sandboxScript}</script></body></html>`);
 console.log('Built Eurorack into dist/');

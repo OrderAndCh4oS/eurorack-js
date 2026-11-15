@@ -29,6 +29,14 @@ Public saved patches include Open Graph and Twitter/X cards with the patch title
 
 Open **Test patches** to browse built-in module and integration patches with rack previews. Musical examples are retained in the [patch archive](archive/demo-patches/README.md), including the numbered **Demo - Synth Voice** series. Import the [archived JSON collection](archive/demo-patches/patches.json) when you want to use them. See [Voice Demos](docs/synth-voice-demos.md) for expected sounds, listening exercises, source material, and deliberate software adaptations.
 
+## Code and connection checks
+
+**Code** opens the [Patch Workbench](docs/patch-workbench-guide.md), where JavaScript builds a rack using the same modules and cables as the graphical editor. Validate a script, inspect its warnings, then apply that exact result. Code runs in an isolated worker with network and storage access blocked. Applied changes remain unsaved until you save the patch.
+
+**Debug**, beside Code, highlights modules with no cables, unconnected outputs, and branches that do not reach an output or monitor. Select an issue to find its module. Checks update as you patch, work with audio stopped, and stay out of saved rack images. Spare jacks and feedback are allowed; these checks inspect wiring rather than measure sound.
+
+Experimental [WebMCP tools](docs/webmcp.md) let a compatible browser agent inspect the rack and module contracts, validate JavaScript, apply a retained draft, and read connection diagnostics. The normal editor works without WebMCP. Audio/WASM analysis is not included.
+
 ## Modules
 
 Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.js` and grouped by each module definition's sidebar category.

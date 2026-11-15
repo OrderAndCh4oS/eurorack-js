@@ -1,8 +1,10 @@
 # Patch Workbench Reference
 
-The Patch Workbench is a client-side editor and diagnostic console for building Eurorack patches with JavaScript. A script describes a rack; it does not process audio itself. **Validate** turns the script into a candidate v3 patch and checks it without changing the rack. **Apply** validates and then atomically replaces the live rack.
+The Patch Workbench is a client-side editor and diagnostic console for building Eurorack patches with JavaScript. A script describes a rack; it does not process audio itself. **Validate** turns the script into a candidate v3 patch and checks it without changing the rack. **Apply** uses that exact candidate, or validates first if the source changed. Random choices are not rerun between Validate and Apply. A changed rack requires validation again.
 
-Patch scripts are trusted code that you choose to run in your own browser. Evaluation happens in a disposable worker with a two-second timeout so an accidental infinite loop does not freeze the rack page. Loaded script files are never run automatically.
+Evaluation happens in a disposable worker inside an opaque-origin sandbox with a two-second timeout. Network requests, app storage and page access are blocked. There is no main-thread evaluation fallback. Scripts are limited to 64 KiB, 128 modules, 2048 cables and 32 explicitly placed rows; evaluation results are limited to 1 MiB. This boundary has no hard memory quota. Loaded script files are never run automatically.
+
+Applying changes keeps the open patch's identity, credits and saved baseline. The result remains an unsaved edit; it is not automatically published or saved to your account. Retained drafts expire after 15 minutes, and applying one still uses the existing unsaved-changes confirmation and atomic rack load.
 
 For a guided first patch, read the [Patch Workbench Guide](patch-workbench-guide.md).
 
@@ -16,7 +18,9 @@ Select **Code** in the main toolbar, or press Ctrl+` on Windows/Linux and Comman
 - A diagnostic log and command input.
 - Guide and Reference links that open the repository Markdown in new tabs.
 
-The drawer can be resized from its top edge. It switches to a stacked layout on narrow screens. Its surrounding controls and diagnostics follow the active Industrial or Classic light/dark theme immediately, while the code canvas, syntax palette, and completion menu remain fixed for consistent readability.
+The drawer can be resized from its top edge. It switches to a stacked layout on narrow screens. Its controls follow the factory paper, ink and orange palette; the code canvas uses its own syntax colours for readability.
+
+**Debug**, beside Code, shows the same connection checks as validation and highlights affected modules. It follows CV, gate and audio paths, accepts feedback and monitor destinations, and does not flag spare individual jacks. The checks operate at module level; they cannot prove audibility or identify unused internal channels. See [WebMCP tools](webmcp.md) for browser-agent access to the same validation and apply flow.
 
 The first time it opens in a browser session, **Current Rack** contains a source snapshot of the live graphical patch. It is session-only and read-only; typing or saving creates a named local script, so reopening the workbench later in the same session does not replace work in progress.
 

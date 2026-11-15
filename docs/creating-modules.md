@@ -306,10 +306,13 @@ Optional fields:
 | css | Module styles injected by the renderer. |
 | render() | Bespoke panel renderer; requires telemetry. |
 | telemetry | Bounded fields, methods, and optional incremental history. |
+| diagnostics | Static rack connection checks; may declare terminalInputs. |
 | role | Infrastructure role such as audio-output; ordinary modules omit it. |
 | handleWorkletEvent() | Handles infrequent DSP events on the main thread. |
 | captureRuntimeState() | Captures non-patch state such as loop buffers. |
 | restoreRuntimeState() | Restores captured state into a new DSP instance. |
+
+For a monitor or recorder that is useful without connecting its pass-through outputs, declare `diagnostics: { terminalInputs: ['audio'] }` using its exact input port names. The debugger accepts a connected terminal input as a destination and follows upstream audio, CV, and trigger paths. A display trigger alone is not a terminal input. These ports must be unique declared inputs; ordinary processors omit this metadata. Speaker outputs use `role: 'audio-output'` instead. Connection checks do not infer whether a patch is audible or require every individual input or output to be used.
 
 ### DSP Instance
 

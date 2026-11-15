@@ -22,6 +22,7 @@ export default {
     hp: 16,
     color: 'module-color-four',
     category: 'utility',
+    diagnostics: { terminalInputs: ['in1', 'in2'] },
     telemetry: {
         fields: ['displayBuffer1', 'displayBuffer2', 'displaySize'],
         methods: ['getDetectedFreq', 'getWriteIndex']

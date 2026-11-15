@@ -20,6 +20,7 @@ export default {
     hp: 14,
     color: 'module-color-nine',
     category: 'utility',
+    diagnostics: { terminalInputs: ['audio'] },
     telemetry: {
         fields: [],
         methods: ['getFFTSize', 'getSampleRate', 'getTimeWindow'],

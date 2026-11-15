@@ -20,6 +20,7 @@ export default {
     hp: 12,
     color: 'module-color-two',
     category: 'utility',
+    diagnostics: { terminalInputs: ['audio'] },
     telemetry: { fields: ['magnitudes', 'peaks'], methods: ['getFFTSize', 'getSampleRate'] },
 
     css: `

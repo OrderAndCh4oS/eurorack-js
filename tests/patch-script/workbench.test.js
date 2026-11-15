@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { evaluatePatchScript } from '../../src/js/patch-script/evaluator.js';
+import { ulid } from 'ulid';
+import { executePatchScript } from '../../src/js/patch-script/builder.js';
 import { loadCorePlugin, pluginRegistry } from '../../src/js/rack/registry.js';
 import {
     CURRENT_RACK_SCRIPT_ID,
@@ -39,7 +40,8 @@ function createWorkbench(initialPatch = null) {
         loadPatchState: vi.fn(async patch => { currentPatch = patch; listener?.({ type: 'patch-loaded' }); return true; }),
         renderAllCables: vi.fn()
     };
-    const workbench = new PatchWorkbench({ app, document, registry: pluginRegistry }).init();
+    const workbench = new PatchWorkbench({ app, document, registry: pluginRegistry,
+        evaluate: async source => executePatchScript(source), createId: async () => ulid() }).init();
     return { workbench, app };
 }
 
@@ -178,16 +180,5 @@ describe('PatchWorkbench', () => {
 
         expect(workbench.editor.value).toBe(`patch().module('comp', 'compressor', { filterMode: 2 })`);
         workbench.dispose();
-    });
-});
-
-describe('patch worker evaluation', () => {
-    it('terminates an evaluation that exceeds its timeout', async () => {
-        class SilentWorker {
-            postMessage() {}
-            terminate() { this.terminated = true; }
-        }
-        await expect(evaluatePatchScript('while (true) {}', { timeoutMs: 5, WorkerClass: SilentWorker }))
-            .rejects.toThrow('evaluation limit');
     });
 });

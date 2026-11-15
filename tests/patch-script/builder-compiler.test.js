@@ -72,7 +72,25 @@ describe('patch script builder and compiler', () => {
 
         expect(result.diagnostics.feedbackRoutes).toEqual(['loop1.out -> loop1.in']);
         expect(result.diagnostics.warnings.some(message => message.includes('trigger action'))).toBe(true);
-        expect(result.diagnostics.warnings).toContain('Patch has no audio-output module');
+        expect(result.diagnostics.warnings).toContain('No OUT module');
+        expect(result.diagnostics.issues).toContainEqual({
+            code: 'no-output-route', severity: 'warning',
+            message: 'No route to an output or monitor', moduleIds: ['loop1']
+        });
+    });
+
+    it('includes structured connection diagnostics without rejecting incomplete patches', () => {
+        const result = compile(`patch().module('vco', 'osc').module('out', 'main')`);
+        expect(result.diagnostics.issues.map(issue => issue.code)).toEqual(['module-unconnected', 'output-unconnected']);
+        expect(result.diagnostics.warnings).toContain('osc: No cables connected');
+        expect(result.patch.modules).toHaveLength(2);
+    });
+
+    it('keeps monitoring patches free of unused output warnings', () => {
+        const result = compile(`patch().module('vco', 'osc').module('scope', 'monitor')
+            .connect('osc.ramp', 'monitor.in1')`);
+        expect(result.diagnostics.issues.map(issue => issue.code)).toEqual(['missing-output']);
+        expect(result.diagnostics.warnings).toEqual(['No OUT module']);
     });
 
     it('formats and recompiles the complete patch contract', () => {

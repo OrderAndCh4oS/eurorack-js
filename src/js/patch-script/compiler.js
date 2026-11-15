@@ -2,6 +2,7 @@ import { compileGraph } from '../audio/graph.js';
 import { normalizePatch } from '../app/patch-format.js';
 import { RackState } from '../app/rack-state.js';
 import { getModuleParamPaths } from '../rack/module-contract.js';
+import { analyseRackConnections } from '../rack/diagnostics.js';
 import { setNestedValue } from '../utils/nested-access.js';
 
 function clone(value) {
@@ -58,9 +59,6 @@ function collectWarnings(patch, registry) {
             }
         });
     });
-    if (!patch.modules.some(module => registry.get(module.type)?.role === 'audio-output')) {
-        warnings.push('Patch has no audio-output module');
-    }
     return warnings;
 }
 
@@ -148,16 +146,21 @@ export function compilePatchDescription(description, {
         created.forEach(instance => instance.dispose?.());
     }
 
+    const connections = analyseRackConnections(patch, registry);
     return {
         patch,
         diagnostics: {
-            moduleCount: patch.modules.length,
-            cableCount: patch.cables.length,
+            ...connections,
             processOrder: [...graph.processOrder],
             feedbackRoutes: graph.routes
                 .filter(route => route.delayedBuffer)
                 .map(route => `${route.fromModule}.${route.fromPort} -> ${route.toModule}.${route.toPort}`),
-            warnings: collectWarnings(patch, registry)
+            warnings: [
+                ...collectWarnings(patch, registry),
+                ...connections.issues.map(issue => issue.moduleIds.length
+                    ? `${issue.moduleIds.join(', ')}: ${issue.message}`
+                    : issue.message)
+            ]
         }
     };
 }

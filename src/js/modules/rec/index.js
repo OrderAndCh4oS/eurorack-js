@@ -19,6 +19,7 @@ export default {
     hp: 4,
     color: 'module-color-eight',
     category: 'utility',
+    diagnostics: { terminalInputs: ['L', 'R'] },
     telemetry: { fields: [], methods: ['getRecordingTime', 'getMaxRecordingTime'] },
 
     css: `

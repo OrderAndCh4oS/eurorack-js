@@ -448,21 +448,26 @@ export class PatchLibrary {
         } catch (error) { if (current() && error.name !== 'AbortError') this.listErrors[list] = error; }
         finally { if (current()) { this.listLoading[list] = false; this.render({ previewImages }); } }
     }
-    async confirmReplace() {
+    async confirmReplace({ signal } = {}) {
+        if (signal?.aborted) return false;
         if (!this.isDirty()) return true;
-        const answer = await this.choose('Unsaved rack changes', 'Save this rack before opening another patch?', [['cancel', 'Cancel'], ['discard', 'Discard changes'], ['save', 'Save']]);
+        const answer = await this.choose('Unsaved rack changes', 'Save this rack before opening another patch?', [['cancel', 'Cancel'], ['discard', 'Discard changes'], ['save', 'Save']], { signal });
         if (answer === 'discard') return true;
         if (answer === 'save') { const saved = await this.openSave(); return saved && !this.isDirty(); }
         return false;
     }
-    async replaceState(state, record = null, { skipPrompt = false } = {}) {
+    async replaceState(state, record = null, { skipPrompt = false, beforeApply = null, edit = false, signal } = {}) {
         if (this.replacing) throw new Error('A patch is still opening.');
         this.replacing = true; const request = ++this.loadGeneration; const account = this.accountGeneration;
         try {
-            if (!skipPrompt && !await this.confirmReplace()) return false;
+            if (!skipPrompt && !await this.confirmReplace({ signal })) return false;
             if (record?.source === 'cloud' && account !== this.accountGeneration) return false;
+            beforeApply?.();
             await this.app.loadPatchState(state, { managed: true });
-            this.setActive(record?.source === 'cloud' && account !== this.accountGeneration ? null : record);
+            // Code applies are edits to the open patch, just like changing modules by hand.
+            // Keep its saved identity/baseline so these changes remain unsaved and credited.
+            if (edit) this.updateActiveLabel();
+            else this.setActive(record?.source === 'cloud' && account !== this.accountGeneration ? null : record);
             if (request === this.loadGeneration) this.show('rack');
             return true;
         } finally { this.replacing = false; }
@@ -506,10 +511,13 @@ export class PatchLibrary {
         }
         this.loadGeneration++; this.rackLocation = href; this.show('rack'); return true;
     }
-    choose(title, message, choices) {
+    choose(title, message, choices, { signal } = {}) {
+        if (signal?.aborted) return Promise.resolve('cancel');
         return new Promise(resolve => {
             const dialog = element(this.document, 'dialog', undefined, 'patch-dialog'); const heading = element(this.document, 'h2', title); heading.id = 'patch-choice-title'; dialog.setAttribute('aria-labelledby', heading.id);
-            const finish = value => { dialog.close?.(); dialog.remove(); resolve(value); };
+            const onAbort = () => finish('cancel');
+            const finish = value => { signal?.removeEventListener('abort', onAbort); dialog.close?.(); dialog.remove(); resolve(value); };
+            signal?.addEventListener('abort', onAbort, { once: true });
             const actions = element(this.document, 'div', undefined, 'patch-dialog-actions'); choices.forEach(([value, label]) => actions.append(this.button(label, () => finish(value), value === 'save' ? 'primary' : '')));
             dialog.append(heading, element(this.document, 'p', message), actions); dialog.addEventListener('cancel', event => { event.preventDefault(); finish('cancel'); }); this.document.body.append(dialog); dialog.showModal();
         });

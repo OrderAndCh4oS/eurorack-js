@@ -19,6 +19,7 @@ export default {
     hp: 4,
     color: 'module-color-one',
     category: 'utility',
+    diagnostics: { terminalInputs: ['L', 'R'] },
     telemetry: { fields: [], methods: [] },
 
     // Custom CSS for VU meter display

@@ -16,6 +16,8 @@ import { updateKnobRotation } from '../ui/toolkit/components.js';
 import { RackState } from './rack-state.js';
 import { createRackHost } from './rack-host.js';
 import { createPatchWorkbench } from '../patch-script/workbench.js';
+import { createRackDebugger } from '../ui/rack-debugger.js';
+import { registerRackTools } from './webmcp.js';
 import {
     PATCH_VERSION,
     createPatchUrlHash,
@@ -201,6 +203,7 @@ export class EurorackApp {
         this.themeMode = 'light';
         this.cablesFullOpacity = true;
         this.patchWorkbench = null;
+        this.rackDebugger = null;
         this.patchLibrary = null;
         this.localPatches = new LocalPatchStore();
     }
@@ -233,6 +236,14 @@ export class EurorackApp {
             document: this.document,
             registry: pluginRegistry
         }).init();
+        this.rackDebugger = createRackDebugger({
+            app: this,
+            document: this.document,
+            registry: pluginRegistry
+        }).init();
+        // Feature detection keeps the normal instrument independent of experimental browser support.
+        void registerRackTools({document: this.document, workbench: this.patchWorkbench, registry: pluginRegistry})
+            .then(adapter => { this.webmcp = adapter; });
         this.markEmptyRows();
     }
 
@@ -544,6 +555,7 @@ export class EurorackApp {
         this.renderStateCables();
         this.updateMidiMappedIndicators();
         this.syncEngineModules();
+        this.rackDebugger?.scheduleRefresh();
     }
 
     removeModule(id) {
@@ -1022,9 +1034,10 @@ export class EurorackApp {
         } catch (error) { alert(`Failed to save patch: ${error.message}`); return false; }
     }
 
-    async loadPatchState(patchState, { managed = false } = {}) {
-        if (this.patchLibrary && !managed) return this.patchLibrary.replaceState(patchState);
+    async loadPatchState(patchState, { managed = false, beforeApply = null, edit = false, signal } = {}) {
+        if (this.patchLibrary && !managed) return this.patchLibrary.replaceState(patchState, null, { beforeApply, edit, signal });
         const normalized = normalizePatch(patchState, { registry: pluginRegistry });
+        beforeApply?.();
         try {
             await this.host.loadPatch(normalized);
             this.rerenderRack();

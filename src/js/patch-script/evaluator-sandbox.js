@@ -7,11 +7,10 @@ const workerSource = __PATCH_WORKER_SOURCE__;
 // the parent to have supplied sandbox="allow-scripts": without it the worker
 // would inherit this app's origin and could read its storage for a hostile parent.
 const isolated = window.origin === 'null' && parent !== window;
-let started = false;
+const pending = new Set();
 
 window.addEventListener('message', event => {
-    if (!isolated || started || event.source !== parent || event.data?.type !== 'eurorack-patch-evaluate' || !event.ports[0]) return;
-    started = true;
+    if (!isolated || event.source !== parent || event.data?.type !== 'eurorack-patch-evaluate' || !event.ports[0]) return;
     const port = event.ports[0];
     let worker;
     let objectUrl;
@@ -19,11 +18,18 @@ window.addEventListener('message', event => {
     const finish = data => {
         if (finished) return;
         finished = true;
+        pending.delete(finish);
         worker?.terminate();
         if (objectUrl) URL.revokeObjectURL(objectUrl);
-        port.postMessage(data);
+        if (data) port.postMessage(data);
         port.close();
     };
+    if (pending.size >= 4) {
+        finish({ ok: false, message: 'Too many patch evaluations are running' });
+        return;
+    }
+    pending.add(finish);
+    port.onmessage = message => { if (message.data?.type === 'cancel') finish(); };
     try {
         assertScriptSource(event.data.source);
         objectUrl = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
@@ -44,4 +50,5 @@ window.addEventListener('message', event => {
         finish({ ok: false, message: error.message });
     }
 });
+window.addEventListener('pagehide', () => { for (const finish of [...pending]) finish(); });
 if (isolated) parent.postMessage({ type: 'eurorack-patch-sandbox-ready' }, '*');

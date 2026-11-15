@@ -1,5 +1,6 @@
 import { getModulePorts } from '../rack/module-contract.js';
 import { draftError } from '../patch-script/draft-service.js';
+import { preparePatchEvaluator } from '../patch-script/evaluator.js';
 
 const objectSchema = (properties = {}, required = []) => ({type: 'object', properties, required, additionalProperties: false});
 const jsonCopy = value => JSON.parse(JSON.stringify(value));
@@ -74,7 +75,8 @@ export function createRackTools({workbench, registry}) {
 }
 
 /** Experimental WebMCP; absence or registration failure must never prevent rack startup. */
-export async function registerRackTools({document: documentRef = globalThis.document, workbench, registry} = {}) {
+export async function registerRackTools({document: documentRef = globalThis.document, workbench, registry,
+    prepareEvaluator = preparePatchEvaluator} = {}) {
     const modelContext = documentRef?.modelContext;
     if (typeof modelContext?.registerTool !== 'function') return {supported: false, dispose() {}};
     const Controller = documentRef.defaultView?.AbortController || AbortController;
@@ -86,6 +88,10 @@ export async function registerRackTools({document: documentRef = globalThis.docu
     };
     documentRef.defaultView?.addEventListener('pagehide', dispose, {once: true});
     try {
+        // Chrome attributes child-frame navigations to the active WebMCP call.
+        // Establish the opaque host before tools become callable; evaluations then
+        // create disposable workers without navigating or replacing the host frame.
+        await prepareEvaluator({document: documentRef, signal: controller.signal});
         for (const tool of createRackTools({workbench, registry})) {
             await modelContext.registerTool(tool, {signal: controller.signal});
         }

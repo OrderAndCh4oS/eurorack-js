@@ -66,7 +66,9 @@ describe('Eurorack WebMCP tools', () => {
     it('uses document.modelContext and an AbortSignal to register and dispose all five tools', async () => {
         const {workbench} = fixture();
         const registerTool = vi.fn(async () => {});
-        const adapter = await registerRackTools({document: {modelContext:{registerTool}}, workbench, registry:pluginRegistry});
+        const prepareEvaluator = vi.fn(async () => {expect(registerTool).not.toHaveBeenCalled();});
+        const adapter = await registerRackTools({document: {modelContext:{registerTool}}, workbench, registry:pluginRegistry, prepareEvaluator});
+        expect(prepareEvaluator).toHaveBeenCalledOnce();
         expect(adapter.supported).toBe(true);
         expect(registerTool.mock.calls.map(([tool]) => tool.name)).toEqual(['get_rack','describe_modules','validate_script','apply_draft','debug_rack']);
         const signal = registerTool.mock.calls[0][1].signal;
@@ -81,9 +83,20 @@ describe('Eurorack WebMCP tools', () => {
         expect((await registerRackTools({document:{},workbench,registry:pluginRegistry})).supported).toBe(false);
         const warn = vi.spyOn(console,'warn').mockImplementation(() => {});
         const registerTool = vi.fn().mockResolvedValueOnce().mockRejectedValueOnce(new Error('permission denied'));
-        const adapter = await registerRackTools({document:{modelContext:{registerTool}},workbench,registry:pluginRegistry});
+        const adapter = await registerRackTools({document:{modelContext:{registerTool}},workbench,registry:pluginRegistry,prepareEvaluator:async()=>{}});
         expect(adapter.supported).toBe(false);
         expect(registerTool.mock.calls[0][1].signal.aborted).toBe(true);
+        warn.mockRestore();
+    });
+
+    it('does not expose tools if the isolated evaluator cannot be prepared', async () => {
+        const {workbench} = fixture();
+        const registerTool = vi.fn();
+        const warn = vi.spyOn(console,'warn').mockImplementation(() => {});
+        const adapter = await registerRackTools({document:{modelContext:{registerTool}},workbench,registry:pluginRegistry,
+            prepareEvaluator:async()=>{throw new Error('sandbox unavailable');}});
+        expect(adapter.supported).toBe(false);
+        expect(registerTool).not.toHaveBeenCalled();
         warn.mockRestore();
     });
 });

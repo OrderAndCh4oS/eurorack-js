@@ -14,6 +14,13 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('isolated evaluator builds ordinary JavaScript patches and cleans up failed or cancelled workers', async ({ page }) => {
+    await page.evaluate(async () => {
+        const { preparePatchEvaluator } = await import('/js/patch-script/evaluator.js');
+        await preparePatchEvaluator();
+        window.preparedEvaluatorFrame = document.querySelector('[data-patch-evaluator]');
+    });
+    const frameNavigations = [];
+    page.on('framenavigated', frame => frameNavigations.push(frame.url()));
     const result = await evaluate(page, `
         const p = patch();
         for (let i = 0; i < 3; i++) p.module('vco', 'osc' + i, { coarse: Math.random() });
@@ -34,6 +41,11 @@ test('isolated evaluator builds ordinary JavaScript patches and cleans up failed
     expect(cancelled).toBe('AbortError');
     expect((await evaluate(page, 'patch().module("out", "main")')).ok).toBe(true);
     expect((await evaluate(page, 'patch().module("vco", "huge", { value: "x".repeat(1100000) })')).message).toContain('1 MiB');
+    await expect(page.locator('[data-patch-evaluator]')).toHaveCount(1);
+    expect(await page.evaluate(() => window.preparedEvaluatorFrame === document.querySelector('[data-patch-evaluator]'))).toBe(true);
+    expect(frameNavigations).toEqual([]);
+    await expect.poll(() => page.workers().filter(worker => worker.url().startsWith('blob:')).length).toBe(0);
+    await page.evaluate(async () => (await import('/js/patch-script/evaluator.js')).disposePatchEvaluator());
     await expect(page.locator('[data-patch-evaluator]')).toHaveCount(0);
 });
 
@@ -79,7 +91,22 @@ test('sandbox has no app origin, DOM or storage and prevents network and externa
     });
     expect(attempts).toEqual([]);
     expect(await page.evaluate(() => localStorage.getItem('evaluator-secret'))).toBe('private');
-    await expect(page.locator('[data-patch-evaluator]')).toHaveCount(0);
+    await expect(page.locator('[data-patch-evaluator]')).toHaveCount(1);
+    await expect.poll(() => page.workers().filter(worker => worker.url().startsWith('blob:')).length).toBe(0);
+});
+
+test('concurrent evaluations use separate fresh worker globals on the same host', async ({ page }) => {
+    const results = await page.evaluate(async () => {
+        const { evaluatePatchScript, preparePatchEvaluator } = await import('/js/patch-script/evaluator.js');
+        await preparePatchEvaluator();
+        return Promise.all([
+            evaluatePatchScript('globalThis.previousEvaluation = true; patch().module("out", "first")'),
+            evaluatePatchScript('patch().module("out", typeof globalThis.previousEvaluation === "undefined" ? "fresh" : "leaked")')
+        ]);
+    });
+    expect(results.map(result => result.modules[0].id)).toEqual(['first', 'fresh']);
+    await expect(page.locator('[data-patch-evaluator]')).toHaveCount(1);
+    await expect.poll(() => page.workers().filter(worker => worker.url().startsWith('blob:')).length).toBe(0);
 });
 
 test('evaluator asset refuses unsandboxed embedding by another origin and top-level use', async ({ page }) => {

@@ -15,6 +15,7 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:webmcp": "playwright test --config=playwright.webmcp.config.js",
     "audit:dsp": "node scripts/dsp-audit.mjs"
   },
   "engines": {

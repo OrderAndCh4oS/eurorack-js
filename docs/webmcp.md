@@ -26,7 +26,9 @@ Drafts live only in memory in the current tab, expire after 15 minutes, and are 
 
 ## Execution boundary
 
-The same evaluator serves Code and WebMCP. A sandboxed iframe with an opaque origin hosts a disposable worker. Its Content Security Policy blocks network requests and external scripts; it cannot access app storage or the page. The sandbox bootstrap refuses direct top-level use and unsandboxed embedding. Source travels through a dedicated message channel and only bounded JSON returns to the compiler.
+The same evaluator serves Code and WebMCP. One sandboxed iframe with an opaque origin hosts a fresh disposable worker for every evaluation. Its Content Security Policy blocks network requests and external scripts; it cannot access app storage or the page. The sandbox bootstrap refuses direct top-level use and unsandboxed embedding. Source travels through a dedicated message channel and only bounded JSON returns to the compiler. Timeout or cancellation terminates the worker; the empty host can be reused.
+
+The evaluator host is prepared before tools are registered. This avoids an observed Chrome CDP issue: creating the opaque iframe during a tool call is treated as a cross-origin navigation and rejects the result, even though the page itself did not navigate. Keeping the trusted host and replacing only its worker preserves isolation without navigating during tool execution. See Chromium's [WebMCP navigation handler](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/content/browser/devtools/protocol/webmcp_handler.cc).
 
 Limits: two seconds of evaluation, 64 KiB source, 1 MiB result, 128 modules, 2048 cables, rows 1–32, and bounded data depth. Browsers do not provide a hard heap quota for these workers. An unavailable sandbox fails closed instead of evaluating source on the app's origin. Module DSP remains trusted application/plugin code, outside this script boundary.
 
@@ -36,9 +38,12 @@ Tools expose the current rack, not account credentials or a general network/file
 
 The adapter follows the current [Chrome imperative API](https://developer.chrome.com/docs/ai/webmcp/imperative-api), using `document.modelContext`, registration AbortSignals and structured JSON results. Chrome's [WebMCP documentation](https://developer.chrome.com/docs/ai/webmcp) explains the experimental flag/origin-trial requirements. No production origin-trial token is bundled with Eurorack.
 
-Unit tests cover schemas, error results, registration cleanup and draft consistency. Browser tests exercise the real isolated evaluator and the full tool workflow through a registration stub; an additional test checks native registration when the installed Chromium exposes the current API. Mock registration coverage does not establish support in every browser or agent.
+To enable the feature in your Chrome profile, open `chrome://flags/#enable-webmcp-testing`, select **Enabled**, and relaunch Chrome. For an isolated test session, launch a recent Chrome with `--enable-features=WebMCP` and a separate user-data directory. These settings enable browser support; an agent still needs a browser connection to invoke the tools.
+
+Unit tests cover schemas, error results, registration cleanup and draft consistency. The default browser suite exercises the real isolated evaluator and the tool workflow through a registration stub. The optional native suite uses installed Chrome with WebMCP enabled and calls Chrome's actual `WebMCP.enable`, `invokeTool` and `cancelInvocation` CDP commands. It fails rather than skips when the current native API is unavailable, and checks all five tools, exact draft application, wiring diagnostics, cancellation, stale edits and timeout recovery. It runs without a mock or polyfill; browser/agent support elsewhere must still be checked separately.
 
 ```sh
 npm test -- tests/app/webmcp.test.js tests/patch-script/draft-service.test.js tests/patch-script/evaluator.test.js tests/rack/diagnostics.test.js
 npx playwright test tests/e2e/webmcp.spec.js tests/e2e/patch-evaluator.spec.js tests/e2e/rack-debugger.spec.js
+npm run test:webmcp
 ```

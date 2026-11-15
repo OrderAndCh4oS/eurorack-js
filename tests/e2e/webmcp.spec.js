@@ -74,13 +74,3 @@ test('stale drafts and cancelled or changed-rack confirmations do not replace th
     expect(await page.evaluate(() => window.pendingApply)).toMatchObject({ok:false,error:{code:'rack-changed'}});
     expect((await invoke(page,'get_rack')).patch.params.osc.coarse).toBe(0.27);
 });
-
-test('native WebMCP registration when this Chromium exposes document.modelContext', async ({page,browser}, testInfo) => {
-    await page.goto('/');
-    await page.waitForFunction(() => window.eurorackApp?.webmcp);
-    const supported = await page.evaluate(() => typeof document.modelContext?.getTools === 'function');
-    testInfo.annotations.push({type:'browser',description:browser.version()});
-    test.skip(!supported, 'Installed Chromium does not expose the current experimental document.modelContext API; adapter coverage uses a registration stub.');
-    const names = await page.evaluate(async () => (await document.modelContext.getTools()).map(tool => tool.name));
-    expect(names).toEqual(expect.arrayContaining(['get_rack','describe_modules','validate_script','apply_draft','debug_rack']));
-});

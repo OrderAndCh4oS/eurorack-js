@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
     testDir: './tests/e2e',
+    testIgnore: '**/webmcp-native.spec.js',
     fullyParallel: true,
     // The development server serves the unbundled module graph. Serial pages
     // prevent connection resets when each context requests every module at once.

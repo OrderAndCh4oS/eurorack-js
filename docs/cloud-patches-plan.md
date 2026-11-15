@@ -32,7 +32,7 @@ See [Cloud backend setup](cloud-backend.md) and [`.env.example`](../.env.example
 | Contract validation | [`normalizePatch()`](../src/js/app/patch-format.js) | Enforces the v3 state shape; with a registry it checks plugin versions, module ownership, parameters, port directions, and cable endpoints. Duplicate input destinations are rejected. |
 | URL sharing | [`createPatchUrlHash()`, `parsePatchUrlHash()`](../src/js/app/patch-format.js) | Encodes a compact v2 payload containing v3 state in `#patch=gz1.…`, using gzip and base64url. Uses a frozen core token table, omits default params, and rounds numeric values to three decimal places. |
 | File import and export | [`parseImportedPatchJson()`, `createPatchExport()`, `importPatchJson()`](../src/js/app/app.js) | Accepts v3 state, a named envelope, a versioned export, or a patch collection. A single import loads and saves locally; collection import saves records without loading one. Export wraps the current patch in `eurorack-js/patch-export` version 1. |
-| Factory content | [`config/test-patches.js`](../src/js/config/test-patches.js), [`config/patches/index.js`](../src/js/config/patches/index.js) | The product imports 75 explicit test entries. The full 112-patch aggregate remains available for regression tooling; 37 musical examples are preserved in the archive. |
+| Factory content | [`config/test-patches.js`](../src/js/config/test-patches.js), [`config/patches/index.js`](../src/js/config/patches/index.js) | The product imports 75 explicit test entries. The full 113-patch aggregate remains available for regression tooling; 38 musical examples, including the Introduction demo, are preserved in the archive. |
 | Workbench | [`PatchWorkbench.apply()`](../src/js/patch-script/workbench.js), [`PatchScriptStore`](../src/js/patch-script/storage.js) | Compiles script source into v3 state and calls `app.loadPatchState()`. Script source lives separately in `eurorack-patch-scripts`. |
 
 ```mermaid
@@ -251,7 +251,7 @@ Remove `#patchSelect` from the product instead of keeping a hidden legacy select
 
 Preserve all 37 non-test musical examples in `archive/demo-patches/` with an index, original source names, and an importable v3 JSON collection for later editing. This includes 27 demos, four SFX patches, and six drum examples; `Demo: Trip-Hop` uses a different naming separator. Define catalogue membership explicitly rather than relying on name prefixes. The archive is not automatically uploaded or shown in the normal UI.
 
-Maintain the full 112-patch aggregate for regression tooling while the application imports only the test catalogue. Update dropdown-driven browser tests to open test entries through the new view. Preserve demo audio tests by importing archived fixtures through the supported load boundary. Update patch-registration instructions, architecture documentation, and the synth-voice guide to distinguish test entries, archived examples, and user/community patches.
+Maintain the full 113-patch aggregate for regression tooling while the application imports only the test catalogue. Update dropdown-driven browser tests to open test entries through the new view. Preserve demo audio tests by importing archived fixtures through the supported load boundary. Update patch-registration instructions, architecture documentation, and the synth-voice guide to distinguish test entries, archived examples, and user/community patches.
 
 ## Implementation milestones and remaining release gates
 
@@ -265,7 +265,7 @@ Acceptance: a signed-in browser can call owner-only endpoints; missing, forged, 
 
 ### 2 Extract the patch library boundary
 
-Implemented: `LocalPatchStore`, source-qualified references, active-record/dirty-state coordination, library/test views, the 37-example archive, and independent save/link actions. Existing envelope/file helpers remain in `app.js`; the source boundary was extracted without a separate record helper file. Preserve JSON import/export, legacy hash behavior, and load coordination at `loadPatchState()`, including workbench Apply.
+Implemented: `LocalPatchStore`, source-qualified references, active-record/dirty-state coordination, library/test views, the 38-example archive, and independent save/link actions. Existing envelope/file helpers remain in `app.js`; the source boundary was extracted without a separate record helper file. Preserve JSON import/export, legacy hash behavior, and load coordination at `loadPatchState()`, including workbench Apply.
 
 Acceptance: local saves, the 75 test entries, and all archive fixtures round-trip; the old dropdown is absent; identical names across sources remain distinct; failed loads preserve the prior active identity; unsaved-state recovery works without cloud configuration.
 

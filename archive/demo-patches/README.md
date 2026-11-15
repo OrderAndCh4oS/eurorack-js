@@ -1,6 +1,6 @@
 # Archived musical patches
 
-The 37 musical examples formerly bundled into the factory selector are preserved here for later use. They include 27 demos, four sound effects, and six drum compositions. The dedicated Test patches view contains the separate 75 module and integration test patches.
+The collection contains 38 musical examples: the 37 examples formerly bundled into the factory selector, plus the Introduction demo. They include 28 demos, four sound effects, and six drum compositions. The dedicated Test patches view contains the separate 75 module and integration test patches.
 
 [Download the importable patch collection](patches.json). Save the JSON file and use **Import** in the app to add the collection to this browser. Collection import does not replace the current rack. Use **Save a copy** to place a chosen patch in your account.
 
@@ -12,6 +12,7 @@ Source files stay at their original paths so research links, imports, and regres
 
 | Patch | Source |
 | --- | --- |
+| Introduction | [demo-introduction.js](../../src/js/config/patches/demo-introduction.js) |
 | Demo - Melodic Arp | [demo-melodic-arp.js](../../src/js/config/patches/demo-melodic-arp.js) |
 | Demo - Pulsing Bass | [demo-pulsing-bass.js](../../src/js/config/patches/demo-pulsing-bass.js) |
 | Demo - S&H Random | [demo-sh-random.js](../../src/js/config/patches/demo-sh-random.js) |

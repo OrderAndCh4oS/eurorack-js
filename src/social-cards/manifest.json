@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "sourceFingerprint": "01befd48b468d50d6df1cc60c638e5922bb66d283eeb533f59b7e4488c5647a2",
+  "width": 1200,
+  "height": 630,
+  "cards": {
+    "/introduction": {
+      "file": "8362825d662af8f42d729ae3009c1936a1e52bf975472fd3cd214461817b39c8.png",
+      "url": "/social-cards/8362825d662af8f42d729ae3009c1936a1e52bf975472fd3cd214461817b39c8.png",
+      "width": 1200,
+      "height": 630,
+      "bytes": 268329,
+      "mimeType": "image/png",
+      "alt": "EurorackJS — Modular synthesis. A rack of modules connected with coloured patch cables."
+    },
+    "/docs": {
+      "file": "f81c9eb2004dc84895323ae48498a962e6de5f5c7348f04fcd22e52f68244853.png",
+      "url": "/social-cards/f81c9eb2004dc84895323ae48498a962e6de5f5c7348f04fcd22e52f68244853.png",
+      "width": 1200,
+      "height": 630,
+      "bytes": 254341,
+      "mimeType": "image/png",
+      "alt": "EurorackJS — Documentation. A rack of modules connected with coloured patch cables."
+    },
+    "/docs/patch-workbench-guide": {
+      "file": "f2a4835248e977af4eebdc0f6be3203e35fc89136c2b3f80e3525f3270896014.png",
+      "url": "/social-cards/f2a4835248e977af4eebdc0f6be3203e35fc89136c2b3f80e3525f3270896014.png",
+      "width": 1200,
+      "height": 630,
+      "bytes": 262932,
+      "mimeType": "image/png",
+      "alt": "EurorackJS — Write your first patch. A rack of modules connected with coloured patch cables."
+    },
+    "/docs/patch-workbench": {
+      "file": "6afaa6da92c90ec34a4c19fb9a2b78aaf3b8ed6bf0fee445e62c27ac4484c728.png",
+      "url": "/social-cards/6afaa6da92c90ec34a4c19fb9a2b78aaf3b8ed6bf0fee445e62c27ac4484c728.png",
+      "width": 1200,
+      "height": 630,
+      "bytes": 260491,
+      "mimeType": "image/png",
+      "alt": "EurorackJS — Code reference. A rack of modules connected with coloured patch cables."
+    },
+    "/docs/synth-voice-demos": {
+      "file": "cb9173ff82e4c9730a14c93f6f434772f66ebbdaf496d3b2b938a40168541a82.png",
+      "url": "/social-cards/cb9173ff82e4c9730a14c93f6f434772f66ebbdaf496d3b2b938a40168541a82.png",
+      "width": 1200,
+      "height": 630,
+      "bytes": 269713,
+      "mimeType": "image/png",
+      "alt": "EurorackJS — Synth voice basics. A rack of modules connected with coloured patch cables."
+    },
+    "/docs/webmcp": {
+      "file": "a16126ea527edb105f7281ee8935a53acadfb9f3be97476970efd553a3b610bf.png",
+      "url": "/social-cards/a16126ea527edb105f7281ee8935a53acadfb9f3be97476970efd553a3b610bf.png",
+      "width": 1200,
+      "height": 630,
+      "bytes": 258180,
+      "mimeType": "image/png",
+      "alt": "EurorackJS — WebMCP. A rack of modules connected with coloured patch cables."
+    },
+    "/docs/architecture": {
+      "file": "a51de28cb3f9e93ecdde10a22831267b7f04721e47d998c5463366d49aacc9b6.png",
+      "url": "/social-cards/a51de28cb3f9e93ecdde10a22831267b7f04721e47d998c5463366d49aacc9b6.png",
+      "width": 1200,
+      "height": 630,
+      "bytes": 257265,
+      "mimeType": "image/png",
+      "alt": "EurorackJS — Architecture. A rack of modules connected with coloured patch cables."
+    },
+    "/docs/creating-modules": {
+      "file": "a47a35781b0eb47e3b23c5c60492a7a07d8c9686d4286bec9d6343354c70eaa7.png",
+      "url": "/social-cards/a47a35781b0eb47e3b23c5c60492a7a07d8c9686d4286bec9d6343354c70eaa7.png",
+      "width": 1200,
+      "height": 630,
+      "bytes": 260623,
+      "mimeType": "image/png",
+      "alt": "EurorackJS — Creating modules. A rack of modules connected with coloured patch cables."
+    }
+  }
+}

@@ -24,6 +24,66 @@ beforeEach(() => {
 });
 
 describe('patch library coordination', () => {
+    it('keeps public patches loading through configuration, session and first-page requests', async () => {
+        const { cloud, library } = setup(); const config = deferred(), session = deferred(), page = deferred();
+        cloud.configuration.mockReturnValue(config.promise); cloud.me.mockReturnValue(session.promise); cloud.list.mockReturnValue(page.promise);
+        const initialized = library.initializeCloud(); library.show('public');
+        const expectLoading = () => {
+            expect(library.surface.textContent).toContain('Loading patches…');
+            expect(library.surface.textContent).not.toContain('unavailable');
+            expect(library.surface.getAttribute('aria-busy')).toBe('true');
+        };
+        expectLoading(); expect(cloud.list).not.toHaveBeenCalled();
+        config.resolve({ enabled: true }); await Promise.resolve(); library.show('public');
+        expectLoading(); expect(cloud.list).not.toHaveBeenCalled();
+        session.resolve({ user: null }); await initialized;
+        expectLoading(); expect(cloud.list).toHaveBeenCalledOnce();
+        page.resolve({ patches: [{ id, name: 'Ready' }], nextCursor: 'next-page' });
+        await vi.waitFor(() => expect(library.surface.textContent).toContain('Ready'));
+        expect(library.surface.getAttribute('aria-busy')).toBe('false');
+        expect(library.listPages.public.nextCursor).toBe('next-page');
+    });
+    it('shows unavailable only after configuration confirms cloud saving is disabled', async () => {
+        const { cloud, library } = setup(); const config = deferred(); cloud.configuration.mockReturnValue(config.promise);
+        const initialized = library.initializeCloud(); library.show('public');
+        expect(library.surface.textContent).toContain('Loading patches…');
+        config.resolve({ enabled: false }); await initialized;
+        expect(library.surface.textContent).toContain('Public patches are unavailable. Try again later.');
+        expect(library.surface.getAttribute('aria-busy')).toBe('false'); expect(cloud.list).not.toHaveBeenCalled();
+    });
+    it('keeps loading during a transient list retry and then renders its page', async () => {
+        vi.useFakeTimers();
+        try {
+            const { library } = setup(); library.config.enabled = true;
+            const fetch = vi.fn().mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({ error: { code: 'service_unavailable' } }) })
+                .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ patches: [{ id, name: 'Recovered' }], nextCursor: 'next-page' }) });
+            library.cloud = new CloudClient({ fetch }); library.show('public');
+            await vi.advanceTimersByTimeAsync(0);
+            expect(library.surface.textContent).toContain('Loading patches…');
+            expect(library.surface.textContent).not.toContain('Could not load');
+            expect(library.surface.getAttribute('aria-busy')).toBe('true'); expect(fetch).toHaveBeenCalledOnce();
+            await vi.advanceTimersByTimeAsync(500);
+            expect(library.surface.textContent).toContain('Recovered');
+            expect(library.surface.getAttribute('aria-busy')).toBe('false');
+            expect(library.listPages.public.nextCursor).toBe('next-page'); expect(fetch).toHaveBeenCalledTimes(2);
+        } finally { vi.useRealTimers(); }
+    });
+    it('cancels an obsolete search retry when a new filter starts loading', async () => {
+        vi.useFakeTimers();
+        try {
+            const { library } = setup(); library.config.enabled = true;
+            const fetch = vi.fn().mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({ error: {} }) })
+                .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ patches: [{ id, name: 'Latest' }] }) });
+            library.cloud = new CloudClient({ fetch }); library.query = 'old'; library.show('public');
+            await vi.advanceTimersByTimeAsync(0);
+            const oldSignal = library.listAbort.signal;
+            library.navigateCatalogue({ query: 'new' }); await vi.runAllTimersAsync();
+            expect(oldSignal.aborted).toBe(true); expect(fetch).toHaveBeenCalledTimes(2);
+            expect(new URL(fetch.mock.calls[1][0], window.location.origin).searchParams.get('q')).toBe('new');
+            expect(library.surface.textContent).toContain('Latest'); expect(library.listErrors.public).toBeNull();
+            expect(library.surface.getAttribute('aria-busy')).toBe('false');
+        } finally { vi.useRealTimers(); }
+    });
     it('fetches the initial signed-in catalogue only once', async () => {
         const { cloud, library } = setup(); library.view = 'public';
         cloud.configuration.mockResolvedValue({ enabled: true });
@@ -229,7 +289,7 @@ describe('patch library coordination', () => {
         library.publicPatches = [{ id, name: 'Old page' }];
         cloud.list = vi.fn().mockResolvedValue({ patches: [{ id, name: 'New page' }], nextCursor: 'page-three', previousCursor: 'page-one' });
         await library.fetchList(true);
-        expect(cloud.list).toHaveBeenCalledWith({ publicOnly: true, query: 'drum', sort: 'popular', period: 'day', cursor: 'next-page' });
+        expect(cloud.list).toHaveBeenCalledWith({ publicOnly: true, query: 'drum', sort: 'popular', period: 'day', cursor: 'next-page' }, { signal: expect.any(AbortSignal) });
         expect(library.publicPatches.map(patch => patch.name)).toEqual(['New page']);
         expect(library.listPages.public).toEqual({ nextCursor: 'page-three', previousCursor: 'page-one' });
     });
@@ -247,7 +307,7 @@ describe('patch library coordination', () => {
         library.query = 'bass'; library.cursor = 'account-page';
         cloud.list = vi.fn().mockResolvedValue({ patches: [], nextCursor: null, previousCursor: null });
         await library.fetchList(false);
-        expect(cloud.list).toHaveBeenCalledWith({ publicOnly: false, query: 'bass', cursor: 'account-page' });
+        expect(cloud.list).toHaveBeenCalledWith({ publicOnly: false, query: 'bass', cursor: 'account-page' }, { signal: expect.any(AbortSignal) });
     });
     it('never uploads a private snapshot to an account that changed during capture', async () => {
         const { cloud, library } = setup(); library.config = { enabled: true, imagesEnabled: true }; library.user = { id: 'account-a', name: 'A' };
@@ -323,7 +383,7 @@ describe('public profile editing', () => {
         expect(library.user.name).toBe('New name'); expect(library.active.authorName).toBe('New name');
         expect(library.active.provenance.originalCreatorName).toBe('New name'); expect(library.active.revision).toBe(2);
         expect(library.publicPatches[0].authorName).toBe('New name');
-        expect(cloud.list).toHaveBeenCalledWith({ publicOnly: true, query: 'New', sort: 'popular', period: 'month', cursor: 'page-two' });
+        expect(cloud.list).toHaveBeenCalledWith({ publicOnly: true, query: 'New', sort: 'popular', period: 'month', cursor: 'page-two' }, { signal: expect.any(AbortSignal) });
         expect(app.host.serializePatch()).toEqual(dirtyState); expect(library.baseline).toBe(baseline); expect(library.isDirty()).toBe(true);
         expect(app.loadPatchState).not.toHaveBeenCalled(); expect(window.location.href).toBe(url);
         expect(document.getElementById('patchNotice').textContent).toContain('Profile updated.');

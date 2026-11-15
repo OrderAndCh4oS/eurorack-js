@@ -72,7 +72,7 @@ Production processing order is compiled in the AudioWorklet by `compileGraph()`:
 - Sources process before destinations using a topological sort of strongly connected components
 - Ties are broken by module manifest order, rack order, then instance ID
 - Every edge inside a feedback component uses an explicit one-block delay, including self-feedback
-- Inputs accept one source; a new UI cable replaces the occupied input, while output fan-out remains legal
+- Inputs accept one source; creating or moving a cable to an occupied input is rejected, while output fan-out remains legal
 - Imported duplicate destinations reject the patch instead of being silently rewritten
 - Topology revisions activate atomically after worklet acknowledgement
 

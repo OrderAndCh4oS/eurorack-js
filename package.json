@@ -6,7 +6,10 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:test-previews": "node scripts/build-test-previews.mjs",
+    "build:introduction-preview": "node scripts/build-introduction-preview.mjs",
+    "build:social-cards": "node scripts/build-social-cards.mjs",
     "dev": "npm run build && node --env-file-if-exists=.env.local scripts/dev-server.mjs",
+    "dev:previews": "node scripts/build.mjs --instrument-only && node scripts/dev-server.mjs",
     "dev:test": "npm run build && NODE_ENV=test EURORACK_TEST_BACKEND=1 node scripts/dev-server.mjs",
     "db:migrate": "node --env-file-if-exists=.env.local db/migrate.mjs",
     "db:cleanup": "node --env-file-if-exists=.env.local db/cleanup.mjs",
@@ -28,6 +31,7 @@
     "@playwright/test": "^1.61.1",
     "esbuild": "0.28.2",
     "jsdom": "^25.0.0",
+    "marked": "18.1.3",
     "vitest": "^4.1.9"
   },
   "dependencies": {

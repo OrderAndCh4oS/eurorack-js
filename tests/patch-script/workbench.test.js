@@ -46,11 +46,20 @@ function createWorkbench(initialPatch = null) {
 }
 
 describe('PatchWorkbench', () => {
-    it('links the guide and reference to repository Markdown', () => {
+    it('links the guide and reference to in-app documentation', () => {
         const { workbench } = createWorkbench();
-        expect(workbench.drawer.querySelector('a[href*="patch-workbench-guide.md"]').href).toBe(PATCH_GUIDE_URL);
-        expect(workbench.drawer.querySelector('a[href$="patch-workbench.md"]').href).toBe(PATCH_REFERENCE_URL);
+        expect(workbench.drawer.querySelector('a[href$="patch-workbench-guide"]').getAttribute('href')).toBe(PATCH_GUIDE_URL);
+        expect(workbench.drawer.querySelector('a[href$="patch-workbench"]').getAttribute('href')).toBe(PATCH_REFERENCE_URL);
         expect([...workbench.drawer.querySelectorAll('a')].every(link => !link.getAttribute('href').startsWith('./docs/'))).toBe(true);
+        workbench.dispose();
+    });
+
+    it('returns to the rack when opening Code for an agent from another view', () => {
+        const { workbench, app } = createWorkbench();
+        app.patchLibrary = { navigate: vi.fn() };
+        workbench.stageAgentScript("patch().module('out', 'main')");
+        expect(app.patchLibrary.navigate).toHaveBeenCalledWith('rack');
+        expect(workbench.drawer.hidden).toBe(false);
         workbench.dispose();
     });
 

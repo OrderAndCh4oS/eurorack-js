@@ -1,0 +1,78 @@
+{
+  "sourceName": "Introduction",
+  "sourceFile": "src/js/config/patches/demo-introduction.js",
+  "stateHash": "a8b6ebd9982047524ce0a52f71e9f87a0f9c64134bb744d3cbf51a4175ddc93a",
+  "rendererVersion": "rack-industrial-light-v2",
+  "capture": {
+    "deviceScaleFactor": 3,
+    "padding": 8,
+    "rackWidth": 751,
+    "rackHeight": 778,
+    "uncroppedWidth": 751,
+    "uncroppedHeight": 845,
+    "width": 2253,
+    "height": 2334
+  },
+  "variants": [
+    {
+      "width": 640,
+      "height": 663,
+      "bytes": 111502,
+      "file": "7422dc64c7636abc95b0df2062cfe4e790343d2eaa6754fc19f9de7072c33ee9.webp",
+      "encoding": "quality-90",
+      "comparedBytes": {
+        "lossless": 298516,
+        "quality90": 111502,
+        "quality88": 104234
+      }
+    },
+    {
+      "width": 960,
+      "height": 995,
+      "bytes": 190356,
+      "file": "e21b8a92ed5c0905daa8a4f84db12b523e7e8139234f6366111698cac0f311c5.webp",
+      "encoding": "quality-90",
+      "comparedBytes": {
+        "lossless": 506268,
+        "quality90": 190356,
+        "quality88": 178406
+      }
+    },
+    {
+      "width": 1280,
+      "height": 1326,
+      "bytes": 279338,
+      "file": "2e53ab41522e4f8bd1e1ec22d546e8fcae6af4cc778d2d9c9f8e84ec90c89bb2.webp",
+      "encoding": "quality-90",
+      "comparedBytes": {
+        "lossless": 735842,
+        "quality90": 279338,
+        "quality88": 262140
+      }
+    },
+    {
+      "width": 1600,
+      "height": 1658,
+      "bytes": 378624,
+      "file": "7700cf723c15f40eca1cd29736eefa9911d705f7e34681599f97071605e7a9f3.webp",
+      "encoding": "quality-90",
+      "comparedBytes": {
+        "lossless": 961466,
+        "quality90": 378624,
+        "quality88": 352420
+      }
+    },
+    {
+      "width": 1920,
+      "height": 1989,
+      "bytes": 480850,
+      "file": "67bc874c19af61210c088c99ff2a79be09e9381adff9ea9f4f3688101f5df526.webp",
+      "encoding": "quality-90",
+      "comparedBytes": {
+        "lossless": 1204732,
+        "quality90": 480850,
+        "quality88": 440544
+      }
+    }
+  ]
+}

@@ -4,7 +4,7 @@ This tutorial builds, changes, diagnoses, and saves a patch entirely in the brow
 
 ## 1. Open the Current Rack
 
-Open the app and select **Code**. On the first open of a browser session, the editor is automatically populated from the current graphical rack. Choose **Starter Voice** only when you want the bundled minimal example. Press Ctrl/Command+Enter to apply without saving, or Ctrl/Command+S to create/save a local script and apply it. Select **Start** in the main toolbar if audio is stopped.
+Open the app and select **Code**. The first time you open it after loading the app, the editor is populated from the current graphical rack. Choose **Starter Voice** for the bundled minimal example. Press Ctrl/Command+Enter to apply, or Ctrl/Command+S to immediately save the source locally and apply it. Neither action saves a patch to your account. Select **Start** in the main toolbar if audio is stopped.
 
 The starter is a VCO connected to both output channels:
 
@@ -38,7 +38,7 @@ patch()
   .connect('filter.lpf', 'main.R')
 ```
 
-When the cursor is after `'osc.`, completion shows only VCO outputs. In the second connection argument it shows only compatible destination-direction sockets; completion is about direction and contracts, not a restriction on creative audio/CV cross-patching.
+When the cursor is after `'osc.`, completion lists matching VCO outputs. In the second connection argument it lists inputs. It does not filter by signal type, so audio/CV cross-patching is allowed.
 
 Tab completion replaces the whole current token. If the caret is in the middle of an existing socket, parameter name, or value, the text on both sides of the caret is replaced rather than leaving a stale suffix.
 
@@ -61,7 +61,7 @@ patch()
   .connect('filter.lpf', 'main.R')
 ```
 
-Validate and inspect the processing order. Sources are ordered before their destinations even if you arrange declarations differently.
+Validate and inspect the processing order. In this graph, sources are ordered before their destinations even if you arrange declarations differently. Feedback loops are also allowed; connections inside a feedback loop use a one-block delay.
 
 ## 4. Complete Switches, Buttons, and Toggles
 
@@ -76,7 +76,7 @@ patch()
   .module('loop', 'looper', { reverse: 1, halfSpeed: 1, mode: 2, record: 0, clear: 0 })
 ```
 
-`record` is a toggle action. `clear` is a trigger action: `1` means it will fire when applied, so the workbench warns about it. Keep transient controls at `0` for ordinary saved patches.
+`record` is a toggle action. `clear` is a trigger action: `1` requests the action when audio processes the loaded patch, so the workbench warns about it. Keep transient controls at `0` for ordinary saved patches.
 
 ## 5. Diagnose a Broken Patch
 
@@ -92,7 +92,7 @@ Validate. The rack keeps playing because validation is non-mutating. The log exp
 .connect('osc.ramp', 'filter.audio')
 ```
 
-The contract uses source-defined IDs, which can differ from familiar panel words. `:describe vco` and `:describe filter` show the exact contracts.
+The contract uses source-defined IDs, which can differ from familiar panel words. Enter `:describe vco` or `:describe vcf` in the command input below the log to see those module contracts. You can also use an instance name such as `filter` once that instance is in the live rack; the command does not inspect unapplied editor declarations.
 
 ## 6. Understand Fan-out and Occupied Inputs
 
@@ -163,7 +163,7 @@ The unnamed system receives `vco_1` and `vcf_1`; the named system receives `bass
 
 ## 9. Profile the Running Patch
 
-Start audio, then enter:
+Start audio, then enter this in the command input below the log:
 
 ```text
 :profile start
@@ -177,22 +177,22 @@ Let the patch run for several seconds and enter:
 
 The block line shows p50, p95, p99, and p99 utilization against the render deadline. Module lines are sorted by p99 time so expensive DSP is easy to find. Stop collecting with `:profile stop`. Profiling is opt-in and unavailable while audio is stopped.
 
-## 10. Round-trip Graphical Edits
+## 10. Convert Rack Edits to Code
 
 After applying a script, turn a knob, add a cable, or move a module in the graphical rack. The workbench reports that the rack differs from the last Apply. These edits remain live and valid.
 
-Select **Snapshot** to replace the editor with deterministic source for the current rack. Snapshot emits one complete module call per physical line, rounds numbers to five decimal places, and includes exact rows and indexes, all cables, MIDI mappings, structured state, and every non-default knob, switch, button, or action. It asks before replacing non-empty source.
+Select **Snapshot** to replace the editor with source for the current rack. Snapshot emits one module call per line and includes module placement, cables, MIDI mappings and non-default parameters, including declared structured state. Numbers are rounded to five decimal places. It captures patch settings, not running audio buffers or sequencer play positions. It asks before replacing non-empty source that differs from the snapshot.
 
-## 11. Save and Share Safely
+## 11. Save and Share
 
 - Script edits autosave into the selected local named script.
 - **New**, rename, and **Delete** manage the local script bank.
 - Workbench **Load** reads JavaScript source into a new script but does not evaluate it.
 - Workbench **Save** persists source locally and applies it; Ctrl/Command+S does the same.
-- Main-toolbar Save/Export/Share actions operate on the compiled v3 patch, not its source.
-- **Guide** and **Reference** open their repository Markdown files in new tabs; the documents are not copied into `src`.
+- The rack's **Save** and **Save a copy** controls save the compiled patch. **Copy snapshot link** captures its current settings; **Copy URL**, when available, links to the saved patch. None of these include the JavaScript source.
+- **Guide** and **Reference** open these documentation pages.
 
-Always read loaded code before Apply. The worker prevents page-freezing loops, but patch scripts are still trusted JavaScript running client-side.
+Read loaded code before Apply. Scripts run in a disposable worker with network, page and app-storage access blocked. Applying a script changes the rack; saving that patch to your account is a separate action.
 
 ## Complete Modulated Voice
 
@@ -222,4 +222,4 @@ p.midi('0:74', { moduleId: 'filter', paramId: 'cutoff', min: 0, max: 1 })
 - Keep trigger/momentary states at zero unless firing them is intentional.
 - Validate dynamic scripts once to populate their generated completions.
 - Use Snapshot when graphical edits are the version you want to keep.
-- Use `:profile report` when audio crackles or approaches its deadline.
+- Use `:profile start`, let the patch play, then `:profile report` to investigate audio crackles or high processing time.

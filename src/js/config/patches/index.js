@@ -5,6 +5,7 @@
 import { TEST_PATCHES } from '../test-patches.js';
 
 // Demo patches
+import introductionDemo from './demo-introduction.js';
 import demoMelodicArp from './demo-melodic-arp.js';
 import demoPulsingBass from './demo-pulsing-bass.js';
 import demoShRandom from './demo-sh-random.js';
@@ -48,6 +49,7 @@ import drumsFullKit from './drums-full-kit.js';
 /** Musical examples retained for later import, outside the main library. */
 export const ARCHIVED_DEMO_PATCHES = {
     // Demo patches
+    [introductionDemo.name]: introductionDemo,
     [demoMelodicArp.name]: demoMelodicArp,
     [demoPulsingBass.name]: demoPulsingBass,
     [demoShRandom.name]: demoShRandom,

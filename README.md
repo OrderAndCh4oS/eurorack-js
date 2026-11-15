@@ -12,10 +12,10 @@ Play the synth and explore public patches without an account. Sign in with Googl
 
 - **Discover patches.** Browse **Public patches** with rack previews, descriptions, and creator credits. Open any patch directly in the rack to play it or try changes.
 - **Find something new.** Search the catalogue and sort by **Newest** or **Most popular**, ranked by thumbs-up received across all time, the past day, week, month, or year. Search, filters, and cursor-based pagination live in the URL, so links, refresh, and browser back/forward preserve your place.
-- **Save privately or publish.** **My patches** brings together browser saves and account patches. Account patches can be private or public, and you can change their visibility later. Add a name and description when saving.
-- **Copy and remix.** **Save a copy** makes an independent patch, with the original creator credited and its source recorded like a fork. Copies start private; save again and choose Public when you're ready to share yours.
+- **Save privately or publish.** **My patches** brings together browser saves and account patches. Account patches can be private or public, and you can change their visibility later. Give any save a name; account saves also have a description.
+- **Copy and remix.** **Save a copy** makes an independent patch. Copies of account patches preserve the original creator's credit and record their source like a fork. Account copies start private; save again and choose Public when you're ready to share yours.
 - **Give a thumbs-up.** Like other people's public patches, or remove your thumbs-up later. These votes determine the popularity rankings.
-- **Choose your public name.** Open **My profile** beside Sign out to update the name shown on your patches and original-creator credits on copies. Existing credits update without resaving each rack; your email address is not displayed publicly.
+- **Choose your public name.** Open **My profile** beside Sign out to update the name shown on your account patches and creator credits on account copies. Those credits update without resaving each rack; browser copies retain their imported credit text. Your email address is not displayed publicly.
 
 ### Sharing links
 
@@ -27,7 +27,7 @@ Public saved patches include Open Graph and Twitter/X cards with the patch title
 
 ## Test and Learning Patches
 
-Open **Test patches** to browse built-in module and integration patches with rack previews. Musical examples are retained in the [patch archive](archive/demo-patches/README.md), including the numbered **Demo - Synth Voice** series. Import the [archived JSON collection](archive/demo-patches/patches.json) when you want to use them. See [Voice Demos](docs/synth-voice-demos.md) for expected sounds, listening exercises, source material, and deliberate software adaptations.
+Open **Test patches** to browse built-in module and integration patches with rack previews. [Synth Voice Basics](docs/synth-voice-demos.md) walks through current oscillator, envelope, filter, modulation and sequencer examples. MIDI patches need a MIDI source.
 
 ## Code and connection checks
 
@@ -37,9 +37,19 @@ Open **Test patches** to browse built-in module and integration patches with rac
 
 Experimental [WebMCP tools](docs/webmcp.md) let a compatible browser agent inspect the rack and module contracts, validate JavaScript, apply a retained draft, and read connection diagnostics. The normal editor works without WebMCP. Audio/WASM analysis is not included.
 
+## Introduction and documentation
+
+**Introduction** (`/introduction`) introduces the instrument, community patch sharing, code editor and WebMCP. **Docs** (`/docs`) contains synth voice basics, the patch scripting guide, API reference, WebMCP guide, architecture and module-authoring documentation. Both are available from the app navigation. Reading them from the rack preserves the open patch and editor work; direct links serve readable HTML without starting the instrument.
+
+The documentation source stays in [`docs/`](docs/index.md). `npm run build` converts the pages listed in [`scripts/docs-manifest.mjs`](scripts/docs-manifest.mjs) to static HTML using Marked. Links between published Markdown files become local documentation URLs; other repository references point to GitHub. Update the original Markdown to change a page, or add an entry to the manifest to publish another guide. Code examples, section links, contents menus and page metadata are generated at build time.
+
+The Introduction demo lives in [`demo-introduction.js`](src/js/config/patches/demo-introduction.js). Its banner image and **Open in rack** button use that same built-in patch; opening it leaves the rack at `/` without a snapshot hash. After editing the patch, start `npm run dev:previews`; this serves the instrument without checking the still-outdated images. In another terminal, run `npm run build:introduction-preview -- http://127.0.0.1:4176`, then `npm run build:social-cards`, then `npm run build`. Commit the generated files in `src/patch-previews/introduction/` and `src/social-cards/` with the patch. Normal builds check that the images match their source; browsers select a cached static WebP by screen size and pixel density.
+
+Introduction and every docs page have their own 1200×630 Twitter/Open Graph card: text on the left and the demo rack on the right. `npm run build:social-cards` renders them locally using the bundled font and rack image; run it after changing docs titles/descriptions or the demo image. Optimized PNGs in `src/social-cards/` are copied into the public build and served directly by Vercel. Their content-hashed filenames receive a one-year immutable cache. The HTML contains absolute image URLs, dimensions and alt text, so social crawlers need no JavaScript or login. Cards are not downloaded by normal page views. Each page includes a canonical URL and unique title and description; the generated sitemap and `robots.txt` expose the public routes. No image transformations or server functions run when these images are requested.
+
 ## Modules
 
-Built-in modules are loaded in the order listed by `src/js/rack/module-manifest.js` and grouped by each module definition's sidebar category.
+Built-in modules are registered in the order listed by `src/js/rack/module-manifest.js` and grouped by each module definition's sidebar category.
 
 ### MIDI
 | ID | Module | Description |
@@ -212,7 +222,7 @@ src/js/
 │   ├── worklet-engine.js # Main-thread AudioWorklet controller
 │   └── worklet/          # Audio-thread processor and plugin registry
 ├── cables/
-│   └── cable-manager.js  # Cable rendering & connections
+│   └── cable-manager.js  # Cable path and jack-position helpers used by the app
 ├── config/
 │   ├── constants.js      # System constants
 │   ├── test-patches.js    # Test patches shown in the app
@@ -248,7 +258,7 @@ Runtime invariants:
 
 - Production DSP runs only in the audio worklet; UI mirrors never produce sound.
 - Module input and output buffers keep stable identities for their DSP lifetime.
-- Inputs accept one cable. Patching an occupied input replaces its cable; outputs support fan-out.
+- Inputs accept one cable. Patching an occupied input is rejected; outputs support fan-out.
 - Feedback edges have an explicit one-block delay.
 - Patch activation is revision-acknowledged and atomic.
 - Trusted plugins register matching main-thread and worklet contracts.
@@ -322,7 +332,10 @@ Patch state is canonicalized to version 3 and declares the exact plugin patch co
 {
     version: 3,
     plugins: { core: 1 },
-    modules: [{ id: 'vco_1', type: 'vco', row: 1, index: 0 }],
+    modules: [
+        { id: 'vco_1', type: 'vco', row: 1, index: 0 },
+        { id: 'out_1', type: 'out', row: 1, index: 1 }
+    ],
     params: { vco_1: { coarse: 0.35 } },
     cables: [{ fromModule: 'vco_1', fromPort: 'triangle', toModule: 'out_1', toPort: 'L' }],
     midiMappings: {}

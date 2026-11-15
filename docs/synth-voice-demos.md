@@ -1,49 +1,50 @@
-# Voice Demos
+# Synth Voice Basics
 
-The [musical patch archive](../archive/demo-patches/README.md) includes twelve numbered `Demo - Synth Voice` patches that explain reusable Eurorack signal-flow principles. Download and import the [JSON collection](../archive/demo-patches/patches.json) to add them to this browser. They are retained for later use outside the main patch catalogue; the dedicated **Test patches** view contains module and integration checks.
+Learn how pitch, tone and volume fit together using patches from the **Test patches** view. Each link below finds a working example in the catalogue. Select **Open in rack**, then **Start** to hear it.
 
-These are learning demos, not isolated module test patches. Open them in order to build up the signal-flow model, or treat each as a starting point and move one cable at a time.
+## Follow the sound
 
-## Synth Voice Principles
+A basic subtractive voice has this audio path:
 
-The first series translates the patching principles in Monotrail Tech Talk's 2023 video [How to make a GOOD eurorack synth voice - with Nano modules](https://www.youtube.com/watch?v=jOI35EmHxZ4) into this emulator's modules and voltage contracts.
+```text
+Oscillator → Filter → VCA → OUT
+```
 
-1. Start with an explicit voice path: pitch and gate control an oscillator, envelope, filter, VCA, and output.
-2. Prefer useful range and simultaneous waveform outputs over a large number of hidden oscillator modes.
-3. Mix audio at different points in the chain; moving a source before or after a filter changes which frequencies survive.
-4. Use DC-coupled utilities for both audio and CV. A single modulation input becomes much more useful when several sources are mixed, scaled, inverted, or offset first.
-5. Keep related oscillators on the same pitch CV when stable FM ratios or layered tuning matter.
-6. Explore sync, PWM, FM, filter modes, and resonance as independent timbre controls.
-7. Use separate envelopes for amplitude, filter motion, and accents when one contour is too restrictive.
-8. Modulate envelope timing so articulation evolves instead of repeating exactly.
-9. Use VCAs before modulation destinations. A VCA controls the amount of CV just as readily as the amount of audio.
-10. Quantity matters: several simple mixers, envelopes, LFOs, and VCAs often create more motion than one complex source.
-11. Use end-of-cycle signals to chain events and create patches that can run without a conventional sequencer.
+The oscillator makes the waveform, the filter changes its frequency content, and the VCA controls its level. **OUT** sends the result to your speakers. Pitch CV and envelopes control this path through separate cables.
 
-## Synth Voice Demo Index
+Open [Test - VCO Only](/patches?view=tests&q=Test%20-%20VCO%20Only). Its triangle and ramp outputs pass through separate VCA channels to the left and right outputs. Turn the VCA's channel gains down one at a time to compare the waveforms. The triangle has less high-frequency content than the ramp.
 
-| Patch | Main lesson | Try next |
-|---|---|---|
-| `01 - Subtractive` | One envelope opens the filter and final VCA in the classic oscillator to filter to VCA path. | Move the oscillator cable from ramp to triangle or pulse. |
-| `02 - Waveform Blend` | Simultaneous triangle, ramp, and pulse outputs are mixed while an unsynced LFO moves pulse width. | Solo each mixer channel, then rebuild the blend. |
-| `03 - Tracked FM` | Carrier and modulator receive the same sequence, preserving their pitch relationship; an attenuverter keeps FM depth useful. | Change the modulator coarse tuning or FM attenuation. |
-| `04 - Sync Sweep` | A steady oscillator hard-syncs the sequenced oscillator while a slow scaled LFO sweeps the sync frequency. | Reverse or increase the sweep with the attenuverter. |
-| `05 - Oscillator Stack` | Two lightly detuned oscillators and a lower tracking oscillator create a larger source before filtering. | Remove the lower oscillator, then compare its mixer level at 0.2 and 0.8. |
-| `06 - Post-filter Noise` | Noise is added after the tonal source's filter, retaining high-frequency detail while sharing the final amplitude envelope. | Move noise before the filter and compare the result. |
-| `07 - Mixed CV` | Envelope, slow motion, and faster detail are combined in a DC-coupled mixer before the only cutoff CV input. | Mute each modulation channel to identify its time scale. |
-| `08 - Filter Modes` | Low-pass, band-pass, and high-pass outputs are available together and can form a new response when mixed. | Solo band-pass, then add a small amount of high-pass. |
-| `09 - Envelopes and Accents` | Independent amplitude and filter envelopes provide separate articulation; a divided clock adds periodic filter accents. | Lengthen only the amplitude release, then only the filter release. |
-| `10 - Animated Envelope` | Unsynced LFOs alter attack and release while the inverted envelope pulls resonance in the opposite direction. | Disconnect one timing CV to hear which motion it contributed. |
-| `11 - VCA Modulation` | A fast LFO passes through a VCA whose level is controlled by a slow LFO, so filter modulation depth evolves over time. | Raise `modVca` channel gain carefully to move toward audio-rate filter FM. |
-| `12 - Dynamic Generative` | A cycling function generator clocks an envelope and a second function; two VCAs animate a four-source waveform mix before filter and output. | Change cycle rise/fall independently or reroute end-of-cycle to another trigger input. |
+## Shape each note
 
-## Emulator Adaptations
+Open [Test - ADSR Envelope](/patches?view=tests&q=Test%20-%20ADSR%20Envelope). A clock drives the ADSR's gate input. The envelope controls the VCA while the oscillator supplies the audio.
 
-- The core VCO has triangle rather than sine output. Triangle is used where the video calls for a mellow waveform or sine-like FM source.
-- The core VCO has no dedicated sub-octave outputs. The stack and generative patches use separately tuned VCOs that share the same pitch source where tracking is required.
-- VCO FM is linear Hz-per-volt in this implementation; there is no exponential/linear selector. The tracked FM demo therefore focuses on ratio stability and depth control.
-- The VCF has one cutoff CV input plus resonance CV. `Mixed CV` demonstrates the video's recommended external-mixer solution explicitly.
-- The VCA is DC-coupled and its signal ports use the `any` contract. It can control CV or audio, although its panel provides channel gain plus CV rather than the exact Nano ALT control layout and summing normalizations.
-- The dynamic generative patch preserves the end-of-cycle and multi-timescale idea rather than copying Nano-specific sub outputs, normalizations, and attenuverters literally.
+- **Attack** controls how quickly the envelope rises.
+- **Decay** controls how quickly it falls toward the sustain level.
+- **Sustain** is the level held while the gate stays high.
+- **Release** controls how quickly it falls after the gate goes low.
 
-The source video demonstrates patching ideas on Nano ONA, MAR, FONT, QUART, SARA, and ALT hardware. The factory patches are original software adaptations and do not claim component-level emulation of those modules.
+This patch starts with sustain at zero. Raise sustain to hear the difference between a short pluck and a held note. For a long attack, slow the clock so the gate stays high long enough for the envelope to rise.
+
+## Move the filter
+
+Open [Test - VCF Resonance](/patches?view=tests&q=Test%20-%20VCF%20Resonance). An LFO moves the filter cutoff while the VCO's ramp passes through its low-pass output.
+
+Change the cutoff and resonance separately. Disconnect the cutoff CV cable to hear the filter at a fixed setting, then reconnect it to restore the movement. The VCF also has band-pass and high-pass outputs; try one in place of the low-pass connection to the VCA.
+
+## Control modulation depth
+
+Open [Test - LFO → VCO Pitch](/patches?view=tests&q=Test%20-%20LFO). The LFO changes oscillator pitch through its V/OCT input. A one-volt rise at this input raises pitch by one octave.
+
+Then open [Test - Attenuverter](/patches?view=tests&q=Test%20-%20Attenuverter). It puts an attenuverter between the LFO and oscillator. Turn its first attenuation control toward the centre to reduce the pitch movement; move past the centre to invert it. The offset control shifts the whole signal up or down.
+
+## Add a sequence
+
+Open [Test - Sequencer](/patches?view=tests&q=Test%20-%20Sequencer). The clock advances the sequence. Its CV output sets oscillator pitch, and its gate output triggers the envelope. Audio runs through the filter and the VCA's second channel to **OUT**.
+
+Change a step's pitch, then switch its gate off. The pitch value still belongs to that step, but the envelope no longer receives a new gate there. Try a shorter sequence length to repeat a smaller phrase.
+
+## Save your version
+
+Use **Save a copy** to keep an edited test patch. Choose this browser for a local save, or sign in to save it to your account. Account copies start private; save again and choose **Public** when you want to share them.
+
+For a complete voice built in code, follow the [Patch Workbench Guide](patch-workbench-guide.md). Use **Debug** to check the wiring if a patch is silent. A connected path alone does not guarantee sound: check oscillator levels, VCA gain and envelope gates too.

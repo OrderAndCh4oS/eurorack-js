@@ -4,18 +4,18 @@ body.skin-factory { --library-paper: var(--factory-paper); --library-ink: var(--
 .patch-navigation, .patch-library, .patch-dialog, .patch-notice { color: var(--library-ink); background: var(--library-paper); font-size: 13px; line-height: 1.4; font-family: inherit; }
 .patch-navigation { position: fixed; top: 0; left: 0; right: 0; height: var(--library-toolbar); display: flex; align-items: center; gap: 6px; padding: 0 8px; border-bottom: 3px solid var(--library-line); z-index: 201; overflow: hidden; }
 .patch-view-tabs { display: flex; flex: 0 1 auto; align-items: center; gap: 4px; min-width: 0; height: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
-.patch-view-tabs button { flex: 0 0 auto; }
-.patch-navigation button, .patch-library button, .patch-library input, .patch-library select, .patch-library a.patch-button, .patch-dialog button, .patch-dialog input, .patch-dialog select, .patch-dialog textarea, .patch-notice button { color: inherit; background: var(--library-paper); font: inherit; border: 2px solid var(--library-line); border-radius: 0; padding: 8px 12px; box-shadow: none; }
-.patch-navigation button, .patch-library button, .patch-library a.patch-button, .patch-dialog button, .patch-notice button { cursor: pointer; font-size: 12px; font-weight: 900; text-decoration: none; }
-.patch-navigation button { padding: 5px 9px; min-height: 28px; font-size: 10px; line-height: normal; text-transform: uppercase; white-space: nowrap; }
-.patch-navigation button[aria-current="page"], .patch-library .primary, .patch-dialog .primary { background: var(--library-accent); color: var(--factory-action-ink, #111); }
-.patch-navigation button:enabled:hover, .patch-library button:enabled:hover, .patch-library a.patch-button:hover, .patch-dialog button:enabled:hover, .patch-notice button:enabled:hover { background: var(--library-accent); color: var(--factory-action-ink, #111); }
-.patch-navigation button:focus-visible, .patch-library :focus-visible, .patch-dialog :focus-visible { outline: 3px solid var(--library-accent); outline-offset: 2px; }
-.patch-navigation button:focus-visible { outline-offset: -4px; }
-.patch-navigation button[aria-current="page"]:focus-visible, .patch-navigation button:hover:focus-visible { outline-color: var(--library-ink); }
+.patch-view-tabs button, .patch-view-tabs a { flex: 0 0 auto; }
+.patch-navigation button, .patch-view-tabs a, .patch-library button, .patch-library input, .patch-library select, .patch-library a.patch-button, .patch-dialog button, .patch-dialog input, .patch-dialog select, .patch-dialog textarea, .patch-notice button { color: inherit; background: var(--library-paper); font: inherit; border: 2px solid var(--library-line); border-radius: 0; padding: 8px 12px; box-shadow: none; }
+.patch-navigation button, .patch-view-tabs a, .patch-library button, .patch-library a.patch-button, .patch-dialog button, .patch-notice button { cursor: pointer; font-size: 12px; font-weight: 900; text-decoration: none; }
+.patch-navigation button, .patch-view-tabs a { padding: 5px 9px; min-height: 28px; font-size: 10px; line-height: normal; text-transform: uppercase; white-space: nowrap; }
+.patch-navigation button[aria-current="page"], .patch-view-tabs a[aria-current="page"], .patch-library .primary, .patch-dialog .primary { background: var(--library-accent); color: var(--factory-action-ink, #111); }
+.patch-navigation button:enabled:hover, .patch-view-tabs a:hover, .patch-library button:enabled:hover, .patch-library a.patch-button:hover, .patch-dialog button:enabled:hover, .patch-notice button:enabled:hover { background: var(--library-accent); color: var(--factory-action-ink, #111); }
+.patch-navigation button:focus-visible, .patch-view-tabs a:focus-visible, .patch-library :focus-visible, .patch-dialog :focus-visible { outline: 3px solid var(--library-accent); outline-offset: 2px; }
+.patch-navigation button:focus-visible, .patch-view-tabs a:focus-visible { outline-offset: -4px; }
+.patch-navigation button[aria-current="page"]:focus-visible, .patch-navigation button:hover:focus-visible, .patch-view-tabs a[aria-current="page"]:focus-visible, .patch-view-tabs a:hover:focus-visible { outline-color: var(--library-ink); }
 .patch-library button:disabled, .patch-dialog button:disabled { opacity: .55; cursor: default; }
 #activePatchLabel { padding: 0 10px; flex: 1 0 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px; }
-.patch-account-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 4px; margin-left: auto; padding-left: 6px; border-left: 2px solid var(--library-line); }
+.patch-account-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 4px; padding-left: 6px; border-left: 2px solid var(--library-line); }
 body #toolbar, body.skin-factory #toolbar { top: var(--library-toolbar); height: var(--library-toolbar); }
 body.patch-library-open #toolbar { display: none; }
 body .app-container, body.skin-factory .app-container { margin-top: calc(var(--library-toolbar) * 2); height: calc(100vh - var(--library-toolbar) * 2); }
@@ -69,7 +69,7 @@ body .app-footer .footer-legal-row a, body.skin-factory .app-footer .footer-lega
 .patch-dialog-actions { display: flex; justify-content: end; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
 .patch-dialog-error { border-left: 4px solid var(--library-accent); padding-left: 10px; }
 .patch-dialog [data-save-help] { font-size: 12px; }
-@media (max-width: 1500px) { .patch-navigation { padding-inline: 4px; } .patch-navigation button { padding-inline: 6px; } }
+@media (max-width: 1500px) { .patch-navigation { padding-inline: 4px; } .patch-navigation button, .patch-view-tabs a { padding-inline: 6px; } }
 @media (max-width: 760px) {
     .patch-library { padding: 0 12px 24px; }
     .patch-library-header { align-items: stretch; flex-direction: column; }

@@ -2,8 +2,11 @@ import { TEST_PATCHES } from '../config/test-patches.js';
 import { CloudClient, newRequestId, parsePatchLocation, savedPatchUrl, rackPatchUrl } from '../patches/cloud-client.js';
 import { LocalPatchStore } from '../patches/local-patch-store.js';
 import { parseCatalogueLocation, catalogueUrl, paginateLocalPatches } from '../patches/catalogue-state.js';
+import { ContentViews, contentView } from './content-views.js';
+import { openProfileDialog } from './profile-dialog.js';
 
 export const DRAFT_KEY = 'eurorack-login-draft-v1';
+export const isIntroductionDemoLocation = location => location.pathname === '/' && !location.hash && new URLSearchParams(location.search).get('demo') === 'introduction';
 const LIBRARY_VIEWS = {
     mine: ['My patches', 'Saved in this browser or your account.'],
     public: ['Public patches', 'Shared patches to play and copy.'],
@@ -11,7 +14,7 @@ const LIBRARY_VIEWS = {
 };
 const snapshot = state => JSON.stringify(state);
 const clone = value => JSON.parse(JSON.stringify(value));
-const sourceLabel = record => ({ test: 'Test patch', local: 'This browser', cloud: record.visibility === 'public' ? 'Public' : 'Private' }[record.source] || 'Unsaved rack');
+const sourceLabel = record => ({ test: 'Test patch', demo: 'Demo patch', local: 'This browser', cloud: record.visibility === 'public' ? 'Public' : 'Private' }[record.source] || 'Unsaved rack');
 
 function element(document, tag, text, className) {
     const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node;
@@ -28,12 +31,34 @@ export class PatchLibrary {
         this.sort = 'newest'; this.period = 'all'; this.cursor = null; this.localCursor = null;
         this.listPages = { public: {}, account: {} }; this.listLoading = {}; this.listErrors = {};
         this.catalogueLocations = {};
+        this.content = new ContentViews({ document: this.document, surface: this.document.getElementById('contentView') });
+        this.contentLocation = null;
         this.rackLocation = parseCatalogueLocation(this.window.location) ? new URL('/', this.window.location.origin).href : this.window.location.href;
     }
     init() {
         this.surface = this.document.getElementById('patchLibrary');
         if (!this.surface) return this;
         this.document.querySelectorAll('[data-patch-view]').forEach(button => button.addEventListener('click', () => this.navigate(button.dataset.patchView)));
+        this.document.addEventListener('click', event => {
+            const link = event.target.closest('a[href]');
+            if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download')) return;
+            const url = new URL(link.href, this.window.location.href);
+            if (url.origin !== this.window.location.origin) return;
+            if (contentView(url)) {
+                event.preventDefault(); this.openContent(url); return;
+            }
+            if (!contentView(this.window.location) || !link.closest('#contentView')) return;
+            if (url.pathname === '/' && !url.hash && !url.search) {
+                event.preventDefault(); this.navigate('rack');
+            } else if (parseCatalogueLocation(url)) {
+                event.preventDefault(); this.writeLocation(url.href); this.applyCatalogueLocation();
+            } else if (isIntroductionDemoLocation(url)) {
+                // Load the built-in demo through the same flow as Test patches,
+                // preserving the live rack until unsaved changes are resolved.
+                event.preventDefault();
+                void this.run(() => this.openIntroductionDemo());
+            }
+        });
         this.document.getElementById('savePatch')?.addEventListener('click', () => { void this.openSave(); });
         this.document.getElementById('savePatchCopy')?.addEventListener('click', () => { void this.openSave({ copy: true }); });
         this.document.getElementById('savedPatchLink')?.addEventListener('click', () => this.run(() => this.share(this.active)));
@@ -49,7 +74,7 @@ export class PatchLibrary {
         const locationChanged = () => {
             if (this.handledLocation === this.window.location.href) return;
             const destination = this.window.location.href;
-            const previous = this.view === 'rack' ? this.rackLocation : this.catalogueLocations[this.view];
+            const previous = this.view === 'rack' ? this.rackLocation : ['docs', 'introduction'].includes(this.view) ? this.contentLocation : this.catalogueLocations[this.view];
             this.handledLocation = destination;
             void this.run(() => this.loadLocation()).then(loaded => {
                 if (!loaded && previous && this.window.location.href === destination) this.writeLocation(previous, 'replace');
@@ -65,8 +90,11 @@ export class PatchLibrary {
         return this;
     }
     async initializeCloud() {
-        this.config = await this.cloud.configuration();
-        if (this.config.enabled) await this.refreshSession({ refreshView: false });
+        this.cloudLoading = true;
+        try {
+            this.config = await this.cloud.configuration();
+            if (this.config.enabled) await this.refreshSession({ refreshView: false });
+        } finally { this.cloudLoading = false; }
         this.updateAccount();
         if (this.view !== 'rack') this.show(this.view, { preserveFocus: true });
     }
@@ -99,7 +127,7 @@ export class PatchLibrary {
         this.document.querySelectorAll('[data-profile-name]').forEach(node => { node.textContent = this.user ? `By ${this.user.name}` : ''; });
     }
     revealActiveTab() {
-        const tab = this.document.querySelector('.patch-view-tabs [aria-current="page"]');
+        const tab = this.document.querySelector('.patch-view-tabs [aria-current="page"], .patch-site-links [aria-current="page"]');
         if (!tab) return;
         const strip = tab.parentElement, bounds = strip.getBoundingClientRect(), item = tab.getBoundingClientRect();
         // Move only the horizontal tab strip, preserving the rack and gallery scroll positions.
@@ -122,63 +150,7 @@ export class PatchLibrary {
         if (this.view === 'public' || this.view === 'mine') requests.push(this.fetchList(this.view === 'public', this.cursor, { preservePreviews: true }));
         await Promise.allSettled(requests);
     }
-    openProfile() {
-        if (!this.user) return this.signIn();
-        if (this.profileDialog?.isConnected) { this.profileDialog.querySelector('input')?.focus(); return Promise.resolve(false); }
-        const generation = this.accountGeneration, accountId = this.user.id;
-        const currentAccount = () => generation === this.accountGeneration && accountId === this.user?.id;
-        return new Promise(resolve => {
-            const dialog = element(this.document, 'dialog', undefined, 'patch-dialog patch-profile-dialog');
-            const form = element(this.document, 'form');
-            const title = element(this.document, 'h2', 'My profile'); title.id = 'patch-profile-title'; dialog.setAttribute('aria-labelledby', title.id);
-            const label = element(this.document, 'label', 'Public name');
-            const name = element(this.document, 'input'); name.name = 'name'; name.required = true; name.maxLength = 80; name.value = this.user.name;
-            name.autocomplete = 'nickname'; name.setAttribute('aria-label', 'Public name'); name.setAttribute('aria-describedby', 'patch-profile-help'); label.append(name);
-            const help = element(this.document, 'p', 'Shown on all your public patches.'); help.id = 'patch-profile-help';
-            const error = element(this.document, 'p', '', 'patch-dialog-error'); error.hidden = true; error.setAttribute('role', 'alert');
-            const actions = element(this.document, 'div', undefined, 'patch-dialog-actions');
-            let saving = false, closed = false;
-            const finish = result => {
-                if (closed) return; closed = true; dialog.close?.(); dialog.remove();
-                if (this.profileDialog === dialog) { this.profileDialog = null; this.closeProfile = null; }
-                resolve(result);
-            };
-            const cancel = this.button('Cancel', () => { if (!saving) finish(false); });
-            const submit = element(this.document, 'button', 'Save profile', 'primary'); submit.type = 'submit';
-            const setSaving = value => {
-                saving = value; name.disabled = value; submit.disabled = value; cancel.disabled = value;
-                form.setAttribute('aria-busy', String(value));
-            };
-            actions.append(cancel, submit); form.append(title, label, help, error, actions); dialog.append(form);
-            this.profileDialog = dialog; this.closeProfile = () => finish(false);
-            dialog.addEventListener('cancel', event => { event.preventDefault(); if (!saving) finish(false); });
-            form.addEventListener('submit', async event => {
-                event.preventDefault(); if (saving || closed) return;
-                if (!currentAccount()) { finish(false); return; }
-                const publicName = name.value.trim(); error.hidden = true;
-                if (!publicName || publicName.length > 80 || /[\u0000-\u001f\u007f-\u009f\u2028\u2029@]/u.test(publicName)) {
-                    error.textContent = !publicName ? 'Enter a public name.' : publicName.length > 80 ? 'Use 80 characters or fewer.' : publicName.includes('@') ? 'Use a public name without an email address.' : 'Enter a valid public name.';
-                    error.hidden = false; name.focus(); return;
-                }
-                setSaving(true); submit.textContent = 'Saving…';
-                try {
-                    const { user } = await this.cloud.updateProfile(publicName);
-                    if (!currentAccount() || closed) { finish(false); return; }
-                    if (user?.id !== accountId) throw new Error('Your account changed. Close this window and try again.');
-                    this.sessionRequest++; this.user = user; this.updateAccount();
-                    await this.refreshAttribution();
-                    if (!currentAccount() || closed) { finish(false); return; }
-                    finish(true); this.notice('Profile updated.');
-                } catch (failure) {
-                    if (!currentAccount() || closed) { finish(false); return; }
-                    error.textContent = failure.message; error.hidden = false;
-                } finally {
-                    if (!closed) { setSaving(false); submit.textContent = 'Save profile'; }
-                }
-            });
-            this.document.body.append(dialog); dialog.showModal(); name.focus(); name.select();
-        });
-    }
+    openProfile() { return openProfileDialog(this); }
     isDirty() { return snapshot(this.app.host.serializePatch()) !== this.baseline; }
     setActive(record, baseline = snapshot(this.app.host.serializePatch())) {
         this.active = record; this.baseline = baseline;
@@ -186,6 +158,10 @@ export class PatchLibrary {
         this.updateActiveLabel();
     }
     updateDocumentTitle() {
+        if (['docs', 'introduction'].includes(this.view)) {
+            this.document.title = this.content.title || `${this.view === 'docs' ? 'Docs' : 'Introduction'} · Eurorack`;
+            return;
+        }
         const name = this.view === 'rack' ? this.app.getCurrentPatchName() : LIBRARY_VIEWS[this.view][0];
         const title = `${name} · Eurorack`;
         if (this.document.title !== title) this.document.title = title;
@@ -227,6 +203,19 @@ export class PatchLibrary {
         this.writeLocation(this.catalogueLocations[view] || catalogueUrl({ view }, this.window.location.origin));
         this.applyCatalogueLocation();
     }
+    openContent(url) {
+        if (this.view === 'rack') this.rackLocation = this.window.location.href;
+        this.writeLocation(url.href);
+        this.applyContentLocation();
+    }
+    applyContentLocation() {
+        const view = contentView(this.window.location);
+        if (!view) return false;
+        this.loadGeneration++;
+        this.contentLocation = this.window.location.href;
+        this.show(view);
+        return true;
+    }
     navigateCatalogue(changes) {
         const filtersChanged = ['query', 'sort', 'period'].some(key => Object.hasOwn(changes, key));
         const state = { ...this.catalogueState(), ...(filtersChanged ? { cursor: null, localCursor: null } : {}), ...changes };
@@ -247,23 +236,27 @@ export class PatchLibrary {
     }
     show(view, { preserveFocus = false } = {}) {
         this.view = view; this.renderGeneration++; this.observer?.disconnect(); this.previewAbort?.abort();
+        this.listAbort?.abort();
+        const isContent = view === 'docs' || view === 'introduction';
+        if (!isContent) this.content.hide();
         this.updateDocumentTitle();
         this.document.body.classList.toggle('patch-library-open', view !== 'rack');
         const rack = this.document.getElementById('rackView') || this.document.querySelector('.app-container');
         if (rack) rack.hidden = view !== 'rack';
         if (this.app.cableSvg) this.app.cableSvg.style.visibility = view === 'rack' ? '' : 'hidden';
-        this.surface.hidden = view === 'rack';
-        this.document.querySelectorAll('[data-patch-view]').forEach(button => {
-            if (button.dataset.patchView === view) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
+        this.surface.hidden = view === 'rack' || isContent;
+        this.document.querySelectorAll('[data-patch-view], [data-content-view]').forEach(button => {
+            if ((button.dataset.patchView || button.dataset.contentView) === view) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
         });
         this.revealActiveTab();
+        if (isContent) { void this.content.show(this.window.location); return; }
         if (view === 'rack') { requestAnimationFrame(() => this.app.renderAllCables()); return; }
-        if (view === 'public' && this.config.enabled) void this.fetchList(true, this.cursor, { preserveFocus });
-        else if (view === 'mine' && this.user) void this.fetchList(false, this.cursor, { preserveFocus });
+        if (view === 'public' && this.config.enabled && !this.cloudLoading) void this.fetchList(true, this.cursor, { preserveFocus });
+        else if (view === 'mine' && this.user && !this.cloudLoading) void this.fetchList(false, this.cursor, { preserveFocus });
         else this.render({ preserveFocus });
     }
     render({ preserveFocus = true, previewImages } = {}) {
-        if (!this.surface || this.view === 'rack') return;
+        if (!this.surface || !LIBRARY_VIEWS[this.view]) return;
         const focused = preserveFocus && this.surface.contains(this.document.activeElement) ? this.document.activeElement : null;
         const focusName = ['q', 'sort', 'period'].includes(focused?.name) ? focused.name : null;
         const searchDraft = focusName === 'q' ? { value: focused.value, start: focused.selectionStart, end: focused.selectionEnd } : null;
@@ -297,7 +290,7 @@ export class PatchLibrary {
             this.cloudSection('My account', 'account', this.user ? this.query ? 'No matching patches.' : 'No patches saved to your account.' : this.config.enabled ? 'Sign in to save patches across devices.' : 'Account saving is unavailable. Try again later.', previewImages);
         }
         if (this.view === 'public') this.cloudSection('Shared racks', 'public', this.config.enabled ? this.query ? 'No matching patches.' : 'No public patches yet.' : 'Public patches are unavailable. Try again later.', previewImages);
-        this.surface.setAttribute('aria-busy', String(!!this.listLoading[this.view === 'public' ? 'public' : this.view === 'mine' ? 'account' : 'tests']));
+        this.surface.setAttribute('aria-busy', String(!!((this.cloudLoading && ['public', 'mine'].includes(this.view)) || this.listLoading[this.view === 'public' ? 'public' : this.view === 'mine' ? 'account' : 'tests'])));
         const footer = element(this.document, 'footer', undefined, 'patch-library-footer');
         const legal = element(this.document, 'nav'); legal.setAttribute('aria-label', 'Legal');
         legal.append(element(this.document, 'span', 'Eurorack · A modular synthesizer in your browser', 'footer-about'));
@@ -322,11 +315,12 @@ export class PatchLibrary {
     }
     cloudSection(title, list, empty, previewImages) {
         const error = this.listErrors[list];
-        const section = this.section(title, this[`${list}Patches`], this.listLoading[list] ? 'Loading patches…' : error ? 'Could not load patches. Try again.' : empty, this.listPages[list], 'cursor', previewImages);
+        const loading = this.cloudLoading || this.listLoading[list];
+        const section = this.section(title, this[`${list}Patches`], loading ? 'Loading patches…' : error ? 'Could not load patches. Try again.' : empty, this.listPages[list], 'cursor', previewImages);
         if (error) {
             section.append(this.button('Try again', () => this.fetchList(list === 'public')));
             if (this.cursor) section.append(this.pageLink('First page', 'cursor', null));
-        } else if (this.cursor && !this.listLoading[list] && !this[`${list}Patches`].length && (list === 'public' || this.user)) {
+        } else if (this.cursor && !loading && !this[`${list}Patches`].length && (list === 'public' || this.user)) {
             section.append(this.pageLink('First page', 'cursor', null));
         }
     }
@@ -425,7 +419,8 @@ export class PatchLibrary {
         } else { frame.firstChild.textContent = 'Preview unavailable'; }
     }
     async fetchList(publicOnly, cursor = this.cursor, { preserveFocus = true, preservePreviews = false } = {}) {
-        if (!this.config.enabled || (!publicOnly && !this.user)) return;
+        if (this.cloudLoading || !this.config.enabled || (!publicOnly && !this.user)) return;
+        this.listAbort?.abort(); const controller = this.listAbort = new AbortController();
         const generation = this.renderGeneration, account = this.accountGeneration;
         const list = publicOnly ? 'public' : 'account'; const request = ++this.listRequests[list];
         const current = () => generation === this.renderGeneration && account === this.accountGeneration && request === this.listRequests[list];
@@ -441,12 +436,15 @@ export class PatchLibrary {
         });
         this[`${list}Patches`] = []; this.listPages[list] = {}; this.listErrors[list] = null; this.listLoading[list] = true; this.render({ preserveFocus });
         try {
-            const result = await this.cloud.list({ publicOnly, cursor, query: this.query, ...(publicOnly ? { sort: this.sort, period: this.period } : {}) });
+            const result = await this.cloud.list({ publicOnly, cursor, query: this.query, ...(publicOnly ? { sort: this.sort, period: this.period } : {}) }, { signal: controller.signal });
             if (!current()) return;
             this[`${list}Patches`] = result.patches.map(record => ({ ...record, source: 'cloud' }));
             this.listPages[list] = { nextCursor: result.nextCursor, previousCursor: result.previousCursor };
         } catch (error) { if (current() && error.name !== 'AbortError') this.listErrors[list] = error; }
-        finally { if (current()) { this.listLoading[list] = false; this.render({ previewImages }); } }
+        finally {
+            if (this.listAbort === controller) this.listAbort = null;
+            if (current()) { this.listLoading[list] = false; this.render({ previewImages }); }
+        }
     }
     async confirmReplace({ signal } = {}) {
         if (signal?.aborted) return false;
@@ -486,9 +484,17 @@ export class PatchLibrary {
         this.rackLocation = url.href;
         if (this.view === 'rack') this.writeLocation(url.href, history);
     }
+    async openIntroductionDemo(options = {}) {
+        const request = ++this.loadGeneration;
+        const { default: patch } = await import('../config/patches/demo-introduction.js');
+        if (request !== this.loadGeneration) return false;
+        return this.open({ ...patch, source: 'demo', key: 'introduction' }, options);
+    }
     async loadLocation() {
+        if (this.applyContentLocation()) return true;
         if (this.applyCatalogueLocation()) return true;
         const href = this.window.location.href;
+        if (isIntroductionDemoLocation(this.window.location)) return this.openIntroductionDemo({ history: 'replace' });
         if (href === this.rackLocation && this.view !== 'rack') { this.loadGeneration++; this.show('rack'); return true; }
         const location = parsePatchLocation(this.window.location.hash, this.window.location.pathname);
         if (location?.source === 'cloud') {
@@ -528,7 +534,7 @@ export class PatchLibrary {
         if (!fromEditor && record?.source === 'cloud' && !record.state) record = { ...await this.cloud.get(record.id), source: 'cloud' };
         if (generation !== this.accountGeneration) return false;
         const state = clone(stateOverride || (fromEditor ? this.app.host.serializePatch() : record.state));
-        copy = copy || record?.source === 'test' || (record?.source === 'cloud' && !record.canEdit) || (destination === 'cloud' && record?.source === 'local' && !!record.provenance?.parentId);
+        copy = copy || ['test', 'demo'].includes(record?.source) || (record?.source === 'cloud' && !record.canEdit) || (destination === 'cloud' && record?.source === 'local' && !!record.provenance?.parentId);
         const originalName = fromEditor ? this.app.getCurrentPatchName() : record?.name;
         const suggested = `${originalName || 'Untitled'}${copy ? ' (copy)' : ''}`;
         return new Promise(resolve => {

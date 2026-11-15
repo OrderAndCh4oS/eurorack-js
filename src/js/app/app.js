@@ -6,7 +6,7 @@ import {
 } from '../index.js';
 import { CABLE_COLORS } from '../config/constants.js';
 import { TEST_PATCHES } from '../config/test-patches.js';
-import { PatchLibrary } from '../ui/patch-library.js';
+import { PatchLibrary, isIntroductionDemoLocation } from '../ui/patch-library.js';
 import { LocalPatchStore } from '../patches/local-patch-store.js';
 import { parsePatchLocation } from '../patches/cloud-client.js';
 import { createCablePath, getJackCenter } from '../cables/cable-manager.js';
@@ -225,6 +225,7 @@ export class EurorackApp {
         const recovered = await this.patchLibrary?.restoreDraft();
         if (!recovered) {
             if (this.patchLibrary) await this.patchLibrary.run(() => {
+                if (isIntroductionDemoLocation(window.location)) return this.patchLibrary.loadLocation();
                 const location = parsePatchLocation(window.location.hash, window.location.pathname);
                 if (location?.source === 'cloud' || location?.source === 'local') { void this.patchLibrary.run(() => this.patchLibrary.loadLocation()); return; }
                 return this.loadPatchFromUrlHash();

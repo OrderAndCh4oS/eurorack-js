@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>EurorackJS · Modular synthesis</title>
+    <meta name="description" content="Build a modular synth in your browser. Connect modules, make music, save your patches and share them for other people to play and remix.">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="https://eurorackjs.orderandchaos.xyz/introduction">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="EurorackJS · Modular synthesis">
+    <meta property="og:description" content="A modular synthesizer and patch-sharing community. Play in your browser, build with cables or code, and share what you make.">
+    <meta property="og:url" content="https://eurorackjs.orderandchaos.xyz/introduction">
+    <meta property="og:site_name" content="EurorackJS">
+    <meta property="og:locale" content="en_GB">
+    <!-- SOCIAL_IMAGE_TAGS -->
+    <meta name="twitter:title" content="EurorackJS · Modular synthesis">
+    <meta name="twitter:description" content="A modular synthesizer in your browser. Build, play and share your patches.">
+    <link rel="preload" href="/fonts/space-grotesk-bold-latin.24928473.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/patch-library.css">
+    <link rel="stylesheet" href="/site.css">
+    <link rel="stylesheet" href="/marketing.css">
+</head>
+<body class="site-page">
+<a class="site-skip-link" href="#marketing-main">Skip to content</a>
+<!-- SITE_NAVIGATION -->
+<main id="marketing-main" data-content-page data-page-title="EurorackJS · Modular synthesis" class="marketing-page" tabindex="-1">
+    <section class="marketing-hero" aria-labelledby="marketing-title">
+        <div class="marketing-hero-copy">
+            <h1 id="marketing-title">EurorackJS</h1>
+            <p class="marketing-tagline">Modular synthesis</p>
+            <p class="marketing-intro">A free modular synthesizer in your browser. Connect oscillators, sequencers, filters and effects, then play the patch you built.</p>
+            <div class="marketing-actions">
+                <a class="marketing-button marketing-button-primary" href="/">Open the rack <span aria-hidden="true">↗</span></a>
+                <a class="marketing-button" href="/patches">Explore patches <span aria-hidden="true">→</span></a>
+            </div>
+            <p class="marketing-small">No installation or account required.</p>
+        </div>
+        <figure class="marketing-rack">
+            <div class="marketing-rack-label"><span>Demo patch</span><span>{{INTRODUCTION_DEMO_NAME}}</span></div>
+            <a href="{{INTRODUCTION_DEMO_URL}}" data-introduction-demo aria-label="Open the demo patch in the rack">
+                <!-- INTRODUCTION_PREVIEW -->
+            </a>
+            <figcaption>{{INTRODUCTION_DEMO_DESCRIPTION}} <a class="marketing-button marketing-button-primary" href="{{INTRODUCTION_DEMO_URL}}" data-introduction-demo>Open in rack <span aria-hidden="true">→</span></a></figcaption>
+        </figure>
+    </section>
+
+    <div class="marketing-module-strip" aria-label="Module families">
+        <span>Oscillators</span><span>Sequencers</span><span>Modulation</span><span>Filters</span><span>Effects</span><span>MIDI</span>
+    </div>
+
+    <section class="marketing-section" aria-labelledby="marketing-patching-title">
+        <div class="marketing-section-heading">
+            <p class="marketing-eyebrow">01 / Patching</p>
+            <h2 id="marketing-patching-title">Build a patch</h2>
+        </div>
+        <div class="marketing-features">
+            <article>
+                <span class="marketing-step" aria-hidden="true">01</span>
+                <h3>Choose your modules</h3>
+                <p>Start with an oscillator and an output. Add drum voices, sequencers, filters or effects.</p>
+            </article>
+            <article>
+                <span class="marketing-step" aria-hidden="true">02</span>
+                <h3>Connect modules</h3>
+                <p>Connect outputs to inputs with patch cables. Use audio, pitch, gate and modulation signals to control the sound.</p>
+            </article>
+            <article>
+                <span class="marketing-step" aria-hidden="true">03</span>
+                <h3>Test patches</h3>
+                <p>Open a test patch to try a module in context. Use the connection debugger to find disconnected modules and missing routes.</p>
+                <a class="marketing-text-link" href="/patches?view=tests">Browse test patches <span aria-hidden="true">→</span></a>
+            </article>
+        </div>
+    </section>
+
+    <section class="marketing-community" aria-labelledby="marketing-community-title">
+        <div>
+            <p class="marketing-eyebrow">02 / Saved patches</p>
+            <h2 id="marketing-community-title">Save and share patches</h2>
+            <a class="marketing-button marketing-button-primary" href="/patches">Browse public patches <span aria-hidden="true">→</span></a>
+        </div>
+        <div class="marketing-community-details">
+            <article>
+                <h3>Private and public patches</h3>
+                <p>Keep patches in your browser, or sign in with Google to save them to your account. Switch account patches between private and public whenever you choose.</p>
+            </article>
+            <article>
+                <h3>Browse public patches</h3>
+                <p>Browse rack previews, search by name, or see the most popular patches this week. Give someone else's patch a thumbs-up when you like it.</p>
+            </article>
+            <article>
+                <h3>Copy patches</h3>
+                <p>Save a copy to edit. Copies start private and credit the original creator.</p>
+            </article>
+            <article>
+                <h3>Share a patch</h3>
+                <p>Share a link to a public patch. It opens the latest saved version in the rack, with a name, description and rack preview for social posts.</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="marketing-code-section marketing-section" aria-labelledby="marketing-code-title">
+        <div class="marketing-code-copy">
+            <p class="marketing-eyebrow">03 / Code editor</p>
+            <h2 id="marketing-code-title">Patch scripting</h2>
+            <p>Use JavaScript to add modules, set controls and connect cables. Loops and functions let you repeat groups of modules and generate sequences.</p>
+            <p>Validate your code, check the connections, then select Apply to load it. Snapshot converts the current rack into editable code.</p>
+            <a class="marketing-text-link" href="/docs/patch-workbench-guide">Read the patch scripting guide <span aria-hidden="true">→</span></a>
+        </div>
+        <figure class="marketing-code-example">
+            <figcaption>Example / Oscillator and output</figcaption>
+            <pre tabindex="0" aria-label="JavaScript example for a simple oscillator patch"><code><span class="marketing-code-function">patch</span>()
+  .<span class="marketing-code-function">module</span>(<span class="marketing-code-string">'vco'</span>, <span class="marketing-code-string">'osc'</span>, { coarse: <span class="marketing-code-number">0.3</span> })
+  .<span class="marketing-code-function">module</span>(<span class="marketing-code-string">'out'</span>, <span class="marketing-code-string">'main'</span>, { volume: <span class="marketing-code-number">0.65</span> })
+  .<span class="marketing-code-function">connect</span>(<span class="marketing-code-string">'osc.triangle'</span>, <span class="marketing-code-string">'main.L'</span>)
+  .<span class="marketing-code-function">connect</span>(<span class="marketing-code-string">'osc.triangle'</span>, <span class="marketing-code-string">'main.R'</span>)</code></pre>
+            <p>An oscillator connected to both output channels.</p>
+        </figure>
+    </section>
+
+    <section class="marketing-agent" aria-labelledby="marketing-agent-title">
+        <div>
+            <p class="marketing-eyebrow">04 / WebMCP <span class="marketing-status">Experimental</span></p>
+            <h2 id="marketing-agent-title">Browser agents</h2>
+        </div>
+        <div>
+            <p>A compatible browser agent can inspect your rack, discover module controls, write patch code and check connections. It can also apply a validated draft. The code is shown in the editor for you to inspect or edit.</p>
+            <p class="marketing-small">Requires a supported browser and agent connection. You control playback, saving and publishing.</p>
+            <a class="marketing-text-link" href="/docs/webmcp">WebMCP guide <span aria-hidden="true">→</span></a>
+        </div>
+    </section>
+
+    <section class="marketing-final" aria-labelledby="marketing-final-title">
+        <div>
+            <h2 id="marketing-final-title">Get started</h2>
+        </div>
+        <div class="marketing-actions">
+            <a class="marketing-button marketing-button-primary" href="/">Open the rack <span aria-hidden="true">↗</span></a>
+            <a class="marketing-button" href="/docs">Read the docs <span aria-hidden="true">→</span></a>
+        </div>
+    </section>
+    <footer class="marketing-footer">
+        <span>Eurorack JS · By OrderandChaos</span>
+        <nav aria-label="Introduction footer">
+            <a href="https://github.com/OrderAndCh4oS/eurorack-js" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="/privacy-policy">Privacy</a>
+            <a href="/terms-of-service">Terms</a>
+            <a href="mailto:support@orderandchaos.xyz">Contact</a>
+        </nav>
+    </footer>
+</main>
+<script type="module" src="/js/ui/content-page.js"></script>
+</body>
+</html>

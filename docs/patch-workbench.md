@@ -2,7 +2,7 @@
 
 The Patch Workbench is a client-side editor and diagnostic console for building Eurorack patches with JavaScript. A script describes a rack; it does not process audio itself. **Validate** turns the script into a candidate v3 patch and checks it without changing the rack. **Apply** uses that exact candidate, or validates first if the source changed. Random choices are not rerun between Validate and Apply. A changed rack requires validation again.
 
-Evaluation happens in a disposable worker inside an opaque-origin sandbox with a two-second timeout. Network requests, app storage and page access are blocked. There is no main-thread evaluation fallback. Scripts are limited to 64 KiB, 128 modules, 2048 cables and 32 explicitly placed rows; evaluation results are limited to 1 MiB. This boundary has no hard memory quota. Loaded script files are never run automatically.
+Evaluation happens in a disposable worker inside an opaque-origin sandbox with a two-second timeout. Network requests, app storage and page access are blocked. There is no main-thread evaluation fallback. Scripts are limited to 64 KiB, 128 modules and 2048 cables. Explicit placement uses rows 1–32 and indexes 0–127; evaluation results are limited to 1 MiB. This boundary has no hard memory quota. Loaded script files are never run automatically.
 
 Applying changes keeps the open patch's identity, credits and saved baseline. The result remains an unsaved edit; it is not automatically published or saved to your account. Retained drafts expire after 15 minutes, and applying one still uses the existing unsaved-changes confirmation and atomic rack load.
 
@@ -16,24 +16,26 @@ Select **Code** in the main toolbar, or press Ctrl+` on Windows/Linux and Comman
 - The syntax-highlighted patch editor and completion menu.
 - **Snapshot**, **Validate**, and **Apply** controls.
 - A diagnostic log and command input.
-- Guide and Reference links that open the repository Markdown in new tabs.
+- Guide and Reference links to the documentation pages.
 
 The drawer can be resized from its top edge. It switches to a stacked layout on narrow screens. Its controls follow the factory paper, ink and orange palette; the code canvas uses its own syntax colours for readability.
 
 **Debug**, beside Code, shows the same connection checks as validation and highlights affected modules. It follows CV, gate and audio paths, accepts feedback and monitor destinations, and does not flag spare individual jacks. The checks operate at module level; they cannot prove audibility or identify unused internal channels. See [WebMCP tools](webmcp.md) for browser-agent access to the same validation and apply flow.
 
-The first time it opens in a browser session, **Current Rack** contains a source snapshot of the live graphical patch. It is session-only and read-only; typing or saving creates a named local script, so reopening the workbench later in the same session does not replace work in progress.
+The first time it opens after loading the app, **Current Rack** contains a source snapshot of the live graphical patch. It lasts until the page is reloaded. Typing or saving creates a named local script; reopening the drawer does not replace work in progress.
 
 | Shortcut | Action |
 |---|---|
-| Ctrl/Command+S | Save the named script locally, validate, and apply atomically |
-| Ctrl/Command+Enter | Validate and apply |
+| Ctrl/Command+S | Save source locally, then apply the validated patch |
+| Ctrl/Command+Enter | Apply the validated patch; validate first if needed |
 | Ctrl/Command+Shift+Enter | Validate only |
 | Ctrl/Command+Space | Open completion |
 | Tab | Accept a completion, or indent when completion is closed |
 | Arrow Up/Down | Select a completion |
 | Escape | Close completion |
 | Ctrl/Command+` | Toggle the workbench |
+
+Editor shortcuts apply while the code editor has focus. Ctrl/Command+S also works elsewhere in the drawer; the toggle shortcut works throughout the app. Enter also accepts the selected completion.
 
 ## Builder API
 
@@ -109,14 +111,14 @@ Unknown parameters and non-finite values are errors. Values outside panel ranges
 
 Patch source stores canonical numeric values. Completion displays the panel meaning beside each value:
 
-- Knob: declared minimum, maximum, default, and step.
+- Knob: declared minimum, maximum, and default.
 - Named switch: its zero-based position, for example `2 — LP`.
 - Binary switch or toggle: `0 — Off`, `1 — On`.
 - Button bank: one of its declared numeric values.
 - Momentary action: `0 — Released`, `1 — Held`.
 - Trigger action: `0 — Idle`, `1 — Fire on Apply`.
 
-Momentary or trigger values stored as `1` produce a warning because loading the patch may hold or fire the action. Structured values declared through `ui.state` are accepted as JSON-like objects, arrays, strings, booleans, and finite numbers, but deeper completion requires the module to expose a schema in a future contract revision.
+Non-zero momentary or trigger values produce a warning because loading the patch may hold or fire the action. Structured values declared through `ui.state` are accepted as JSON-like objects, arrays, strings, booleans, and finite numbers. Completion offers the default state value; it does not complete nested fields.
 
 <!-- executable-patch -->
 ```javascript
@@ -141,7 +143,7 @@ p.connect({ module: 'osc.main', port: 'ramp' }, { module: 'filter.main', port: '
 
 Outputs may fan out to multiple inputs. Each input may have only one source. A duplicate destination is a validation error. Feedback is legal, but every cable inside a feedback component receives an explicit one-block delay.
 
-Completion knows which argument is the source and destination. Source completion lists outputs; destination completion lists inputs and marks already occupied inputs unavailable. Each entry includes signal type and voltage information from the module contract. Accepting a completion replaces the complete current token, including any text after a caret positioned in the middle of a module type, socket, parameter key, or value.
+For string endpoints, completion lists outputs in the first argument and inputs in the second, marking inputs occupied by scanned or previously validated connections unavailable. Object endpoints also offer module and port names, but do not mark occupied inputs. Each socket entry includes signal type and voltage information from the module contract. Accepting a completion replaces the complete current token, including any text after a caret positioned in the middle of a module type, socket, parameter key, or value. Validation checks the finished graph, including connections that completion could not infer.
 
 ### `.midi(key, mapping)`
 
@@ -153,7 +155,7 @@ p.midi('0:74', { moduleId: 'filter', paramId: 'cutoff', min: 0, max: 1 })
 
 ## JavaScript and Dynamic Patches
 
-Variables, functions, loops, template strings, arrays, and conditionals can generate a patch. Evaluation is synchronous; top-level `await` and module imports are not part of the v1 patch language.
+Variables, functions, loops, template strings, arrays, and conditionals can generate a patch. Evaluation is synchronous; top-level `await` and module imports are not supported.
 
 <!-- executable-patch -->
 ```javascript
@@ -212,21 +214,21 @@ The same pattern works for drum kits, modulation buses, sequencer lanes, effect 
 5. Instantiate temporary DSP modules and compile their routing graph.
 6. Report processing order, feedback delays, and warnings.
 
-**Apply** runs the same validation, loads the candidate through `RackHost.loadPatch()`, waits for AudioWorklet topology acknowledgement, and then rerenders. The host rolls back to the previous patch if activation fails. Apply does not start or stop audio.
+**Apply** reuses the candidate from the last successful validation when its source and selected script are unchanged. Otherwise, it validates first. If the live rack has changed or the candidate has expired, select **Validate** again. Applying loads the candidate through `RackHost.loadPatch()` and, when audio is running, waits for AudioWorklet topology acknowledgement before rerendering. The host rolls back to the previous patch if activation fails. Apply does not start or stop audio.
 
-**Snapshot** replaces the editor with deterministic, consistently spaced code describing the current graphical rack. It emits one module declaration per physical line, rounds numeric values to five decimal places, uses the type-first named overload to preserve every current instance name, and records exact placement, cables, MIDI mappings, structured state, and non-default controls. Manual rack changes remain valid; a drift warning simply means the rack no longer matches the last script Apply. Loading a JavaScript file or reopening a named local script preserves its source whitespace exactly.
+**Snapshot** replaces the editor with consistently formatted code describing the current graphical rack. It emits one module declaration per line, rounds numeric values to five decimal places, preserves current instance names, and records placement, cables, MIDI mappings and non-default parameters, including declared structured state. Running audio buffers and sequencer play positions are not included. Manual rack changes remain valid; a drift warning means the rack no longer matches the last Apply or Snapshot. Loading a JavaScript file or reopening a named local script preserves its source whitespace.
 
 ## Console Commands
 
 | Command | Result |
 |---|---|
-| `:help` | Command summary and documentation links |
+| `:help` | Command summary and documentation URLs |
 | `:modules [filter]` | Registered module types, optionally filtered |
-| `:describe <type-or-instance>` | UI contract and current instance parameters |
+| `:describe <type-or-instance>` | Module UI contract; also parameters when the name identifies a live rack instance |
 | `:rack` | Compact current rack state |
 | `:json` | Pretty canonical v3 patch JSON |
 | `:validate` | Validate the editor |
-| `:apply` | Validate and apply the editor |
+| `:apply` | Apply the validated editor patch; validate first if needed |
 | `:snapshot` | Convert the graphical rack to source |
 | `:profile start` | Enable and reset AudioWorklet timing samples |
 | `:profile stop` | Stop collecting timing samples |
@@ -237,15 +239,15 @@ Profiling requires running audio. Block p99 utilization compares the p99 process
 
 ## Scripts, Patches, and Sharing
 
-Named scripts are autosaved locally in a versioned script bank. **New**, rename, **Delete**, **Load**, and **Copy** operate on source. **Save** immediately persists the selected script and applies it. The session-only Current Rack and bundled Starter Voice are read-only; editing either creates a local copy.
+Named scripts autosave to this browser's local storage after editing. **New**, the name field, **Delete**, **Load**, and **Copy** operate on source; Copy writes it to the clipboard. **Save** immediately saves the selected script locally and attempts to apply it. Source is saved even if validation fails. Current Rack and Starter Voice are templates; editing either creates a local copy. Scripts are not synced to your account.
 
 Scripts and patches remain separate:
 
 - Applying a script creates an ordinary in-memory v3 patch.
-- Main-toolbar Save, Export, and Share controls operate on compiled patch state.
+- Rack **Save** and **Save a copy** store compiled patch state. **Copy snapshot link** captures the current rack; **Copy URL**, when available, links to a saved patch.
 - Workbench Load reads JavaScript source into a new local script but never evaluates it automatically.
-- Workbench Save (or Ctrl/Command+S) saves source locally, validates it, and applies the resulting patch.
-- Shared patch URLs do not embed source code in v1.
+- Workbench Save (or Ctrl/Command+S) saves source locally, then applies the validated patch, validating first if needed.
+- Neither snapshot links nor saved patch URLs include the JavaScript source.
 
 ## Troubleshooting
 
@@ -255,9 +257,9 @@ Scripts and patches remain separate:
 - **Unknown parameter/port:** use completion or `:describe`; panel labels are not always contract IDs.
 - **Script timed out:** remove an infinite or excessively large loop. Evaluation stops after two seconds.
 - **Action fires on Apply:** keep trigger and momentary parameters at `0` unless the side effect is intentional.
-- **Rack drift:** Snapshot to capture graphical edits, or Apply again to restore the script-defined graph.
-- **High p99 utilization:** use `:profile report` to identify expensive modules and simplify the patch.
+- **Rack drift:** Snapshot to capture graphical edits, or Validate then Apply to restore the script-defined graph.
+- **High p99 utilization:** use `:profile start`, let the patch play, then `:profile report` to identify expensive modules and simplify the patch.
 
-## Deliberate v1 Limits
+## Limitations
 
 The workbench does not provide a general JavaScript language server, automatic evaluation while typing, per-port voltage probes, embedded source in patch URLs, asynchronous scripts, or Strudel-style cycle scheduling. Timing and modulation remain the job of rack modules such as CLK, SEQ, LFO, and function generators.

@@ -6,8 +6,8 @@ import { highlightPatchScript } from './syntax-highlighter.js';
 
 export const STARTER_SCRIPT_ID = '__starter__';
 export const CURRENT_RACK_SCRIPT_ID = '__current_rack__';
-export const PATCH_GUIDE_URL = 'https://github.com/OrderAndCh4oS/eurorack-js/blob/main/docs/patch-workbench-guide.md';
-export const PATCH_REFERENCE_URL = 'https://github.com/OrderAndCh4oS/eurorack-js/blob/main/docs/patch-workbench.md';
+export const PATCH_GUIDE_URL = '/docs/patch-workbench-guide';
+export const PATCH_REFERENCE_URL = '/docs/patch-workbench';
 export const STARTER_SCRIPT = `patch()
   .module('vco', 'osc', { coarse: 0.3 })
   .module('out', 'main', { volume: 0.65 })
@@ -109,8 +109,8 @@ export class PatchWorkbench {
                 <button data-action="save" class="primary" title="Save the script locally and apply it (Ctrl/Cmd+S)">Save</button>
                 <input data-role="load-file" type="file" accept="text/javascript,.js,.txt" hidden>
                 <span class="patch-workbench-spacer"></span>
-                <a href="${PATCH_GUIDE_URL}" target="_blank" rel="noopener noreferrer">Guide</a>
-                <a href="${PATCH_REFERENCE_URL}" target="_blank" rel="noopener noreferrer">Reference</a>
+                <a href="${PATCH_GUIDE_URL}">Guide</a>
+                <a href="${PATCH_REFERENCE_URL}">Reference</a>
                 <button data-action="snapshot" title="Replace the editor with a snapshot of the current rack">Snapshot</button>
                 <button data-action="validate" title="Validate without changing the live rack (Ctrl/Cmd+Shift+Enter)">Validate</button>
                 <button data-action="apply" class="primary" title="Validate and apply atomically (Ctrl/Cmd+Enter)">Apply</button>
@@ -209,6 +209,7 @@ export class PatchWorkbench {
     }
 
     toggle(force = this.drawer.hidden) {
+        if (force) this.app.patchLibrary?.navigate('rack');
         if (force && !this.sessionSeeded && !this.sessionHasWork) this.loadCurrentRack();
         this.drawer.hidden = !force;
         this.document.body.classList.toggle('patch-workbench-open', force);
@@ -364,7 +365,6 @@ export class PatchWorkbench {
         const script = this.store.create('Agent patch', source);
         this.refreshScriptList();
         this.loadScript(script.id);
-        this.app.patchLibrary?.show('rack');
         this.toggle(true);
     }
 

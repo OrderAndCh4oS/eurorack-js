@@ -5,7 +5,9 @@
   "framework": null,
   "crons": [{ "path": "/api/internal/cleanup-previews", "schedule": "0 5 * * *" }],
   "headers": [
-    { "source": "/patch-previews/:path*", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
+    { "source": "/social-cards/:file.png", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
+    { "source": "/patch-previews/:path*", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
+    { "source": "/fonts/:file.woff2", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
   ],
   "functions": { "api/index.js": { "maxDuration": 30, "includeFiles": "src/{index.html,js/modules/**}" } },
   "rewrites": [
@@ -13,6 +15,9 @@
     { "source": "/patches/:id/images/:previewId/:variant", "destination": "/api?__path=/patches/:id/images/:previewId/:variant" },
     { "source": "/patches/:id", "destination": "/api?__path=/patches/:id" },
     { "source": "/patches", "destination": "/index.html" },
+    { "source": "/docs", "destination": "/docs/index.html" },
+    { "source": "/docs/:page", "destination": "/docs/:page.html" },
+    { "source": "/introduction", "destination": "/introduction.html" },
     { "source": "/privacy-policy", "destination": "/privacy-policy.html" },
     { "source": "/terms-of-service", "destination": "/terms-of-service.html" }
   ],

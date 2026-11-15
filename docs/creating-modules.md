@@ -4,10 +4,10 @@ This guide takes a module from research through DSP, UI, registration, patches, 
 
 ## Contract at a Glance
 
-A definition is instantiated twice:
+A definition is instantiated on both threads:
 
 - The main thread creates a stable UI mirror.
-- The AudioWorklet creates the production DSP instance.
+- The AudioWorklet creates the production DSP instance when audio starts. Registration also creates a temporary DSP instance to validate its contract.
 
 The **ui** declaration is the public schema. Every DSP-facing parameter and port must be declared there. Visible parameters use controls; patch-persisted values without a control use `ui.state`. Unknown parameters, missing module IDs, non-object parameter groups, non-finite values, invalid ports, and plugin contract mismatches are rejected.
 
@@ -83,14 +83,14 @@ npm test -- tests/dsp/{moduleId}.test.js tests/rack/module-contracts.test.js tes
 When factory patches change:
 
 ~~~bash
-npm test -- tests/config/factory-patches.test.js tests/app/patch-format.test.js
+npm test -- tests/config/patch-catalogs.test.js tests/config/factory-patches.test.js tests/app/patch-format.test.js
 ~~~
 
 Before merge:
 
 ~~~bash
 npm test
-npm run audit:dsp -- --module {moduleId} --matrix
+npm run audit:dsp -- --module {moduleId} --matrix --strict-voltage
 ~~~
 
 ## Tutorial 1: Basic LFO
@@ -309,14 +309,14 @@ Optional fields:
 | diagnostics | Static rack connection checks; may declare terminalInputs. |
 | role | Infrastructure role such as audio-output; ordinary modules omit it. |
 | handleWorkletEvent() | Handles infrequent DSP events on the main thread. |
-| captureRuntimeState() | Captures non-patch state such as loop buffers. |
-| restoreRuntimeState() | Restores captured state into a new DSP instance. |
+| captureRuntimeState(dsp) | Captures non-patch state such as loop buffers. |
+| restoreRuntimeState(dsp, state) | Restores captured state into a new DSP instance. |
 
 For a monitor or recorder that is useful without connecting its pass-through outputs, declare `diagnostics: { terminalInputs: ['audio'] }` using its exact input port names. The debugger accepts a connected terminal input as a destination and follows upstream audio, CV, and trigger paths. A display trigger alone is not a terminal input. These ports must be unique declared inputs; ordinary processors omit this metadata. Speaker outputs use `role: 'audio-output'` instead. Connection checks do not infer whether a patch is audible or require every individual input or output to be used.
 
 ### DSP Instance
 
-createDSP() receives sampleRate, bufferSize, blockSize, services, and audioCtx. It returns:
+`createDSP()` receives `sampleRate`, `bufferSize`, and `blockSize`. The host and processor also supply a `services` object; default it to `{}` because registration-time validation does not supply services. `audioCtx` is always `null`: DSP must not create Web Audio nodes. It returns:
 
 | Member | Contract |
 |---|---|
@@ -328,6 +328,8 @@ createDSP() receives sampleRate, bufferSize, blockSize, services, and audioCtx. 
 | reset() | Expected for stateful modules; restores deterministic initial state. |
 | dispose() | Optional cleanup for DSP-owned resources. |
 | drainEvents() | Optional source of infrequent structured-cloneable events. |
+| onInputConnected(port) | Optional notification when an input becomes connected in the worklet topology. |
+| onInputDisconnected(port) | Optional notification after a disconnected input has been restored to its normal. |
 
 Production DSP runs inside AudioWorkletProcessor. Services such as MIDI arrive through `services`; note and clock events include a `sampleOffset` and are non-destructive for the current block. Allocate during creation, not inside the audio loop, and never fall back to `window` or other browser globals.
 
@@ -437,14 +439,14 @@ socketLayout: {
 
 Socket references must match exact input or output port values. Columns also support label, className, and gridClassName.
 
-For a bespoke panel:
+For a bespoke panel, this renderer assumes `record` is declared as a toggle parameter in `ui`:
 
 ~~~javascript
 telemetry: { fields: [], methods: [] },
 
 render(container, { toolkit, onParamChange, onCleanup }) {
     const button = document.createElement('button');
-    const handleClick = () => onParamChange('record', 1);
+    const handleClick = () => onParamChange('record', button.classList.contains('active') ? 0 : 1);
 
     button.textContent = 'Record';
     button.addEventListener('click', handleClick);
@@ -456,7 +458,7 @@ render(container, { toolkit, onParamChange, onCleanup }) {
 }
 ~~~
 
-Every DSP-facing control, LED, input, and output still belongs in ui. Prefer toolkit createKnob, createSwitch, createButtonBank, createActionButton, createJack, createLED, createCanvas, and animate. Bound toolkit controls forward changes automatically.
+Every DSP-facing control, LED, input, and output still belongs in ui. Prefer toolkit createKnob, createSwitch, createButtonBank, createActionButton, createJack, createLED, createCanvas, and animate. Bound toolkit controls forward changes by default. If you supply a custom `onChange` callback, it must call `onParamChange(param, value)` itself.
 
 The renderer's instance.dsp is the stable main-thread mirror, not the worklet DSP. Read it for displays, but call onParamChange() for audio changes. Use onCleanup() for listeners, observers, timers, and other teardown.
 
@@ -472,7 +474,7 @@ telemetry: {
 }
 ~~~
 
-Params and LEDs always synchronize. Fields are structured-cloned, zero-argument methods become snapshot functions on the mirror, and history sends only appended entries. Keep all telemetry bounded.
+Params and LEDs always synchronize. Fields are structured-cloned and zero-argument methods become snapshot functions on the mirror. History sends the latest entry when its identity changes at a telemetry update; intermediate entries can be skipped. Use it for bounded display history, not lossless capture.
 
 For infrequent transferable results:
 
@@ -506,7 +508,7 @@ Add the module to MODULE_MANIFEST in **src/js/rack/module-manifest.js**:
 
 Manifest order is the deterministic processing-order tie break. Sidebar grouping comes from category.
 
-AudioWorklet imports must be static. Also import the definition in **src/js/rack/core-definitions.js** and add it to CORE_MODULE_DEFINITIONS at the same position. Keep the file's aliases sequential (`m0` through `mN`) with no gaps in either list. The module-contract test rejects ID, order, or alias drift.
+The core AudioWorklet graph uses static imports. Also import the definition in **src/js/rack/core-definitions.js** and add it to CORE_MODULE_DEFINITIONS at the same position. Keep the file's aliases sequential (`m0` through `mN`) with no gaps in either list. The module-contract test rejects ID, order, or alias drift.
 
 Adding or removing a built-in changes the static worklet graph. Bump the matching core graph revision in **audio/worklet-engine.js**, **audio/worklet/processor.js**, and **audio/worklet/core-plugin.js** so an already-cached browser loads the new registry. Revisions use `<date>-<serial>-<digest>`; `<digest>` is the first eight hex characters of SHA-256 over the ordered `alias:import-path:module-id` tuples joined by newlines. The contract test requires all three revisions to match the current graph fingerprint.
 
@@ -542,7 +544,7 @@ globalThis.registerEurorackWorkletPlugin({
 });
 ~~~
 
-The host loads workletUrl only when an active patch declares the plugin. The processor verifies ownership and patchVersion. A plugin cannot unload while one of its module types is live.
+The host loads workletUrl when preparing an audio topology that declares the plugin. The processor verifies ownership and patchVersion. The main-thread registry rejects unregistration while one of the plugin's module types is live; unregistering does not unload code already loaded into an AudioWorklet context.
 
 Patch versions must match exactly. When patchVersion changes, update shipped patches and fixtures; the host does not run migrations.
 
@@ -656,9 +658,8 @@ Reset helper state alongside module state.
 ### Phase, Pitch, and Aliasing
 
 ~~~javascript
-phase = wrapPhase(phase + frequency / sampleRate);
-
 const frequency = baseFrequency * Math.pow(2, vOct + semitones / 12);
+phase = wrapPhase(phase + frequency / sampleRate);
 ~~~
 
 Generate continuous sine waves directly. Naive saw, square, and pulse discontinuities are acceptable for low-frequency control signals, but audio-rate oscillators require `polyBlep()` or another documented anti-aliasing method.

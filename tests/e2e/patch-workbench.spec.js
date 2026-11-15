@@ -28,14 +28,14 @@ test('patch workbench completes sockets, applies atomically, and preserves the r
     const referenceLink = drawer.getByRole('link', { name: 'Reference' });
     await expect(guideLink).toHaveAttribute(
         'href',
-        'https://github.com/OrderAndCh4oS/eurorack-js/blob/main/docs/patch-workbench-guide.md'
+        '/docs/patch-workbench-guide'
     );
     await expect(referenceLink).toHaveAttribute(
         'href',
-        'https://github.com/OrderAndCh4oS/eurorack-js/blob/main/docs/patch-workbench.md'
+        '/docs/patch-workbench'
     );
-    await expect(guideLink).toHaveAttribute('target', '_blank');
-    await expect(referenceLink).toHaveAttribute('target', '_blank');
+    await expect(guideLink).not.toHaveAttribute('target');
+    await expect(referenceLink).not.toHaveAttribute('target');
     await expect(drawer.locator('[data-role="scripts"]')).toHaveValue('__current_rack__');
     await expect(editor).toHaveValue(/^patch\(\)/);
     await expect(drawer.locator('.syntax-function').filter({ hasText: 'patch' }).first()).toBeVisible();

@@ -1,0 +1,41 @@
+/* Shared paper, ink and orange chrome for public pages and in-app reading views. */
+@font-face {
+    font-family: 'Space Grotesk';
+    src: url('/fonts/space-grotesk-bold-latin.24928473.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+}
+:root { --site-paper: #f0eee2; --site-ink: #0b0b09; --site-accent: #ff4a0a; --site-rule: #bdb9ab; --site-font: 'Courier New', Courier, monospace; --site-heading-font: 'Space Grotesk', Arial, sans-serif; }
+.site-page { --library-paper: var(--site-paper); --library-ink: var(--site-ink); --library-line: var(--site-ink); --library-accent: var(--site-accent); margin: 0; padding-top: var(--library-toolbar, 38px); background: var(--site-paper); color: var(--site-ink); font: 15px/1.65 var(--site-font); }
+.site-page *, .content-view * { box-sizing: border-box; }
+.site-page [hidden], .content-view [hidden] { display: none !important; }
+.site-page :focus-visible, .content-view :focus-visible { outline: 3px solid var(--site-accent); outline-offset: 4px; }
+.site-page .patch-navigation :focus-visible { outline-offset: -4px; outline-color: var(--site-ink); }
+.site-page .docs-prose :is(h2, h3, h4) { scroll-margin-top: calc(var(--library-toolbar) + 24px); }
+.site-page .docs-sidebar, .site-page .docs-toc { top: calc(var(--library-toolbar) + 24px); }
+.site-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 20px 24px; border-top: 3px solid var(--site-ink); font-size: 11px; text-transform: uppercase; font-weight: 700; }
+.site-footer p { margin: 0; }
+.site-footer nav { display: flex; flex-wrap: wrap; gap: 18px; }
+.site-footer a { color: inherit; text-underline-offset: 3px; }
+.site-skip-link { position: absolute; z-index: 1000; top: -80px; left: 16px; padding: 8px 14px; color: var(--site-ink); background: var(--site-accent); }
+.site-skip-link:focus { top: 8px; }
+.content-view { position: fixed; inset: var(--library-toolbar, 38px) 0 0; overflow-y: auto; z-index: 100; color: var(--site-ink); background: var(--site-paper); font: 15px/1.65 var(--site-font); }
+.content-view *, .content-view *::before, .content-view *::after { user-select: text; }
+.content-status { margin: 48px 24px; }
+.content-status h1 { font-size: 22px; margin: 0 0 20px; }
+.content-status button { padding: 8px 12px; font: inherit; color: inherit; border: 2px solid var(--site-ink); background: var(--site-accent); cursor: pointer; }
+.patch-site-links { display: flex; flex: 0 1 auto; align-items: center; gap: 4px; margin-left: auto; min-width: 0; height: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.patch-site-links a { flex: 0 0 auto; padding: 0 9px; min-height: 28px; border: 2px solid var(--library-line); color: var(--library-ink); background: var(--library-paper); font: 900 10px/1 'Courier New', Courier, monospace; text-transform: uppercase; white-space: nowrap; text-decoration: none; }
+.patch-navigation :is(button, a) { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; height: 28px; padding-block: 0; line-height: 1; text-align: center; }
+.patch-site-links a:hover, .patch-site-links a[aria-current="page"] { background: var(--library-accent); }
+.patch-site-links a:focus-visible { outline: 3px solid var(--library-ink); outline-offset: -4px; }
+body.patch-library-open #patch-workbench, body.patch-library-open #rack-debugger { display: none; }
+@media (max-width: 1500px) { .patch-site-links a { padding-inline: 6px; } }
+@media (max-width: 600px) {
+    .site-footer { padding: 20px 16px; }
+}
+@media print {
+    .site-page { padding-top: 0; }
+    .site-page .patch-navigation, .site-page .patch-notice { display: none; }
+}

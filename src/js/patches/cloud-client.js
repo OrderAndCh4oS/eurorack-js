@@ -36,6 +36,20 @@ export function parsePatchLocation(hash, pathname = '') {
 export class CloudError extends Error {
     constructor(message, status, code) { super(message); this.name = 'CloudError'; this.status = status; this.code = code; }
 }
+const READ_TIMEOUT_MS = 15000;
+const READ_RETRY_DELAYS = [500, 1500];
+const aborted = signal => signal.reason || new DOMException('The request was cancelled.', 'AbortError');
+const transientReadError = error => error.name === 'TypeError' ||
+    (error instanceof CloudError && error.code !== 'cloud_not_configured' &&
+        (error.status === 408 || error.status >= 500 && error.status < 600));
+function waitForRetry(delay, signal) {
+    return new Promise((resolve, reject) => {
+        if (signal.aborted) { reject(aborted(signal)); return; }
+        const onAbort = () => { clearTimeout(timer); reject(aborted(signal)); };
+        const timer = setTimeout(() => { signal.removeEventListener('abort', onAbort); resolve(); }, delay);
+        signal.addEventListener('abort', onAbort, { once: true });
+    });
+}
 export class CloudClient {
     constructor({ fetch = globalThis.fetch?.bind(globalThis), vendorLoader = loadCloudVendor } = {}) {
         this.fetch = fetch; this.vendorLoader = vendorLoader; this.pending = new Set();
@@ -47,11 +61,34 @@ export class CloudClient {
         if (signal?.aborted) controller.abort();
         const multipart = typeof FormData !== 'undefined' && body instanceof FormData;
         try {
-            const response = await this.fetch(path, { method, credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
-                ...(body === undefined ? {} : { headers: multipart ? {} : { 'Content-Type': 'application/json' }, body: multipart ? body : JSON.stringify(body) }) });
-            let data; try { data = await response.json(); } catch { throw new CloudError('Saved patches are unavailable. Try again later.', response.status, 'unavailable'); }
-            if (!response.ok) throw new CloudError(data.error?.message || 'The request could not be completed.', response.status, data.error?.code);
-            return data;
+            // Retry only reads: a failed save may already have reached the server.
+            // Keep one operation registered through backoff so cancel() also stops
+            // a retry that has not yet sent its next request.
+            for (let attempt = 0; ; attempt++) {
+                if (controller.signal.aborted) throw aborted(controller.signal);
+                const attemptController = new AbortController(); let timedOut = false;
+                const cancelAttempt = () => attemptController.abort();
+                controller.signal.addEventListener('abort', cancelAttempt, { once: true });
+                const timer = method === 'GET' ? setTimeout(() => { timedOut = true; attemptController.abort(); }, READ_TIMEOUT_MS) : null;
+                try {
+                    const response = await this.fetch(path, { method, credentials: 'same-origin', cache: 'no-store', signal: attemptController.signal,
+                        ...(body === undefined ? {} : { headers: multipart ? {} : { 'Content-Type': 'application/json' }, body: multipart ? body : JSON.stringify(body) }) });
+                    let data; try { data = await response.json(); } catch (error) {
+                        if (attemptController.signal.aborted) throw error;
+                        throw new CloudError('Saved patches are unavailable. Try again later.', response.status, 'unavailable');
+                    }
+                    if (controller.signal.aborted) throw aborted(controller.signal);
+                    if (!response.ok) throw new CloudError(data.error?.message || 'The request could not be completed.', response.status, data.error?.code);
+                    return data;
+                } catch (error) {
+                    if (controller.signal.aborted) throw aborted(controller.signal);
+                    if (timedOut) error = new CloudError('Saved patches are taking too long to respond. Try again.', 408, 'request_timeout');
+                    if (method !== 'GET' || attempt >= READ_RETRY_DELAYS.length || !transientReadError(error)) throw error;
+                } finally {
+                    clearTimeout(timer); controller.signal.removeEventListener('abort', cancelAttempt);
+                }
+                await waitForRetry(READ_RETRY_DELAYS[attempt], controller.signal);
+            }
         } finally { this.pending.delete(controller); signal?.removeEventListener('abort', abort); }
     }
     async configuration() {
@@ -60,10 +97,10 @@ export class CloudClient {
     }
     me() { return this.request('/api/me'); }
     updateProfile(name) { return this.request('/api/me', { method: 'PATCH', body: { name } }); }
-    list({ publicOnly = false, cursor, query = '', sort = 'newest', period = 'all' } = {}) {
+    list({ publicOnly = false, cursor, query = '', sort = 'newest', period = 'all' } = {}, { signal } = {}) {
         const params = new URLSearchParams(); if (cursor) params.set('cursor', cursor); if (query) params.set('q', query);
         if (publicOnly) { params.set('sort', sort); params.set('period', period); }
-        return this.request(`/api/${publicOnly ? 'public-patches' : 'patches'}?${params}`);
+        return this.request(`/api/${publicOnly ? 'public-patches' : 'patches'}?${params}`, { signal });
     }
     get(id) { return this.request(`/api/patches/${id}`); }
     create(body) { return this.request('/api/patches', { method: 'POST', body }); }

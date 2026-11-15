@@ -17,7 +17,7 @@ EurorackApp (DOM and user interaction)
             └── Compiled signal graph
 ```
 
-`RackHost` is the only production owner of module lifecycle, parameters, patch loading, cables, runtime state, and audio activation. `EurorackApp` renders DOM and delegates mutations to the host. The old `createRack()` and `setupRack()` public runtime no longer exist.
+`RackHost` owns module lifecycle, parameters, patch loading, cables, runtime state, and audio activation. `EurorackApp` renders DOM and delegates these operations to the host; it also updates row layout and module positions through `RackState`. Use the public `createRackHost()` API when embedding the instrument.
 
 Audio requires `AudioWorklet` in a secure context. There is no ScriptProcessor, timer-based fallback, or duplicate main-thread DSP engine.
 
@@ -34,7 +34,7 @@ Worklet topology activation is atomic: a compilation failure leaves the previous
 
 ## Module Instances
 
-Each live rack module has two instances:
+Each rack module has a main-thread instance, and a second instance while audio is running:
 
 - **UI mirror**: created on the main thread as soon as the module enters `RackState`. Its identity remains stable before, during, and after audio playback. Custom renderers capture this instance.
 - **DSP instance**: created inside `EurorackProcessor`. It alone processes routed voltage buffers and produces sound.
@@ -61,7 +61,7 @@ The main-thread manifest is:
 
 Register it with `registerPlugin(manifest)`. A plugin cannot be unregistered while a live `RackHost` contains one of its module types.
 
-The worklet URL is loaded only when an active patch declares that plugin. It must register matching ownership and patch contracts:
+The audio engine loads a plugin's worklet URL when preparing a topology that declares it. It must register matching ownership and patch contracts:
 
 ```javascript
 globalThis.registerEurorackWorkletPlugin({
@@ -74,7 +74,7 @@ globalThis.registerEurorackWorkletPlugin({
 
 The processor rejects a topology when its plugin is missing, its patch contract differs, or a module resolves to a different owner.
 
-Core modules have two registration lists because worklets require static imports:
+Core modules have two registration lists so the worklet graph can use static imports:
 
 - `rack/module-manifest.js`: lazy main-thread imports and deterministic default order.
 - `rack/core-definitions.js`: static worklet imports in the same order.
@@ -107,6 +107,7 @@ export default {
     },
 
     ui: {
+        leds: ['active'],
         knobs: [{ id: 'gain', label: 'Gain', param: 'gain', min: 0, max: 1, default: 0.5 }],
         state: [],
         inputs: [{
@@ -151,7 +152,7 @@ telemetry: {
 - `params` and `leds` are always synchronized.
 - `fields` are structured-cloned snapshots and must stay bounded.
 - `methods` are evaluated in the worklet; the mirror exposes a zero-argument function returning the latest result.
-- `history` sends only new entries and maintains a bounded mirror-side history.
+- `history` sends the latest entry when its identity changes and maintains a bounded mirror-side history. Entries produced between telemetry updates can be skipped; this is a display feed, not a complete recording.
 
 Custom controls must call `onParamChange()`. Writing directly to `instance.dsp` only changes the mirror and cannot control audio. Display code may read the mirror, but must tolerate telemetry latency.
 
@@ -183,13 +184,13 @@ Topology activation validates every module, endpoint, direction, and block buffe
 
 Routing rules:
 
-- One source per input. Creating a new cable to an occupied input replaces the prior cable.
+- One source per input. Creating or moving a cable to an occupied input is rejected and leaves the existing connections intact.
 - One output may fan out to any number of inputs.
 - Imported patches with duplicate destinations are rejected rather than silently rewritten.
-- Sources process before destinations using a topological ordering.
+- Sources process before destinations outside feedback components, using a topological ordering.
 - Manifest order, rack order, then instance ID provide deterministic tie breaks.
 - Every edge inside a feedback strongly connected component uses an explicit one-block delay, including self-feedback.
-- Removing a cable immediately restores the destination's declared normal voltage.
+- Removing a cable restores the destination's declared normal voltage when the replacement worklet topology activates.
 - Cable endpoint moves are transactional: clicks, Escape, focus loss, and incompatible-jack drops restore the original connection; a valid drop commits the move, while an actual drag to empty space explicitly removes it.
 - Dragging a connected socket moves that cable end. Shift-drag starts an additional cable from a connected socket, while repeated Ctrl/Command drags cycle through cables sharing that socket. Outputs may fan out, but an occupied input rejects another cable and preserves both existing connections.
 - Valid endpoint moves replace the cable in rack state atomically and publish one topology revision, so the running AudioWorklet never receives a disconnected intermediate patch.
@@ -205,9 +206,10 @@ Canonical patch state is:
 ```javascript
 {
     version: 3,
-    plugins: { core: 1, 'my-plugin': 2 },
+    plugins: { core: 1 },
     modules: [
-        { id: 'osc_1', type: 'vco', row: 1, index: 0 }
+        { id: 'osc_1', type: 'vco', row: 1, index: 0 },
+        { id: 'out_1', type: 'out', row: 1, index: 1 }
     ],
     params: {
         osc_1: { coarse: 0.35 }
@@ -225,7 +227,7 @@ Only schema version 3 is accepted. Every parameter group must name an existing m
 
 Bulk runtime state such as Looper audio buffers and CV Recorder lane buffers is separate from persisted patch state. `RackHost` captures supported state when audio stops, retains it with the live module state, and supplies it when the corresponding worklet DSP instance is recreated. Patch serialization and shared URLs exclude this data.
 
-Topology acknowledgements and runtime-state requests have a five-second timeout. Processor failure or shutdown rejects and clears all pending requests. Runtime-state capture failure is reported but cannot prevent audio shutdown.
+Topology acknowledgements and runtime-state requests have a five-second timeout by default, configurable through `requestTimeoutMs`. Processor failure or shutdown rejects and clears all pending requests. Runtime-state capture failure is reported but cannot prevent audio shutdown.
 
 ## MIDI and Output
 
@@ -263,7 +265,8 @@ Modules marked `role: 'audio-output'` are worklet sinks. The processor routes th
 | `src/js/config/patches/` | Retained test and musical example source files |
 | `src/js/config/test-patches.js` | Standalone catalogue for the Test patches view; imports no archived examples |
 | `src/js/config/patches/index.js` | Archived musical examples and complete factory regression aggregate |
-| `archive/demo-patches/` | Importable JSON collection and source index for musical examples retained for later use |
+| `src/js/config/factory-patches.js` | Re-exports test and archive catalogues for regression checks and archive tooling |
+| `archive/demo-patches/` | JSON collection and source index for musical examples retained outside the app catalogue |
 | `src/js/index.js` | Public host, plugin, contract, renderer, toolkit, and utility exports |
 | `tests/dsp/` | Focused module behavior and voltage-contract tests |
 | `tests/audio/` | Graph and AudioWorklet integration tests |

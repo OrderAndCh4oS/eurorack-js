@@ -21,7 +21,8 @@ body.patch-library-open #toolbar { display: none; }
 body .app-container, body.skin-factory .app-container { margin-top: calc(var(--library-toolbar) * 2); height: calc(100vh - var(--library-toolbar) * 2); }
 .patch-library { position: fixed; inset: var(--library-toolbar) 0 0; overflow-y: auto; z-index: 100; padding: 0 24px 40px; }
 .patch-library-header { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding: 26px 0 22px; border-bottom: 3px solid var(--library-line); }
-.patch-library h1 { font-size: clamp(25px, 4vw, 42px); line-height: 1; font-weight: 900; text-transform: uppercase; letter-spacing: -1px; }
+.patch-library :is(h1, h2, h3) { font-family: var(--site-heading-font, 'Space Grotesk', Arial, sans-serif); font-weight: 700; font-synthesis: none; letter-spacing: 0; }
+.patch-library h1 { font-size: clamp(25px, 4vw, 42px); line-height: 1; text-transform: uppercase; }
 .patch-library-kicker { font-size: 11px; font-weight: 900; text-transform: uppercase; margin-bottom: 10px; }
 .patch-library-intro { max-width: 620px; margin-top: 12px; font-size: 13px; }
 .patch-library-controls { display: grid; gap: 10px; flex: 0 1 430px; min-width: 260px; }

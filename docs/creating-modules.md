@@ -548,6 +548,18 @@ The host loads workletUrl when preparing an audio topology that declares the plu
 
 Patch versions must match exactly. When patchVersion changes, update shipped patches and fixtures; the host does not run migrations.
 
+### Saving and Sharing Custom Modules
+
+Registering a trusted plugin makes its modules available in that browser context. It does not publish the plugin or make it available to other browsers.
+
+Account saves currently accept only built-in modules, for both private and public patches. The preview renderer also starts with its own core registry. A locally registered plugin therefore cannot yet be saved to an account, rendered in a cloud preview, or opened by another visitor without separately installing its definitions.
+
+Version 3 patches record plugin IDs and patch contract versions, not plugin source or exact package releases. A local save or snapshot link does not bundle the missing code.
+
+The proposed solution is an approved catalogue of immutable plugin releases, shared metadata contracts for server validation, and a dependency loader used by both the rack and preview renderer. Each saved patch would refer to an exact release. Automatically publishing arbitrary generated JavaScript needs a separate restricted runtime; the current plugin API is trusted code.
+
+See the [custom module sharing plan](custom-module-sharing-plan.md) for the implementation sequence and acceptance checks. This is planned work, not a current WebMCP capability.
+
 ## Factory Patches
 
 Factory patches use strict schema version 3:

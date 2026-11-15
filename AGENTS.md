@@ -78,6 +78,8 @@ Production processing order is compiled in the AudioWorklet by `compileGraph()`:
 
 ## Researching a Module
 
+Read [Codebase Architecture and Schemas](docs/architecture.md) first, then [Creating Modules](docs/creating-modules.md) before developing or changing a module type. These guides define thread ownership, DSP/UI contracts, registration and validation; use them alongside the module's research notes.
+
 Before writing DSP or UI, create or update `research/modules/{moduleId}.md`. Do not rely on memory or a single product listing.
 
 1. Find primary sources first: official manufacturer page, manual/PDF, firmware/source code when available, official calibration or hidden-mode notes, product announcements, press releases, and archived product pages.

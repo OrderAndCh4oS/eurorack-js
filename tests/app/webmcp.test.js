@@ -46,6 +46,19 @@ describe('Eurorack WebMCP tools', () => {
         expect(workbench.applyDraft).toHaveBeenCalledOnce();
     });
 
+    it('includes module development guides in catalogue and contract responses', async () => {
+        const {tools} = fixture();
+        const catalogue = await tools.describe_modules.execute({});
+        const details = await tools.describe_modules.execute({types: ['vco']});
+        expect(catalogue.documentation).toEqual({
+            architecture: '/docs/architecture',
+            creatingModules: '/docs/creating-modules'
+        });
+        expect(details.documentation).toEqual(catalogue.documentation);
+        catalogue.documentation.architecture = '/changed';
+        expect((await tools.describe_modules.execute({})).documentation).toEqual(details.documentation);
+    });
+
     it('rejects stale reads, unknown module IDs, malformed arguments and unexpected fields', async () => {
         const {tools, workbench} = fixture();
         expect(await tools.validate_script.execute({source:'patch()',expectedRevision:2})).toMatchObject({ok:false,error:{code:'rack-changed'}});

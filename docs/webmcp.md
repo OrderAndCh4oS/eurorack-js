@@ -32,6 +32,12 @@ A useful first request is:
 
 Sound reaches the speakers through an **OUT** module. The nominal voltage standards are ±5 V for audio, 1 V/octave for pitch, and 0/10 V for gates. For a step-by-step code example, see [Write your first patch](patch-workbench-guide.md).
 
+## Develop a module
+
+Before developing or changing a module type, read [Codebase Architecture and Schemas](architecture.md) first, then [Creating Modules](creating-modules.md). These guides cover thread ownership, DSP and UI contracts, trusted plugin registration, research and testing. Repository agents must also follow `AGENTS.md` and consult the module's `research/modules/{moduleId}.md`.
+
+The current WebMCP tools compose modules that are already registered. They do not create or register new DSP code. Use `describe_modules` for existing types' exact contracts; its `documentation` field links to both development guides, relative to the current site's origin.
+
 ## Tool reference
 
 All five tools take a JSON object. Use `{}` for tools with no arguments. Extra or unknown fields are rejected.
@@ -39,8 +45,8 @@ All five tools take a JSON object. Use `{}` for tools with no arguments. Extra o
 | Tool | Input | Success result, alongside `ok: true` |
 | --- | --- | --- |
 | `get_rack` | `{}` | Current v3 `patch`, equivalent JavaScript `source`, `revision`, and `diagnostics` |
-| `describe_modules` | `{}` | `modules`: the catalogue of IDs, names, categories and widths in HP |
-| `describe_modules` | `{ "types": ["vco", "out"] }` | `modules` with exact input/output ports and parameter contracts for 1–12 distinct known types |
+| `describe_modules` | `{}` | `modules`: the catalogue of IDs, names, categories and widths in HP; `documentation`: development guide links |
+| `describe_modules` | `{ "types": ["vco", "out"] }` | `modules` with exact input/output ports and parameter contracts for 1–12 distinct known types; `documentation`: development guide links |
 | `validate_script` | `{ "source": "patch()…", "expectedRevision": 1 }` | `draftId`, compiled `patch`, `diagnostics`, `revision`, and `expiresAt` |
 | `apply_draft` | `{ "draftId": "…" }` | `applied: true`, or `applied: false` if you cancel the confirmation |
 | `debug_rack` | `{}` | Current `revision`, `moduleCount`, `cableCount`, and structured `issues` |

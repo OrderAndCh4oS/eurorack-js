@@ -38,6 +38,8 @@ Before developing or changing a module type, read [Codebase Architecture and Sch
 
 The current WebMCP tools compose modules that are already registered. They do not create or register new DSP code. Use `describe_modules` for existing types' exact contracts; its `documentation` field links to both development guides, relative to the current site's origin.
 
+The hosted app accepts built-in modules only. Agents developing new modules should follow the [contribution workflow](creating-modules.md#contribute-a-module): research, implement and test locally, then prepare a [GitHub pull request](https://github.com/OrderAndCh4oS/eurorack-js/pulls) for maintainer review. A module becomes available for account and public patches after merge and deployment. User-submitted module JavaScript is not accepted through WebMCP or patch saves. Patch scripts that compose existing modules remain supported.
+
 ## Tool reference
 
 All five tools take a JSON object. Use `{}` for tools with no arguments. Extra or unknown fields are rejected.

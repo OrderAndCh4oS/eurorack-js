@@ -200,6 +200,8 @@ When the core module graph changes, bump the same worklet graph revision in `aud
 
 External trusted modules use `registerPlugin(manifest)` instead of editing core lists. A plugin provides `id`, `name`, package `version`, `apiVersion`, `patchVersion`, `workletUrl`, and `modules`. Its worklet file must call `globalThis.registerEurorackWorkletPlugin()` with matching ownership and patch versions. See `docs/architecture.md` and `docs/creating-modules.md`.
 
+The hosted app accepts built-in modules only; account saves and public patches must reject user-submitted module JavaScript and external plugin dependencies. The trusted plugin API remains for local development and embedding. Follow [Contribute a module](docs/creating-modules.md#contribute-a-module): research and test locally, including real browser/audio checks, then submit a [GitHub PR](https://github.com/OrderAndCh4oS/eurorack-js/pulls). Maintainer review, merge and deployment are required before a module is available in hosted patches. Do not build an uploaded plugin catalogue or bypass validation to publish a local module. Passing tests does not replace code review.
+
 Update documentation:
 - Add to `AGENTS.md` available modules list
 - Add to `README.md` module table

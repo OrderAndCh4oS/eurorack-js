@@ -2,6 +2,8 @@
 
 This guide takes a module from research through DSP, UI, registration, patches, and tests. It covers built-in modules and trusted plugins. Read [Codebase Architecture and Schemas](architecture.md) first for thread ownership and routing.
 
+The hosted app accepts built-in modules only. To contribute a new module, develop and test it locally, then submit a [GitHub pull request](https://github.com/OrderAndCh4oS/eurorack-js/pulls). It becomes available for account saves and public patches after maintainer review, merge and deployment. See [Contribute a module](#contribute-a-module).
+
 ## Contract at a Glance
 
 A definition is instantiated on both threads:
@@ -514,7 +516,7 @@ Adding or removing a built-in changes the static worklet graph. Bump the matchin
 
 ### Trusted Plugins
 
-Plugins are trusted JavaScript, not sandboxed extensions. Main-thread registration is atomic:
+The trusted plugin API remains available for local development and embedding. It is not a module upload or installation feature in the hosted app. Plugins are trusted JavaScript, not sandboxed extensions. Main-thread registration is atomic:
 
 ~~~javascript
 import { registerPlugin } from './js/index.js';
@@ -552,13 +554,21 @@ Patch versions must match exactly. When patchVersion changes, update shipped pat
 
 Registering a trusted plugin makes its modules available in that browser context. It does not publish the plugin or make it available to other browsers.
 
-Account saves currently accept only built-in modules, for both private and public patches. The preview renderer also starts with its own core registry. A locally registered plugin therefore cannot yet be saved to an account, rendered in a cloud preview, or opened by another visitor without separately installing its definitions.
+The hosted app accepts only built-in modules, including private account saves, public patches and cloud previews. User-submitted module JavaScript and external plugin dependencies are rejected. This is a deliberate boundary, not a missing dependency loader.
 
 Version 3 patches record plugin IDs and patch contract versions, not plugin source or exact package releases. A local save or snapshot link does not bundle the missing code.
 
-The proposed solution is an approved catalogue of immutable plugin releases, shared metadata contracts for server validation, and a dependency loader used by both the rack and preview renderer. Each saved patch would refer to an exact release. Automatically publishing arbitrary generated JavaScript needs a separate restricted runtime; the current plugin API is trusted code.
+New modules reach the hosted app through the contribution workflow below. There is no uploaded plugin catalogue or self-service module publication. The [custom module sharing decision](custom-module-sharing-plan.md) records this boundary.
 
-See the [custom module sharing plan](custom-module-sharing-plan.md) for the implementation sequence and acceptance checks. This is planned work, not a current WebMCP capability.
+## Contribute a module
+
+1. Follow [Research Before Implementation](#research-before-implementation) and the [Queue and Worktree Workflow](#queue-and-worktree-workflow). Keep the panel contract, voltage behavior, DSP choices and assumptions in `research/modules/{moduleId}.md`.
+2. Write focused DSP tests before implementation. Add the module, built-in registration, worklet graph revision, a useful test patch and documentation using this guide. A local plugin prototype must be integrated as a built-in before it can ship in the hosted app.
+3. Run the focused DSP, module-contract and queue tests listed above, plus the patch tests when fixtures change. Run `npm run audit:dsp -- --module {moduleId} --matrix --strict-voltage` and `npm test`. Include the results and any known limitations in the PR.
+4. Test in the local browser rack with real AudioWorklet playback. Check controls, displays, cable connection/disconnection, reset and audio start/stop. Listen at default settings and parameter extremes, check modulation and pitch behavior where relevant, and reload the test patch. Report the browser used, audible artifacts, CPU concerns and checks performed.
+5. Submit a [GitHub pull request](https://github.com/OrderAndCh4oS/eurorack-js/pulls) containing the source, cited research, tests, test patch and documentation. Maintainers review the implementation, dependencies, sound and runtime behavior. Passing tests supports that review; it does not prove that submitted code is safe or ready to ship.
+
+After maintainer approval, merge and deployment, the module is built into the hosted app and can be used in account and public patches. A PR alone does not make a local module available to other users.
 
 ## Factory Patches
 

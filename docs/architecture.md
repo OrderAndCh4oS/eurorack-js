@@ -45,6 +45,8 @@ Parameter changes are validated against the module's declared UI control and sta
 
 Plugins are trusted JavaScript, not sandboxed extensions. Registration is atomic: all definitions validate before any module becomes visible. Plugin IDs and module IDs cannot collide.
 
+This API supports local development and embedding. Hosted account and public patches accept built-in modules only. New modules must be tested locally and [submitted through a GitHub PR](creating-modules.md#contribute-a-module), then reviewed, merged and deployed before hosted use.
+
 The main-thread manifest is:
 
 ```javascript

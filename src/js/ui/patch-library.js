@@ -572,6 +572,11 @@ export class PatchLibrary {
                     } else {
                         assertAccount();
                         if (!this.user) throw new Error('Sign in to save to your account.');
+                        // Reject before capture: the separate preview frame cannot load
+                        // development plugins, and account storage only accepts core.
+                        if (Object.keys(state.plugins).some(plugin => plugin !== 'core')) {
+                            throw new Error('Only built-in modules can be saved to an account. Submit tested modules through a GitHub pull request.');
+                        }
                         const fingerprint = snapshot(fields);
                         if (!attempt || attempt.fingerprint !== fingerprint) attempt = { fingerprint, requestId: await this.createId() };
                         let forkSource = copy && record?.source === 'cloud' ? record : null;

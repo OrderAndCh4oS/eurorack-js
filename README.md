@@ -320,7 +320,11 @@ export default {
 
 The `ui` declaration is the public parameter and port schema. The DSP keeps its phase private, fills the same output buffer every block, and scales the waveform to the declared ±5V range. `reset()` restores both internal state and observable outputs deterministically.
 
-Built-in modules are registered in `src/js/rack/module-manifest.js`. External trusted modules are installed as plugins with `registerPlugin(manifest)` and must provide both their main-thread definitions and a worklet entry point. See the module creation guide for the manifest contract.
+Built-in modules are registered in `src/js/rack/module-manifest.js`. The hosted app accepts built-in modules only, including private account saves and public patches. It does not accept uploaded module JavaScript or external plugin dependencies.
+
+To contribute a module, follow [Creating Modules](docs/creating-modules.md#contribute-a-module): research, implement and test locally, then submit a [GitHub pull request](https://github.com/OrderAndCh4oS/eurorack-js/pulls). Modules become available in the hosted app after maintainer review, merge and deployment.
+
+The trusted `registerPlugin(manifest)` API remains available for local development and embedding. Plugins provide main-thread definitions and a worklet entry point; the module creation guide documents that contract.
 
 Built-ins must also be statically imported by `src/js/rack/core-definitions.js`; contract tests keep its order aligned with the manifest.
 

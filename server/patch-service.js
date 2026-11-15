@@ -1,5 +1,5 @@
 import { ulid } from 'ulid';
-import { LIMITS, assert, id, revision, hash, textField, publicName, visibility, validateState, HttpError } from './validation.js';
+import { LIMITS, assert, assertBuiltInModules, id, revision, hash, textField, publicName, visibility, validateState, HttpError } from './validation.js';
 import { rasterVariants } from './image-store.js';
 import { cataloguePage } from './catalogue-pagination.js';
 import { createImageByteCache } from './image-byte-cache.js';
@@ -192,7 +192,10 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 const patch = owned(await tx.getPatch(patchId), user); current(patch, body.expectedRevision);
                 const nextVisibility = visibility(body.visibility);
                 assert(nextVisibility !== 'public' || (!patch.requiresSaveBeforePublish && (!patch.parentId || patch.savedAfterCopyAt)), 'Save this copy again before making it public.', 409, 'copy_needs_save');
-                if (nextVisibility === 'public') await previewFor(tx, patch.previewId, user, patch.stateHash, true);
+                if (nextVisibility === 'public') {
+                    assertBuiltInModules(patch.state, contracts);
+                    await previewFor(tx, patch.previewId, user, patch.stateHash, true);
+                }
                 await rate(tx, user, 'write', 30);
                 const time = timestamp();
                 const next = { ...patch, visibility: nextVisibility, revision: patch.revision + 1, updatedAt: time,
@@ -218,6 +221,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 const source = accessible(await tx.getPatch(sourceId), user); current(source, body.expectedRevision);
                 await rate(tx, user, 'write', 30);
                 const validated = edited || { state: source.state, stateHash: source.stateHash, stateBytes: source.stateBytes };
+                assertBuiltInModules(validated.state, contracts);
                 await quota(tx, user, validated.stateBytes, 0, true);
                 let preview = null;
                 if (body.previewId) preview = await previewFor(tx, body.previewId, user, validated.stateHash, false);

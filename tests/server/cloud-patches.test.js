@@ -6,7 +6,7 @@ import { MemoryStore } from '../../server/memory-store.js';
 import { MemoryImageStore } from '../../server/local-image-store.js';
 import { createPatchService } from '../../server/patch-service.js';
 import { createHandler } from '../../server/handler.js';
-import { validateState, LIMITS } from '../../server/validation.js';
+import { createMetadataRegistry, hash, validateState, LIMITS } from '../../server/validation.js';
 import { readConfig, readImageConfig } from '../../server/config.js';
 import apiEntry, { forwardedRequest } from '../../api/index.js';
 
@@ -432,6 +432,49 @@ describe('private forks and reactions', () => {
 });
 
 describe('bounded validation, catalogue and quotas', () => {
+    it.each(['private', 'public'])('rejects custom plugins from %s account saves without storing them', async visibility => {
+        const custom = state(); custom.plugins.custom = 1;
+        const response = await request('/api/patches', { user: 'alice', method: 'POST', body: draft({ state: custom, visibility }) });
+        expect(response.status).toBe(400);
+        expect((await response.json()).error).toMatchObject({ code: 'unsupported_module', message: expect.stringContaining('GitHub pull request') });
+        expect((await service.list({ user: alice })).patches).toHaveLength(0);
+    });
+    it('rejects unknown module types disguised as core and custom owners in an injected registry', () => {
+        const custom = state(); custom.modules[0].type = 'custom-vco';
+        expect(() => validateState(custom)).toThrow(expect.objectContaining({ status: 400, code: 'unsupported_module' }));
+        const metadata = createMetadataRegistry();
+        const customContracts = { ...metadata, getPluginForModule: () => 'custom',
+            getPlugin: key => key === 'custom' ? { manifest: { patchVersion: 1 } } : metadata.getPlugin(key) };
+        const knownCustom = state(); knownCustom.plugins.custom = 1;
+        expect(() => validateState(knownCustom, customContracts)).toThrow(expect.objectContaining({ code: 'unsupported_module' }));
+        // Omitting the custom dependency must not make its module eligible either.
+        expect(() => validateState(state(), customContracts)).toThrow(expect.objectContaining({ code: 'unsupported_module' }));
+    });
+    it('rejects custom preview uploads and updates before changing stored data', async () => {
+        const patch = await service.create(alice, draft());
+        const before = await store.getPatch(patch.id);
+        const custom = state(); custom.plugins.custom = 1;
+        await expect(preview(alice, custom)).rejects.toMatchObject({ status: 400, code: 'unsupported_module' });
+        expect(await store.listPreviews()).toHaveLength(0); expect(images.objects.size).toBe(0);
+        await expect(service.update(alice, patch.id, { state: custom, expectedRevision: 1 })).rejects.toMatchObject({ status: 400, code: 'unsupported_module' });
+        expect(await store.getPatch(patch.id)).toEqual(before);
+    });
+    it('rejects copying or publishing a stored custom patch but still allows hiding and deleting it', async () => {
+        const patch = await published();
+        const record = await store.getPatch(patch.id);
+        record.state.plugins.custom = 1; record.stateHash = hash(record.state);
+        await store.transaction(tx => tx.putPatch(record));
+        const previewsBefore = await store.listPreviews();
+        await expect(service.copy(bob, patch.id, { requestId: ulid(), expectedRevision: 1 })).rejects.toMatchObject({ code: 'unsupported_module' });
+        expect((await service.list({ user: bob })).patches).toHaveLength(0);
+        expect(await store.listPreviews()).toEqual(previewsBefore);
+        expect(await store.getPatch(patch.id)).toEqual(record);
+        const hidden = await service.setVisibility(alice, patch.id, { expectedRevision: 1, visibility: 'private' });
+        expect(hidden.visibility).toBe('private'); expect(hidden.state).toEqual(record.state);
+        await expect(service.setVisibility(alice, patch.id, { expectedRevision: 2, visibility: 'public' })).rejects.toMatchObject({ code: 'unsupported_module' });
+        expect(await store.getPatch(patch.id)).toMatchObject({ visibility: 'private', revision: 2, stateHash: record.stateHash });
+        expect(await service.remove(alice, patch.id, { expectedRevision: 2 })).toEqual({ deleted: true });
+    });
     it('rejects unsafe keys, invalid contracts, duplicate cable inputs, rows, parameters and MIDI', () => {
         const invalid = state(); invalid.modules[0].row = -1; expect(() => validateState(invalid)).toThrow('row');
         const wrongParam = state(); wrongParam.params.osc.madeUp = 1; expect(() => validateState(wrongParam)).toThrow('parameter');

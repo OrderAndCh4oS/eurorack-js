@@ -45,6 +45,19 @@ export function createMetadataRegistry(definitions = CORE_MODULE_DEFINITIONS) {
         getPluginForModule: key => modules.has(key) ? 'core' : undefined };
 }
 const registry = createMetadataRegistry();
+
+// Hosted saves contain patch data for shipped modules, never executable plugins.
+// Keep this separate from normalization so stored copies retain their exact hash.
+export function assertBuiltInModules(state, contracts = registry) {
+    const externalPlugin = state?.plugins && typeof state.plugins === 'object' &&
+        Object.keys(state.plugins).some(pluginId => pluginId !== 'core');
+    const externalModule = Array.isArray(state?.modules) && state.modules.some(module =>
+        typeof module?.type === 'string' && contracts.getPluginForModule(module.type) !== 'core');
+    assert(!externalPlugin && !externalModule,
+        'Only built-in modules can be saved to an account. Submit tested modules through a GitHub pull request.',
+        400, 'unsupported_module');
+}
+
 function boundedTree(value, depth = 0) {
     assert(depth <= 24, 'Patch nesting is too deep.');
     if (typeof value === 'number') assert(Number.isFinite(value), 'Patch numbers must be finite.');
@@ -61,6 +74,7 @@ export function validateState(raw, contracts = registry) {
     assert(Buffer.byteLength(JSON.stringify(raw)) <= LIMITS.stateBytes, 'Patch exceeds 256 KiB.', 413, 'patch_too_large');
     assert(raw && !raw.state && Array.isArray(raw.modules) && raw.modules.length <= LIMITS.modules, 'Invalid patch modules.');
     assert(Array.isArray(raw.cables) && raw.cables.length <= LIMITS.cables, 'Too many patch cables.');
+    assertBuiltInModules(raw, contracts);
     const placements = new Set(); const rowHP = new Map();
     for (const module of raw.modules) {
         assert(module && typeof module.id === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(module.id), 'Invalid module instance ID.');

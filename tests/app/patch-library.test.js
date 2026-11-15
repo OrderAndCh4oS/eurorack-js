@@ -319,6 +319,24 @@ describe('patch library coordination', () => {
         await vi.waitFor(() => expect(document.querySelector('[role="alert"]').textContent).toContain('account changed'));
         expect(cloud.uploadPreview).not.toHaveBeenCalled(); expect(cloud.create).not.toHaveBeenCalled();
     });
+    it.each(['private', 'public'])('rejects custom modules before capture or %s account saving, while preserving a local save', async visibility => {
+        const { cloud, library, edit, app } = setup(); library.config = { enabled: true, imagesEnabled: true }; library.user = { id: 'me', name: 'Maker' };
+        const custom = { ...state(), plugins: { core: 1, custom: 1 }, modules: [{ id: 'test', type: 'custom-osc', row: 1, index: 0 }] };
+        edit(custom); library.previewLoader = vi.fn();
+        const saved = library.openSave({ destination: 'cloud', publish: visibility === 'public' });
+        await vi.waitFor(() => expect(document.querySelector('dialog')).not.toBeNull());
+        const form = document.querySelector('dialog form');
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await vi.waitFor(() => expect(document.querySelector('[role="alert"]').textContent).toContain('Only built-in modules'));
+        expect(library.previewLoader).not.toHaveBeenCalled(); expect(cloud.uploadPreview).not.toHaveBeenCalled();
+        expect(cloud.create).not.toHaveBeenCalled(); expect(cloud.update).not.toHaveBeenCalled(); expect(cloud.copy).not.toHaveBeenCalled();
+        expect(document.querySelector('[data-preview-fallback]')).toBeNull();
+        expect(app.host.serializePatch()).toEqual(custom);
+        form.elements.destination.value = 'local'; form.elements.destination.dispatchEvent(new Event('change'));
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        expect(await saved).toBe(true); expect(library.local.list()[0].state).toEqual(custom);
+        expect(cloud.create).not.toHaveBeenCalled();
+    });
     it('offers an explicit private save when preview capture fails', async () => {
         const { cloud, library } = setup(); library.config = { enabled: true, imagesEnabled: true }; library.user = { id: 'me', name: 'Maker' };
         library.previewLoader = async () => ({ capturePatchPreview: async () => { throw new Error('Preview failed'); } });

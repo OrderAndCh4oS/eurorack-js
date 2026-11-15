@@ -8,6 +8,8 @@ import { CABLE_COLORS } from '../config/constants.js';
 import { TEST_PATCHES } from '../config/test-patches.js';
 import { PatchLibrary, isIntroductionDemoLocation } from '../ui/patch-library.js';
 import { LocalPatchStore } from '../patches/local-patch-store.js';
+import { LocalModuleStore } from '../local-modules/store.js';
+import { LocalModuleRuntime } from '../local-modules/runtime.js';
 import { parsePatchLocation } from '../patches/cloud-client.js';
 import { createCablePath, getJackCenter } from '../cables/cable-manager.js';
 import { createMidiManager } from '../midi/midi-manager.js';
@@ -206,6 +208,8 @@ export class EurorackApp {
         this.rackDebugger = null;
         this.patchLibrary = null;
         this.localPatches = new LocalPatchStore();
+        this.localModules = new LocalModuleStore();
+        this.localModuleRuntime = new LocalModuleRuntime({ store: this.localModules, registry: pluginRegistry });
     }
 
     async init() {
@@ -222,7 +226,7 @@ export class EurorackApp {
         // Rack startup and client-side tools must not wait on that external prompt.
         void this.initMidi().catch(error => console.error('Failed to initialize MIDI:', error));
         this.initPatchBank();
-        const recovered = await this.patchLibrary?.restoreDraft();
+        const recovered = await this.patchLibrary?.run(() => this.patchLibrary.restoreDraft());
         if (!recovered) {
             if (this.patchLibrary) await this.patchLibrary.run(() => {
                 if (isIntroductionDemoLocation(window.location)) return this.patchLibrary.loadLocation();
@@ -235,7 +239,8 @@ export class EurorackApp {
         this.patchWorkbench = createPatchWorkbench({
             app: this,
             document: this.document,
-            registry: pluginRegistry
+            registry: pluginRegistry,
+            moduleStore: this.localModules
         }).init();
         this.rackDebugger = createRackDebugger({
             app: this,
@@ -1037,6 +1042,9 @@ export class EurorackApp {
 
     async loadPatchState(patchState, { managed = false, beforeApply = null, edit = false, signal } = {}) {
         if (this.patchLibrary && !managed) return this.patchLibrary.replaceState(patchState, null, { beforeApply, edit, signal });
+        signal?.throwIfAborted();
+        await this.localModuleRuntime.preparePatch(patchState);
+        signal?.throwIfAborted();
         const normalized = normalizePatch(patchState, { registry: pluginRegistry });
         beforeApply?.();
         try {
@@ -1055,7 +1063,7 @@ export class EurorackApp {
         const patch = localPatch || (Object.hasOwn(TEST_PATCHES, name) ? TEST_PATCHES[name] : null);
         if (!patch) { alert('Patch not found'); return false; }
         if (this.patchLibrary) return this.patchLibrary.open({ ...patch, source: localPatch ? 'local' : 'test', key: name, canEdit: !!localPatch });
-        const loaded = await this.loadPatchState(normalizePatch(patch));
+        const loaded = await this.loadPatchState(patch.state);
         const input = this.document.getElementById('patchName'); if (input) input.value = patch.name || name;
         return loaded;
     }
@@ -1093,7 +1101,10 @@ export class EurorackApp {
         let patch;
         try {
             if (parsePatchLocation(win.location.hash, win.location.pathname)?.source === 'cloud') return this.patchLibrary?.loadLocation() || false;
-            patch = await parsePatchUrlHash(win.location.hash, this.getPatchUrlOptions());
+            patch = await parsePatchUrlHash(win.location.hash, {
+                ...this.getPatchUrlOptions(),
+                deferPluginValidation: true
+            });
         } catch (error) {
             alert(`Could not open this patch: ${error.message}`);
             return false;

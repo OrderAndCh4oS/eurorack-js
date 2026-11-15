@@ -1,6 +1,8 @@
 import { createRackHost } from '../app/rack-host.js';
 import { RackState } from '../app/rack-state.js';
 import { pluginRegistry } from '../rack/registry.js';
+import { LocalModuleStore } from '../local-modules/store.js';
+import { LocalModuleRuntime } from '../local-modules/runtime.js';
 import { renderModule, syncParamToModuleUI, cleanupRenderedModule } from '../ui/renderer.js';
 import { createCablePath, getJackCenter } from '../cables/cable-manager.js';
 import { CABLE_COLORS } from '../config/constants.js';
@@ -51,6 +53,9 @@ export function fitPreviewRackWidth(root) {
 }
 
 let stylePromise;
+// A preview frame owns its registry and Blob URLs for its entire lifetime.
+// Resolve only revisions already saved in this browser, never URLs in a patch.
+let localModuleRuntime;
 async function loadRackStyles(documentRef) {
     if (!stylePromise) {
         stylePromise = fetch(new URL('../../index.html', import.meta.url)).then(async response => {
@@ -145,6 +150,10 @@ export async function renderPatchPreview(state, {
         style.textContent = `${css}\n${PREVIEW_STYLE}`;
         documentRef.body.className = 'theme-industrial theme-light skin-factory';
         await host.init();
+        if (registry === pluginRegistry) {
+            localModuleRuntime ||= new LocalModuleRuntime({ store: new LocalModuleStore(), registry });
+            await localModuleRuntime.preparePatch(state);
+        }
         await host.loadPatch(structuredClone(state));
         root = documentRef.createElement('div');
         root.id = 'patch-preview-rack';

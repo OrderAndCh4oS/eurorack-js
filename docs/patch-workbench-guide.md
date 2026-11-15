@@ -4,7 +4,9 @@ This tutorial builds, changes, diagnoses, and saves a patch entirely in the brow
 
 ## 1. Open the Current Rack
 
-Open the app and select **Code**. The first time you open it after loading the app, the editor is populated from the current graphical rack. Choose **Starter Voice** for the bundled minimal example. Press Ctrl/Command+Enter to apply, or Ctrl/Command+S to immediately save the source locally and apply it. Neither action saves a patch to your account. Select **Start** in the main toolbar if audio is stopped.
+Open the app and select **Code**, then the **Patch** tab. The first time you open it after loading the app, the patch editor is populated from the current graphical rack. Choose **Starter Voice** for the bundled minimal example. Press Ctrl/Command+Enter to apply, or Ctrl/Command+S to immediately save the source locally and apply it. Neither action saves a patch to your account. Select **Start** in the main toolbar if audio is stopped.
+
+The **Modules** tab lets you read built-in source and develop your own browser-local modules. It is separate from the patch editor; see [Work with module source](#12-work-with-module-source).
 
 The starter is a VCO connected to both output channels:
 
@@ -192,7 +194,25 @@ Select **Snapshot** to replace the editor with source for the current rack. Snap
 - The rack's **Save** and **Save a copy** controls save the compiled patch. **Copy snapshot link** captures its current settings; **Copy URL**, when available, links to the saved patch. None of these include the JavaScript source.
 - **Guide** and **Reference** open these documentation pages.
 
-Read loaded code before Apply. Scripts run in a disposable worker with network, page and app-storage access blocked. Applying a script changes the rack; saving that patch to your account is a separate action.
+Read loaded patch code before Apply. Patch scripts run in a disposable worker with network, page and app-storage access blocked. Applying a script changes the rack; saving that patch to your account is a separate action. This isolation does not apply to module DSP code.
+
+## 12. Work with Module Source
+
+Open **Code → Modules**. **Your modules** appears before **Built-in modules**, and search covers both lists. Selecting a built-in shows its exact source, read-only. Source loads when selected and is reused on later selections in the same session. **Copy code** and **View on GitHub** are available beside it.
+
+To develop your own module:
+
+1. Read [Creating Modules](creating-modules.md) for the DSP, panel and voltage contracts.
+2. Choose **New module** for a starter definition, or **Import own module** to load your own `.js` or `.mjs` file as a draft. Importing does not run it.
+3. Edit a self-contained ES module with a default-exported definition. Local module source cannot use import declarations, dynamic imports or re-exports. Built-in source may import shared helpers; a local draft must include the helpers it needs.
+4. Choose **Save** to store the draft in this browser without executing it. Ctrl/Command+S does the same while the module editor has focus.
+5. Choose **Use module** to save and run the definition, then add it to the rack. Connect and test it as you would any other module.
+
+Module code runs as trusted JavaScript in this browser, outside the patch-script sandbox. The import restrictions are an authoring constraint, not a security sandbox. Use this editor for your own reviewed code.
+
+Using a module retains an immutable executable revision with an ID such as `local-<lowercase ULID>`. Later edits become a separate revision when used; they do not change modules in older patches. Drafts and revisions stay in this browser's local storage. Opening a browser-saved patch loads its required revisions from that storage; merely browsing the module list does not run drafts.
+
+Local module code is not synced to your account or included in a snapshot link. A patch that uses it cannot be saved to an account or published, and another browser does not have its dependencies. Keep a copy of your source outside browser storage. To make a module available to everyone, follow the [GitHub contribution workflow](creating-modules.md#contribute-a-module).
 
 ## Complete Modulated Voice
 

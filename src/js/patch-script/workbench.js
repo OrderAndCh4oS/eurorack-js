@@ -3,6 +3,8 @@ import { PatchDraftService, draftError } from './draft-service.js';
 import { formatPatchScript } from './formatter.js';
 import { PatchScriptStore } from './storage.js';
 import { highlightPatchScript } from './syntax-highlighter.js';
+import { ModuleSourceBrowser } from './module-source-browser.js';
+import { LocalModuleStore } from '../local-modules/store.js';
 
 export const STARTER_SCRIPT_ID = '__starter__';
 export const CURRENT_RACK_SCRIPT_ID = '__current_rack__';
@@ -61,10 +63,13 @@ function caretCoordinates(textarea, documentRef) {
 }
 
 export class PatchWorkbench {
-    constructor({ app, document: documentRef = document, registry, store = null, evaluate, createId } = {}) {
+    constructor({ app, document: documentRef = document, registry, store = null, moduleStore = null, moduleFetch, evaluate, createId } = {}) {
         this.app = app;
         this.document = documentRef;
         this.registry = registry;
+        this.moduleStore = moduleStore || new LocalModuleStore();
+        this.moduleFetch = moduleFetch;
+        this.activeTab = 'patch';
         this.store = store || new PatchScriptStore(documentRef.defaultView?.localStorage || globalThis.localStorage);
         this.lastCompiled = null;
         this.lastAppliedFingerprint = null;
@@ -99,6 +104,14 @@ export class PatchWorkbench {
         drawer.setAttribute('aria-label', 'Patch workbench');
         drawer.innerHTML = `
             <div class="patch-workbench-resizer" title="Resize workbench"></div>
+            <header class="patch-workbench-tabs">
+                <div role="tablist" aria-label="Code views">
+                    <button role="tab" id="workbench-patch-tab" data-tab="patch" aria-selected="true" aria-controls="workbench-patch-panel">Patch</button>
+                    <button role="tab" id="workbench-modules-tab" data-tab="modules" aria-selected="false" aria-controls="workbench-modules-panel" tabindex="-1">Modules</button>
+                </div>
+                <button data-action="close" title="Close Code (Ctrl/Cmd+\`)" aria-label="Close Code">×</button>
+            </header>
+            <section id="workbench-patch-panel" class="patch-workbench-panel" role="tabpanel" aria-labelledby="workbench-patch-tab">
             <header class="patch-workbench-toolbar">
                 <select data-role="scripts" aria-label="Patch script"></select>
                 <input data-role="script-name" aria-label="Script name" value="Starter Voice">
@@ -114,7 +127,6 @@ export class PatchWorkbench {
                 <button data-action="snapshot" title="Replace the editor with a snapshot of the current rack">Snapshot</button>
                 <button data-action="validate" title="Validate without changing the live rack (Ctrl/Cmd+Shift+Enter)">Validate</button>
                 <button data-action="apply" class="primary" title="Validate and apply atomically (Ctrl/Cmd+Enter)">Apply</button>
-                <button data-action="close" title="Close the Patch Workbench (Ctrl/Cmd+\`)">×</button>
             </header>
             <div class="patch-workbench-main">
                 <div class="patch-editor-pane">
@@ -129,7 +141,9 @@ export class PatchWorkbench {
                     <pre data-role="output" aria-live="polite"></pre>
                     <input data-role="command" aria-label="Workbench command" placeholder=":help">
                 </div>
-            </div>`;
+            </div>
+            </section>
+            <section id="workbench-modules-panel" class="patch-workbench-panel" role="tabpanel" aria-labelledby="workbench-modules-tab" hidden></section>`;
         this.document.body.appendChild(drawer);
         this.drawer = drawer;
         this.editor = drawer.querySelector('[data-role="editor"]');
@@ -146,6 +160,21 @@ export class PatchWorkbench {
     bind() {
         this.document.getElementById('patchWorkbenchToggle')?.addEventListener('click', () => this.toggle());
         this.drawer.querySelector('[data-action="close"]').addEventListener('click', () => this.toggle(false));
+        const tabs = [...this.drawer.querySelectorAll('[data-tab]')];
+        tabs.forEach((tab, index) => {
+            tab.addEventListener('click', () => this.showTab(tab.dataset.tab));
+            tab.addEventListener('keydown', event => {
+                let next;
+                if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+                else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
+                else if (event.key === 'Home') next = 0;
+                else if (event.key === 'End') next = tabs.length - 1;
+                else return;
+                event.preventDefault();
+                this.showTab(tabs[next].dataset.tab);
+                if (this.activeTab === tabs[next].dataset.tab) tabs[next].focus();
+            });
+        });
         this.drawer.querySelector('[data-action="validate"]').addEventListener('click', () => { void this.validate(); });
         this.drawer.querySelector('[data-action="apply"]').addEventListener('click', () => { void this.apply(); });
         this.drawer.querySelector('[data-action="snapshot"]').addEventListener('click', () => this.snapshot());
@@ -178,7 +207,8 @@ export class PatchWorkbench {
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's' &&
                 !this.drawer.hidden && this.drawer.contains(event.target) && event.target !== this.editor) {
                 event.preventDefault();
-                void this.saveAndApply();
+                if (this.activeTab === 'patch') void this.saveAndApply();
+                else this.moduleBrowser?.saveDraft();
                 return;
             }
             if ((event.ctrlKey || event.metaKey) && event.key === '`') {
@@ -209,13 +239,60 @@ export class PatchWorkbench {
     }
 
     toggle(force = this.drawer.hidden) {
+        if (!force && this.moduleBrowser?.saveDraft(false) === false) return;
         if (force) this.app.patchLibrary?.navigate('rack');
         if (force && !this.sessionSeeded && !this.sessionHasWork) this.loadCurrentRack();
         this.drawer.hidden = !force;
         this.document.body.classList.toggle('patch-workbench-open', force);
         this.document.getElementById('patchWorkbenchToggle')?.classList.toggle('active', force);
-        if (force) this.editor.focus();
+        if (force) {
+            if (this.activeTab === 'modules') this.moduleBrowser?.focus();
+            else this.editor.focus();
+        }
         this.app.renderAllCables?.();
+    }
+
+    showTab(tab) {
+        if (!['patch', 'modules'].includes(tab)) return;
+        if (tab !== this.activeTab && this.moduleBrowser?.saveDraft(false) === false) return;
+        this.activeTab = tab;
+        this.hideCompletions();
+        for (const button of this.drawer.querySelectorAll('[data-tab]')) {
+            const selected = button.dataset.tab === tab;
+            button.setAttribute('aria-selected', String(selected));
+            button.tabIndex = selected ? 0 : -1;
+            this.document.getElementById(button.getAttribute('aria-controls')).hidden = !selected;
+        }
+        if (tab === 'modules') {
+            if (!this.moduleBrowser) {
+                this.moduleBrowser = new ModuleSourceBrowser({ document: this.document, registry: this.registry,
+                    localStore: this.moduleStore, ...(this.moduleFetch ? {fetch: this.moduleFetch} : {}),
+                    onUse: async id => {
+                        const {type} = await this.app.localModuleRuntime.activate(id);
+                        // Surface worklet import errors here while the editor is open.
+                        await this.app.host.engine?.ensurePluginLoaded(type);
+                        const previousIds = new Set(this.app.host.serializePatch().modules.map(module => module.id));
+                        try {
+                            const instance = this.app.addModule(type);
+                            if (!instance) throw new Error('Could not add this module to the rack.');
+                            await this.app.host.syncTopology?.({ throwOnError: true });
+                            return instance;
+                        } catch (error) {
+                            // A user renderer or DSP factory can throw after rack state
+                            // was allocated, before addModule returns an instance ID.
+                            for (const module of this.app.host.serializePatch().modules) {
+                                if (module.type === type && !previousIds.has(module.id)) this.app.removeModule(module.id);
+                            }
+                            throw error;
+                        }
+                    },
+                    copy: text => this.app.writeClipboardText
+                        ? this.app.writeClipboardText(text)
+                        : this.document.defaultView.navigator.clipboard.writeText(text) });
+                this.moduleBrowser.mount(this.document.getElementById('workbench-modules-panel'));
+            }
+            void this.moduleBrowser.activate();
+        }
     }
 
     refreshScriptList() {
@@ -365,6 +442,7 @@ export class PatchWorkbench {
         const script = this.store.create('Agent patch', source);
         this.refreshScriptList();
         this.loadScript(script.id);
+        this.showTab('patch');
         this.toggle(true);
     }
 
@@ -621,6 +699,7 @@ export class PatchWorkbench {
         clearTimeout(this.autosaveTimer);
         this.unsubscribeHost?.();
         this.drafts.dispose();
+        this.moduleBrowser?.dispose();
         this.drawer?.remove();
     }
 }

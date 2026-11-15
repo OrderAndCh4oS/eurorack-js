@@ -2,7 +2,19 @@
 
 This guide takes a module from research through DSP, UI, registration, patches, and tests. It covers built-in modules and trusted plugins. Read [Codebase Architecture and Schemas](architecture.md) first for thread ownership and routing.
 
-The hosted app accepts built-in modules only. To contribute a new module, develop and test it locally, then submit a [GitHub pull request](https://github.com/OrderAndCh4oS/eurorack-js/pulls). It becomes available for account saves and public patches after maintainer review, merge and deployment. See [Contribute a module](#contribute-a-module).
+Account saves and public patches accept built-in modules only. You can develop your own modules locally in **Code → Modules**, then submit a tested contribution through a [GitHub pull request](https://github.com/OrderAndCh4oS/eurorack-js/pulls). It becomes available for account saves and public patches after maintainer review, merge and deployment. See [Contribute a module](#contribute-a-module).
+
+## Browser-local Authoring
+
+Open **Code → Modules** to search built-in source or work on your own definitions. **Your modules** appears first. Built-in files are read-only and load when selected. **New module** creates a starter draft; **Import own module** loads your own JavaScript file without executing it.
+
+Local source must be a self-contained ES module with a default-exported definition. Import declarations, dynamic imports and re-exports are unsupported. Include any helpers within the file; built-in source can use repository imports that a local draft cannot use.
+
+**Save** stores an inert draft in this browser's local storage. **Use module** saves and executes the code, retains an immutable executable revision, and adds an instance to the rack. This runs trusted JavaScript, outside the patch-script sandbox. The source restrictions do not make it safe to run untrusted code.
+
+Executable revisions use `local-<lowercase ULID>` IDs. Editing a draft and using it again does not replace revisions referenced by older patches. Dependencies load from local storage when using a module or opening a browser-saved patch that needs them. Drafts and revisions do not sync to an account, and patch links do not include their source. Keep your own source backups.
+
+See [Work with Module Source](patch-workbench-guide.md#12-work-with-module-source) for the editor workflow. The DSP and panel contracts below apply to local definitions too.
 
 ## Contract at a Glance
 
@@ -516,7 +528,7 @@ Adding or removing a built-in changes the static worklet graph. Bump the matchin
 
 ### Trusted Plugins
 
-The trusted plugin API remains available for local development and embedding. It is not a module upload or installation feature in the hosted app. Plugins are trusted JavaScript, not sandboxed extensions. Main-thread registration is atomic:
+The trusted plugin API remains available for local development and embedding. It does not upload modules or publish them to other users. Plugins are trusted JavaScript, not sandboxed extensions. Main-thread registration is atomic:
 
 ~~~javascript
 import { registerPlugin } from './js/index.js';
@@ -554,11 +566,11 @@ Patch versions must match exactly. When patchVersion changes, update shipped pat
 
 Registering a trusted plugin makes its modules available in that browser context. It does not publish the plugin or make it available to other browsers.
 
-The hosted app accepts only built-in modules, including private account saves, public patches and cloud previews. User-submitted module JavaScript and external plugin dependencies are rejected. This is a deliberate boundary, not a missing dependency loader.
+Private account saves, public patches and cloud previews accept built-in modules only. Module JavaScript and external or browser-local plugin dependencies are rejected at those boundaries. Your own local definitions can be used and saved in this browser, but they are not a public module catalogue.
 
 Version 3 patches record plugin IDs and patch contract versions, not plugin source or exact package releases. A local save or snapshot link does not bundle the missing code.
 
-New modules reach the hosted app through the contribution workflow below. There is no uploaded plugin catalogue or self-service module publication. The [custom module sharing decision](custom-module-sharing-plan.md) records this boundary.
+New modules become available to all users through the contribution workflow below. There is no uploaded plugin catalogue or self-service module publication. The [custom module sharing decision](custom-module-sharing-plan.md) records this boundary.
 
 ## Contribute a module
 

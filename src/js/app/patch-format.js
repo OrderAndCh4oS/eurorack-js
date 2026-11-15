@@ -8,6 +8,7 @@ export const PATCH_URL_FORMAT = 'gz1';
 const PATCH_COMPRESSION_FORMAT = 'gzip';
 const URL_NUMBER_DECIMALS = 3;
 const PATCH_STATE_FIELDS = new Set(['version', 'plugins', 'modules', 'params', 'cables', 'midiMappings']);
+const LOCAL_REVISION_PLUGIN_ID = /^local-[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 
 function clone(value) {
     return JSON.parse(JSON.stringify(value || {}));
@@ -159,7 +160,13 @@ function getModuleDefinitions({ moduleDefinitions = null, registry = null } = {}
 function createReferenceTables(options = {}) {
     const definitions = getModuleDefinitions(options);
     const extensionDefinitions = typeof options.registry?.getPluginForModule === 'function'
-        ? definitions.filter(definition => options.registry.getPluginForModule(definition.id) !== 'core')
+        ? definitions.filter(definition => {
+            const pluginId = options.registry.getPluginForModule(definition.id);
+            // Browser-local revisions are not installed until a patch is opened
+            // after reload. Encode their types/ports/params in the URL's own
+            // string table, without changing legacy trusted-plugin token indexes.
+            return pluginId !== 'core' && !LOCAL_REVISION_PLUGIN_ID.test(pluginId);
+        })
         : [];
     const staticTable = createTokenTable(extensionDefinitions);
     const localTable = createStringTable();
@@ -530,7 +537,9 @@ function parseCompactPatchUrlPayload(payload, options = {}) {
                     decodeCompactValue(mapping[1], references.resolve)
                 ];
             })),
-        }, options)
+        // Decode local dependencies before loading their saved revisions. The
+        // caller must strictly normalize again after preparing those plugins.
+        }, options.deferPluginValidation ? { ...options, registry: null } : options)
     };
 }
 

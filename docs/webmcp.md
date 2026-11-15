@@ -36,9 +36,11 @@ Sound reaches the speakers through an **OUT** module. The nominal voltage standa
 
 Before developing or changing a module type, read [Codebase Architecture and Schemas](architecture.md) first, then [Creating Modules](creating-modules.md). These guides cover thread ownership, DSP and UI contracts, trusted plugin registration, research and testing. Repository agents must also follow `AGENTS.md` and consult the module's `research/modules/{moduleId}.md`.
 
-The current WebMCP tools compose modules that are already registered. They do not create or register new DSP code. Use `describe_modules` for existing types' exact contracts; its `documentation` field links to both development guides, relative to the current site's origin.
+The current WebMCP tools compose modules that are already registered. They do not create or register new DSP code. Use `describe_modules` for existing types' exact contracts; its `documentation` field links to both development guides, relative to the current site's origin. Definitions you activate through **Code → Modules → Use module** also appear in those results for the current browser tab. There are no additional WebMCP tools for module authoring.
 
-The hosted app accepts built-in modules only. Agents developing new modules should follow the [contribution workflow](creating-modules.md#contribute-a-module): research, implement and test locally, then prepare a [GitHub pull request](https://github.com/OrderAndCh4oS/eurorack-js/pulls) for maintainer review. A module becomes available for account and public patches after merge and deployment. User-submitted module JavaScript is not accepted through WebMCP or patch saves. Patch scripts that compose existing modules remain supported.
+Account saves and public patches accept built-in modules only. Your own module drafts and executable revisions stay in browser storage; **Save** in the Modules tab stores source without executing it, while **Use module** explicitly runs it. This module code is trusted JavaScript, not sandboxed patch code. See [Browser-local Authoring](creating-modules.md#browser-local-authoring).
+
+Agents developing modules for others should follow the [contribution workflow](creating-modules.md#contribute-a-module): research, implement and test locally, then prepare a [GitHub pull request](https://github.com/OrderAndCh4oS/eurorack-js/pulls) for maintainer review. A module becomes available for account and public patches after merge and deployment. WebMCP does not upload module JavaScript, and patch saves do not embed it.
 
 ## Tool reference
 

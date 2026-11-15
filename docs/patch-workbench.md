@@ -1,8 +1,8 @@
 # Patch Workbench Reference
 
-The Patch Workbench is a client-side editor and diagnostic console for building Eurorack patches with JavaScript. A script describes a rack; it does not process audio itself. **Validate** turns the script into a candidate v3 patch and checks it without changing the rack. **Apply** uses that exact candidate, or validates first if the source changed. Random choices are not rerun between Validate and Apply. A changed rack requires validation again.
+The Patch Workbench has **Patch** and **Modules** tabs. The Patch tab builds racks with JavaScript; the Modules tab shows built-in source and edits your own browser-local module definitions. A patch script describes a rack; it does not process audio itself. **Validate** turns the patch script into a candidate v3 patch and checks it without changing the rack. **Apply** uses that exact candidate, or validates first if the source changed. Random choices are not rerun between Validate and Apply. A changed rack requires validation again.
 
-Evaluation happens in a disposable worker inside an opaque-origin sandbox with a two-second timeout. Network requests, app storage and page access are blocked. There is no main-thread evaluation fallback. Scripts are limited to 64 KiB, 128 modules and 2048 cables. Explicit placement uses rows 1–32 and indexes 0–127; evaluation results are limited to 1 MiB. This boundary has no hard memory quota. Loaded script files are never run automatically.
+Patch-script evaluation happens in a disposable worker inside an opaque-origin sandbox with a two-second timeout. Network requests, app storage and page access are blocked. There is no main-thread evaluation fallback. Patch scripts are limited to 64 KiB, 128 modules and 2048 cables. Explicit placement uses rows 1–32 and indexes 0–127; evaluation results are limited to 1 MiB. This boundary has no hard memory quota. Loaded patch script files are never run automatically. Module definitions run separately as trusted JavaScript when activated; these sandbox guarantees do not apply to module code.
 
 Applying changes keeps the open patch's identity, credits and saved baseline. The result remains an unsaved edit; it is not automatically published or saved to your account. Retained drafts expire after 15 minutes, and applying one still uses the existing unsaved-changes confirmation and atomic rack load.
 
@@ -10,13 +10,15 @@ For a guided first patch, read the [Patch Workbench Guide](patch-workbench-guide
 
 ## Opening the Workbench
 
-Select **Code** in the main toolbar, or press Ctrl+` on Windows/Linux and Command+` on macOS. The drawer contains:
+Select **Code** in the main toolbar, or press Ctrl+` on Windows/Linux and Command+` on macOS. The **Patch** tab contains:
 
 - A named local-script bank.
 - The syntax-highlighted patch editor and completion menu.
 - **Snapshot**, **Validate**, and **Apply** controls.
 - A diagnostic log and command input.
 - Guide and Reference links to the documentation pages.
+
+The **Modules** tab contains a searchable source browser and an editor for your own modules. See [Module source](#module-source) for its controls and storage behavior.
 
 The drawer can be resized from its top edge. It switches to a stacked layout on narrow screens. Its controls follow the factory paper, ink and orange palette; the code canvas uses its own syntax colours for readability.
 
@@ -35,7 +37,24 @@ The first time it opens after loading the app, **Current Rack** contains a sourc
 | Escape | Close completion |
 | Ctrl/Command+` | Toggle the workbench |
 
-Editor shortcuts apply while the code editor has focus. Ctrl/Command+S also works elsewhere in the drawer; the toggle shortcut works throughout the app. Enter also accepts the selected completion.
+These shortcuts apply to the Patch tab. Ctrl/Command+S also works elsewhere in that tab; the toggle shortcut works throughout the app. Enter also accepts the selected completion. In the module editor, Ctrl/Command+S saves the draft without running it.
+
+## Module Source
+
+The **Modules** tab lists **Your modules** first, then **Built-in modules**. Search matches module names and IDs. Built-in source is read-only and fetched only when selected, then reused within the session. **Copy code** copies the source; **View on GitHub** opens its repository file.
+
+| Control | Behavior |
+| --- | --- |
+| **New module** | Create a browser-local draft from a starter definition |
+| **Import own module** | Read your own `.js` or `.mjs` file into a new draft without executing it |
+| **Save** | Persist the selected draft in local storage without running it |
+| **Use module** | Save and execute the definition, retain its executable revision, and add an instance to the rack |
+
+Local source must be a self-contained ES module whose default export is a module definition. Import declarations, dynamic imports and re-exports are unsupported. This is an authoring constraint, not isolation: activated module code is trusted JavaScript outside the patch evaluator's sandbox. Develop code you own and have reviewed, following [Creating Modules](creating-modules.md).
+
+An executable revision has an immutable `local-<lowercase ULID>` ID. Editing a draft does not replace the revision used by an existing patch. Drafts and executable revisions are stored only in this browser's local storage, with no account sync. Revisions load when you use a module or open a browser-saved patch that needs them; browsing source does not activate them.
+
+Account saves and public patches accept built-in modules only. Snapshot links and patch state do not carry local module source, so another browser cannot recreate those dependencies. Clearing site storage removes the local drafts and revisions. Keep source backups and use the [contribution workflow](creating-modules.md#contribute-a-module) for modules intended for public use.
 
 ## Builder API
 
@@ -239,7 +258,7 @@ Profiling requires running audio. Block p99 utilization compares the p99 process
 
 ## Scripts, Patches, and Sharing
 
-Named scripts autosave to this browser's local storage after editing. **New**, the name field, **Delete**, **Load**, and **Copy** operate on source; Copy writes it to the clipboard. **Save** immediately saves the selected script locally and attempts to apply it. Source is saved even if validation fails. Current Rack and Starter Voice are templates; editing either creates a local copy. Scripts are not synced to your account.
+In the **Patch** tab, named scripts autosave to this browser's local storage after editing. **New**, the name field, **Delete**, **Load**, and **Copy** operate on source; Copy writes it to the clipboard. **Save** immediately saves the selected script locally and attempts to apply it. Source is saved even if validation fails. Current Rack and Starter Voice are templates; editing either creates a local copy. Scripts are not synced to your account.
 
 Scripts and patches remain separate:
 

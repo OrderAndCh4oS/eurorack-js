@@ -460,8 +460,7 @@ export class PatchLibrary {
         try {
             if (!skipPrompt && !await this.confirmReplace({ signal })) return false;
             if (record?.source === 'cloud' && account !== this.accountGeneration) return false;
-            beforeApply?.();
-            await this.app.loadPatchState(state, { managed: true });
+            await this.app.loadPatchState(state, { managed: true, beforeApply, signal });
             // Code applies are edits to the open patch, just like changing modules by hand.
             // Keep its saved identity/baseline so these changes remain unsaved and credited.
             if (edit) this.updateActiveLabel();

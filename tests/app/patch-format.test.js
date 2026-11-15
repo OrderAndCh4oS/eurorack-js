@@ -9,7 +9,10 @@ import {
 } from '../../src/js/app/patch-format.js';
 import { FACTORY_PATCHES } from '../../src/js/config/factory-patches.js';
 import { loadCorePlugin, DEFAULT_MODULE_ORDER } from '../../src/js/index.js';
-import { pluginRegistry, registerPlugin } from '../../src/js/rack/registry.js';
+import { PluginRegistry, pluginRegistry, registerPlugin } from '../../src/js/rack/registry.js';
+import { LocalModuleStore } from '../../src/js/local-modules/store.js';
+import { LocalModuleRuntime } from '../../src/js/local-modules/runtime.js';
+import { ulid } from 'ulid';
 
 const DEPLOYED_V2_SHARED_PATCH = '#patch=gz1.H4sIAAAAAAAAE2VSO27FMAy7SvFmNtDXnxsUnbsJHnuC9v4oJOczFAEUUaJikU4I4vX5Qfz29f3zK6-FeGdECPnCGZl65rNlHHTnalxxPHnTO44cdYIgJ1gYguJ4h0AWYgoEeiV293wtROwtGuhQWVlRRJhP0CE5bY1AR2OtpiV7cDZHr0pDhNo-XbqDDm-9NrWcsyKNf6RuN6dvzkxOs1qkbfGZ2z6G6W6b9afdznbKsE7gDQURnmsqnYSUxbIdYdEyhG9-6lIfuXHf3qbqfqpmR8TUVL1xv-neVpWCIGxQMKcyhrAXqvsFMyUyL4OHwyBDyz5Vgp9jWW3oUM8rzLdjnsyNmE44ajCLsuWxEAhC84H8wJbPlY6dCpSQ1E1yzFGb1B91LWl3qz5agw2zg_u59EwqM4xpe3pBTmPSG7Ft9PoDznfL-gcDAAA';
 
@@ -48,6 +51,35 @@ function createDensePatchState() {
         })),
         midiMappings: {}
     };
+}
+
+function createLocalModuleFixture() {
+    const data = new Map();
+    const store = new LocalModuleStore({
+        storage: { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value) },
+        createId: async () => ulid()
+    });
+    const definition = {
+        id: 'my-gain', name: 'My gain', hp: 4, color: 'module-color-one', category: 'utility',
+        createDSP: ({ bufferSize = 512 } = {}) => ({
+            params: { myGain: 0.5 },
+            inputs: { customIn: new Float32Array(bufferSize) },
+            outputs: { customOut: new Float32Array(bufferSize) },
+            process() {}
+        }),
+        ui: {
+            knobs: [{ id: 'myGain', label: 'Gain', param: 'myGain', min: 0, max: 1, default: 0.5 }],
+            inputs: [{ id: 'customIn', label: 'In', port: 'customIn', signal: 'audio' }],
+            outputs: [{ id: 'customOut', label: 'Out', port: 'customOut', signal: 'audio' }]
+        }
+    };
+    const runtime = registry => new LocalModuleRuntime({
+        store, registry,
+        createObjectURL: () => `blob:test/${ulid()}`,
+        revokeObjectURL: () => {},
+        importModule: async () => ({ default: definition })
+    });
+    return { store, runtime };
 }
 
 describe('patch-format', () => {
@@ -207,6 +239,73 @@ describe('patch-format', () => {
         expect(hash).toMatch(new RegExp(`^patch=${PATCH_URL_FORMAT}\\.`));
         expect(parsed.name).toBe('Shared Lead');
         expect(parsed.state).toEqual(state);
+    });
+
+    it('decodes a local module snapshot after reload, then loads its exact saved revision before strict validation', async () => {
+        const fixture = createLocalModuleFixture();
+        const writer = new PluginRegistry();
+        await writer.registerPlugin(pluginRegistry.getPlugin('core').manifest);
+        const record = await fixture.store.create({ name: 'My gain', source: 'export default {};' });
+        const writerRuntime = fixture.runtime(writer);
+        const { type } = await writerRuntime.activate(record.id);
+        const state = {
+            version: 3, plugins: { core: 1, [type]: 1 },
+            modules: [
+                { id: 'osc', type: 'vco', row: 1, index: 0 },
+                { id: 'gain', type, row: 1, index: 1 },
+                { id: 'main', type: 'out', row: 1, index: 2 }
+            ],
+            params: { gain: { myGain: 0.72 } },
+            cables: [
+                { fromModule: 'osc', fromPort: 'triangle', toModule: 'gain', toPort: 'customIn' },
+                { fromModule: 'gain', fromPort: 'customOut', toModule: 'main', toPort: 'L' }
+            ],
+            midiMappings: {}
+        };
+        const hash = await createPatchUrlHash({ name: 'Local gain snapshot', state }, { registry: writer });
+        const payload = patchUrlTestInternals.createCompactPatchUrlPayload({ name: 'Local gain snapshot', state }, { registry: writer });
+        expect(payload[1]).toEqual(expect.arrayContaining([type, 'myGain', 'customIn', 'customOut']));
+
+        fixture.store.save(record.id, { source: 'export default { newerDraft: true };' });
+        const reader = new PluginRegistry();
+        await reader.registerPlugin(pluginRegistry.getPlugin('core').manifest);
+        await expect(parsePatchUrlHash(hash, { registry: reader })).rejects.toThrow('missing plugin');
+        const decoded = await parsePatchUrlHash(hash, { registry: reader, deferPluginValidation: true });
+        expect(decoded.name).toBe('Local gain snapshot');
+        expect(decoded.state).toEqual(state);
+        expect(reader.has(type)).toBe(false);
+        const readerRuntime = fixture.runtime(reader);
+        await readerRuntime.preparePatch(decoded.state);
+        expect(normalizePatch(decoded.state, { registry: reader })).toEqual(state);
+        expect(readerRuntime.loaded.values().next().value.revision.source).toBe('export default {};');
+        expect(fixture.store.get(record.id).source).toBe('export default { newerDraft: true };');
+        const invalid = structuredClone(decoded.state);
+        invalid.params.gain = { unknownParam: 1 };
+        expect(() => normalizePatch(invalid, { registry: reader })).toThrow('has no parameter');
+        writerRuntime.dispose();
+        readerRuntime.dispose();
+    });
+
+    it('keeps legacy trusted-plugin snapshot tokens stable when a local module was registered first', async () => {
+        const fixture = createLocalModuleFixture();
+        const writer = new PluginRegistry();
+        await writer.registerPlugin(pluginRegistry.getPlugin('core').manifest);
+        const record = await fixture.store.create({ name: 'My gain', source: 'export default {};' });
+        const runtime = fixture.runtime(writer);
+        await runtime.activate(record.id);
+        await writer.registerPlugin(pluginRegistry.getPlugin('patch-format-tests').manifest);
+        const state = {
+            version: 3, plugins: { 'patch-format-tests': 1 },
+            modules: [{ id: 'custom', type: 'filetest', row: 1, index: 0 }],
+            params: { custom: { level: 0.4, offset: 0.2 } }, cables: [], midiMappings: {}
+        };
+        const hash = await createPatchUrlHash({ name: 'Trusted extension', state }, { registry: writer });
+        const reader = new PluginRegistry();
+        await reader.registerPlugin(pluginRegistry.getPlugin('core').manifest);
+        await reader.registerPlugin(pluginRegistry.getPlugin('patch-format-tests').manifest);
+        expect((await parsePatchUrlHash(hash, { registry: reader })).state).toEqual(state);
+        expect((await parsePatchUrlHash(hash, { registry: reader, deferPluginValidation: true })).state).toEqual(state);
+        runtime.dispose();
     });
 
     it('preserves a random module seed in a shareable URL hash', async () => {

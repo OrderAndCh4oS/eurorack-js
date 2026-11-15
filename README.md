@@ -31,7 +31,9 @@ Open **Test patches** to browse built-in module and integration patches with rac
 
 ## Code and connection checks
 
-**Code** opens the [Patch Workbench](docs/patch-workbench-guide.md), where JavaScript builds a rack using the same modules and cables as the graphical editor. Validate a script, inspect its warnings, then apply that exact result. Code runs in an isolated worker with network and storage access blocked. Applied changes remain unsaved until you save the patch.
+**Code** opens the [Patch Workbench](docs/patch-workbench-guide.md). Its **Patch** tab builds a rack with JavaScript using the same modules and cables as the graphical editor. Validate a script, inspect its warnings, then apply that exact result. Patch scripts run in an isolated worker with network and storage access blocked. Applied changes remain unsaved until you save the patch.
+
+The **Modules** tab lists **Your modules** first and lets you search the built-in modules' exact, read-only source, fetched when selected. Create, import and edit your own self-contained module definitions here. **Save** keeps an inert draft in browser storage; **Use module** runs it and adds it to the rack. Module code is trusted JavaScript outside the patch-script sandbox. Executable revisions are immutable, so editing a module does not change older local patches. These definitions stay in this browser and cannot be included in account or public patches. See [Browser-local Authoring](docs/creating-modules.md#browser-local-authoring).
 
 **Debug**, beside Code, highlights modules with no cables, unconnected outputs, and branches that do not reach an output or monitor. Select an issue to find its module. Checks update as you patch, work with audio stopped, and stay out of saved rack images. Spare jacks and feedback are allowed; these checks inspect wiring rather than measure sound.
 
@@ -320,7 +322,7 @@ export default {
 
 The `ui` declaration is the public parameter and port schema. The DSP keeps its phase private, fills the same output buffer every block, and scales the waveform to the declared ±5V range. `reset()` restores both internal state and observable outputs deterministically.
 
-Built-in modules are registered in `src/js/rack/module-manifest.js`. The hosted app accepts built-in modules only, including private account saves and public patches. It does not accept uploaded module JavaScript or external plugin dependencies.
+Built-in modules are registered in `src/js/rack/module-manifest.js`. Private account saves and public patches accept built-in modules only. They do not accept module JavaScript or external or browser-local plugin dependencies.
 
 To contribute a module, follow [Creating Modules](docs/creating-modules.md#contribute-a-module): research, implement and test locally, then submit a [GitHub pull request](https://github.com/OrderAndCh4oS/eurorack-js/pulls). Modules become available in the hosted app after maintainer review, merge and deployment.
 

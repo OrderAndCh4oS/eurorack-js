@@ -24,15 +24,16 @@
 .marketing-page h3 { font-size: 19px; line-height: 1.25; }
 .marketing-page .marketing-eyebrow { margin-bottom: 22px; font-size: 11px; line-height: 1.4; text-transform: uppercase; font-weight: 900; letter-spacing: .035em; }
 .marketing-page .marketing-small { font-size: 12px; line-height: 1.6; }
-.marketing-page .marketing-hero { max-width: 1500px; margin: auto; padding: clamp(28px, 3vw, 48px) 0 32px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: center; gap: clamp(24px, 4vw, 64px); }
-.marketing-page .marketing-intro { max-width: 49ch; margin-top: 26px; font-size: clamp(15px, 1.35vw, 18px); }
+.marketing-page .marketing-hero { max-width: 1500px; margin: auto; padding: clamp(28px, 3vw, 48px) 0 32px; display: grid; grid-template-columns: minmax(0, 700px) max-content; justify-content: center; align-items: center; gap: clamp(24px, 4vw, 64px); }
+.marketing-page .marketing-hero-copy { text-align: right; }
+.marketing-page .marketing-intro { max-width: 49ch; margin-top: 26px; margin-left: auto; font-size: clamp(15px, 1.35vw, 18px); }
 .marketing-page .marketing-actions { display: flex; align-items: stretch; flex-wrap: wrap; gap: 10px; }
-.marketing-page .marketing-hero .marketing-actions { margin-top: 28px; }
+.marketing-page .marketing-hero .marketing-actions { margin-top: 28px; justify-content: flex-end; }
 .marketing-page .marketing-hero .marketing-small { margin-top: 16px; }
 .marketing-page .marketing-button { display: inline-flex; align-items: center; justify-content: space-between; gap: 20px; border: 2px solid var(--marketing-ink); border-radius: 0; padding: 12px 16px; background: var(--marketing-paper); color: var(--marketing-ink); font-size: 12px; line-height: 1.3; font-weight: 900; text-transform: uppercase; text-decoration: none; min-height: 44px; }
 .marketing-page .marketing-button-primary { background: var(--marketing-orange); }
 .marketing-page .marketing-button:hover { background: var(--marketing-ink); color: var(--marketing-paper); }
-.marketing-page .marketing-rack { width: fit-content; max-width: 100%; justify-self: end; border: 3px solid var(--marketing-ink); background: var(--marketing-paper); }
+.marketing-page .marketing-rack { width: fit-content; max-width: 100%; justify-self: end; text-align: left; border: 3px solid var(--marketing-ink); background: var(--marketing-paper); }
 .marketing-page .marketing-rack-label, .marketing-page .marketing-rack figcaption { contain: inline-size; }
 .marketing-page .marketing-rack-label { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; background: var(--marketing-orange); border-bottom: 3px solid var(--marketing-ink); padding: 10px 12px; text-transform: uppercase; font-size: 10px; font-weight: 900; }
 .marketing-page .marketing-rack > a { display: block; padding: 14px; }
@@ -77,7 +78,7 @@
 @media (max-width: 980px) {
     .marketing-page .marketing-hero { grid-template-columns: 1fr; gap: 32px; }
     .marketing-page h1, .marketing-page .marketing-tagline { font-size: clamp(46px, 8.5vw, 80px); }
-    .marketing-page .marketing-hero-copy { max-width: 700px; }
+    .marketing-page .marketing-hero-copy { width: 100%; max-width: 700px; justify-self: center; }
     .marketing-page .marketing-rack { max-width: 700px; justify-self: center; }
     .marketing-page .marketing-rack img { max-height: 520px; }
     .marketing-page .marketing-community { padding: 30px; grid-template-columns: .8fr 1.2fr; gap: 30px; }

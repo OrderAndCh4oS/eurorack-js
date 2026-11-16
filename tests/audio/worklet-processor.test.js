@@ -19,6 +19,130 @@ beforeAll(async () => {
 });
 
 describe('Eurorack AudioWorkletProcessor', () => {
+    function outputCaptureFixture() {
+        const processor = new Processor();
+        processor.handleMessage({type: 'topology', topology: {revision: 1, plugins: {core: 1}, modules: [
+            {id: 'first', type: 'out', pluginId: 'core', params: {volume: 0.5}, order: 0, rackOrder: 0},
+            {id: 'second', type: 'out', pluginId: 'core', params: {volume: 1}, order: 1, rackOrder: 1}
+        ], cables: []}});
+        processor.graph.route = vi.fn();
+        return processor;
+    }
+
+    function beginCapture(processor, frames = 257, overrides = {}) {
+        const message = {type: 'capture-output', requestId: 21, frames, revision: 1,
+            left: new Float32Array(frames), right: new Float32Array(frames), ...overrides};
+        processor.handleMessage(message);
+        return message;
+    }
+
+    it('captures contiguous final stereo frames after summing OUT volume and limiting, without changing playback', () => {
+        const processor = outputCaptureFixture();
+        const reference = outputCaptureFixture();
+        const capture = beginCapture(processor);
+        const renderedLeft = []; const renderedRight = [];
+        const outputs = [[new Float32Array(128), new Float32Array(128)]];
+        const referenceOutputs = [[new Float32Array(128), new Float32Array(128)]];
+        for (let block = 0; block < 3; block++) {
+            for (const target of [processor, reference]) {
+                target.modules.first.instance.inputs.L.fill(block === 0 ? 5 : -5);
+                target.modules.first.instance.inputs.R.fill(2.5);
+                target.modules.second.instance.inputs.L.fill(block === 0 ? 5 : -5);
+                target.modules.second.instance.inputs.R.fill(block / 2);
+            }
+            processor.process([], outputs);
+            reference.process([], referenceOutputs);
+            expect(outputs).toEqual(referenceOutputs);
+            renderedLeft.push(...outputs[0][0]); renderedRight.push(...outputs[0][1]);
+            if (block < 2) expect(processor.port.postMessage.mock.calls.some(([message]) => message.type === 'output-capture')).toBe(false);
+        }
+        const replies = processor.port.postMessage.mock.calls.filter(([message]) => message.type === 'output-capture');
+        expect(replies).toHaveLength(1);
+        const [reply, transfer] = replies[0];
+        expect(reply).toMatchObject({requestId: 21, frames: 257, revision: 1, sampleRate: 48000, startTimeSeconds: 0});
+        expect([...reply.left]).toEqual(renderedLeft.slice(0, 257));
+        expect([...reply.right]).toEqual(renderedRight.slice(0, 257));
+        expect(reply.left[127]).toBe(1);
+        expect(reply.left[128]).toBe(-1);
+        expect(reply.right[0]).toBe(0.25);
+        expect(reply.right[256]).toBeCloseTo(0.45);
+        expect(transfer).toEqual([capture.left.buffer, capture.right.buffer]);
+        expect(transfer).not.toContain(outputs[0][0].buffer);
+        expect(transfer).not.toContain(outputs[0][1].buffer);
+        expect(processor.outputCapture).toBeNull();
+        processor.process([], outputs);
+        expect([...reply.left]).toEqual(renderedLeft.slice(0, 257));
+    });
+
+    it('rejects overlapping requests, supports matching cancellation, and ignores stale cancellation', () => {
+        const processor = outputCaptureFixture();
+        beginCapture(processor, 256);
+        beginCapture(processor, 128, {requestId: 22});
+        expect(processor.port.postMessage).toHaveBeenCalledWith(expect.objectContaining({type: 'output-capture-error', requestId: 22, code: 'busy'}));
+        processor.handleMessage({type: 'cancel-output-capture', requestId: 22});
+        expect(processor.outputCapture).not.toBeNull();
+        processor.handleMessage({type: 'cancel-output-capture', requestId: 21});
+        expect(processor.outputCapture).toBeNull();
+        processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+        expect(processor.port.postMessage.mock.calls.some(([message]) => message.type === 'output-capture')).toBe(false);
+    });
+
+    it('cancels an active capture when topology is replaced and rejects stale revisions', () => {
+        const processor = outputCaptureFixture();
+        beginCapture(processor, 256);
+        processor.handleMessage({type: 'topology', topology: {revision: 2, plugins: {}, modules: [], cables: []}});
+        expect(processor.outputCapture).toBeNull();
+        expect(processor.port.postMessage).toHaveBeenCalledWith(expect.objectContaining({type: 'output-capture-error', requestId: 21, code: 'rack-changed'}));
+        beginCapture(processor, 128, {requestId: 23});
+        expect(processor.port.postMessage).toHaveBeenCalledWith(expect.objectContaining({type: 'output-capture-error', requestId: 23, code: 'rack-changed'}));
+    });
+
+    it('rejects malformed buffers and enforces the frame cap inside the worklet', () => {
+        const processor = outputCaptureFixture();
+        const shared = new Float32Array(128);
+        const cases = [
+            {frames: 0}, {frames: 480001}, {frames: 1.5}, {frames: Infinity},
+            {left: new Float32Array(127)}, {left: new Float64Array(128)},
+            {left: shared, right: shared},
+            {left: new Float32Array(new ArrayBuffer(1024), 0, 128)}
+        ];
+        for (const overrides of cases) {
+            beginCapture(processor, 128, overrides);
+            expect(processor.port.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({type: 'output-capture-error', requestId: 21, code: 'invalid-input'}));
+            expect(processor.outputCapture).toBeNull();
+        }
+    });
+
+    it.each([8000, 44100, 48000, 96000, 192000])('reports the actual sample rate and start time at %s Hz', rate => {
+        const previousRate = globalThis.sampleRate;
+        const previousTime = globalThis.currentTime;
+        globalThis.sampleRate = rate;
+        globalThis.currentTime = 4.25;
+        try {
+            const processor = outputCaptureFixture();
+            beginCapture(processor, 1);
+            processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+            expect(processor.port.postMessage).toHaveBeenCalledWith(expect.objectContaining({type: 'output-capture',
+                sampleRate: rate, frames: 1, startTimeSeconds: 4.25}), expect.any(Array));
+        } finally {
+            globalThis.sampleRate = previousRate;
+            globalThis.currentTime = previousTime;
+        }
+    });
+
+    it('does not interrupt playback if transferring the completed capture fails', () => {
+        const processor = outputCaptureFixture();
+        beginCapture(processor, 1);
+        processor.port.postMessage.mockImplementation(message => {
+            if (message.type === 'output-capture') throw new Error('Message port closed');
+        });
+        const outputs = [[new Float32Array(128), new Float32Array(128)]];
+        processor.modules.first.instance.inputs.L.fill(5);
+        expect(processor.process([], outputs)).toBe(true);
+        expect(outputs[0][0].every(sample => sample === 0.5)).toBe(true);
+        expect(processor.outputCapture).toBeNull();
+    });
+
     it('renders a core VCO through the stereo output sink', () => {
         const processor = new Processor();
         processor.handleMessage({

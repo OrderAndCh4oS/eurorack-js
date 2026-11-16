@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "inputs": [
+    {
+      "path": "scripts/audio-analysis-assets.mjs",
+      "sha256": "4495e428ab4d47fdc191cf2ba607c3169d64ddaf092fe73d6b4ae875d92e3415"
+    },
+    {
+      "path": "scripts/audio-analysis-licenses/dasp-0.11.0-MIT.txt",
+      "sha256": "b1d6df41ed3aa96806e74c729444d7c121d90e6660a6aed01d298e03fde475a0"
+    },
+    {
+      "path": "scripts/build-audio-analysis.mjs",
+      "sha256": "11ab075889b0d02721ec5f284b6ba8a0de5ea25180d1ebaba84fe7f2fdbeb74d"
+    },
+    {
+      "path": "wasm/audio-analysis/Cargo.lock",
+      "sha256": "6118fe2ef3e741b67ef2088806ea8a8c1d153391aebbc4b1fe45db3fe04b6782"
+    },
+    {
+      "path": "wasm/audio-analysis/Cargo.toml",
+      "sha256": "6147aa7e7fcd88c7d75c1dc87e72b001c8f9f4600e13d0ad97243bd20d9e7a8f"
+    },
+    {
+      "path": "wasm/audio-analysis/src/lib.rs",
+      "sha256": "de5d5ea634ee06939db5f1f32f870ccb66b6a3a3656bfb1f20b036b1bafeb4eb"
+    }
+  ],
+  "version": "ea8ed925be2821c3ca7003ab29c4f36c23861cc5c02ee395bf1b727a845051a9",
+  "moduleFile": "audio-analysis-df40b4362d0f61a8b53ca29f7cf4897c6fd939fd7092aa8ba4e3ffa4b042def5.js",
+  "wasmFile": "audio-analysis-d8e3e6473d6d2f4c252dbf3b4808ca13c51469e0072c5170f9004116009c9d5b.wasm",
+  "toolchain": {
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "wasmBindgen": "0.2.130"
+  },
+  "files": [
+    {
+      "name": "audio-analysis-df40b4362d0f61a8b53ca29f7cf4897c6fd939fd7092aa8ba4e3ffa4b042def5.js",
+      "bytes": 7178,
+      "sha256": "df40b4362d0f61a8b53ca29f7cf4897c6fd939fd7092aa8ba4e3ffa4b042def5"
+    },
+    {
+      "name": "audio-analysis-d8e3e6473d6d2f4c252dbf3b4808ca13c51469e0072c5170f9004116009c9d5b.wasm",
+      "bytes": 401536,
+      "sha256": "d8e3e6473d6d2f4c252dbf3b4808ca13c51469e0072c5170f9004116009c9d5b"
+    },
+    {
+      "name": "LICENSES.txt",
+      "bytes": 314649,
+      "sha256": "5da5a6f6cb742f4e0cb5ef3f490d7219d84bc583c1e95cd4e5e0c49574b6a5f1"
+    }
+  ]
+}

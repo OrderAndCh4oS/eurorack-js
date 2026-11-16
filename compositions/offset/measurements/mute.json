@@ -1,0 +1,525 @@
+{
+  "variant": "mute",
+  "patch": {
+    "version": 3,
+    "plugins": {
+      "core": 1
+    },
+    "modules": [
+      {
+        "id": "clock",
+        "type": "clk",
+        "row": 1,
+        "index": 0
+      },
+      {
+        "id": "divide",
+        "type": "div",
+        "row": 1,
+        "index": 1
+      },
+      {
+        "id": "upper",
+        "type": "seq",
+        "row": 1,
+        "index": 2
+      },
+      {
+        "id": "lower",
+        "type": "seq",
+        "row": 1,
+        "index": 3
+      },
+      {
+        "id": "lead",
+        "type": "pluck",
+        "row": 1,
+        "index": 4
+      },
+      {
+        "id": "answer",
+        "type": "pluck",
+        "row": 1,
+        "index": 5
+      },
+      {
+        "id": "width",
+        "type": "chorus",
+        "row": 1,
+        "index": 6
+      },
+      {
+        "id": "room",
+        "type": "verb",
+        "row": 1,
+        "index": 7
+      },
+      {
+        "id": "main",
+        "type": "out",
+        "row": 1,
+        "index": 8
+      },
+      {
+        "id": "roots",
+        "type": "seq",
+        "row": 2,
+        "index": 0
+      },
+      {
+        "id": "bass",
+        "type": "vco",
+        "row": 2,
+        "index": 1
+      },
+      {
+        "id": "tone",
+        "type": "vcf",
+        "row": 2,
+        "index": 2
+      },
+      {
+        "id": "shape",
+        "type": "func",
+        "row": 2,
+        "index": 3
+      },
+      {
+        "id": "bassAmp",
+        "type": "vca",
+        "row": 2,
+        "index": 4
+      },
+      {
+        "id": "motion",
+        "type": "lfo",
+        "row": 2,
+        "index": 5
+      },
+      {
+        "id": "mod",
+        "type": "atten",
+        "row": 2,
+        "index": 6
+      },
+      {
+        "id": "left",
+        "type": "mix",
+        "row": 2,
+        "index": 7
+      },
+      {
+        "id": "right",
+        "type": "mix",
+        "row": 2,
+        "index": 8
+      }
+    ],
+    "params": {
+      "clock": {
+        "rate": 0.31441935359,
+        "pause": 0
+      },
+      "divide": {
+        "rate1": 0.4375,
+        "rate2": 0.3125
+      },
+      "upper": {
+        "step1": 0,
+        "step2": 0.5833333333333334,
+        "step3": 0.8333333333333334,
+        "step4": 0.25,
+        "step5": 0.4166666666666667,
+        "step6": 0,
+        "step7": 0,
+        "step8": 0,
+        "length": 5,
+        "range": 0,
+        "direction": 0,
+        "gate1": 1,
+        "gate2": 1,
+        "gate3": 1,
+        "gate4": 1,
+        "gate5": 1,
+        "gate6": 1,
+        "gate7": 1,
+        "gate8": 1
+      },
+      "lower": {
+        "step1": 1,
+        "step2": 0.8333333333333334,
+        "step3": 0.5833333333333334,
+        "step4": 0.4166666666666667,
+        "step5": 0.25,
+        "step6": 0.5833333333333334,
+        "step7": 0.8333333333333334,
+        "step8": 0.4166666666666667,
+        "length": 8,
+        "range": 0,
+        "direction": 0,
+        "gate1": 1,
+        "gate2": 0,
+        "gate3": 1,
+        "gate4": 0,
+        "gate5": 1,
+        "gate6": 0,
+        "gate7": 0,
+        "gate8": 1
+      },
+      "lead": {
+        "pitch": 0.483333333333,
+        "decay": 0.57,
+        "damp": 0.68,
+        "position": 0.28
+      },
+      "answer": {
+        "pitch": 0.283333333333,
+        "decay": 0.64,
+        "damp": 0.58,
+        "position": 0.44
+      },
+      "width": {
+        "rate": 0.07,
+        "depth": 0.16,
+        "mix": 0.18
+      },
+      "room": {
+        "time": 0.56,
+        "damp": 0.62,
+        "mix": 0.23
+      },
+      "main": {
+        "volume": 0
+      },
+      "roots": {
+        "step1": 0,
+        "step2": 0,
+        "step3": 0.4166666666666667,
+        "step4": 0.8333333333333334,
+        "step5": 0,
+        "step6": 0,
+        "step7": 0,
+        "step8": 0,
+        "length": 4,
+        "range": 0,
+        "direction": 0,
+        "gate1": 1,
+        "gate2": 1,
+        "gate3": 1,
+        "gate4": 1,
+        "gate5": 1,
+        "gate6": 1,
+        "gate7": 1,
+        "gate8": 1
+      },
+      "bass": {
+        "coarse": 0.33225629758,
+        "fine": 0,
+        "glide": 18
+      },
+      "tone": {
+        "cutoff": 0.34,
+        "resonance": 0.19
+      },
+      "shape": {
+        "rise": 0.21,
+        "fall": 0.71,
+        "curve": 0.38,
+        "cycle": 0
+      },
+      "bassAmp": {
+        "ch1Gain": 0.4,
+        "ch2Gain": 0
+      },
+      "motion": {
+        "rateKnob": 0.12,
+        "waveKnob": 0,
+        "range": 0
+      },
+      "mod": {
+        "atten1": 0.58,
+        "offset1": 0.5,
+        "atten2": 0.75,
+        "offset2": 0.5
+      },
+      "left": {
+        "lvl1": 0.65,
+        "lvl2": 0.4,
+        "lvl3": 0.35,
+        "lvl4": 0
+      },
+      "right": {
+        "lvl1": 0.85,
+        "lvl2": 0.4,
+        "lvl3": 0.9,
+        "lvl4": 0
+      }
+    },
+    "cables": [
+      {
+        "fromModule": "clock",
+        "fromPort": "clock",
+        "toModule": "divide",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "clock",
+        "fromPort": "clock",
+        "toModule": "upper",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "divide",
+        "fromPort": "out1",
+        "toModule": "lower",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "divide",
+        "fromPort": "out2",
+        "toModule": "roots",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "upper",
+        "fromPort": "cv",
+        "toModule": "lead",
+        "toPort": "vOct"
+      },
+      {
+        "fromModule": "upper",
+        "fromPort": "gate",
+        "toModule": "lead",
+        "toPort": "trigger"
+      },
+      {
+        "fromModule": "lower",
+        "fromPort": "cv",
+        "toModule": "answer",
+        "toPort": "vOct"
+      },
+      {
+        "fromModule": "lower",
+        "fromPort": "gate",
+        "toModule": "answer",
+        "toPort": "trigger"
+      },
+      {
+        "fromModule": "roots",
+        "fromPort": "cv",
+        "toModule": "bass",
+        "toPort": "vOct"
+      },
+      {
+        "fromModule": "roots",
+        "fromPort": "gate",
+        "toModule": "shape",
+        "toPort": "trig"
+      },
+      {
+        "fromModule": "bass",
+        "fromPort": "ramp",
+        "toModule": "tone",
+        "toPort": "audio"
+      },
+      {
+        "fromModule": "tone",
+        "fromPort": "lpf",
+        "toModule": "bassAmp",
+        "toPort": "ch1In"
+      },
+      {
+        "fromModule": "shape",
+        "fromPort": "out",
+        "toModule": "mod",
+        "toPort": "in2"
+      },
+      {
+        "fromModule": "mod",
+        "fromPort": "out2",
+        "toModule": "bassAmp",
+        "toPort": "ch1CV"
+      },
+      {
+        "fromModule": "mod",
+        "fromPort": "out2",
+        "toModule": "tone",
+        "toPort": "cutoffCV"
+      },
+      {
+        "fromModule": "motion",
+        "fromPort": "primary",
+        "toModule": "mod",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "mod",
+        "fromPort": "out1",
+        "toModule": "lead",
+        "toPort": "dampCV"
+      },
+      {
+        "fromModule": "mod",
+        "fromPort": "out1",
+        "toModule": "answer",
+        "toPort": "positionCV"
+      },
+      {
+        "fromModule": "lead",
+        "fromPort": "out",
+        "toModule": "width",
+        "toPort": "inL"
+      },
+      {
+        "fromModule": "answer",
+        "fromPort": "out",
+        "toModule": "width",
+        "toPort": "inR"
+      },
+      {
+        "fromModule": "width",
+        "fromPort": "outL",
+        "toModule": "room",
+        "toPort": "audioL"
+      },
+      {
+        "fromModule": "width",
+        "fromPort": "outR",
+        "toModule": "room",
+        "toPort": "audioR"
+      },
+      {
+        "fromModule": "room",
+        "fromPort": "outL",
+        "toModule": "left",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "room",
+        "fromPort": "outR",
+        "toModule": "right",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "lead",
+        "fromPort": "out",
+        "toModule": "left",
+        "toPort": "in3"
+      },
+      {
+        "fromModule": "answer",
+        "fromPort": "out",
+        "toModule": "right",
+        "toPort": "in3"
+      },
+      {
+        "fromModule": "bassAmp",
+        "fromPort": "ch1Out",
+        "toModule": "left",
+        "toPort": "in2"
+      },
+      {
+        "fromModule": "bassAmp",
+        "fromPort": "ch1Out",
+        "toModule": "right",
+        "toPort": "in2"
+      },
+      {
+        "fromModule": "left",
+        "fromPort": "out",
+        "toModule": "main",
+        "toPort": "L"
+      },
+      {
+        "fromModule": "right",
+        "fromPort": "out",
+        "toModule": "main",
+        "toPort": "R"
+      }
+    ],
+    "midiMappings": {}
+  },
+  "ok": true,
+  "revision": 8,
+  "implementationVersion": "ea8ed925be2821c3ca7003ab29c4f36c23861cc5c02ee395bf1b727a845051a9",
+  "capture": {
+    "frames": 192000,
+    "sampleRate": 48000,
+    "durationSeconds": 4,
+    "engineRevision": 1,
+    "requestedAtContextTime": 0.2986666666666667,
+    "startTimeSeconds": 0.2986666666666667,
+    "signal": "final-stereo-output-after-volume-and-limiter"
+  },
+  "report": {
+    "schemaVersion": 1,
+    "input": {
+      "frames": 192000,
+      "sampleRate": 48000,
+      "durationSeconds": 4
+    },
+    "levels": {
+      "left": {
+        "peak": 0,
+        "peakDbfs": null,
+        "rms": 0,
+        "rmsDbfs": null,
+        "dcOffset": 0,
+        "fullScaleSamples": 0,
+        "fullScaleFraction": 0
+      },
+      "right": {
+        "peak": 0,
+        "peakDbfs": null,
+        "rms": 0,
+        "rmsDbfs": null,
+        "dcOffset": 0,
+        "fullScaleSamples": 0,
+        "fullScaleFraction": 0
+      }
+    },
+    "stereo": {
+      "correlation": null,
+      "midRms": 0,
+      "sideRms": 0,
+      "sideToMidEnergyRatio": null
+    },
+    "spectral": {
+      "fftSize": 2048,
+      "hopSize": 1024,
+      "window": "periodic-hann",
+      "activeFloorDbfs": -80,
+      "bandEdgesHz": [
+        250,
+        4000
+      ],
+      "left": {
+        "frameCount": 186,
+        "activeFrameCount": 0,
+        "centroidHz": null,
+        "rolloff85Hz": null,
+        "flatness": null,
+        "bandEnergyFractions": null
+      },
+      "right": {
+        "frameCount": 186,
+        "activeFrameCount": 0,
+        "centroidHz": null,
+        "rolloff85Hz": null,
+        "flatness": null,
+        "bandEnergyFractions": null
+      }
+    },
+    "loudness": {
+      "integratedLufs": null,
+      "momentaryLufs": null,
+      "shortTermLufs": null,
+      "truePeakEstimate": {
+        "left": 0,
+        "right": 0,
+        "leftDbtp": null,
+        "rightDbtp": null
+      }
+    }
+  }
+}

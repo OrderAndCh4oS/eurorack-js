@@ -19,13 +19,13 @@ async function connectTools(page) {
         waiting.get(event.invocationId)?.(event);
     });
     await cdp.send('WebMCP.enable');
-    await expect.poll(() => tools.size).toBe(5);
+    await expect.poll(() => tools.size).toBe(6);
     const start = async (name,input = {}) => {
         const tool = tools.get(name);
         const {invocationId} = await cdp.send('WebMCP.invokeTool',{frameId:tool.frameId,toolName:name,input});
         const response = responses.has(invocationId) ? Promise.resolve(responses.get(invocationId))
             : new Promise((resolve,reject) => {
-                const timer = setTimeout(() => {waiting.delete(invocationId);reject(new Error(`${name} did not respond`));},10000);
+                const timer = setTimeout(() => {waiting.delete(invocationId);reject(new Error(`${name} did not respond`));},35000);
                 waiting.set(invocationId,value => {clearTimeout(timer);waiting.delete(invocationId);resolve(value);});
             });
         return {invocationId,response};
@@ -42,7 +42,7 @@ test('native Chrome discovers all tools, catches wiring issues and applies the e
     testInfo.annotations.push({type:'browser',description:browser.version()});
     const {tools,cdp,invoke} = await connectTools(page);
     try {
-        expect([...tools.keys()].sort()).toEqual(['apply_draft','debug_rack','describe_modules','get_rack','validate_script']);
+        expect([...tools.keys()].sort()).toEqual(['apply_draft','debug_rack','describe_modules','get_rack','measure_audio','validate_script']);
         const navigations = [];
         page.on('framenavigated',frame => navigations.push(frame.url()));
         const before = await invoke('get_rack');
@@ -94,5 +94,29 @@ test('native cancellation closes confirmation, and stale edits are preserved', a
         expect(bad.error.message).toContain('evaluation limit');
         const recovered = await validate();
         expect(recovered.ok).toBe(true);
+    } finally {await cdp.detach();}
+});
+
+test('native WebMCP measures running audio through WASM and cancels a capture', async ({page}) => {
+    const {cdp,invoke,start} = await connectTools(page);
+    try {
+        const before = await invoke('get_rack');
+        expect(await invoke('measure_audio',{expectedRevision:before.revision})).toMatchObject({ok:false,error:{code:'audio-not-running'}});
+        const draft = await invoke('validate_script',{source:`patch().module('vco','osc').module('out','main',{volume:0.2}).connect('osc.triangle','main.L').connect('osc.triangle','main.R')`,expectedRevision:before.revision});
+        expect(await invoke('apply_draft',{draftId:draft.draftId})).toMatchObject({ok:true,applied:true});
+        await page.getByRole('button',{name:'Close Code',exact:true}).click();
+        await page.locator('#startButton').click();
+        await page.waitForFunction(() => window.eurorackApp.audioCtx?.state === 'running' && window.eurorackApp.host.engine?.running);
+        const revision = (await invoke('get_rack')).revision;
+        const measured = await invoke('measure_audio',{expectedRevision:revision,durationSeconds:0.5});
+        expect(measured,JSON.stringify(measured)).toMatchObject({ok:true,report:{schemaVersion:1}});
+        expect(measured.report.levels.left.rms).toBeGreaterThan(0);
+        const pending = await start('measure_audio',{expectedRevision:revision,durationSeconds:10});
+        await page.waitForFunction(() => window.eurorackApp.host.engine.pendingOutputCapture);
+        await cdp.send('WebMCP.cancelInvocation',{invocationId:pending.invocationId});
+        expect((await pending.response).status).toBe('Canceled');
+        await page.waitForFunction(() => !window.eurorackApp.host.engine.pendingOutputCapture);
+        expect(await invoke('measure_audio',{expectedRevision:revision,durationSeconds:0.5})).toMatchObject({ok:true});
+        expect(await page.evaluate(() => window.eurorackApp.audioCtx.state)).toBe('running');
     } finally {await cdp.detach();}
 });

@@ -11,8 +11,9 @@ function fixture() {
         stageAgentScript: vi.fn(), validateDraft: vi.fn(async () => ({draftId: id})),
         applyDraft: vi.fn(async () => ({applied: true}))
     };
-    const tools = Object.fromEntries(createRackTools({workbench, registry: pluginRegistry}).map(tool => [tool.name, tool]));
-    return {tools, workbench, rack};
+    const analysis = {measure: vi.fn(async () => ({report: {schemaVersion: 1}}))};
+    const tools = Object.fromEntries(createRackTools({workbench, registry: pluginRegistry, analysis}).map(tool => [tool.name, tool]));
+    return {tools, workbench, rack, analysis};
 }
 
 describe('Eurorack WebMCP tools', () => {
@@ -76,14 +77,26 @@ describe('Eurorack WebMCP tools', () => {
         expect(await tools.apply_draft.execute({draftId:id})).toEqual({ok:false,error:{code:'rack-changed',message:'The rack changed. Read it again.'}});
     });
 
-    it('uses document.modelContext and an AbortSignal to register and dispose all five tools', async () => {
+    it('validates measurement arguments and forwards duration, revision and cancellation', async () => {
+        const {tools, analysis} = fixture();
+        const controller = new AbortController();
+        expect(await tools.measure_audio.execute({expectedRevision: 3}, {signal: controller.signal})).toEqual({ok: true, report: {schemaVersion: 1}});
+        expect(analysis.measure).toHaveBeenCalledWith({durationSeconds: 5, expectedRevision: 3, signal: controller.signal});
+        for (const input of [{}, {durationSeconds: 11, expectedRevision: 3}, {durationSeconds: '5', expectedRevision: 3}, {expectedRevision: 3, upload: true}]) {
+            expect(await tools.measure_audio.execute(input)).toMatchObject({ok: false, error: {code: 'invalid-input'}});
+        }
+        expect(analysis.measure).toHaveBeenCalledOnce();
+        expect(tools.measure_audio.annotations.readOnlyHint).toBe(true);
+    });
+
+    it('uses document.modelContext and an AbortSignal to register and dispose all six tools', async () => {
         const {workbench} = fixture();
         const registerTool = vi.fn(async () => {});
         const prepareEvaluator = vi.fn(async () => {expect(registerTool).not.toHaveBeenCalled();});
         const adapter = await registerRackTools({document: {modelContext:{registerTool}}, workbench, registry:pluginRegistry, prepareEvaluator});
         expect(prepareEvaluator).toHaveBeenCalledOnce();
         expect(adapter.supported).toBe(true);
-        expect(registerTool.mock.calls.map(([tool]) => tool.name)).toEqual(['get_rack','describe_modules','validate_script','apply_draft','debug_rack']);
+        expect(registerTool.mock.calls.map(([tool]) => tool.name)).toEqual(['get_rack','describe_modules','validate_script','apply_draft','debug_rack','measure_audio']);
         const signal = registerTool.mock.calls[0][1].signal;
         expect(signal.aborted).toBe(false);
         expect(registerTool.mock.calls.every(([,options]) => options.signal === signal)).toBe(true);
@@ -100,6 +113,19 @@ describe('Eurorack WebMCP tools', () => {
         expect(adapter.supported).toBe(false);
         expect(registerTool.mock.calls[0][1].signal.aborted).toBe(true);
         warn.mockRestore();
+    });
+
+    it('keeps lifecycle cleanup after a BFCache pagehide and disposes analysis on real departure', async () => {
+        const {workbench} = fixture();
+        const view = Object.assign(new EventTarget(), {AbortController});
+        const registerTool = vi.fn(async () => {});
+        const analysis = {dispose: vi.fn()};
+        await registerRackTools({document: {defaultView:view,modelContext:{registerTool}},workbench,registry:pluginRegistry,analysis,prepareEvaluator:async()=>{}});
+        const signal = registerTool.mock.calls[0][1].signal;
+        view.dispatchEvent(new PageTransitionEvent('pagehide', {persisted:true}));
+        expect(signal.aborted).toBe(false); expect(analysis.dispose).not.toHaveBeenCalled();
+        view.dispatchEvent(new PageTransitionEvent('pagehide', {persisted:false}));
+        expect(signal.aborted).toBe(true); expect(analysis.dispose).toHaveBeenCalledOnce();
     });
 
     it('does not expose tools if the isolated evaluator cannot be prepared', async () => {

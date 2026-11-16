@@ -44,7 +44,7 @@ Agents developing modules for others should follow the [contribution workflow](c
 
 ## Tool reference
 
-All five tools take a JSON object. Use `{}` for tools with no arguments. Extra or unknown fields are rejected.
+All six tools take a JSON object. Use `{}` for tools with no arguments. Extra or unknown fields are rejected.
 
 | Tool | Input | Success result, alongside `ok: true` |
 | --- | --- | --- |
@@ -54,6 +54,7 @@ All five tools take a JSON object. Use `{}` for tools with no arguments. Extra o
 | `validate_script` | `{ "source": "patch()…", "expectedRevision": 1 }` | `draftId`, compiled `patch`, `diagnostics`, `revision`, and `expiresAt` |
 | `apply_draft` | `{ "draftId": "…" }` | `applied: true`, or `applied: false` if you cancel the confirmation |
 | `debug_rack` | `{}` | Current `revision`, `moduleCount`, `cableCount`, and structured `issues` |
+| `measure_audio` | `{ "expectedRevision": 1, "durationSeconds": 5 }` | `revision`, `implementationVersion`, `capture` details and a JSON `report` of the running stereo output |
 
 Use the actual revision returned by `get_rack`, rather than the example value `1`. The draft ID is a 26-character ULID; pass it back unchanged. `expiresAt` is a timestamp in milliseconds since the Unix epoch.
 
@@ -95,7 +96,27 @@ Cancellation stops evaluation or prevents an application that has not started lo
 
 Connection issues are advisory and do not block an otherwise valid patch. The checks follow audio, CV, gate and trigger routes at module level. Spare individual jacks are normal. Monitors and recorders need a cable into a declared signal input; a PLOT trigger alone does not count. These checks cannot prove a patch is audible or identify every unused internal channel.
 
-This version does not return audio recordings, images, or WASM audio measurements. An agent can inspect the patch structure and wiring; listening still happens through the rack.
+These wiring checks are separate from the audio measurements below. Listening still happens through the rack; tools do not return recordings or images.
+
+## Measure the audio
+
+Press **Start** in the rack, call `get_rack`, then pass its revision to `measure_audio`. `durationSeconds` defaults to 5 and accepts 0.5–10 seconds. The tool measures the live final stereo output, after OUT volume controls and the output limiter. It does not start playback or change the patch.
+
+The AudioWorklet captures an exact number of samples into bounded buffers. A separate Worker runs the Rust/WASM analysis and returns JSON. Audio is not uploaded, saved or turned into a share URL. WASM loads only when a measurement is requested; its versioned assets are cached.
+
+| Report field | Measurements and units |
+| --- | --- |
+| `input` | Frame count, sample rate in Hz, duration in seconds |
+| `levels.left`, `levels.right` | Peak/RMS in normalized sample units and dBFS, mean DC offset, count/fraction of samples at full scale |
+| `stereo` | Correlation from -1 to 1, mid/side RMS and side-to-mid energy ratio |
+| `spectral.left`, `spectral.right` | Centroid and 85% rolloff in Hz, flatness, energy fractions below 250 Hz, 250–4000 Hz and above 4000 Hz |
+| `loudness` | Integrated, momentary and short-term LUFS; estimated true peaks in linear units and dBTP |
+
+Undefined measurements are `null`: for example, dBFS for silence, correlation without channel variance, and short-term LUFS for captures under three seconds. Spectral reports include FFT size, hop size, window and active-frame counts. The [analysis implementation](https://github.com/OrderAndCh4oS/eurorack-js/tree/main/wasm/audio-analysis) defines framing and aggregation; results are not promised to match Librosa defaults exactly.
+
+Each response carries the rack revision, implementation version, capture duration/sample count, and engine revision. Changing a control or connection, stopping/suspending audio, or cancelling the call discards the measurement. Only one measurement runs at a time. The first version accepts sample rates from 8 to 192 kHz.
+
+These measurements describe the captured signal. They do not establish that a patch sounds good, identify every faulty module, or prove that upstream signals were unclipped: the measured output has already passed through the limiter. Short captures also do not represent the loudness or structure of a whole composition. Pitch, tempo, MFCC/chroma and genre classification are not included in this version.
 
 ## Troubleshooting
 
@@ -112,6 +133,9 @@ This version does not return audio recordings, images, or WASM audio measurement
 | `source-limit` or `patch-limit` | Reduce the script or patch size. |
 | `cancelled` | The operation was cancelled. Start again when ready. |
 | `operation-failed` | Read the returned message for the compiler or evaluator error, then correct the script and validate again. |
+| `audio-not-running` | Press Start in the rack; audio must keep running throughout the measurement. |
+| `analysis-unavailable`, `analysis-failed` | Analysis could not load or run. The rack remains available; retry the measurement. |
+| `capture-timeout`, `analysis-timeout` | Capture or analysis took too long. Check that audio is running and try a shorter duration. |
 
 If you expect sound, check that audio is running and at least one signal reaches OUT. Connection warnings alone cannot tell you whether an envelope is open, an oscillator is in the audible range, or a level control is turned down.
 
@@ -129,12 +153,12 @@ The adapter follows Chrome's [imperative API](https://developer.chrome.com/docs/
 
 The evaluator iframe is prepared before tools are registered. Each evaluation reuses that host and creates a fresh worker, without navigating a child frame during the tool call.
 
-The default browser tests exercise the real isolated evaluator through a tool registration stub. The optional native suite uses installed Chrome with WebMCP enabled and calls its actual `WebMCP.enable`, `invokeTool` and `cancelInvocation` CDP commands. It fails rather than skips when the native API is unavailable. It covers all five tools, exact draft application, diagnostics, cancellation, stale edits and timeout recovery.
+The default browser tests exercise the real isolated evaluator and AudioWorklet → Worker → WASM analysis through a tool registration stub. The optional native suite uses installed Chrome with WebMCP enabled and calls its actual `WebMCP.enable`, `invokeTool` and `cancelInvocation` CDP commands. It fails rather than skips when the native API is unavailable. It covers all six tools, exact draft application, diagnostics, audio measurement, cancellation, stale edits and timeout recovery.
 
 For an isolated native test session, use a recent Chrome with `--enable-features=WebMCP` and a separate user-data directory. Browser and agent support outside the tested setup still needs checking.
 
 ```sh
 npm test -- tests/app/webmcp.test.js tests/patch-script/draft-service.test.js tests/patch-script/evaluator.test.js tests/rack/diagnostics.test.js
-npx playwright test tests/e2e/webmcp.spec.js tests/e2e/patch-evaluator.spec.js tests/e2e/rack-debugger.spec.js
+npx playwright test tests/e2e/webmcp.spec.js tests/e2e/audio-analysis.spec.js tests/e2e/patch-evaluator.spec.js tests/e2e/rack-debugger.spec.js
 npm run test:webmcp
 ```

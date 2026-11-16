@@ -1,0 +1,25 @@
+[package]
+name = "eurorack-audio-analysis"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+publish = false
+description = "Bounded browser-local audio measurements for EurorackJS"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+ebur128 = "=0.1.11"
+realfft = { version = "=3.5.1", default-features = false }
+rustfft = { version = "=6.4.1", default-features = false }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+wasm-bindgen = "=0.2.130"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+

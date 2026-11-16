@@ -7,6 +7,7 @@
 .idea/
 .astro/
 node_modules/
+wasm/**/target/
 dist/
 test-results/
 playwright-report/

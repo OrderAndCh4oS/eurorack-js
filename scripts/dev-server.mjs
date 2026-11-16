@@ -15,7 +15,7 @@ if (process.env.EURORACK_TEST_BACKEND === '1') {
     const { createTestBackend } = await import('../tests/server/test-backend.js');
     handler = createTestBackend({ baseUrl: origin }).handler;
 }
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.xml': 'application/xml; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.wav': 'audio/wav' };
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.xml': 'application/xml; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.wav': 'audio/wav', '.wasm': 'application/wasm' };
 createServer(async (incoming, outgoing) => {
     try {
         const url = new URL(incoming.url, origin);
@@ -41,7 +41,7 @@ createServer(async (incoming, outgoing) => {
             : ['/privacy-policy', '/terms-of-service'].includes(url.pathname) ? `${url.pathname}.html` : decodeURIComponent(url.pathname);
         const file = resolve(root, `.${pathname}`);
         if (!file.startsWith(`${resolve(root)}${sep}`) || !(await stat(file)).isFile()) { outgoing.writeHead(404); outgoing.end(); return; }
-        const cacheControl = /^\/fonts\/[^/]+\.[a-f0-9]{8}\.woff2$/.test(pathname) || /^\/patch-previews\/(?:introduction\/)?[a-f0-9]{64}\.webp$/.test(pathname) || /^\/social-cards\/[a-f0-9]{64}\.png$/.test(pathname)
+        const cacheControl = /^\/fonts\/[^/]+\.[a-f0-9]{8}\.woff2$/.test(pathname) || /^\/patch-previews\/(?:introduction\/)?[a-f0-9]{64}\.webp$/.test(pathname) || /^\/social-cards\/[a-f0-9]{64}\.png$/.test(pathname) || /^\/wasm\/audio-analysis\/audio-analysis-[a-f0-9]{64}\.(?:wasm|js)$/.test(pathname)
             ? 'public, max-age=31536000, immutable' : 'no-store';
         outgoing.writeHead(200, { 'Content-Type': types[extname(file)] || 'application/octet-stream', 'Cache-Control': cacheControl, 'X-Content-Type-Options': 'nosniff' });
         outgoing.end(incoming.method === 'HEAD' ? undefined : await readFile(file));

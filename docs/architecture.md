@@ -32,6 +32,14 @@ Audio requires `AudioWorklet` in a secure context. There is no ScriptProcessor, 
 
 Worklet topology activation is atomic: a compilation failure leaves the previous audio graph active. Ordinary rack edits publish revisions asynchronously and report activation errors without rolling back visible state. `RackHost.loadPatch()` is transactional: it waits for the replacement revision, emits `patch-loaded` only after acknowledgement, and restores the prior rack and worklet topology on failure.
 
+### Audio Measurements
+
+The optional `measure_audio` [WebMCP tool](webmcp.md#measure-the-audio) captures the actual final stereo output for 0.5–10 seconds. `audio/audio-analysis.js` owns request cancellation, host mutation checks and a disposable analysis Worker. `AudioWorkletEngine.captureOutput()` allocates and transfers bounded capture buffers to the processor, which copies final samples after limiting and returns those owned buffers at the exact requested frame count.
+
+`audio/analysis-worker.js` loads the content-hashed program from `wasm/audio-analysis/manifest.js` and runs Rust/WASM off the realtime thread. Rust source lives in the repository's `wasm/audio-analysis/` crate. The Worker returns JSON metrics and is terminated; captured PCM is not uploaded or persisted. Live playback is required and is never started by the tool. Parameter/topology edits, audio suspension/stop, tool cancellation and timeouts invalidate the measurement.
+
+Run `npm run build:audio-analysis` after changing the Rust implementation or its locked dependencies. The normal app build verifies the committed generated assets against their source and file checksums; it does not compile Rust on Vercel. WASM assets load only on demand. See the crate README for the report definitions and build prerequisites.
+
 ## Module Instances
 
 Each rack module has a main-thread instance, and a second instance while audio is running:

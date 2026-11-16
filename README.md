@@ -37,7 +37,7 @@ The **Modules** tab lists **Your modules** first and lets you search the built-i
 
 **Debug**, beside Code, highlights modules with no cables, unconnected outputs, and branches that do not reach an output or monitor. Select an issue to find its module. Checks update as you patch, work with audio stopped, and stay out of saved rack images. Spare jacks and feedback are allowed; these checks inspect wiring rather than measure sound.
 
-Experimental [WebMCP tools](docs/webmcp.md) let a compatible browser agent inspect the rack and module contracts, validate JavaScript, apply a retained draft, and read connection diagnostics. The normal editor works without WebMCP. Audio/WASM analysis is not included.
+Experimental [WebMCP tools](docs/webmcp.md) let a compatible browser agent inspect the rack and module contracts, validate JavaScript, apply a retained draft, read connection diagnostics, and measure the running stereo output. Audio measurements use Rust/WASM in a separate browser Worker and return JSON; audio stays in the browser. The normal editor works without WebMCP.
 
 ## Introduction and documentation
 

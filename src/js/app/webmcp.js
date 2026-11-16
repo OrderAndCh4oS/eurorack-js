@@ -24,7 +24,7 @@ function describeDefinition(definition) {
             (ui[kind] || []).map(control => ({...control, kind}))), diagnostics: definition.diagnostics});
 }
 
-export function createRackTools({workbench, registry}) {
+export function createRackTools({workbench, registry, analysis}) {
     const wrap = (name, description, inputSchema, readOnly, run) => ({
         name, description, inputSchema,
         annotations: {readOnlyHint: readOnly, untrustedContentHint: true},
@@ -75,12 +75,21 @@ export function createRackTools({workbench, registry}) {
             objectSchema(), true, () => {
                 const {revision, diagnostics} = workbench.drafts.getRack();
                 return {revision, ...diagnostics};
+            }),
+        wrap('measure_audio', 'Measure 0.5–10 seconds of the running rack’s final stereo output using browser-local Rust/WASM. Read get_rack first and provide its revision. Returns level, DC, stereo, spectral and loudness metrics only; no audio file, image, upload, or judgement of musical quality. Press Start in the rack first: this tool never starts audio. Changing the rack or stopping audio cancels the measurement. The final signal is already limited; full-scale samples do not prove upstream clipping is absent. Undefined measurements are null. Default duration is 5 seconds.',
+            objectSchema({durationSeconds: {type: 'number', minimum: 0.5, maximum: 10, default: 5}, expectedRevision: {type: 'integer', minimum: 1}}, ['expectedRevision']), true,
+            ({durationSeconds = 5, expectedRevision}, signal) => {
+                if (!Number.isFinite(durationSeconds) || durationSeconds < 0.5 || durationSeconds > 10 || !Number.isInteger(expectedRevision) || expectedRevision < 1) {
+                    throw draftError('invalid-input', 'Provide the current rack revision and a duration from 0.5 to 10 seconds.');
+                }
+                if (!analysis) throw draftError('analysis-unavailable', 'Audio analysis is unavailable in this tab.');
+                return analysis.measure({durationSeconds, expectedRevision, signal});
             })
     ];
 }
 
 /** Experimental WebMCP; absence or registration failure must never prevent rack startup. */
-export async function registerRackTools({document: documentRef = globalThis.document, workbench, registry,
+export async function registerRackTools({document: documentRef = globalThis.document, workbench, registry, analysis,
     prepareEvaluator = preparePatchEvaluator} = {}) {
     const modelContext = documentRef?.modelContext;
     if (typeof modelContext?.registerTool !== 'function') return {supported: false, dispose() {}};
@@ -89,15 +98,18 @@ export async function registerRackTools({document: documentRef = globalThis.docu
     const dispose = event => {
         if (event?.persisted) return; // Preserve registration while the document is in the back/forward cache.
         controller.abort();
+        analysis?.dispose();
         documentRef.defaultView?.removeEventListener('pagehide', dispose);
     };
-    documentRef.defaultView?.addEventListener('pagehide', dispose, {once: true});
+    // A persisted pagehide enters BFCache. Keep listening after restoration so
+    // the eventual real departure still cancels tools and releases analysis.
+    documentRef.defaultView?.addEventListener('pagehide', dispose);
     try {
         // Chrome attributes child-frame navigations to the active WebMCP call.
         // Establish the opaque host before tools become callable; evaluations then
         // create disposable workers without navigating or replacing the host frame.
         await prepareEvaluator({document: documentRef, signal: controller.signal});
-        for (const tool of createRackTools({workbench, registry})) {
+        for (const tool of createRackTools({workbench, registry, analysis})) {
             await modelContext.registerTool(tool, {signal: controller.signal});
         }
         return {supported: true, dispose};

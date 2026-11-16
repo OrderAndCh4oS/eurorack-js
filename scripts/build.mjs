@@ -2,9 +2,11 @@ import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { buildDocs } from './build-docs.mjs';
+import { validateAudioAnalysisAssets } from './audio-analysis-assets.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const out = fileURLToPath(new URL('../dist/', import.meta.url));
+await validateAudioAnalysisAssets({root});
 // Keep native module, worker and AudioWorklet URLs intact. Only third-party
 // browser dependencies need bundling; the instrument remains plain ES modules.
 await rm(out, { recursive: true, force: true });

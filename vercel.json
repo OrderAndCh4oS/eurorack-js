@@ -5,6 +5,8 @@
   "framework": null,
   "crons": [{ "path": "/api/internal/cleanup-previews", "schedule": "0 5 * * *" }],
   "headers": [
+    { "source": "/wasm/audio-analysis/audio-analysis-:hash([a-f0-9]{64}).wasm", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }, { "key": "Content-Type", "value": "application/wasm" }] },
+    { "source": "/wasm/audio-analysis/audio-analysis-:hash([a-f0-9]{64}).js", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
     { "source": "/social-cards/:file.png", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
     { "source": "/patch-previews/:path*", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
     { "source": "/fonts/:file.woff2", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }

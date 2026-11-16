@@ -20,6 +20,7 @@ import { createRackHost } from './rack-host.js';
 import { createPatchWorkbench } from '../patch-script/workbench.js';
 import { createRackDebugger } from '../ui/rack-debugger.js';
 import { registerRackTools } from './webmcp.js';
+import { createAudioAnalysis } from '../audio/audio-analysis.js';
 import {
     PATCH_VERSION,
     createPatchUrlHash,
@@ -248,7 +249,8 @@ export class EurorackApp {
             registry: pluginRegistry
         }).init();
         // Feature detection keeps the normal instrument independent of experimental browser support.
-        void registerRackTools({document: this.document, workbench: this.patchWorkbench, registry: pluginRegistry})
+        this.audioAnalysis = createAudioAnalysis({host: this.host, getRevision: () => this.patchWorkbench.drafts.getRack().revision});
+        void registerRackTools({document: this.document, workbench: this.patchWorkbench, registry: pluginRegistry, analysis: this.audioAnalysis})
             .then(adapter => { this.webmcp = adapter; });
         this.markEmptyRows();
     }

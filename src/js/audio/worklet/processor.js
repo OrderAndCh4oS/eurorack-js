@@ -108,6 +108,8 @@ function collectTransferables(value, transferables = new Set()) {
 }
 
 const MAX_PROFILE_SAMPLES = 4096;
+const MAX_CAPTURE_SAMPLE_RATE = 192000;
+const MAX_CAPTURE_SECONDS = 10;
 
 function profileNow() {
     return globalThis.performance?.now?.() ?? Date.now();
@@ -144,6 +146,7 @@ class EurorackProcessor extends AudioWorkletProcessor {
         this.telemetryFrames = 0;
         this.lastHistorySnapshots = new Map();
         this.profiling = { enabled: false, blocks: [], modules: new Map() };
+        this.outputCapture = null;
         this.port.onmessage = event => this.handleMessage(event.data);
     }
 
@@ -179,6 +182,7 @@ class EurorackProcessor extends AudioWorkletProcessor {
     }
 
     activateTopology(topology, { replace = false } = {}) {
+        this.cancelOutputCapture('rack-changed', 'The rack changed during audio capture.');
         Object.entries(topology.plugins || {}).forEach(([pluginId, patchVersion]) => {
             const plugin = getWorkletPlugin(pluginId);
             if (!plugin) throw new Error(`Worklet plugin "${pluginId}" is not registered`);
@@ -248,6 +252,10 @@ class EurorackProcessor extends AudioWorkletProcessor {
     handleMessage(message) {
         try {
             if (message.type === 'topology') this.activateTopology(message.topology, { replace: message.replace });
+            else if (message.type === 'capture-output') this.beginOutputCapture(message);
+            else if (message.type === 'cancel-output-capture') {
+                if (this.outputCapture?.requestId === message.requestId) this.outputCapture = null;
+            }
             else if (message.type === 'param') {
                 const module = this.modules[message.moduleId];
                 if (!module) throw new Error(`Module instance "${message.moduleId}" not found`);
@@ -287,6 +295,51 @@ class EurorackProcessor extends AudioWorkletProcessor {
             }
         } catch (error) {
             this.port.postMessage({ type: 'host-error', message: error.message, revision: message.topology?.revision });
+        }
+    }
+
+    beginOutputCapture({requestId, revision, frames, left, right}) {
+        const fail = (code, message) => this.port.postMessage({type: 'output-capture-error', requestId, code, message});
+        if (this.outputCapture) { fail('busy', 'An audio capture is already running.'); return; }
+        if (!this.lastTopology || revision !== this.lastTopology.revision) {
+            fail('rack-changed', 'The rack changed before audio capture.'); return;
+        }
+        const validBuffer = buffer => buffer instanceof Float32Array && buffer.buffer instanceof ArrayBuffer &&
+            buffer.length === frames && buffer.byteOffset === 0 && buffer.buffer.byteLength === frames * Float32Array.BYTES_PER_ELEMENT;
+        if (!Number.isSafeInteger(requestId) || requestId < 1 || !Number.isFinite(sampleRate) || sampleRate <= 0 ||
+            sampleRate > MAX_CAPTURE_SAMPLE_RATE || !Number.isSafeInteger(frames) || frames < 1 ||
+            frames > Math.floor(sampleRate * MAX_CAPTURE_SECONDS) || !validBuffer(left) || !validBuffer(right) ||
+            left.buffer === right.buffer) {
+            fail('invalid-input', 'Audio capture requires bounded, separate stereo buffers.'); return;
+        }
+        // The main thread allocated these buffers and transferred ownership here.
+        // Prepare the reply and transfer list now; the render callback only copies samples.
+        this.outputCapture = {requestId, frames, left, right, written: 0,
+            reply: {type: 'output-capture', requestId, revision, sampleRate, frames, left, right, startTimeSeconds: null},
+            transfer: [left.buffer, right.buffer]};
+    }
+
+    cancelOutputCapture(code, message) {
+        const capture = this.outputCapture;
+        if (!capture) return;
+        this.outputCapture = null;
+        this.port.postMessage({type: 'output-capture-error', requestId: capture.requestId, code, message});
+    }
+
+    captureOutputBlock(left, right) {
+        const capture = this.outputCapture;
+        if (!capture) return;
+        if (capture.written === 0) capture.reply.startTimeSeconds = currentTime;
+        const count = Math.min(left.length, capture.frames - capture.written);
+        for (let index = 0; index < count; index++) {
+            capture.left[capture.written + index] = left[index];
+            capture.right[capture.written + index] = right[index];
+        }
+        capture.written += count;
+        if (capture.written === capture.frames) {
+            this.outputCapture = null;
+            // Never detach the browser's output buffers. A failed capture reply must not interrupt sound.
+            try { this.port.postMessage(capture.reply, capture.transfer); } catch {}
         }
     }
 
@@ -359,6 +412,7 @@ class EurorackProcessor extends AudioWorkletProcessor {
             left[index] = Math.max(-1, Math.min(1, left[index]));
             right[index] = Math.max(-1, Math.min(1, right[index]));
         }
+        this.captureOutputBlock(left, right);
 
         this.telemetryFrames += this.blockSize;
         if (this.telemetryFrames >= sampleRate / 30) {

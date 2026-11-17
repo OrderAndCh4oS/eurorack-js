@@ -1,16 +1,11 @@
-/**
- * Custom Modules
- *
- * Exercises every custom-rendered module in one diagnostic patch:
- * sequencers, looper, recorder, scope, spectrum, plot, spectrogram, VU meter,
- * joystick, CV recorder, low pass gate, and ensemble oscillator.
- */
 export default {
     "name": "Test - Custom Modules",
     "factory": true,
     "state": {
         "version": 3,
-        "plugins": { "core": 1 },
+        "plugins": {
+            "core": 1
+        },
         "modules": [
             {
                 "id": "clock",
@@ -137,6 +132,30 @@ export default {
                 "type": "cv-rec",
                 "row": 3,
                 "index": 5
+            },
+            {
+                "id": "vocal",
+                "type": "vocal",
+                "row": 4,
+                "index": 0
+            },
+            {
+                "id": "beatbox",
+                "type": "beatbox",
+                "row": 4,
+                "index": 1
+            },
+            {
+                "id": "beatboxPro",
+                "type": "beatbox-pro",
+                "row": 4,
+                "index": 2
+            },
+            {
+                "id": "speech",
+                "type": "speech",
+                "row": 5,
+                "index": 0
             }
         ],
         "params": {
@@ -297,14 +316,54 @@ export default {
                 "length": 8,
                 "fallbackBpm": 120,
                 "steps": [
-                    { "enabled": 1, "probability": 100, "ratchets": 1, "condition": 0 },
-                    { "enabled": 1, "probability": 70, "ratchets": 2, "condition": 1 },
-                    { "enabled": 1, "probability": 80, "ratchets": 1, "condition": 5 },
-                    { "enabled": 0, "probability": 100, "ratchets": 1, "condition": 0 },
-                    { "enabled": 1, "probability": 55, "ratchets": 3, "condition": 2 },
-                    { "enabled": 1, "probability": 90, "ratchets": 1, "condition": 6 },
-                    { "enabled": 1, "probability": 65, "ratchets": 2, "condition": 7 },
-                    { "enabled": 1, "probability": 100, "ratchets": 4, "condition": 10 }
+                    {
+                        "enabled": 1,
+                        "probability": 100,
+                        "ratchets": 1,
+                        "condition": 0
+                    },
+                    {
+                        "enabled": 1,
+                        "probability": 70,
+                        "ratchets": 2,
+                        "condition": 1
+                    },
+                    {
+                        "enabled": 1,
+                        "probability": 80,
+                        "ratchets": 1,
+                        "condition": 5
+                    },
+                    {
+                        "enabled": 0,
+                        "probability": 100,
+                        "ratchets": 1,
+                        "condition": 0
+                    },
+                    {
+                        "enabled": 1,
+                        "probability": 55,
+                        "ratchets": 3,
+                        "condition": 2
+                    },
+                    {
+                        "enabled": 1,
+                        "probability": 90,
+                        "ratchets": 1,
+                        "condition": 6
+                    },
+                    {
+                        "enabled": 1,
+                        "probability": 65,
+                        "ratchets": 2,
+                        "condition": 7
+                    },
+                    {
+                        "enabled": 1,
+                        "probability": 100,
+                        "ratchets": 4,
+                        "condition": 10
+                    }
                 ]
             },
             "cvRecorder": {
@@ -315,9 +374,24 @@ export default {
                 "play": 0,
                 "resetAction": 0,
                 "clear": 0
+            },
+            "speech": {
+                "pitch": 0,
+                "rate": 1,
+                "contour": 1,
+                "breath": 0.15,
+                "level": 0.8,
+                "female": 0,
+                "restart": 0
             }
         },
         "cables": [
+            {
+                "fromModule": "clock",
+                "fromPort": "clock",
+                "toModule": "speech",
+                "toPort": "trig"
+            },
             {
                 "fromModule": "clock",
                 "fromPort": "clock",
@@ -413,6 +487,12 @@ export default {
                 "fromPort": "x",
                 "toModule": "cvRecorder",
                 "toPort": "cv1In"
+            },
+            {
+                "fromModule": "joy",
+                "fromPort": "x",
+                "toModule": "vocal",
+                "toPort": "vowelCV"
             },
             {
                 "fromModule": "joy",
@@ -521,6 +601,18 @@ export default {
                 "fromPort": "outR",
                 "toModule": "out",
                 "toPort": "R"
+            },
+            {
+                "fromModule": "clock",
+                "fromPort": "clock",
+                "toModule": "beatbox",
+                "toPort": "trig"
+            },
+            {
+                "fromModule": "clock",
+                "fromPort": "clock",
+                "toModule": "beatboxPro",
+                "toPort": "trig"
             }
         ],
         "midiMappings": {}

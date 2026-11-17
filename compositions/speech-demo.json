@@ -1,0 +1,101 @@
+{
+  "name": "Speech — Words and Expression",
+  "factory": false,
+  "state": {
+    "version": 3,
+    "plugins": {
+      "core": 1
+    },
+    "modules": [
+      {
+        "id": "clock",
+        "type": "clk",
+        "row": 1,
+        "index": 0
+      },
+      {
+        "id": "motion",
+        "type": "lfo",
+        "row": 1,
+        "index": 1
+      },
+      {
+        "id": "depth",
+        "type": "atten",
+        "row": 1,
+        "index": 2
+      },
+      {
+        "id": "speech",
+        "type": "speech",
+        "row": 1,
+        "index": 3
+      },
+      {
+        "id": "out",
+        "type": "out",
+        "row": 1,
+        "index": 4
+      }
+    ],
+    "params": {
+      "clock": {
+        "rate": 0.07,
+        "pause": 0
+      },
+      "motion": {
+        "rateKnob": 0.12,
+        "waveKnob": 0,
+        "range": 0
+      },
+      "depth": {
+        "atten1": 0.6
+      },
+      "speech": {
+        "pitch": 0,
+        "rate": 0.9,
+        "contour": 1,
+        "breath": 0.15,
+        "level": 0.8,
+        "female": 0,
+        "restart": 0
+      },
+      "out": {
+        "volume": 0.45
+      }
+    },
+    "cables": [
+      {
+        "fromModule": "clock",
+        "fromPort": "clock",
+        "toModule": "speech",
+        "toPort": "trig"
+      },
+      {
+        "fromModule": "motion",
+        "fromPort": "primary",
+        "toModule": "depth",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "depth",
+        "fromPort": "out1",
+        "toModule": "speech",
+        "toPort": "rateCV"
+      },
+      {
+        "fromModule": "speech",
+        "fromPort": "out",
+        "toModule": "out",
+        "toPort": "L"
+      },
+      {
+        "fromModule": "speech",
+        "fromPort": "out",
+        "toModule": "out",
+        "toPort": "R"
+      }
+    ],
+    "midiMappings": {}
+  }
+}

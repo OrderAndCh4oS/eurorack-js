@@ -1,0 +1,28 @@
+{
+  "method": "Production graph and physical WASM DSP; patch compiled and decoded from snapshot URL",
+  "sampleRate": 48000,
+  "blockSize": 128,
+  "durationSeconds": 10,
+  "modules": 10,
+  "cables": 19,
+  "left": {
+    "peak": 0.17643527686595917,
+    "rms": 0.04274141502982226,
+    "nonfinite": 0
+  },
+  "right": {
+    "peak": 0.17954012751579285,
+    "rms": 0.04229364750352906,
+    "nonfinite": 0
+  },
+  "dry": {
+    "peak": 0.6000000238418579,
+    "rms": 0.14633421137639435,
+    "nonfinite": 0
+  },
+  "gateDrops": 0,
+  "articulationRange": [
+    0,
+    0.9886876105203852
+  ]
+}

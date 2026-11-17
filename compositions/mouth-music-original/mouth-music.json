@@ -1,0 +1,352 @@
+{
+  "name": "Mouth Music — separate voices",
+  "factory": false,
+  "state": {
+    "version": 3,
+    "plugins": {
+      "core": 1
+    },
+    "modules": [
+      {
+        "id": "tempo",
+        "type": "clk",
+        "row": 1,
+        "index": 0
+      },
+      {
+        "id": "groove",
+        "type": "swing",
+        "row": 1,
+        "index": 1
+      },
+      {
+        "id": "beats",
+        "type": "seq",
+        "row": 1,
+        "index": 2
+      },
+      {
+        "id": "soundRange",
+        "type": "mix",
+        "row": 1,
+        "index": 3
+      },
+      {
+        "id": "phrase",
+        "type": "seq",
+        "row": 1,
+        "index": 4
+      },
+      {
+        "id": "breaths",
+        "type": "gate-delay",
+        "row": 1,
+        "index": 5
+      },
+      {
+        "id": "mouth",
+        "type": "lfo",
+        "row": 1,
+        "index": 6
+      },
+      {
+        "id": "beatbox",
+        "type": "beatbox",
+        "row": 1,
+        "index": 7
+      },
+      {
+        "id": "vocal",
+        "type": "vocal",
+        "row": 1,
+        "index": 8
+      },
+      {
+        "id": "voices",
+        "type": "mix",
+        "row": 2,
+        "index": 0
+      },
+      {
+        "id": "answer",
+        "type": "dly",
+        "row": 2,
+        "index": 1
+      },
+      {
+        "id": "room",
+        "type": "verb",
+        "row": 2,
+        "index": 2
+      },
+      {
+        "id": "output",
+        "type": "out",
+        "row": 2,
+        "index": 3
+      }
+    ],
+    "params": {
+      "tempo": {
+        "rate": 0.30103,
+        "pause": 0
+      },
+      "groove": {
+        "swing": 0.18,
+        "human": 0,
+        "width": 0.08,
+        "template": 0
+      },
+      "beats": {
+        "step1": 0.025,
+        "step2": 0.125,
+        "step3": 0.325,
+        "step4": 0.125,
+        "step5": 0.025,
+        "step6": 0.625,
+        "step7": 0.925,
+        "step8": 0.725,
+        "length": 8,
+        "range": 2,
+        "direction": 0,
+        "gate1": 1,
+        "gate2": 1,
+        "gate3": 1,
+        "gate4": 0,
+        "gate5": 1,
+        "gate6": 1,
+        "gate7": 1,
+        "gate8": 1
+      },
+      "soundRange": {
+        "lvl1": 1,
+        "lvl2": 0.25,
+        "lvl3": 0,
+        "lvl4": 0
+      },
+      "phrase": {
+        "step1": 0,
+        "step2": 0.25,
+        "step3": 0.583333,
+        "step4": 0.833333,
+        "step5": 0.583333,
+        "step6": 0.416667,
+        "step7": 0.25,
+        "step8": 0,
+        "length": 7,
+        "range": 0,
+        "direction": 0,
+        "gate1": 0,
+        "gate2": 0,
+        "gate3": 1,
+        "gate4": 0,
+        "gate5": 1,
+        "gate6": 1,
+        "gate7": 0,
+        "gate8": 0
+      },
+      "breaths": {
+        "delay1": 0,
+        "length1": 0.56,
+        "delay2": 0,
+        "length2": 0.35
+      },
+      "mouth": {
+        "rateKnob": 0.09,
+        "waveKnob": 0,
+        "range": 0
+      },
+      "beatbox": {
+        "sound": 0,
+        "pitch": 0,
+        "shape": 0,
+        "decay": 1,
+        "snap": 0.5,
+        "pressure": 8,
+        "breath": 0.12,
+        "level": 0.8,
+        "wrap": 0,
+        "audition": 0
+      },
+      "vocal": {
+        "pitch": 0,
+        "vowel": 0,
+        "sound": 0,
+        "articulation": 0,
+        "pressure": 8,
+        "breath": 0.12,
+        "tension": 0.48,
+        "fry": 0.06,
+        "level": 0.8,
+        "enableA": 0,
+        "enableB": 0,
+        "enableC": 0,
+        "enableD": 0,
+        "enableE": 0,
+        "enableF": 0,
+        "enableG": 0,
+        "enableH": 0,
+        "enableI": 0,
+        "enableJ": 0,
+        "enableK": 0,
+        "enableL": 0,
+        "enableM": 1,
+        "enableN": 0,
+        "enableO": 0,
+        "enableP": 0,
+        "enableQ": 0,
+        "enableR": 0,
+        "enableS": 0,
+        "enableT": 0,
+        "enableU": 0,
+        "enableV": 0,
+        "enableW": 0,
+        "enableX": 0,
+        "enableY": 0,
+        "enableZ": 0,
+        "enableSH": 0,
+        "enableCH": 0,
+        "enableTH": 0,
+        "enableDH": 0,
+        "enableNG": 0,
+        "enableZH": 0
+      },
+      "voices": {
+        "lvl1": 0.6,
+        "lvl2": 0.6,
+        "lvl3": 0,
+        "lvl4": 0
+      },
+      "answer": {
+        "time": 0.234375,
+        "feedback": 0.23,
+        "mix": 0.12
+      },
+      "room": {
+        "time": 0.35,
+        "damp": 0.6,
+        "mix": 0.16
+      },
+      "output": {
+        "volume": 0.7
+      }
+    },
+    "cables": [
+      {
+        "fromModule": "tempo",
+        "fromPort": "clock",
+        "toModule": "groove",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "groove",
+        "fromPort": "swung",
+        "toModule": "beats",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "groove",
+        "fromPort": "swung",
+        "toModule": "phrase",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "beats",
+        "fromPort": "cv",
+        "toModule": "soundRange",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "beats",
+        "fromPort": "cv",
+        "toModule": "soundRange",
+        "toPort": "in2"
+      },
+      {
+        "fromModule": "soundRange",
+        "fromPort": "out",
+        "toModule": "beatbox",
+        "toPort": "soundCV"
+      },
+      {
+        "fromModule": "beats",
+        "fromPort": "gate",
+        "toModule": "beatbox",
+        "toPort": "trig"
+      },
+      {
+        "fromModule": "phrase",
+        "fromPort": "cv",
+        "toModule": "vocal",
+        "toPort": "vOct"
+      },
+      {
+        "fromModule": "phrase",
+        "fromPort": "gate",
+        "toModule": "breaths",
+        "toPort": "trig1"
+      },
+      {
+        "fromModule": "breaths",
+        "fromPort": "gate1",
+        "toModule": "vocal",
+        "toPort": "gate"
+      },
+      {
+        "fromModule": "mouth",
+        "fromPort": "primary",
+        "toModule": "vocal",
+        "toPort": "vowelCV"
+      },
+      {
+        "fromModule": "mouth",
+        "fromPort": "secondary",
+        "toModule": "beatbox",
+        "toPort": "accent"
+      },
+      {
+        "fromModule": "beatbox",
+        "fromPort": "out",
+        "toModule": "voices",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "vocal",
+        "fromPort": "out",
+        "toModule": "voices",
+        "toPort": "in2"
+      },
+      {
+        "fromModule": "voices",
+        "fromPort": "out",
+        "toModule": "answer",
+        "toPort": "audio"
+      },
+      {
+        "fromModule": "answer",
+        "fromPort": "out",
+        "toModule": "room",
+        "toPort": "audioL"
+      },
+      {
+        "fromModule": "answer",
+        "fromPort": "out",
+        "toModule": "room",
+        "toPort": "audioR"
+      },
+      {
+        "fromModule": "room",
+        "fromPort": "outL",
+        "toModule": "output",
+        "toPort": "L"
+      },
+      {
+        "fromModule": "room",
+        "fromPort": "outR",
+        "toModule": "output",
+        "toPort": "R"
+      }
+    ],
+    "midiMappings": {}
+  }
+}

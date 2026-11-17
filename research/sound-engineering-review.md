@@ -1,8 +1,123 @@
 # DSP And Sound Engineering Audit
 
-Last audited: 2026-07-11
+Whole-library baseline: 2026-07-11; later module checks are dated below.
 
-This is the central index for the 62 registered core modules. Detailed hardware context, algorithm notes, sources, and the current measured audit record live in `research/modules/{moduleId}.md`.
+The original whole-library baseline covered 62 core modules. This index also records later module additions and focused checks. Detailed hardware context, algorithm notes, sources, and the current measured audit record live in `research/modules/{moduleId}.md`.
+
+## Female vocal tract (2026-11-17)
+
+The initial VOCAL adapter hard-wired male anatomy and phoneme calibration;
+raising F0 left those resonances unchanged. It now offers Male/Female tract
+selection using CHIMERA's original anatomy and separate calibrated targets.
+Pitch remains independently patchable with the same 110 Hz / 1 V per octave
+law. The female audition patch explicitly starts at +12 semitones (220 Hz).
+
+Two fixed-memory models are prepared before processing, so changing anatomy
+never rebuilds a network or allocates in the audio callback. An 80 ms crossfade
+runs both briefly; steady state renders only one model. Cost is an additional
+1 MiB per VOCAL and a female baseline cache bounded to three rates. Female
+percussion snapshots are not generated. Tests check same-pitch spectral
+differences, 110/220/440 Hz tracking, all female phonemes, held-gate switching,
+reset and fixed memory. SEQ's own theme classes now style the sound toggles,
+including their exact size, colour, border and glow.
+
+Equal-220 Hz normalized spectral similarity is .609; pitch tracking remains
+within 1%. Strict matrix: 594 scenarios, finite/stable/within rails. Browser
+female-patch profile p95/p99 is 1/2 ms at 48 kHz/128 frames (2.667 ms deadline),
+using coarse timers and a short single-voice capture. A silent-gate model-change
+test caught stale held-note energy in a dormant tract; resetting only that
+inaudible destination before the fade now keeps both directions below 1 µV.
+
+## Vocal source, tract and timing controls (2026-11-17)
+
+VOCAL adds Brightness, Roughness, Voicing, Nasal, Twang, Glide and Morph, each
+with additive bipolar CV, plus Breath/Tension/Fry CV. It has 16 knobs/inputs
+at 28 HP. The alphabet bank now uses square orange lights and right-aligned
+labels to their left. Continuous targets preserve native mouth and source
+history; neutral new settings reproduce the prior voice exactly. Twang skips
+the native low-effect region below .45; Morph only slows native articulators.
+Five-millisecond control smoothing and fixed memory keep modulation bounded.
+
+On held A, normalized high-band energy changes 10.27 dB across Brightness;
+periodicity drops from .996 to .582 with full Roughness and .030 at whispered
+Voicing. Nasal and Twang produce normalized spectral similarities .827/.936
+against neutral. Glide/Morph tests verify distinct settling times and identical
+final targets. These checks address weak-control feedback quantitatively without
+asserting subjective usefulness for every sound. Strict voltage matrix: 582
+passing scenarios; native adapter: 12 passing tests. Full mappings, sources and
+audition instructions are in [Vocal research](modules/vocal.md).
+
+## Vocal and Beatbox split (2026-11-17)
+
+VOCAL and BEATBOX replace the hybrid Airway module. Each owns independent
+physical CHIMERA state. VOCAL uses continuous vowel/consonant targets with
+external breath and articulation envelopes. BEATBOX keeps ten prepared
+percussion recipes, sample-exact triggers, captured accent and a 1 ms bridge
+when replacing the preceding hit. Neither module has a Voice/Beat mode.
+
+Strict voltage matrices pass 114 Vocal and 84 Beatbox scenarios over
+44.1/48/96 kHz and 128/512 frames. Focused tests cover eight consonants, settled
+pitch accuracy, all ten percussion onsets below 12 ms, independent concurrent
+engines, reset, stable buffers, trigger timing and allocation-free controls.
+Six native adapter tests also pass. The browser test verifies both panels,
+actual audio, live module addition, patch replacement, disconnection, manual
+Hit and stop/restart. At 48 kHz/128 frames the Beatbox test patch's coarse
+Chromium profile reports p95/p99 of 1/1 ms against a 2.667 ms deadline. This is
+a short single-voice measurement, not a polyphony guarantee.
+
+The Mouth Music vocal patch renders continuously with no Gate falls in ten
+seconds while articulation ranges from zero to .989. Each physical instance
+still carries substantial CPU cost. Automated captures establish signal
+integrity; subjective listening remains for user audition. Contracts and
+source links: [Vocal](modules/vocal.md), [Beatbox](modules/beatbox.md).
+[Prototype history](topics/airway-prototype.md) retains earlier measurements.
+
+## Two shipping Beatbox modules (2026-11-17)
+
+The compact BEATBOX now adds Tune for every sound, Decay and Snap. BEATBOX PRO
+ships alongside it with eight physical modifiers, Choke, Env and Active. Both
+have persistent Clamp/Wrap sound addressing. The Pro defaults are sample-identical
+to compact. External sequencers, envelopes and modulation remain responsible
+for musical gestures; neither module contains a voice mode or rhythm generator.
+
+Tune uses a precomputed 64-tap bandlimited streaming reader over fresh physical
+model output at .5..2x speed. Compared with a granular shifter, this avoids
+window-length latency and repeated transients. Compared with tract rescaling,
+it also transposes clicks/noise without breaking native stability constraints.
+The trade-offs are shifted time, bounded pitch range and up to twice the native
+rendering work. Decay compensates initial Tune where the score allows; live
+Tune bends still change the remaining duration. Snap changes native release
+motion. Pro modifiers rebuild a bounded canonical score without accumulating
+geometry offsets or allocating in the audio callback.
+
+The compact strict audit covers 120 scenarios with nonzero output. Pro's 216
+generic scenarios are muted by simultaneous Choke/Trig, so additional audible
+48/44.1/96 kHz x 128/512-frame tests verify active Out/Env/Active ranges. Focused
+tests cover every control/CV, negative and overflowing Wrap, Hum octaves, all
+sounds under Tune, long hat tails, Snap response, Choke, deterministic reset,
+block-size invariance and neutral parity. The reader rejects an 18 kHz source
+at 2x read speed below .002 RMS while preserving passband gain. Eight native
+adapter tests and an allocation counter cover timing/geometry updates.
+
+Real Chromium AudioWorklet capture at 48 kHz/128 frames (2.667 ms deadline):
+
+| Patch / setting | Capture RMS / peak, normalized | Block p95 / p99 |
+|---|---|---|
+| BEATBOX example | .0100 / .0884 | 1 / 1 ms |
+| Original BEATBOX PRO example (withdrawn) | .0158 / .1187 | 1 / 2 ms |
+| PRO Hum, Tune +12, Decay 4 | .00738 / .0784 | 1 / 2 ms |
+
+These are short two-second profiles with Chromium's coarse timing resolution.
+They demonstrate this single-voice patch on the test machine, not a guarantee
+for large racks or slower devices. The browser also verifies panel bounds,
+Wrap state, manual Hit, live addition, patch replacement, Choke connection and
+removal, and stop/restart. Production build and regenerated previews include
+both modules. Subjective sound quality still requires user audition; no
+listening judgment is inferred from captured numbers.
+
+Specs and sources: [BEATBOX](modules/beatbox.md),
+[BEATBOX PRO](modules/beatbox-pro.md). The prior split measurements above are
+retained as historical evidence, not current Tune behavior.
 
 ## Scope And Method
 
@@ -184,3 +299,58 @@ Do not turn the Node microbenchmark into a CI failure threshold. Browser schedul
 - [Antiderivative Antialiasing for Memoryless Nonlinearities](https://www.pure.ed.ac.uk/ws/portalfiles/portal/34115216/bilbao_pdf.pdf) - Bilbao, Werner, Smith, and Abel, IEEE Signal Processing Letters, 2017.
 - [The Art of VA Filter Design](https://www.native-instruments.com/fileadmin/ni_media/downloads/pdf/VAFilterDesign_2.1.0.pdf) - Vadim Zavalishin.
 - [Effect Design, Part 1 and 2](https://ccrma.stanford.edu/~dattorro/) - Jon Dattorro.
+
+
+## Pro demo withdrawn after audition (2026-11-17)
+
+The user reported that most knobs had little effect and requested removal of
+the Pro patch. Its composition, URL, Test catalogue entry and preview have been
+removed. The module remains; the arrangement survives only as an internal
+browser regression fixture. Waveform-difference tests were insufficient to
+establish useful audible control ranges. Pro needs isolated per-sound A/B
+audition and control-range work before another musical showcase is warranted.
+
+
+## Vocal alphabet pool (2026-11-17)
+
+VOCAL now exposes A–Z and SH/CH/TH/DH/NG/ZH as 32 persistent light buttons.
+Sound CV divides only the enabled pool into equal bins. Empty selection fades
+to silence; changing buttons does not trigger or reset the voice. The expanded
+28 HP panel has four rows of eight buttons, All/None shortcuts and a separate
+current-sound outline.
+
+The native alphabet ABI reuses the calibrated phoneme inventory. CH/J/Q/X
+trace closure/release/vowel targets using external articulation, with no
+internal speech timer. C is deliberately hard /k/; Q and X trace /kw/ and /ks/.
+This is an articulatory instrument, not automatic English letter pronunciation.
+Ten native tests and the allocation counter verify bounded continuous updates.
+The strict audit passes 498 scenarios over six configurations. Focused checks
+cover all sound paths and actual sustained fricative energy, not just unequal
+sample arrays. Useful phonetic identity still needs listening; the Pro feedback
+above remains relevant to how these results are interpreted.
+
+Final alphabet validation: 3,033 tests pass (nine skipped), production build
+passes, and the real-browser layout/persistence/audio check passes. The demo
+opens with nine selected letters and external Sound CV/articulation. The older
+Mouth Music voice retains its prior measured output using an M-only pool.
+
+## Speech phrase voice (2026-11-17)
+
+SPEECH uses the pinned CHIMERA English frontend in a disposable Worker and
+streams overlapping gestures into the physical voice. Pitch and articulation
+rate are independent; prepared plans persist without audio buffers. Full
+precision in shared URLs preserves gesture timing and admission bounds.
+
+Native allocation checks, actual voiced periodicity, duration/pulse assertions,
+a 60-case sounding knob/sample-rate/block-size matrix, and a real Chromium
+editing/playback/URL test pass. The generic strict voltage matrix also passes,
+but its simultaneous Stop and Trig stimulus is silent for this module; focused
+sounding checks supply the relevant audio evidence. Full suite: 3,095 passed,
+nine skipped; production build and patch previews pass.
+
+One voice at 48 kHz / 128 frames measures p99 2 ms against a 2.667 ms deadline.
+Two voices measure p99 3 ms with coarse 1 ms timing, so multiple concurrent
+voices remain a performance limitation. The demo uses one voice. These are
+technical checks, not an intelligibility or naturalness assessment. Use the
+isolated audition protocol and saved measurements in
+[Speech research](modules/speech.md#dsp-audit-2026-11-17) before expanding controls.

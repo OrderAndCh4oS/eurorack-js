@@ -29,6 +29,7 @@ export class RackHost {
         this.requestTimeoutMs = requestTimeoutMs;
         this.audioEngineFactory = audioEngineFactory;
         this.services = {};
+        this.pendingPatchLoads = 0;
         this.unsubscribeRegistry = registry.subscribe?.(event => this.emit({ type: 'registry', event })) || null;
         this.unsubscribeUsage = registry.addUsageResolver?.(() => (
             [...this.state.modules.values()].map(moduleState => moduleState.type)
@@ -155,6 +156,10 @@ export class RackHost {
     }
 
     applyTelemetry(telemetry) {
+        // Replacement mirrors already belong to the incoming patch. Until its
+        // activation (or rollback) is acknowledged, queued telemetry still
+        // belongs to the previous DSP instances and must not overwrite them.
+        if (this.pendingPatchLoads > 0) return;
         Object.entries(telemetry || {}).forEach(([moduleId, state]) => {
             const moduleState = this.state.getModule(moduleId);
             const instance = moduleState?.instance;
@@ -243,6 +248,7 @@ export class RackHost {
         const previous = this.state.serializePatch(this.registry);
         const previousRuntime = new Map([...this.state.modules].map(([id, moduleState]) => [id, moduleState.runtimeState]));
 
+        this.pendingPatchLoads++;
         try {
             this.state.modules.forEach(moduleState => this.disposeDSP(moduleState));
             this.state.loadPatch(normalized, this.registry);
@@ -262,6 +268,8 @@ export class RackHost {
             // those still-valid instances.
             await this.syncTopology({ throwOnError: true });
             throw error;
+        } finally {
+            this.pendingPatchLoads--;
         }
     }
 

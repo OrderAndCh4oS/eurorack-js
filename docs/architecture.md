@@ -49,6 +49,16 @@ Each rack module has a main-thread instance, and a second instance while audio i
 
 Parameter changes are validated against the module's declared UI control and state paths, written to `RackState`, reflected in the UI mirror, and sent to the worklet. The processor repeats validation before mutation. The worklet sends bounded telemetry back at approximately 30 Hz. A UI mirror is not a second production DSP path and must never be processed by the browser app.
 
+Structured state entries can declare a synchronous `validate(value)` admission
+check. SPEECH uses one for its bounded, versioned gesture plans. A disposable
+Worker prepares text using the pinned English dictionary and planner WASM;
+Apply replaces the prepared state atomically. The DSP retains the active plan
+until the next accepted trigger and renders only the physical voice. Saved
+patches carry finite control gestures for both tracts, so playback never needs
+text parsing, dictionary loading, or planner allocation on the audio thread.
+Compact patch URLs retain full numeric precision for declared `ui.state`
+parameters; ordinary controls retain their existing three-decimal rounding.
+
 ## Plugin Registration
 
 Plugins are trusted JavaScript, not sandboxed extensions. Registration is atomic: all definitions validate before any module becomes visible. Plugin IDs and module IDs cannot collide.
@@ -90,6 +100,15 @@ Core modules have two registration lists so the worklet graph can use static imp
 - `rack/core-definitions.js`: static worklet imports in the same order.
 
 Contract tests require both lists to match exactly.
+
+During core worklet registration, optional synchronous `prepareDSP({sampleRate})`
+hooks finish expensive immutable resource preparation before the audio node is
+constructed. Vocal and Beatbox share prepared CHIMERA physical-state banks at this boundary so
+adding either module to a running rack can instantiate a prepared kernel. Each
+instance has isolated WASM memory; trigger/reset operations restore only that
+instance's prepared state. The generated assets, source fingerprint and licence
+notices are verified by the app build. See the module author's
+[prepared DSP resource contract](creating-modules.md#prepared-dsp-resources).
 
 ## Module Schema
 

@@ -1,0 +1,308 @@
+{
+  "name": "Mouth Music",
+  "factory": false,
+  "state": {
+    "version": 3,
+    "plugins": {
+      "core": 1
+    },
+    "modules": [
+      {
+        "id": "tempo",
+        "type": "clk",
+        "row": 1,
+        "index": 0
+      },
+      {
+        "id": "phrase",
+        "type": "seq",
+        "row": 1,
+        "index": 1
+      },
+      {
+        "id": "vowels",
+        "type": "seq",
+        "row": 1,
+        "index": 2
+      },
+      {
+        "id": "glide",
+        "type": "slew",
+        "row": 1,
+        "index": 3
+      },
+      {
+        "id": "breaths",
+        "type": "gate-delay",
+        "row": 1,
+        "index": 4
+      },
+      {
+        "id": "pressure",
+        "type": "atten",
+        "row": 1,
+        "index": 5
+      },
+      {
+        "id": "breathShape",
+        "type": "slew",
+        "row": 1,
+        "index": 6
+      },
+      {
+        "id": "vocal",
+        "type": "vocal",
+        "row": 1,
+        "index": 7
+      },
+      {
+        "id": "room",
+        "type": "verb",
+        "row": 1,
+        "index": 8
+      },
+      {
+        "id": "output",
+        "type": "out",
+        "row": 1,
+        "index": 9
+      }
+    ],
+    "params": {
+      "tempo": {
+        "rate": 0.289432,
+        "pause": 0
+      },
+      "phrase": {
+        "step1": 0,
+        "step2": 0,
+        "step3": 0.25,
+        "step4": 0.166667,
+        "step5": 0,
+        "step6": 0,
+        "step7": 0.416667,
+        "step8": 0.166667,
+        "length": 8,
+        "range": 0,
+        "direction": 0,
+        "gate1": 1,
+        "gate2": 0,
+        "gate3": 1,
+        "gate4": 0,
+        "gate5": 1,
+        "gate6": 1,
+        "gate7": 1,
+        "gate8": 0
+      },
+      "vowels": {
+        "step1": 1,
+        "step2": 0.875,
+        "step3": 0.0625,
+        "step4": 0.25,
+        "step5": 1,
+        "step6": 0.875,
+        "step7": 0.0625,
+        "step8": 0.5,
+        "length": 8,
+        "range": 2,
+        "direction": 0,
+        "gate1": 1,
+        "gate2": 1,
+        "gate3": 1,
+        "gate4": 1,
+        "gate5": 1,
+        "gate6": 1,
+        "gate7": 1,
+        "gate8": 1
+      },
+      "glide": {
+        "rate1": 0.01,
+        "rate2": 0.025
+      },
+      "breaths": {
+        "delay1": 0,
+        "length1": 0.7,
+        "delay2": 0,
+        "length2": 0.4533
+      },
+      "pressure": {
+        "atten1": 0.54,
+        "offset1": 0.5,
+        "atten2": 0.75,
+        "offset2": 0.5
+      },
+      "breathShape": {
+        "rate1": 0.015,
+        "rate2": 0.01
+      },
+      "vocal": {
+        "pitch": 7,
+        "vowel": 0.2,
+        "sound": 0,
+        "articulation": 0,
+        "pressure": 6,
+        "breath": 0.03,
+        "tension": 0.6,
+        "fry": 0,
+        "level": 0.8,
+        "enableA": 0,
+        "enableB": 0,
+        "enableC": 0,
+        "enableD": 0,
+        "enableE": 0,
+        "enableF": 0,
+        "enableG": 0,
+        "enableH": 0,
+        "enableI": 0,
+        "enableJ": 0,
+        "enableK": 0,
+        "enableL": 0,
+        "enableM": 1,
+        "enableN": 0,
+        "enableO": 0,
+        "enableP": 0,
+        "enableQ": 0,
+        "enableR": 0,
+        "enableS": 0,
+        "enableT": 0,
+        "enableU": 0,
+        "enableV": 0,
+        "enableW": 0,
+        "enableX": 0,
+        "enableY": 0,
+        "enableZ": 0,
+        "enableSH": 0,
+        "enableCH": 0,
+        "enableTH": 0,
+        "enableDH": 0,
+        "enableNG": 0,
+        "enableZH": 0
+      },
+      "room": {
+        "time": 0.25,
+        "damp": 0.65,
+        "mix": 0.08
+      },
+      "output": {
+        "volume": 0.32
+      }
+    },
+    "cables": [
+      {
+        "fromModule": "tempo",
+        "fromPort": "clock",
+        "toModule": "phrase",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "tempo",
+        "fromPort": "clock",
+        "toModule": "vowels",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "tempo",
+        "fromPort": "clock",
+        "toModule": "breaths",
+        "toPort": "trig1"
+      },
+      {
+        "fromModule": "breaths",
+        "fromPort": "gate1",
+        "toModule": "vocal",
+        "toPort": "gate"
+      },
+      {
+        "fromModule": "phrase",
+        "fromPort": "cv",
+        "toModule": "glide",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "vowels",
+        "fromPort": "cv",
+        "toModule": "glide",
+        "toPort": "in2"
+      },
+      {
+        "fromModule": "glide",
+        "fromPort": "out1",
+        "toModule": "vocal",
+        "toPort": "vOct"
+      },
+      {
+        "fromModule": "glide",
+        "fromPort": "out2",
+        "toModule": "vocal",
+        "toPort": "vowelCV"
+      },
+      {
+        "fromModule": "phrase",
+        "fromPort": "gate",
+        "toModule": "breaths",
+        "toPort": "trig2"
+      },
+      {
+        "fromModule": "breaths",
+        "fromPort": "gate2",
+        "toModule": "pressure",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "pressure",
+        "fromPort": "out1",
+        "toModule": "breathShape",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "breathShape",
+        "fromPort": "out1",
+        "toModule": "vocal",
+        "toPort": "pressureCV"
+      },
+      {
+        "fromModule": "breaths",
+        "fromPort": "gate2",
+        "toModule": "pressure",
+        "toPort": "in2"
+      },
+      {
+        "fromModule": "pressure",
+        "fromPort": "out2",
+        "toModule": "breathShape",
+        "toPort": "in2"
+      },
+      {
+        "fromModule": "breathShape",
+        "fromPort": "out2",
+        "toModule": "vocal",
+        "toPort": "articulationCV"
+      },
+      {
+        "fromModule": "vocal",
+        "fromPort": "out",
+        "toModule": "room",
+        "toPort": "audioL"
+      },
+      {
+        "fromModule": "vocal",
+        "fromPort": "out",
+        "toModule": "room",
+        "toPort": "audioR"
+      },
+      {
+        "fromModule": "room",
+        "fromPort": "outL",
+        "toModule": "output",
+        "toPort": "L"
+      },
+      {
+        "fromModule": "room",
+        "fromPort": "outR",
+        "toModule": "output",
+        "toPort": "R"
+      }
+    ],
+    "midiMappings": {}
+  }
+}

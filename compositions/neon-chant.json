@@ -1,0 +1,544 @@
+{
+  "name": "Neon Chant — VOCAL",
+  "factory": false,
+  "state": {
+    "version": 3,
+    "plugins": {
+      "core": 1
+    },
+    "modules": [
+      {
+        "id": "pulse",
+        "type": "clk",
+        "row": 1,
+        "index": 0
+      },
+      {
+        "id": "bounce",
+        "type": "prob-seq",
+        "row": 1,
+        "index": 1
+      },
+      {
+        "id": "floor",
+        "type": "kick",
+        "row": 1,
+        "index": 2
+      },
+      {
+        "id": "backbeat",
+        "type": "seq",
+        "row": 1,
+        "index": 3
+      },
+      {
+        "id": "clap",
+        "type": "snare",
+        "row": 1,
+        "index": 4
+      },
+      {
+        "id": "ticks",
+        "type": "hat",
+        "row": 1,
+        "index": 5
+      },
+      {
+        "id": "drums",
+        "type": "mix",
+        "row": 1,
+        "index": 6
+      },
+      {
+        "id": "grid",
+        "type": "div",
+        "row": 1,
+        "index": 7
+      },
+      {
+        "id": "hookPitch",
+        "type": "seq",
+        "row": 2,
+        "index": 0
+      },
+      {
+        "id": "hookMouth",
+        "type": "seq",
+        "row": 2,
+        "index": 1
+      },
+      {
+        "id": "syllables",
+        "type": "gate-delay",
+        "row": 2,
+        "index": 2
+      },
+      {
+        "id": "articulation",
+        "type": "atten",
+        "row": 2,
+        "index": 3
+      },
+      {
+        "id": "voice",
+        "type": "vocal",
+        "row": 2,
+        "index": 4
+      },
+      {
+        "id": "malletNotes",
+        "type": "seq",
+        "row": 3,
+        "index": 0
+      },
+      {
+        "id": "sign",
+        "type": "pluck",
+        "row": 3,
+        "index": 1
+      },
+      {
+        "id": "slap",
+        "type": "dly",
+        "row": 3,
+        "index": 2
+      },
+      {
+        "id": "room",
+        "type": "verb",
+        "row": 3,
+        "index": 3
+      },
+      {
+        "id": "left",
+        "type": "mix",
+        "row": 3,
+        "index": 4
+      },
+      {
+        "id": "right",
+        "type": "mix",
+        "row": 3,
+        "index": 5
+      },
+      {
+        "id": "output",
+        "type": "out",
+        "row": 3,
+        "index": 6
+      }
+    ],
+    "params": {
+      "pulse": {
+        "rate": 0.396
+      },
+      "bounce": {
+        "seed": 17,
+        "steps": [
+          {
+            "enabled": 1,
+            "probability": 100,
+            "ratchets": 1,
+            "condition": 0
+          },
+          {
+            "enabled": 0,
+            "probability": 100,
+            "ratchets": 1,
+            "condition": 0
+          },
+          {
+            "enabled": 0,
+            "probability": 100,
+            "ratchets": 1,
+            "condition": 0
+          },
+          {
+            "enabled": 1,
+            "probability": 100,
+            "ratchets": 1,
+            "condition": 6
+          },
+          {
+            "enabled": 1,
+            "probability": 100,
+            "ratchets": 1,
+            "condition": 5
+          },
+          {
+            "enabled": 0,
+            "probability": 100,
+            "ratchets": 1,
+            "condition": 0
+          },
+          {
+            "enabled": 1,
+            "probability": 100,
+            "ratchets": 1,
+            "condition": 6
+          },
+          {
+            "enabled": 0,
+            "probability": 100,
+            "ratchets": 1,
+            "condition": 0
+          }
+        ]
+      },
+      "floor": {
+        "pitch": 0.25,
+        "decay": 0.22,
+        "tone": 0.28,
+        "click": 0.4
+      },
+      "backbeat": {
+        "range": 0,
+        "gate2": 0,
+        "gate3": 0,
+        "gate5": 0,
+        "gate6": 0,
+        "gate7": 0,
+        "gate1": 0
+      },
+      "clap": {
+        "snap": 0.8,
+        "decay": 0.15,
+        "pitch": 0.57
+      },
+      "ticks": {
+        "decay": 0.12,
+        "sizzle": 0.35,
+        "blend": 0.1
+      },
+      "drums": {
+        "lvl1": 0.32,
+        "lvl2": 0.18,
+        "lvl3": 0.075,
+        "lvl4": 0
+      },
+      "grid": {
+        "rate1": 0.438,
+        "rate2": 0
+      },
+      "hookPitch": {
+        "range": 0,
+        "step4": 0.25,
+        "gate4": 0,
+        "step5": 0.583,
+        "step6": 0.417,
+        "step7": 0.25,
+        "gate7": 0,
+        "gate1": 0
+      },
+      "hookMouth": {
+        "range": 2,
+        "step2": 0.208,
+        "step3": 0.208,
+        "step4": 0.625,
+        "step5": 0.95,
+        "step6": 0.208,
+        "step7": 0.625,
+        "step8": 0.208,
+        "step1": 0.95
+      },
+      "syllables": {
+        "length1": 0.44,
+        "length2": 0.67
+      },
+      "articulation": {
+        "atten1": 0.75,
+        "atten2": 0.56
+      },
+      "voice": {
+        "enableA": 0,
+        "enableB": 0,
+        "enableC": 0,
+        "enableD": 0,
+        "enableE": 0,
+        "enableF": 0,
+        "enableG": 0,
+        "enableH": 0,
+        "enableI": 0,
+        "enableJ": 0,
+        "enableK": 0,
+        "enableL": 0,
+        "enableO": 0,
+        "enableP": 0,
+        "enableQ": 0,
+        "enableR": 0,
+        "enableS": 0,
+        "enableT": 0,
+        "enableU": 0,
+        "enableV": 0,
+        "enableX": 0,
+        "enableY": 0,
+        "enableZ": 0,
+        "enableSH": 0,
+        "enableCH": 0,
+        "enableTH": 0,
+        "enableDH": 0,
+        "enableNG": 0,
+        "enableZH": 0,
+        "pitch": 17,
+        "articulation": 0,
+        "pressure": 7.5,
+        "level": 0.9,
+        "breath": 0.08,
+        "brightness": 0.42,
+        "nasal": 0.08,
+        "twang": 0.13,
+        "glide": 0.012,
+        "female": 1
+      },
+      "malletNotes": {
+        "range": 0,
+        "step3": 0.583,
+        "gate3": 0,
+        "step4": 0.833,
+        "step5": 0.583,
+        "step6": 0.25,
+        "gate6": 0,
+        "step7": 0.417,
+        "step8": 0.583,
+        "gate8": 0,
+        "step1": 0.25
+      },
+      "sign": {
+        "pitch": 0.683,
+        "decay": 0.36,
+        "damp": 0.67,
+        "position": 0.22
+      },
+      "slap": {
+        "time": 0.075,
+        "feedback": 0.1,
+        "mix": 0.1
+      },
+      "room": {
+        "time": 0.13,
+        "damp": 0.72,
+        "mix": 0.07
+      },
+      "left": {
+        "lvl2": 0.33,
+        "lvl3": 0.42,
+        "lvl4": 0
+      },
+      "right": {
+        "lvl2": 0.33,
+        "lvl3": 0.34,
+        "lvl4": 0
+      },
+      "output": {
+        "volume": 0.7
+      }
+    },
+    "cables": [
+      {
+        "fromModule": "pulse",
+        "fromPort": "clock",
+        "toModule": "bounce",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "bounce",
+        "fromPort": "gate",
+        "toModule": "floor",
+        "toPort": "trigger"
+      },
+      {
+        "fromModule": "pulse",
+        "fromPort": "clock",
+        "toModule": "grid",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "grid",
+        "fromPort": "out1",
+        "toModule": "backbeat",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "backbeat",
+        "fromPort": "gate",
+        "toModule": "clap",
+        "toPort": "trigger"
+      },
+      {
+        "fromModule": "grid",
+        "fromPort": "out1",
+        "toModule": "ticks",
+        "toPort": "trigClosed"
+      },
+      {
+        "fromModule": "floor",
+        "fromPort": "out",
+        "toModule": "drums",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "clap",
+        "fromPort": "out",
+        "toModule": "drums",
+        "toPort": "in2"
+      },
+      {
+        "fromModule": "ticks",
+        "fromPort": "out",
+        "toModule": "drums",
+        "toPort": "in3"
+      },
+      {
+        "fromModule": "grid",
+        "fromPort": "out1",
+        "toModule": "hookPitch",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "grid",
+        "fromPort": "out1",
+        "toModule": "hookMouth",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "hookPitch",
+        "fromPort": "cv",
+        "toModule": "voice",
+        "toPort": "vOct"
+      },
+      {
+        "fromModule": "hookMouth",
+        "fromPort": "cv",
+        "toModule": "voice",
+        "toPort": "soundCV"
+      },
+      {
+        "fromModule": "hookPitch",
+        "fromPort": "gate",
+        "toModule": "syllables",
+        "toPort": "trig1"
+      },
+      {
+        "fromModule": "grid",
+        "fromPort": "out1",
+        "toModule": "syllables",
+        "toPort": "trig2"
+      },
+      {
+        "fromModule": "syllables",
+        "fromPort": "gate2",
+        "toModule": "voice",
+        "toPort": "gate"
+      },
+      {
+        "fromModule": "syllables",
+        "fromPort": "gate1",
+        "toModule": "articulation",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "articulation",
+        "fromPort": "out1",
+        "toModule": "voice",
+        "toPort": "articulationCV"
+      },
+      {
+        "fromModule": "syllables",
+        "fromPort": "gate1",
+        "toModule": "articulation",
+        "toPort": "in2"
+      },
+      {
+        "fromModule": "articulation",
+        "fromPort": "out2",
+        "toModule": "voice",
+        "toPort": "pressureCV"
+      },
+      {
+        "fromModule": "grid",
+        "fromPort": "out1",
+        "toModule": "malletNotes",
+        "toPort": "clock"
+      },
+      {
+        "fromModule": "malletNotes",
+        "fromPort": "cv",
+        "toModule": "sign",
+        "toPort": "vOct"
+      },
+      {
+        "fromModule": "malletNotes",
+        "fromPort": "gate",
+        "toModule": "sign",
+        "toPort": "trigger"
+      },
+      {
+        "fromModule": "voice",
+        "fromPort": "out",
+        "toModule": "slap",
+        "toPort": "audio"
+      },
+      {
+        "fromModule": "slap",
+        "fromPort": "out",
+        "toModule": "room",
+        "toPort": "audioL"
+      },
+      {
+        "fromModule": "slap",
+        "fromPort": "out",
+        "toModule": "room",
+        "toPort": "audioR"
+      },
+      {
+        "fromModule": "drums",
+        "fromPort": "out",
+        "toModule": "left",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "drums",
+        "fromPort": "out",
+        "toModule": "right",
+        "toPort": "in1"
+      },
+      {
+        "fromModule": "room",
+        "fromPort": "outL",
+        "toModule": "left",
+        "toPort": "in2"
+      },
+      {
+        "fromModule": "room",
+        "fromPort": "outR",
+        "toModule": "right",
+        "toPort": "in2"
+      },
+      {
+        "fromModule": "sign",
+        "fromPort": "out",
+        "toModule": "left",
+        "toPort": "in3"
+      },
+      {
+        "fromModule": "sign",
+        "fromPort": "out",
+        "toModule": "right",
+        "toPort": "in3"
+      },
+      {
+        "fromModule": "left",
+        "fromPort": "out",
+        "toModule": "output",
+        "toPort": "L"
+      },
+      {
+        "fromModule": "right",
+        "fromPort": "out",
+        "toModule": "output",
+        "toPort": "R"
+      }
+    ],
+    "midiMappings": {}
+  }
+}

@@ -1,0 +1,12 @@
+[package]
+name = "chimera"
+description = "CHIMERA physical-modelling voice engine: airway acoustics, anatomy, phonetics, creatures"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+libm = "=0.2.16"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+

@@ -1,0 +1,256 @@
+{
+  "repository": "https://github.com/jamesondh/chimera-vocal-synth",
+  "commit": "24bd2e4ee4accf7b27d57d8bf912472880dff9f7",
+  "changes": {
+    "src/control/score.rs": "Reduce GestureScore capacity from 16384 to 64. Each restored recipe has at most 16 gestures.",
+    "Cargo.toml": "Omit upstream test-only flate2 dependency; no upstream tests are vendored.",
+    "src/voice/human_voice.rs": "Add set_source_live for baseline updates between native control ticks. Preserve held score abduction and unchanged vibrato, and derive effort from current gated pressure. Original set_source and control ordering are unchanged. Vocal split additionally exposes set_voicing_live(amount), used only on the score-free Vocal instance immediately after set_source_live, to blend vibration and glottal opening without resetting physical state."
+  },
+  "files": [
+    {
+      "path": "Cargo.toml",
+      "upstreamSha256": "7a0a768a5104a8d07562856ffe75dcf88fb4ca83690080497bd1ac366aaa5d44",
+      "vendoredSha256": "0e6aa96b11f224ab398425ca831fbe5b682ad6568b27392f2daab750f0c094f2"
+    },
+    {
+      "path": "LICENSE",
+      "upstreamSha256": "0b8d6e0649e7b2068a8300cafb9ebded80d9a0fe99e699b96538ba0a8c5236b1",
+      "vendoredSha256": "0b8d6e0649e7b2068a8300cafb9ebded80d9a0fe99e699b96538ba0a8c5236b1"
+    },
+    {
+      "path": "src/airway/decimator.rs",
+      "upstreamSha256": "a9f0a5feb5cde4098d07e7e4fe6ea8a1f0441b6d376eaf59a13412f64d447ace",
+      "vendoredSha256": "a9f0a5feb5cde4098d07e7e4fe6ea8a1f0441b6d376eaf59a13412f64d447ace"
+    },
+    {
+      "path": "src/airway/frequency.rs",
+      "upstreamSha256": "67fbfa20924b77190900b8c10fe0e10f45f43704423da37fe308888dc5ccad9c",
+      "vendoredSha256": "67fbfa20924b77190900b8c10fe0e10f45f43704423da37fe308888dc5ccad9c"
+    },
+    {
+      "path": "src/airway/network.rs",
+      "upstreamSha256": "4011d86878436a1ba8b67af065bc20512c0fe5e16436448b6385df87a2a23eb7",
+      "vendoredSha256": "4011d86878436a1ba8b67af065bc20512c0fe5e16436448b6385df87a2a23eb7"
+    },
+    {
+      "path": "src/analysis/fft.rs",
+      "upstreamSha256": "4d7b69ad765d9b8cef18c996c4ea34646ad83f2df3b8696e257d3dcf98665ce9",
+      "vendoredSha256": "4d7b69ad765d9b8cef18c996c4ea34646ad83f2df3b8696e257d3dcf98665ce9"
+    },
+    {
+      "path": "src/analysis/lpc.rs",
+      "upstreamSha256": "9563f4c992e4b72942c9e801a966bab7c344e2d44173ae7a61a97f917c098478",
+      "vendoredSha256": "9563f4c992e4b72942c9e801a966bab7c344e2d44173ae7a61a97f917c098478"
+    },
+    {
+      "path": "src/analysis/pitch.rs",
+      "upstreamSha256": "189c567f1b7c63663dacb876e1d85a5b16bd71c3f594afd3c819787b646547f5",
+      "vendoredSha256": "189c567f1b7c63663dacb876e1d85a5b16bd71c3f594afd3c819787b646547f5"
+    },
+    {
+      "path": "src/anatomy/geom.rs",
+      "upstreamSha256": "916cab35cd2345534b23b4e9aea7ba080a15e286fd6c3adaa7e636fb175c9c23",
+      "vendoredSha256": "916cab35cd2345534b23b4e9aea7ba080a15e286fd6c3adaa7e636fb175c9c23"
+    },
+    {
+      "path": "src/anatomy/human.rs",
+      "upstreamSha256": "ad5147a761f4f6d49e09dcd27218826f50213d29c8e4f480020ba39696eda869",
+      "vendoredSha256": "ad5147a761f4f6d49e09dcd27218826f50213d29c8e4f480020ba39696eda869"
+    },
+    {
+      "path": "src/control/articulators.rs",
+      "upstreamSha256": "848e0ea24a0c2d5c0842400ea093f7addb047cb0f359d1890c20abac27c95b8e",
+      "vendoredSha256": "848e0ea24a0c2d5c0842400ea093f7addb047cb0f359d1890c20abac27c95b8e"
+    },
+    {
+      "path": "src/control/beat_player.rs",
+      "upstreamSha256": "73c5474412b79cdfde34b22874ce46fbd0415678c99cbd12e63ce84937d3094c",
+      "vendoredSha256": "73c5474412b79cdfde34b22874ce46fbd0415678c99cbd12e63ce84937d3094c"
+    },
+    {
+      "path": "src/control/score.rs",
+      "upstreamSha256": "e2189672799f7f09e6e84e99a7893e6faca6dbbbd100307ee49e89b38ec241cd",
+      "vendoredSha256": "a6af6ced188738c85d564adbcd1f8c6e65d7e8eaba4170ffcb600de787f0446a"
+    },
+    {
+      "path": "src/creatures/alligator.rs",
+      "upstreamSha256": "1adba961956f13a12609beef9210e745752dde5121faad4c4bd384760ab6c818",
+      "vendoredSha256": "1adba961956f13a12609beef9210e745752dde5121faad4c4bd384760ab6c818"
+    },
+    {
+      "path": "src/creatures/build.rs",
+      "upstreamSha256": "2440b44773f31cce67f492f3a2c281d52ba9b0c6de60d19582021007bd141da9",
+      "vendoredSha256": "2440b44773f31cce67f492f3a2c281d52ba9b0c6de60d19582021007bd141da9"
+    },
+    {
+      "path": "src/creatures/elephant.rs",
+      "upstreamSha256": "d7919258c4e847cece25093e70376df404c2c15c3ce97bcbd308e70f010c112b",
+      "vendoredSha256": "d7919258c4e847cece25093e70376df404c2c15c3ce97bcbd308e70f010c112b"
+    },
+    {
+      "path": "src/creatures/mammal.rs",
+      "upstreamSha256": "0db7e5fe6357dbdc8bdfe5a9590436dc9b825a7d3dc486a5dced215654b2daca",
+      "vendoredSha256": "0db7e5fe6357dbdc8bdfe5a9590436dc9b825a7d3dc486a5dced215654b2daca"
+    },
+    {
+      "path": "src/creatures/mod.rs",
+      "upstreamSha256": "089db2288217ae4d1fbea2c328a2ca9ce73a1d819631c2800c484f9b651baa1d",
+      "vendoredSha256": "089db2288217ae4d1fbea2c328a2ca9ce73a1d819631c2800c484f9b651baa1d"
+    },
+    {
+      "path": "src/creatures/seal.rs",
+      "upstreamSha256": "6f23d40dc8d7882e3da509c8d7e7306cdd429fe1f4cd0ea0f75fd80a9eb6e146",
+      "vendoredSha256": "6f23d40dc8d7882e3da509c8d7e7306cdd429fe1f4cd0ea0f75fd80a9eb6e146"
+    },
+    {
+      "path": "src/creatures/songbird.rs",
+      "upstreamSha256": "f8c90c54cc0834542125c9e9e18a2ba8d517d63d4dc90dc852afb0b3e06d5e58",
+      "vendoredSha256": "f8c90c54cc0834542125c9e9e18a2ba8d517d63d4dc90dc852afb0b3e06d5e58"
+    },
+    {
+      "path": "src/creatures/types.rs",
+      "upstreamSha256": "550fa55854504235356cd800a61429a9399028455e0e3fae81a86a60915859c8",
+      "vendoredSha256": "550fa55854504235356cd800a61429a9399028455e0e3fae81a86a60915859c8"
+    },
+    {
+      "path": "src/creatures/voice.rs",
+      "upstreamSha256": "243c0fe5605d70dbe45720f1ebf8d9397ffca1ea292c2652ee2bf06a7e877660",
+      "vendoredSha256": "243c0fe5605d70dbe45720f1ebf8d9397ffca1ea292c2652ee2bf06a7e877660"
+    },
+    {
+      "path": "src/engine.rs",
+      "upstreamSha256": "326f741f45a3068aa5f1643fa2efc50cbaa79fb30789fd5b2341c3a1222fe4f8",
+      "vendoredSha256": "326f741f45a3068aa5f1643fa2efc50cbaa79fb30789fd5b2341c3a1222fe4f8"
+    },
+    {
+      "path": "src/lib.rs",
+      "upstreamSha256": "1b99ae439bb0a3ff0d3602a431d4eefd595fb1883e675c2451f7847447ce9adb",
+      "vendoredSha256": "1b99ae439bb0a3ff0d3602a431d4eefd595fb1883e675c2451f7847447ce9adb"
+    },
+    {
+      "path": "src/math.rs",
+      "upstreamSha256": "f177e5170cc14a3f191886aba03441eee961cbf154975d64d8585346edee5ed5",
+      "vendoredSha256": "f177e5170cc14a3f191886aba03441eee961cbf154975d64d8585346edee5ed5"
+    },
+    {
+      "path": "src/phonetics/beatbox.rs",
+      "upstreamSha256": "acbf469f42c0c6ef2fb687ba2f3788fb8b0033d053e3a8058aed354239868ea4",
+      "vendoredSha256": "acbf469f42c0c6ef2fb687ba2f3788fb8b0033d053e3a8058aed354239868ea4"
+    },
+    {
+      "path": "src/phonetics/consonantTargets.generated.json",
+      "upstreamSha256": "f8c86f2d7ef4992f8531d67c07e57f4382a38cc738cf7fa247b3aabd40465bc0",
+      "vendoredSha256": "f8c86f2d7ef4992f8531d67c07e57f4382a38cc738cf7fa247b3aabd40465bc0"
+    },
+    {
+      "path": "src/phonetics/durations.rs",
+      "upstreamSha256": "56dfc99aafbfa246f08af2929b1100dbe44735cff99e75a340c4b6a177f92be5",
+      "vendoredSha256": "56dfc99aafbfa246f08af2929b1100dbe44735cff99e75a340c4b6a177f92be5"
+    },
+    {
+      "path": "src/phonetics/english.rs",
+      "upstreamSha256": "6747f6033f16bbee8c119d3e3e171a177d1c7d2d9212f891d41547d538bd2768",
+      "vendoredSha256": "6747f6033f16bbee8c119d3e3e171a177d1c7d2d9212f891d41547d538bd2768"
+    },
+    {
+      "path": "src/phonetics/inventory.rs",
+      "upstreamSha256": "23cdb360d8f1f187836a78bb4d729e79655bf31ba45108e92a3fc1a71888e769",
+      "vendoredSha256": "23cdb360d8f1f187836a78bb4d729e79655bf31ba45108e92a3fc1a71888e769"
+    },
+    {
+      "path": "src/phonetics/ipa.rs",
+      "upstreamSha256": "2cb59e04fbb01355ffd581df07c4cbc74d7b83b743ed76384c7ed1ee5f5a719b",
+      "vendoredSha256": "2cb59e04fbb01355ffd581df07c4cbc74d7b83b743ed76384c7ed1ee5f5a719b"
+    },
+    {
+      "path": "src/phonetics/ipaNfc.generated.json",
+      "upstreamSha256": "ce9003b078b588e9142a9d5b5896787d8efaa7432818c2612ccc7478d39e1b98",
+      "vendoredSha256": "ce9003b078b588e9142a9d5b5896787d8efaa7432818c2612ccc7478d39e1b98"
+    },
+    {
+      "path": "src/phonetics/korean.rs",
+      "upstreamSha256": "33267877eb99c5172184d6fc92f8f4552f3ab8afaf65b69b3b32fdcac03704c9",
+      "vendoredSha256": "33267877eb99c5172184d6fc92f8f4552f3ab8afaf65b69b3b32fdcac03704c9"
+    },
+    {
+      "path": "src/phonetics/mod.rs",
+      "upstreamSha256": "01804da7c516954bbf3258903d23f071072e3e54fbdfa022333ab31fd49dd979",
+      "vendoredSha256": "01804da7c516954bbf3258903d23f071072e3e54fbdfa022333ab31fd49dd979"
+    },
+    {
+      "path": "src/phonetics/planner.rs",
+      "upstreamSha256": "780aed77ac991d70ff4399abba6c3e2e0e2892eabcd295b303913f3d5918324d",
+      "vendoredSha256": "780aed77ac991d70ff4399abba6c3e2e0e2892eabcd295b303913f3d5918324d"
+    },
+    {
+      "path": "src/phonetics/russian.rs",
+      "upstreamSha256": "64bb46a6cb0c822627671b6b564ca031837cf7ed44c2e3cca5622bfdbf627d8b",
+      "vendoredSha256": "64bb46a6cb0c822627671b6b564ca031837cf7ed44c2e3cca5622bfdbf627d8b"
+    },
+    {
+      "path": "src/phonetics/sing.rs",
+      "upstreamSha256": "3440c01f44cf434582788e30c18d283736934ab4e594157c9c1d2ae2b0cb00b6",
+      "vendoredSha256": "3440c01f44cf434582788e30c18d283736934ab4e594157c9c1d2ae2b0cb00b6"
+    },
+    {
+      "path": "src/phonetics/songs.rs",
+      "upstreamSha256": "c2fa76561f79c20110746c66dc799dca630bf9268d369589ac608f043c3ac092",
+      "vendoredSha256": "c2fa76561f79c20110746c66dc799dca630bf9268d369589ac608f043c3ac092"
+    },
+    {
+      "path": "src/phonetics/syllables.rs",
+      "upstreamSha256": "2cc7b881f3be05c2f47a92f5c43c2a81d679183b884a1b7913bc5291e67e38f5",
+      "vendoredSha256": "2cc7b881f3be05c2f47a92f5c43c2a81d679183b884a1b7913bc5291e67e38f5"
+    },
+    {
+      "path": "src/phonetics/vowelTargets.generated.json",
+      "upstreamSha256": "975ab3fec65772b6c232fea732808147390e0da9d6240dbffdea4b97a557235d",
+      "vendoredSha256": "975ab3fec65772b6c232fea732808147390e0da9d6240dbffdea4b97a557235d"
+    },
+    {
+      "path": "src/phonetics/vowel_data.rs",
+      "upstreamSha256": "a8647597b587da88f04cdbb13ae20af2c46b2f2c15aaee914404d6b7444a2a40",
+      "vendoredSha256": "a8647597b587da88f04cdbb13ae20af2c46b2f2c15aaee914404d6b7444a2a40"
+    },
+    {
+      "path": "src/physics.rs",
+      "upstreamSha256": "ccc7cb155a52a308fdf79ea18643d28a261b2f3cf1635a1c7133837f9265ed35",
+      "vendoredSha256": "ccc7cb155a52a308fdf79ea18643d28a261b2f3cf1635a1c7133837f9265ed35"
+    },
+    {
+      "path": "src/sources/glottis.rs",
+      "upstreamSha256": "c76ea137bd9df32ca9fcc207ec24f2a665368180a64c7ff7e8a2efd936bb2cc7",
+      "vendoredSha256": "c76ea137bd9df32ca9fcc207ec24f2a665368180a64c7ff7e8a2efd936bb2cc7"
+    },
+    {
+      "path": "src/sources/syrinx.rs",
+      "upstreamSha256": "3672aa10931fa87aabcf6f380be30463149c2272dbb16316c9fe2f1da559e43e",
+      "vendoredSha256": "3672aa10931fa87aabcf6f380be30463149c2272dbb16316c9fe2f1da559e43e"
+    },
+    {
+      "path": "src/sources/syrinxTable.generated.json",
+      "upstreamSha256": "ea1d6c66f5b0f608db27672aed9ec920fa6aec7de92d7392c42ce40718a44841",
+      "vendoredSha256": "ea1d6c66f5b0f608db27672aed9ec920fa6aec7de92d7392c42ce40718a44841"
+    },
+    {
+      "path": "src/sources/valves.rs",
+      "upstreamSha256": "502c959ad1e896af90744fca09a2041418ce2b6b42cc00372a79a4275d31443d",
+      "vendoredSha256": "502c959ad1e896af90744fca09a2041418ce2b6b42cc00372a79a4275d31443d"
+    },
+    {
+      "path": "src/util/optimize.rs",
+      "upstreamSha256": "f251188f82f15af52c2c68afed9861041f964919967803fd3b49e2873059b3c2",
+      "vendoredSha256": "f251188f82f15af52c2c68afed9861041f964919967803fd3b49e2873059b3c2"
+    },
+    {
+      "path": "src/voice/human_airway.rs",
+      "upstreamSha256": "2ca7e0e0b450c9faf9444ddd81f66d63710348e7bb5b05e65cdff182c318718f",
+      "vendoredSha256": "2ca7e0e0b450c9faf9444ddd81f66d63710348e7bb5b05e65cdff182c318718f"
+    },
+    {
+      "path": "src/voice/human_voice.rs",
+      "upstreamSha256": "77169591b42cb62aa9566d39b4baaeb7f72533d105f5593dc0b27ddc589cab40",
+      "vendoredSha256": "35081bd8265171a007f40c1a1587ce85cea6b3c09b79e208073fe781df246883"
+    }
+  ]
+}

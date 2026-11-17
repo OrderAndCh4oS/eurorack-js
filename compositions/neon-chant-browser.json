@@ -1,0 +1,174 @@
+{
+  "captures": [
+    {
+      "sampleRate": 48000,
+      "peak": 0.31733056902885437,
+      "rms": 0.0594854012081305,
+      "dc": -0.00017142590224585418,
+      "clipped": 0,
+      "nonfinite": 0
+    },
+    {
+      "sampleRate": 48000,
+      "peak": 0.3107767701148987,
+      "rms": 0.06097251106609613,
+      "dc": -0.0001721545794646019,
+      "clipped": 0,
+      "nonfinite": 0
+    },
+    {
+      "sampleRate": 48000,
+      "peak": 0.3219924867153168,
+      "rms": 0.05943298330460011,
+      "dc": -0.00031725571136960424,
+      "clipped": 0,
+      "nonfinite": 0
+    }
+  ],
+  "profile": {
+    "deadlineMs": 2.6666666666666665,
+    "blocks": {
+      "samples": 4096,
+      "p50": 1,
+      "p95": 2,
+      "p99": 2,
+      "p99Utilization": 0.75
+    },
+    "modules": {
+      "pulse": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "grid": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "backbeat": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "hookPitch": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "syllables": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "hookMouth": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "malletNotes": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "bounce": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "sign": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "articulation": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "voice": {
+        "samples": 4096,
+        "p50": 1,
+        "p95": 1,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "slap": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "room": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "floor": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "clap": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "ticks": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "drums": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "left": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "right": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      }
+    }
+  },
+  "errors": []
+}

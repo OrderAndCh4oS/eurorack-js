@@ -3,10 +3,14 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { buildDocs } from './build-docs.mjs';
 import { validateAudioAnalysisAssets } from './audio-analysis-assets.mjs';
+import { validateAirwayAssets } from './airway-assets.mjs';
+import { validateSpeechAssets } from './speech-assets.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const out = fileURLToPath(new URL('../dist/', import.meta.url));
 await validateAudioAnalysisAssets({root});
+await validateAirwayAssets({root});
+await validateSpeechAssets({root});
 // Keep native module, worker and AudioWorklet URLs intact. Only third-party
 // browser dependencies need bundling; the instrument remains plain ES modules.
 await rm(out, { recursive: true, force: true });

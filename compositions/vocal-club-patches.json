@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Neon Knock — BEATBOX",
+    "type": "beatbox",
+    "slug": "neon-knock",
+    "bpm": 139.98814511954868,
+    "modules": 18,
+    "cables": 30,
+    "urlLength": 1149,
+    "warnings": []
+  },
+  {
+    "name": "Low Answer — BEATBOX-PRO",
+    "type": "beatbox-pro",
+    "slug": "low-answer",
+    "bpm": 135.23567064089355,
+    "modules": 26,
+    "cables": 49,
+    "urlLength": 1656,
+    "warnings": []
+  },
+  {
+    "name": "Neon Chant — VOCAL",
+    "type": "vocal",
+    "slug": "neon-chant",
+    "bpm": 143.2488879032154,
+    "modules": 20,
+    "cables": 34,
+    "urlLength": 1501,
+    "warnings": []
+  },
+  {
+    "name": "Midnight Caller — SPEECH",
+    "type": "speech",
+    "slug": "midnight-caller",
+    "bpm": 139.98814511954868,
+    "modules": 22,
+    "cables": 33,
+    "urlLength": 4213,
+    "warnings": []
+  }
+]

@@ -1,0 +1,99 @@
+{
+  "date": "2026-11-17",
+  "note": "Browser regression captures, not a perceptual intelligibility rating. Profiling uses coarse 1 ms timing; one voice and two simultaneous voices at 48 kHz / 128 frames.",
+  "audio": {
+    "peak": 0.13370031118392944,
+    "rms": 0.03102892885787985
+  },
+  "female": {
+    "peak": 0.10410207509994507,
+    "rms": 0.023600335932168443
+  },
+  "singleVoiceProfile": {
+    "deadlineMs": 2.6666666666666665,
+    "blocks": {
+      "samples": 754,
+      "p50": 1,
+      "p95": 2,
+      "p99": 2,
+      "p99Utilization": 0.75
+    },
+    "modules": {
+      "clock": {
+        "samples": 754,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "motion": {
+        "samples": 754,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "speech": {
+        "samples": 754,
+        "p50": 1,
+        "p95": 1,
+        "p99": 2,
+        "p99Utilization": 0.75
+      },
+      "depth": {
+        "samples": 754,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      }
+    }
+  },
+  "profile": {
+    "deadlineMs": 2.6666666666666665,
+    "blocks": {
+      "samples": 754,
+      "p50": 2,
+      "p95": 3,
+      "p99": 3,
+      "p99Utilization": 1.125
+    },
+    "modules": {
+      "clock": {
+        "samples": 754,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "motion": {
+        "samples": 754,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "speech": {
+        "samples": 754,
+        "p50": 1,
+        "p95": 1,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "speech_2": {
+        "samples": 754,
+        "p50": 1,
+        "p95": 2,
+        "p99": 2,
+        "p99Utilization": 0.75
+      },
+      "depth": {
+        "samples": 754,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      }
+    }
+  }
+}

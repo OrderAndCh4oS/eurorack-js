@@ -1,0 +1,188 @@
+{
+  "captures": [
+    {
+      "sampleRate": 48000,
+      "peak": 0.4281155467033386,
+      "rms": 0.05360390447256072,
+      "dc": -0.00013827436915044965,
+      "clipped": 0,
+      "nonfinite": 0
+    },
+    {
+      "sampleRate": 48000,
+      "peak": 0.4838845431804657,
+      "rms": 0.058057441875185696,
+      "dc": -0.0002041652372873822,
+      "clipped": 0,
+      "nonfinite": 0
+    },
+    {
+      "sampleRate": 48000,
+      "peak": 0.4283934533596039,
+      "rms": 0.05320914869293989,
+      "dc": -0.0001830159054368544,
+      "clipped": 0,
+      "nonfinite": 0
+    }
+  ],
+  "profile": {
+    "deadlineMs": 2.6666666666666665,
+    "blocks": {
+      "samples": 4096,
+      "p50": 1,
+      "p95": 2,
+      "p99": 2,
+      "p99Utilization": 0.75
+    },
+    "modules": {
+      "pulse": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "grid": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "takes": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "backbeat": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "calls": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "delivery": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "malletNotes": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "bounce": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "pitchDepth": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "voice": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 1,
+        "p99": 2,
+        "p99Utilization": 0.75
+      },
+      "reply": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "answerGate": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "sign": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "slap": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "room": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "floor": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "clap": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "ticks": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "drums": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "left": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "right": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      }
+    }
+  },
+  "errors": []
+}

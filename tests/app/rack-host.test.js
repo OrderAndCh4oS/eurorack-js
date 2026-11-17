@@ -228,6 +228,38 @@ describe('RackHost', () => {
         expect(setPatchState.mock.calls[1][1]).toEqual({ registry, replace: false });
         expect(host.serializePatch()).toEqual(previous);
 
+        host.applyTelemetry({ source_1: { params: { level: 0.4 } } });
+        expect(host.state.getModule('source_1').params.level).toBe(0.4);
+
+        host.engine = null;
+        await host.destroy();
+    });
+
+    it('ignores old telemetry until a replacing patch is active before resynchronizing the rack', async () => {
+        const { host } = await createHost();
+        host.addModule('source', { id: 'source_1' });
+        host.setParam('source_1', 'level', 0.35);
+        let activate;
+        const setPatchState = vi.fn()
+            .mockImplementationOnce(() => new Promise(resolve => { activate = resolve; }))
+            .mockResolvedValue(2);
+        host.engine = { setPatchState };
+
+        const loading = host.loadPatch(createTestPatch({ level: 0.8 }));
+        // Old messages can queue while the new main-thread mirrors are created.
+        host.applyTelemetry({ source_1: { params: { level: 0.35 }, leds: { active: 1 } } });
+        expect(host.state.getModule('source_1').params.level).toBe(0.8);
+        expect(host.state.getModule('source_1').instance.params.level).toBe(0.8);
+        activate(1);
+        await loading;
+
+        // The app rerenders and resynchronizes immediately after loadPatch.
+        await host.syncTopology();
+        expect(setPatchState.mock.calls[1][0].params.source_1.level).toBe(0.8);
+        host.applyTelemetry({ source_1: { params: { level: 0.9 }, leds: { active: 1 } } });
+        expect(host.state.getModule('source_1').params.level).toBe(0.9);
+        expect(host.state.getModule('source_1').instance.leds.active).toBe(1);
+
         host.engine = null;
         await host.destroy();
     });

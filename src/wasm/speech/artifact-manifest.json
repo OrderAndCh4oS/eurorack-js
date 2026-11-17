@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 1,
+  "inputs": [
+    {
+      "path": "scripts/build-speech.mjs",
+      "sha256": "33b407cbe2b016c24817eddc7bd4c1e205038fb9c97227db27e72f91df8e609a"
+    },
+    {
+      "path": "scripts/speech-assets.mjs",
+      "sha256": "4095cf4183bf9e8a8112040445afa1baf96d63826a5646e4fb564d1bcc928f03"
+    },
+    {
+      "path": "wasm/airway/Cargo.toml",
+      "sha256": "6645740b92196237febb555803dd98278134341f7459c5abaf15b7f27da4cc9e"
+    },
+    {
+      "path": "wasm/airway/source-lock.json",
+      "sha256": "3a65703ff00952bee90eccc4179562bf8708c7e78d361901a33ed224ef9b03dd"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/Cargo.toml",
+      "sha256": "0e6aa96b11f224ab398425ca831fbe5b682ad6568b27392f2daab750f0c094f2"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/LICENSE",
+      "sha256": "0b8d6e0649e7b2068a8300cafb9ebded80d9a0fe99e699b96538ba0a8c5236b1"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/airway/decimator.rs",
+      "sha256": "a9f0a5feb5cde4098d07e7e4fe6ea8a1f0441b6d376eaf59a13412f64d447ace"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/airway/frequency.rs",
+      "sha256": "67fbfa20924b77190900b8c10fe0e10f45f43704423da37fe308888dc5ccad9c"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/airway/network.rs",
+      "sha256": "4011d86878436a1ba8b67af065bc20512c0fe5e16436448b6385df87a2a23eb7"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/analysis/fft.rs",
+      "sha256": "4d7b69ad765d9b8cef18c996c4ea34646ad83f2df3b8696e257d3dcf98665ce9"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/analysis/lpc.rs",
+      "sha256": "9563f4c992e4b72942c9e801a966bab7c344e2d44173ae7a61a97f917c098478"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/analysis/pitch.rs",
+      "sha256": "189c567f1b7c63663dacb876e1d85a5b16bd71c3f594afd3c819787b646547f5"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/anatomy/geom.rs",
+      "sha256": "916cab35cd2345534b23b4e9aea7ba080a15e286fd6c3adaa7e636fb175c9c23"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/anatomy/human.rs",
+      "sha256": "ad5147a761f4f6d49e09dcd27218826f50213d29c8e4f480020ba39696eda869"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/control/articulators.rs",
+      "sha256": "848e0ea24a0c2d5c0842400ea093f7addb047cb0f359d1890c20abac27c95b8e"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/control/beat_player.rs",
+      "sha256": "73c5474412b79cdfde34b22874ce46fbd0415678c99cbd12e63ce84937d3094c"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/control/score.rs",
+      "sha256": "a6af6ced188738c85d564adbcd1f8c6e65d7e8eaba4170ffcb600de787f0446a"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/creatures/alligator.rs",
+      "sha256": "1adba961956f13a12609beef9210e745752dde5121faad4c4bd384760ab6c818"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/creatures/build.rs",
+      "sha256": "2440b44773f31cce67f492f3a2c281d52ba9b0c6de60d19582021007bd141da9"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/creatures/elephant.rs",
+      "sha256": "d7919258c4e847cece25093e70376df404c2c15c3ce97bcbd308e70f010c112b"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/creatures/mammal.rs",
+      "sha256": "0db7e5fe6357dbdc8bdfe5a9590436dc9b825a7d3dc486a5dced215654b2daca"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/creatures/mod.rs",
+      "sha256": "089db2288217ae4d1fbea2c328a2ca9ce73a1d819631c2800c484f9b651baa1d"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/creatures/seal.rs",
+      "sha256": "6f23d40dc8d7882e3da509c8d7e7306cdd429fe1f4cd0ea0f75fd80a9eb6e146"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/creatures/songbird.rs",
+      "sha256": "f8c90c54cc0834542125c9e9e18a2ba8d517d63d4dc90dc852afb0b3e06d5e58"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/creatures/types.rs",
+      "sha256": "550fa55854504235356cd800a61429a9399028455e0e3fae81a86a60915859c8"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/creatures/voice.rs",
+      "sha256": "243c0fe5605d70dbe45720f1ebf8d9397ffca1ea292c2652ee2bf06a7e877660"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/engine.rs",
+      "sha256": "326f741f45a3068aa5f1643fa2efc50cbaa79fb30789fd5b2341c3a1222fe4f8"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/lib.rs",
+      "sha256": "1b99ae439bb0a3ff0d3602a431d4eefd595fb1883e675c2451f7847447ce9adb"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/math.rs",
+      "sha256": "f177e5170cc14a3f191886aba03441eee961cbf154975d64d8585346edee5ed5"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/beatbox.rs",
+      "sha256": "acbf469f42c0c6ef2fb687ba2f3788fb8b0033d053e3a8058aed354239868ea4"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/consonantTargets.generated.json",
+      "sha256": "f8c86f2d7ef4992f8531d67c07e57f4382a38cc738cf7fa247b3aabd40465bc0"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/durations.rs",
+      "sha256": "56dfc99aafbfa246f08af2929b1100dbe44735cff99e75a340c4b6a177f92be5"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/english.rs",
+      "sha256": "6747f6033f16bbee8c119d3e3e171a177d1c7d2d9212f891d41547d538bd2768"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/inventory.rs",
+      "sha256": "23cdb360d8f1f187836a78bb4d729e79655bf31ba45108e92a3fc1a71888e769"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/ipa.rs",
+      "sha256": "2cb59e04fbb01355ffd581df07c4cbc74d7b83b743ed76384c7ed1ee5f5a719b"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/ipaNfc.generated.json",
+      "sha256": "ce9003b078b588e9142a9d5b5896787d8efaa7432818c2612ccc7478d39e1b98"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/korean.rs",
+      "sha256": "33267877eb99c5172184d6fc92f8f4552f3ab8afaf65b69b3b32fdcac03704c9"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/mod.rs",
+      "sha256": "01804da7c516954bbf3258903d23f071072e3e54fbdfa022333ab31fd49dd979"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/planner.rs",
+      "sha256": "780aed77ac991d70ff4399abba6c3e2e0e2892eabcd295b303913f3d5918324d"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/russian.rs",
+      "sha256": "64bb46a6cb0c822627671b6b564ca031837cf7ed44c2e3cca5622bfdbf627d8b"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/sing.rs",
+      "sha256": "3440c01f44cf434582788e30c18d283736934ab4e594157c9c1d2ae2b0cb00b6"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/songs.rs",
+      "sha256": "c2fa76561f79c20110746c66dc799dca630bf9268d369589ac608f043c3ac092"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/syllables.rs",
+      "sha256": "2cc7b881f3be05c2f47a92f5c43c2a81d679183b884a1b7913bc5291e67e38f5"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/vowelTargets.generated.json",
+      "sha256": "975ab3fec65772b6c232fea732808147390e0da9d6240dbffdea4b97a557235d"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/phonetics/vowel_data.rs",
+      "sha256": "a8647597b587da88f04cdbb13ae20af2c46b2f2c15aaee914404d6b7444a2a40"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/physics.rs",
+      "sha256": "ccc7cb155a52a308fdf79ea18643d28a261b2f3cf1635a1c7133837f9265ed35"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/sources/glottis.rs",
+      "sha256": "c76ea137bd9df32ca9fcc207ec24f2a665368180a64c7ff7e8a2efd936bb2cc7"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/sources/syrinx.rs",
+      "sha256": "3672aa10931fa87aabcf6f380be30463149c2272dbb16316c9fe2f1da559e43e"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/sources/syrinxTable.generated.json",
+      "sha256": "ea1d6c66f5b0f608db27672aed9ec920fa6aec7de92d7392c42ce40718a44841"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/sources/valves.rs",
+      "sha256": "502c959ad1e896af90744fca09a2041418ce2b6b42cc00372a79a4275d31443d"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/util/optimize.rs",
+      "sha256": "f251188f82f15af52c2c68afed9861041f964919967803fd3b49e2873059b3c2"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/voice/human_airway.rs",
+      "sha256": "2ca7e0e0b450c9faf9444ddd81f66d63710348e7bb5b05e65cdff182c318718f"
+    },
+    {
+      "path": "wasm/airway/vendor/chimera/src/voice/human_voice.rs",
+      "sha256": "35081bd8265171a007f40c1a1587ce85cea6b3c09b79e208073fe781df246883"
+    },
+    {
+      "path": "wasm/speech-planner/Cargo.lock",
+      "sha256": "db9e6d6f4996fd91662d78b7713b8354e95f0e4906335860a5b55d314680901e"
+    },
+    {
+      "path": "wasm/speech-planner/Cargo.toml",
+      "sha256": "f0ac8c977f03eeb909322e2f0a6bed93a493b8f6775131a5750299981f79d362"
+    },
+    {
+      "path": "wasm/speech-planner/README.md",
+      "sha256": "7941349a31fbdaf9ab63de370fbb958549ae303756692a51283a33b1ebc96376"
+    },
+    {
+      "path": "wasm/speech-planner/data/CMUDICT-LICENSE.txt",
+      "sha256": "bd4ce8e44170a5f9f481310ca85c51de3c4f851a65e679b40e603b143bd3542a"
+    },
+    {
+      "path": "wasm/speech-planner/data/cmudict.txt.gz",
+      "sha256": "336293a10a93c3ba183483308a22eab8e2b6a5e1ac91262dd0d3d4b85da285b5"
+    },
+    {
+      "path": "wasm/speech-planner/src/bin/prepare.rs",
+      "sha256": "aea6d8e197c279778b71382e9d9708d0db8432f65dad40eb65096f1750731252"
+    },
+    {
+      "path": "wasm/speech-planner/src/lib.rs",
+      "sha256": "6367664b13ec54cb085575c53937dfebf4cb383bd9cddd07efac390cd21ddfed"
+    }
+  ],
+  "version": "5477c360471edd67d4ba307b45784cc23a6fc97aa1eb54b8962b2693a7e02b4a",
+  "moduleFile": "speech-021a7c5a557b637a7e39e7cb824c3f8d1cf71d2821d500e004cca33c6e728c04.js",
+  "wasmFile": "speech-e5bba858f8f6f14ca5248b7335c8603eaecd18aff25d72fb3d9cb3a379576ea1.wasm",
+  "dictionaryFile": "cmudict-336293a10a93c3ba183483308a22eab8e2b6a5e1ac91262dd0d3d4b85da285b5.gz",
+  "phraseFile": "speech-default-a17572fd0135e94db99d4884eedba044d6490fb3617516f01460b53cd59c21c8.js",
+  "files": [
+    {
+      "name": "speech-021a7c5a557b637a7e39e7cb824c3f8d1cf71d2821d500e004cca33c6e728c04.js",
+      "bytes": 8742,
+      "sha256": "021a7c5a557b637a7e39e7cb824c3f8d1cf71d2821d500e004cca33c6e728c04"
+    },
+    {
+      "name": "speech-e5bba858f8f6f14ca5248b7335c8603eaecd18aff25d72fb3d9cb3a379576ea1.wasm",
+      "bytes": 414721,
+      "sha256": "e5bba858f8f6f14ca5248b7335c8603eaecd18aff25d72fb3d9cb3a379576ea1"
+    },
+    {
+      "name": "cmudict-336293a10a93c3ba183483308a22eab8e2b6a5e1ac91262dd0d3d4b85da285b5.gz",
+      "bytes": 868793,
+      "sha256": "336293a10a93c3ba183483308a22eab8e2b6a5e1ac91262dd0d3d4b85da285b5"
+    },
+    {
+      "name": "speech-default-a17572fd0135e94db99d4884eedba044d6490fb3617516f01460b53cd59c21c8.js",
+      "bytes": 12703,
+      "sha256": "a17572fd0135e94db99d4884eedba044d6490fb3617516f01460b53cd59c21c8"
+    },
+    {
+      "name": "LICENSES.txt",
+      "bytes": 200827,
+      "sha256": "110e44b35e24f126b3812354c8a79cfd415047874e2f1d57eb9eb24ffd6a375c"
+    }
+  ]
+}

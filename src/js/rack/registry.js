@@ -103,7 +103,7 @@ export class PluginRegistry {
     }
 
     validate(definition) {
-        if (![2, 3, 4, 6, 8, 10, 12, 14, 16].includes(definition.hp)) {
+        if (![2, 3, 4, 6, 8, 10, 12, 14, 16, 28].includes(definition.hp)) {
             throw new Error(`Module "${definition.id}" has invalid hp: ${definition.hp}`);
         }
         if (!CATEGORY_ORDER.includes(definition.category)) {

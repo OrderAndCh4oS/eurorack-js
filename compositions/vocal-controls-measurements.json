@@ -1,0 +1,13 @@
+{
+  "sampleRate": 48000,
+  "blockSize": 128,
+  "method": "Held A, breath 0, one second settled, normalized spectrum and pitch autocorrelation",
+  "brightnessHighBandChangeDb": 10.26522141548567,
+  "periodicity": {
+    "clean": 0.995607973663116,
+    "rough": 0.5818994881443708,
+    "whisper": 0.029771113787418316
+  },
+  "nasalSpectralSimilarity": 0.8269771648421127,
+  "twangSpectralSimilarity": 0.9356332168215596
+}

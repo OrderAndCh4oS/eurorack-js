@@ -1,0 +1,110 @@
+{
+  "name": "Vocal — Voice Controls",
+  "factory": false,
+  "state": {
+    "version": 3,
+    "plugins": {
+      "core": 1
+    },
+    "modules": [
+      {
+        "id": "air",
+        "type": "atten",
+        "row": 1,
+        "index": 0
+      },
+      {
+        "id": "vocal",
+        "type": "vocal",
+        "row": 1,
+        "index": 1
+      },
+      {
+        "id": "out",
+        "type": "out",
+        "row": 1,
+        "index": 2
+      }
+    ],
+    "params": {
+      "air": {
+        "offset1": 1
+      },
+      "vocal": {
+        "pitch": 0,
+        "glide": 0.005,
+        "sound": 0,
+        "vowel": 0,
+        "articulation": 1,
+        "morph": 0,
+        "pressure": 8,
+        "level": 0.8,
+        "breath": 0.15,
+        "voicing": 1,
+        "brightness": 0.25,
+        "tension": 0.5,
+        "roughness": 0,
+        "fry": 0,
+        "nasal": 0,
+        "twang": 0,
+        "enableA": 1,
+        "enableB": 0,
+        "enableC": 0,
+        "enableD": 0,
+        "enableE": 1,
+        "enableF": 0,
+        "enableG": 0,
+        "enableH": 0,
+        "enableI": 1,
+        "enableJ": 0,
+        "enableK": 0,
+        "enableL": 0,
+        "enableM": 0,
+        "enableN": 0,
+        "enableO": 1,
+        "enableP": 0,
+        "enableQ": 0,
+        "enableR": 0,
+        "enableS": 0,
+        "enableT": 0,
+        "enableU": 1,
+        "enableV": 0,
+        "enableW": 0,
+        "enableX": 0,
+        "enableY": 0,
+        "enableZ": 0,
+        "enableSH": 0,
+        "enableCH": 0,
+        "enableTH": 0,
+        "enableDH": 0,
+        "enableNG": 0,
+        "enableZH": 0,
+        "female": 0
+      },
+      "out": {
+        "volume": 0.45
+      }
+    },
+    "cables": [
+      {
+        "fromModule": "air",
+        "fromPort": "out1",
+        "toModule": "vocal",
+        "toPort": "gate"
+      },
+      {
+        "fromModule": "vocal",
+        "fromPort": "out",
+        "toModule": "out",
+        "toPort": "L"
+      },
+      {
+        "fromModule": "vocal",
+        "fromPort": "out",
+        "toModule": "out",
+        "toPort": "R"
+      }
+    ],
+    "midiMappings": {}
+  }
+}

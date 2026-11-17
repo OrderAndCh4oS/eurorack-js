@@ -1,0 +1,30 @@
+[package]
+name = "eurorack-airway"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+chimera = { path = "vendor/chimera" }
+
+[workspace]
+resolver = "3"
+members = ["vendor/chimera"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = "fat"
+panic = "abort"
+debug = false
+
+[profile.test]
+opt-level = 3

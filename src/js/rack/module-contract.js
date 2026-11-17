@@ -74,6 +74,10 @@ export function assertModuleParam(definition, param, value) {
     const moduleId = definition?.id || 'unknown';
     assert(getModuleParamPaths(definition).has(param), `Module "${moduleId}" has no parameter "${param}"`);
     assert(hasOnlyFiniteLeaves(value), `Module "${moduleId}" parameter "${param}" contains a non-finite value`);
+    // Structured persisted state can require a bounded, versioned schema. Run
+    // its admission check before state mutation on both sides of the worklet.
+    const state = definition.ui?.state?.find(entry => entry.param === param);
+    if (typeof state?.validate === 'function') state.validate(value);
 }
 
 export function validateModuleDefinition(definition, {
@@ -86,6 +90,8 @@ export function validateModuleDefinition(definition, {
     assert(/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(definition.id), `Module "${moduleId}" has an invalid id`);
     assert(typeof definition.name === 'string' && definition.name.trim(), `Module "${moduleId}" has an invalid name`);
     assert(typeof definition.createDSP === 'function', `Module "${moduleId}" createDSP must be a function`);
+    assert(definition.prepareDSP === undefined || typeof definition.prepareDSP === 'function',
+        `Module "${moduleId}" prepareDSP must be a function`);
     assert(definition.ui && typeof definition.ui === 'object', `Module "${moduleId}" must declare a ui contract`);
     if (definition.render) {
         assert(definition.telemetry && typeof definition.telemetry === 'object',
@@ -111,6 +117,8 @@ export function validateModuleDefinition(definition, {
         ...(ui.actions || [])
     ];
     const state = ui.state || [];
+    state.forEach(entry => assert(entry.validate === undefined || typeof entry.validate === 'function',
+        `Module "${moduleId}" state "${entry.param}" has an invalid validator`));
     const parameters = [...controls, ...state];
     assertUnique(parameters, control => control.param, 'control parameter', moduleId);
     assertUnique(ui.inputs || [], port => port.port, 'input port', moduleId);

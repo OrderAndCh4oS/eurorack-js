@@ -231,6 +231,7 @@ describe('module contracts', () => {
 
             const ui = definition.ui || {};
             const declaredParams = new Set(getControlParams(ui));
+            const allowedParams = new Set([...declaredParams, ...(ui.state || []).map(entry => entry.param)]);
             const registeredParams = new Set(panel.__eurorackParamControls?.keys?.() || []);
             const renderedParams = new Set([
                 ...[...panel.querySelectorAll('[data-param]')].map(el => el.dataset.param).filter(Boolean),
@@ -238,7 +239,7 @@ describe('module contracts', () => {
             ]);
 
             renderedParams.forEach(param => {
-                expect(declaredParams.has(param), `${definition.id} renders undeclared param ${param}`).toBe(true);
+                expect(allowedParams.has(param), `${definition.id} renders undeclared param ${param}`).toBe(true);
             });
 
             declaredParams.forEach(param => {

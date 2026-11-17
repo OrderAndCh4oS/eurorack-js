@@ -66,6 +66,15 @@ describe('PluginRegistry', () => {
             .rejects.toThrow('invalid color');
     });
 
+    it('accepts the wide 28 HP panel while rejecting unsupported widths', async () => {
+        const registry = new PluginRegistry({ blockSize: 4 });
+        await registry.registerPlugin(manifest('wide', { ...createModule('wide'), hp: 28 }));
+        expect(registry.get('wide').hp).toBe(28);
+        await expect(registry.registerPlugin(manifest('invalid', { ...createModule('invalid'), hp: 17 })))
+            .rejects.toThrow('hp');
+        expect(registry.count).toBe(1);
+    });
+
     it('rejects plugin patch migration hooks', async () => {
         const registry = new PluginRegistry({ blockSize: 4 });
         await expect(registry.registerPlugin({ ...manifest('test-plugin'), migratePatch() {} }))

@@ -361,6 +361,22 @@ describe('patch-format', () => {
         });
     });
 
+    it('preserves exact prepared speech state in URLs, including tiny changes from defaults', async () => {
+        const definition = pluginRegistry.get('speech');
+        const phrase = structuredClone(definition.ui.state.find(entry => entry.param === 'phrase').default);
+        // This is smaller than the control-number rounding tolerance. Omitting it
+        // as a default or rounding nested gesture times changes the saved plan.
+        phrase.bodies[0].gestures[0][4] += 0.000001;
+        const state = {
+            version: 3, plugins: { core: 1 },
+            modules: [{ id: 'speech_1', type: 'speech', row: 1, index: 0 }],
+            params: { speech_1: { phrase } }, cables: [], midiMappings: {}
+        };
+        const hash = await createPatchUrlHash({ name: 'Exact speech', state }, urlOptions());
+        const parsed = await parsePatchUrlHash(hash, urlOptions());
+        expect(parsed.state.params.speech_1.phrase).toEqual(phrase);
+    });
+
     it('rounds URL patch numbers to three decimal places', async () => {
         const state = {
             version: 3, plugins: { 'patch-format-tests': 1 },

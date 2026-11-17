@@ -1,0 +1,228 @@
+{
+  "captures": [
+    {
+      "sampleRate": 48000,
+      "peak": 0.5926182866096497,
+      "rms": 0.06009008245267291,
+      "dc": -0.00008617367631455115,
+      "clipped": 0,
+      "nonfinite": 0
+    },
+    {
+      "sampleRate": 48000,
+      "peak": 0.6019074320793152,
+      "rms": 0.06100711451291434,
+      "dc": -0.00007543006976552218,
+      "clipped": 0,
+      "nonfinite": 0
+    },
+    {
+      "sampleRate": 48000,
+      "peak": 0.6048270463943481,
+      "rms": 0.06168247718928418,
+      "dc": -0.000032946873128645196,
+      "clipped": 0,
+      "nonfinite": 0
+    }
+  ],
+  "profile": {
+    "deadlineMs": 2.6666666666666665,
+    "blocks": {
+      "samples": 4096,
+      "p50": 1,
+      "p95": 2,
+      "p99": 2,
+      "p99Utilization": 0.75
+    },
+    "modules": {
+      "pulse": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "grid": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "backbeat": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "bassNotes": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "soundsA": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "soundsB": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "gesture": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "malletNotes": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "bounce": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "bars": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "bend": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "character": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "floor": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "clap": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "ticks": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "drums": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "pitchSum": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "soundRange": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "voice": {
+        "samples": 4096,
+        "p50": 1,
+        "p95": 2,
+        "p99": 2,
+        "p99Utilization": 0.75
+      },
+      "sign": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "bodyGain": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "slap": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "p99Utilization": 0
+      },
+      "room": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "left": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      },
+      "right": {
+        "samples": 4096,
+        "p50": 0,
+        "p95": 0,
+        "p99": 1,
+        "p99Utilization": 0.375
+      }
+    }
+  },
+  "errors": [],
+  "seenSounds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ]
+}

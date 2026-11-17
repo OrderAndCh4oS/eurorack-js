@@ -6,6 +6,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:audio-analysis": "node scripts/build-audio-analysis.mjs",
+    "build:airway": "node scripts/build-airway.mjs",
+    "build:speech": "node scripts/build-speech.mjs",
     "build:test-previews": "node scripts/build-test-previews.mjs",
     "build:introduction-preview": "node scripts/build-introduction-preview.mjs",
     "build:social-cards": "node scripts/build-social-cards.mjs",

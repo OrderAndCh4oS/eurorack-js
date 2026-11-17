@@ -248,6 +248,30 @@ export const TEST_PATCH_PREVIEWS = {
     "height": 445,
     "bytes": 19654
   },
+  "Test - Vocal": {
+    "key": "2a6a67079007d83bae2934b55af1229f58f483f947c85df22273308228bce258",
+    "rendererVersion": "rack-industrial-light-v2",
+    "file": "d8fc23576b77d93923e3fdc2e9c278814bde842458699b9683cd7b6d41d646ca.webp",
+    "width": 640,
+    "height": 271,
+    "bytes": 30080
+  },
+  "Test - Speech": {
+    "key": "77ef0eb6c14658892d663b966289134d43ea976bb39a73dc305b40fa2192aef6",
+    "rendererVersion": "rack-industrial-light-v2",
+    "file": "0a557cee7aaa59b9abe218b1a06749adf478d729c19ce03782d0be1a3047aea7.webp",
+    "width": 640,
+    "height": 391,
+    "bytes": 24738
+  },
+  "Test - Beatbox": {
+    "key": "3de8e45be213a7a37d7e7eef08f813134931639ae88656506b870f23f161aa64",
+    "rendererVersion": "rack-industrial-light-v2",
+    "file": "26e2da792395cf1cde0beffb2f9a9f785c4c0834d46e23cd03f0e48ad6e2ae0c.webp",
+    "width": 640,
+    "height": 370,
+    "bytes": 34106
+  },
   "Test - Formant": {
     "key": "c546dc3b4f07cdb5fe30241a5f5c2051a616f18fd4f8144a6e0593ba20452111",
     "rendererVersion": "rack-industrial-light-v2",
@@ -529,12 +553,12 @@ export const TEST_PATCH_PREVIEWS = {
     "bytes": 13738
   },
   "Test - Custom Modules": {
-    "key": "82ebb2feea5daeac42d5e6acf802b6f08e26ce763e7c5465d714255633247677",
+    "key": "d940f7329c46d83afaec611dd87c9401b7ca3efa3f60d3176f37eff65f84a36a",
     "rendererVersion": "rack-industrial-light-v2",
-    "file": "eaef27060f13fef7c02368cb92afba9db0fa7a86cb702d98d61d3329e0ef64a2.webp",
-    "width": 506,
+    "file": "7639189941d2ba849c2a77da3b948fe5da7e852bebdb8ec213c2f2c332fa6f3d.webp",
+    "width": 325,
     "height": 480,
-    "bytes": 49140
+    "bytes": 33480
   },
   "Test - MIDI-CV": {
     "key": "03d2411b51acf47f79122c865e10ed2c295fec49e0dfe1a039996616998d325b",

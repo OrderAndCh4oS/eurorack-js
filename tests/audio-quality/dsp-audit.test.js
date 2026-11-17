@@ -12,7 +12,9 @@ import {
 } from '../../scripts/lib/dsp-audit.js';
 
 // This exhaustive matrix competes with other Vitest workers in the full CI suite.
-const CONTROL_SCENARIO_AUDIT_TIMEOUT_MS = 15_000;
+// VOCAL's 32 sound toggles add 64 physical-model scenarios at each of six rates/sizes.
+// Keep every scenario and voltage assertion; this is not a real-time CPU threshold.
+const CONTROL_SCENARIO_AUDIT_TIMEOUT_MS = 30_000;
 
 describe('DSP audit measurements', () => {
     it('uses reproducible seeded noise', () => {

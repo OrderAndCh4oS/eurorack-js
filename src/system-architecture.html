@@ -424,7 +424,7 @@
                 <h1>Voltages in.<br>Sound out.</h1>
                 <p class="hero-copy">A complete visual tour of the browser-based Eurorack emulator: who owns state, how patches become an atomic audio graph, where DSP runs, and how UI, MIDI, plugins, telemetry, and tests fit around the real-time core.</p>
                 <div class="facts" aria-label="Project facts">
-                    <div class="fact"><b>75</b><span>built-in modules</span></div>
+                    <div class="fact"><b>79</b><span>built-in modules</span></div>
                     <div class="fact"><b>12</b><span>module categories</span></div>
                     <div class="fact"><b>v3</b><span>strict patch schema</span></div>
                     <div class="fact"><b>1</b><span>production DSP thread</span></div>
@@ -510,7 +510,7 @@ sequenceDiagram
     B->>A: init()
     A->>H: init()
     H->>R: loadCorePlugin()
-    R->>R: load + validate 75 definitions
+    R->>R: load + validate 79 definitions
     R-->>H: atomic registration
     H->>S: create stable UI mirrors
     H-->>A: host ready
@@ -1055,14 +1055,14 @@ flowchart LR
                     <p>The manifest provides deterministic default order; each definition owns its sidebar category. All signals remain DC-coupled regardless of semantic port labels.</p>
                 </div>
                 <article class="card">
-                    <div class="card-head"><div><h3>75 built-in modules by category</h3><p>Categories are UI taxonomy, while graph order is dependency-driven at runtime.</p></div><span class="tag">Catalog</span></div>
+                    <div class="card-head"><div><h3>79 built-in modules by category</h3><p>Categories are UI taxonomy, while graph order is dependency-driven at runtime.</p></div><span class="tag">Catalog</span></div>
                     <div class="diagram"><pre class="mermaid">
 flowchart TB
-    RACK["eurorack-js module library · 75"]
+    RACK["eurorack-js module library · 79"]
     RACK --> MIDI["MIDI · 5<br/>midi-cv · midi-4 · midi-cc<br/>midi-clk · midi-drum"]
     RACK --> CLOCK["Clock · 6<br/>clk · div · swing<br/>burst · gate-delay · cascade"]
     RACK --> SOURCE["Sources · 5<br/>nse · vco · wavetable<br/>complex-vco · ensemble-vco"]
-    RACK --> VOICE["Voices · 4<br/>pluck · kick · snare · hat"]
+    RACK --> VOICE["Voices · 8<br/>pluck · vocal · speech · beatbox · beatbox-pro · kick · snare · hat"]
     RACK --> MOD["Modulation · 8<br/>lfo · quad-lfo · rnd · func<br/>adsr · ochd · chaos · cv-rec"]
     RACK --> SEQ["Sequencers · 8<br/>arp · changes · refrain · seq<br/>prob-seq · seq-switch · euclid · turing"]
     RACK --> QUANT["Quantizer · 1<br/>quant"]
@@ -1123,7 +1123,7 @@ flowchart TB
     E2E["Playwright E2E<br/>real browser interactions"]
     INT["Worklet + app integration<br/>topology, lifecycle, patches"]
     CONTRACT["Contract tests<br/>manifest, modules, plugins, research"]
-    DSP["77 focused DSP suites<br/>ranges, controls, reset, buffers"]
+    DSP["84 focused DSP suites<br/>ranges, controls, reset, buffers"]
     UTILS["Utility unit tests<br/>FFT, interpolation, slew, voltage"]
     AUDIT["DSP audit matrix<br/>sample rates × block sizes × strict voltage"]
 
@@ -1167,7 +1167,7 @@ flowchart TB
                         <a href="./js/ui/renderer.js"><code>ui/renderer.js</code><span>Declarative/custom panel rendering and mirror synchronization.</span></a>
                         <a href="./js/ui/toolkit/index.js"><code>ui/toolkit/</code><span>Reusable controls, layout, and pointer interactions.</span></a>
                         <a href="https://github.com/OrderAndCh4oS/eurorack-js/tree/main/src/js/modules" target="_blank" rel="noopener noreferrer"><code>modules/{moduleId}/</code><span>Self-contained DSP, UI, render, telemetry, and browser hooks.</span></a>
-                        <a href="https://github.com/OrderAndCh4oS/eurorack-js/tree/main/src/js/config/patches" target="_blank" rel="noopener noreferrer"><code>config/patches/</code><span>113 factory source patches: 75 in Test patches and 38 archived musical examples.</span></a>
+                        <a href="https://github.com/OrderAndCh4oS/eurorack-js/tree/main/src/js/config/patches" target="_blank" rel="noopener noreferrer"><code>config/patches/</code><span>116 factory source patches: 78 in Test patches and 38 archived musical examples.</span></a>
                         <a href="https://github.com/OrderAndCh4oS/eurorack-js/blob/main/scripts/dsp-audit.mjs" target="_blank" rel="noopener noreferrer"><code>scripts/dsp-audit.mjs</code><span>Matrix-based DSP regression and voltage audit runner.</span></a>
                         <a href="https://github.com/OrderAndCh4oS/eurorack-js/blob/main/docs/architecture.md" target="_blank" rel="noopener noreferrer"><code>docs/architecture.md</code><span>Canonical written runtime and schema reference.</span></a>
                         <a href="https://github.com/OrderAndCh4oS/eurorack-js/blob/main/docs/creating-modules.md" target="_blank" rel="noopener noreferrer"><code>docs/creating-modules.md</code><span>Built-in and trusted-plugin module authoring guide.</span></a>

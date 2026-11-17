@@ -1,5 +1,7 @@
 # eurorack-js
 
+> Archive branch: VOCAL, SPEECH and both BEATBOX modules are parked after user audition. See the [archive decision](research/topics/vocal-beatbox-parked.md). This branch is not intended for release.
+
 Browser-based Eurorack modular synthesizer and patch-sharing community. Build a rack, make sounds, and share your patches for other people to play and remix.
 
 **[Try it live](https://eurorackjs.orderandchaos.xyz)**
@@ -85,6 +87,10 @@ Built-in modules are registered in the order listed by `src/js/rack/module-manif
 | ID | Module | Description |
 |----|--------|-------------|
 | `pluck` | PLUCK | Four-voice Karplus-Strong plucked string voice |
+| `vocal` | VOCAL | Male/female CHIMERA vocal tracts with 32 SEQ-style sound-selection buttons, enabled-pool Sound CV, 16 voice controls and CV for source, throat and transition shaping |
+| `speech` | SPEECH | English text to connected physical speech with live Pitch/Rate CV, contour, male/female tracts, Finish/Restart, and Busy/End outputs |
+| `beatbox` | BEATBOX | Ten physical percussion sounds with Tune, Decay, Snap, pressure and Clamp/Wrap addressing |
+| `beatbox-pro` | BEATBOX PRO | Extended beatbox with physical noise, lips, tongue, nasal/throat controls, Choke and Env/Active outputs |
 | `kick` | KICK | Analog-style kick drum synthesizer |
 | `snare` | SNARE | Analog-style snare drum synthesizer |
 | `hat` | HAT | Hi-hat synthesizer with separate open and closed triggers |

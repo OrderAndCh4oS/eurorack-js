@@ -208,16 +208,17 @@ function createDefinitionsById(options = {}) {
     return new Map(getModuleDefinitions(options).map(definition => [definition.id, definition]));
 }
 
-function valuesEqualForUrl(value, defaultValue) {
+function valuesEqualForUrl(value, defaultValue, roundNumbers = true) {
+    if (!roundNumbers) return JSON.stringify(value) === JSON.stringify(defaultValue);
     return JSON.stringify(roundUrlNumberValue(value)) === JSON.stringify(roundUrlNumberValue(defaultValue));
 }
 
-function encodeCompactValue(value, ref) {
-    if (typeof value === 'number') return roundUrlNumber(value);
+function encodeCompactValue(value, ref, roundNumbers = true) {
+    if (typeof value === 'number') return roundNumbers ? roundUrlNumber(value) : value;
     if (typeof value === 'string') return [0, ref(value)];
-    if (Array.isArray(value)) return [1, value.map(item => encodeCompactValue(item, ref))];
+    if (Array.isArray(value)) return [1, value.map(item => encodeCompactValue(item, ref, roundNumbers))];
     if (value && typeof value === 'object') {
-        return [2, Object.entries(value).map(([key, item]) => [ref(key), encodeCompactValue(item, ref)])];
+        return [2, Object.entries(value).map(([key, item]) => [ref(key), encodeCompactValue(item, ref, roundNumbers)])];
     }
     return value;
 }
@@ -427,11 +428,15 @@ function createCompactPatchUrlPayload(patch, options = {}) {
         .map(([moduleId, moduleParams]) => {
             const mod = state.modules[moduleIndexById.get(moduleId)];
             const defaults = getDefaultParamsForModule(mod?.type, definitionsById);
+            // Persisted state can contain interdependent timing bounds (SPEECH
+            // gestures, for example). Control rounding must not change those.
+            const exactParams = new Set((definitionsById.get(mod?.type)?.ui?.state || [])
+                .map(entry => entry.param.split('.')[0]));
             const entries = Object.entries(moduleParams)
-                .filter(([param, value]) => !valuesEqualForUrl(value, defaults[param]))
+                .filter(([param, value]) => !valuesEqualForUrl(value, defaults[param], !exactParams.has(param)))
                 .map(([param, value]) => [
                     references.ref(param),
-                    encodeCompactValue(value, references.ref)
+                    encodeCompactValue(value, references.ref, !exactParams.has(param))
                 ]);
             return [moduleIndexById.get(moduleId), entries];
         })

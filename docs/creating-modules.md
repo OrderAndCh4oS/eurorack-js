@@ -307,7 +307,7 @@ Required fields:
 |---|---|
 | id | Unique lowercase kebab-case ID. |
 | name | Non-empty display name. |
-| hp | One of 2, 3, 4, 6, 8, 10, 12, 14, or 16. |
+| hp | One of 2, 3, 4, 6, 8, 10, 12, 14, 16, or 28. |
 | color | module-color-one through module-color-twelve. |
 | category | midi, clock, source, voice, modulation, sequencer, quantizer, filter, effect, utility, output, or other. |
 | createDSP() | Factory returning the DSP contract below. |
@@ -346,6 +346,27 @@ For a monitor or recorder that is useful without connecting its pass-through out
 | onInputDisconnected(port) | Optional notification after a disconnected input has been restored to its normal. |
 
 Production DSP runs inside AudioWorkletProcessor. Services such as MIDI arrive through `services`; note and clock events include a `sampleOffset` and are non-destructive for the current block. Allocate during creation, not inside the audio loop, and never fall back to `window` or other browser globals.
+
+### Prepared DSP resources
+
+Built-in definitions may expose synchronous `prepareDSP({ sampleRate })` for
+immutable resources that are expensive to construct. Core worklet registration
+calls this hook while loading the worklet module, before constructing the audio
+node. Failures reject startup. Preparation must finish before returning; promises
+are rejected because they would race node construction. The hook does not create
+a module instance or publish audio.
+
+Vocal and Beatbox use this boundary to compile their shared CHIMERA WASM kernel and prepare
+sample-rate-specific physical states. `createDSP()` then creates an isolated
+instance from that prepared bank. Main-thread validation and Node tests can lazily
+prepare the same resources once per rate. Keep caches bounded, and keep an active
+instance's bank alive if its cache entry is evicted. Never compile, prime, fetch,
+grow memory or allocate snapshots from `process()` or a trigger handler.
+
+WASM assets must include source provenance, a reproducible locked build and
+licence notices. `npm run build:airway` regenerates the shared kernel's committed assets;
+ordinary builds verify source and output fingerprints without invoking Rust.
+No WASM memory image belongs in patch params or serialized runtime state.
 
 ## UI Schema
 
@@ -414,6 +435,25 @@ ui: {
 ~~~
 
 State values may contain nested objects and arrays whose numeric leaves are finite. They are validated and synchronized with the worklet like control parameters, but the renderer does not create a control and they are not MIDI-learn targets. A custom renderer must call `onParamChange('scaleMemory', nextValue)` after replacing the value. Prefer immutable replacement so rack state, URL encoding, and the worklet receive the same snapshot. Runtime-only bulk data such as audio buffers still belongs in `captureRuntimeState()` rather than patch params.
+
+A state entry may provide `validate(value)`, a synchronous admission check that
+throws for unsupported or oversized values. It runs before rack mutation and
+again at the worklet boundary; it must use bounded work and cannot access browser
+APIs. SPEECH uses this for its versioned gesture plan. Its custom text editor uses
+another state entry; registering such a custom control is permitted, but state
+entries do not require automatically rendered controls.
+When module definitions are supplied to the URL codec, declared `ui.state`
+parameters retain full numeric precision, including when compared with defaults.
+Control parameters still round to three decimals. This protects interdependent
+timing bounds in prepared state from changing during sharing.
+
+SPEECH prepares English text in a disposable Worker using a separate planner
+WASM and dictionary. Apply atomically replaces a bounded plan for both tracts;
+the active DSP retains its current plan until the next accepted trigger. Saved
+patches retain text and finite gesture data, so playback does not depend on
+compiling text during patch restore. No audio buffer or WASM memory is persisted.
+Run `npm run build:speech` when planner inputs change; normal builds verify the
+committed artifacts and dictionary checksums. Only editing loads the planner.
 
 ### Ports and Voltages
 
@@ -746,3 +786,13 @@ expect(output.every(Number.isFinite)).toBe(true);
 | UI changes do not affect sound | Call onParamChange(); mirror mutation does not reach worklet DSP. |
 | Browser API fails in DSP | Emit a module event and handle it on the main thread. |
 | Plugin topology fails | Worklet registration, ownership, API version, and patch version. |
+
+### Closely related physical modules
+
+BEATBOX and BEATBOX PRO each declare their complete panel/port/telemetry
+contract in their module definition. Their shared percussion kernel controller
+is `audio/chimera-percussion.js`; the reusable bandlimited reader is
+`audio/beatbox-resampler.js`. Precompute its coefficient tables in `prepareDSP`,
+before the live processor exists. Every instance owns independent native
+memory, interpolation history, envelopes and gates. The panel renderer is
+shared by this family, while the UI contracts remain independently validated.

@@ -1,0 +1,11 @@
+{
+  "sampleRate": 48000,
+  "blockSize": 128,
+  "samePitchHz": 220,
+  "normalizedSpectrumSimilarity": 0.6090141027858628,
+  "auditionPatch": {
+    "rms": 0.07893980908459637,
+    "peak": 0.1864185905456543,
+    "durationSeconds": 2
+  }
+}

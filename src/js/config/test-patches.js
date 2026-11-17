@@ -37,6 +37,9 @@ import testWavetable from './patches/test-wavetable.js';
 import testComplexVco from './patches/test-complex-vco.js';
 import testEnsembleVco from './patches/test-ensemble-vco.js';
 import testPluck from './patches/test-pluck.js';
+import testVocal from './patches/test-vocal.js';
+import testSpeech from './patches/test-speech.js';
+import testBeatbox from './patches/test-beatbox.js';
 import testFormant from './patches/test-formant.js';
 import testResbank from './patches/test-resbank.js';
 import testFold from './patches/test-fold.js';
@@ -119,6 +122,9 @@ export const TEST_PATCHES = {
     [testComplexVco.name]: testComplexVco,
     [testEnsembleVco.name]: testEnsembleVco,
     [testPluck.name]: testPluck,
+    [testVocal.name]: testVocal,
+    [testSpeech.name]: testSpeech,
+    [testBeatbox.name]: testBeatbox,
     [testFormant.name]: testFormant,
     [testResbank.name]: testResbank,
     [testFold.name]: testFold,

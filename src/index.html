@@ -337,7 +337,14 @@
         .led.green.active { background: #4f4; box-shadow: 0 0 8px #4f4; }
 
         /* Switches */
+        .switch-positions {
+            font: inherit;
+            font-size: 9px;
+            max-width: 100%;
+        }
+
         .switch {
+            padding: 0;
             width: 16px;
             height: 24px;
             background: linear-gradient(to bottom, #444, #333);
@@ -675,7 +682,7 @@
             50% { opacity: 0.7; }
         }
 
-        .knob.midi-learning {
+        [data-param].midi-learning {
             box-shadow: 0 0 10px 3px #c9a227 !important;
             animation: knob-pulse 0.5s infinite;
         }
@@ -701,12 +708,17 @@
             z-index: 10;
         }
 
+        [data-param].midi-mapped:not(.knob) {
+            outline: 1px solid #c9a227;
+            outline-offset: 1px;
+        }
+
         body.midi-learn-mode {
             cursor: crosshair;
         }
 
-        body.midi-learn-mode .knob {
-            cursor: pointer;
+        body.midi-learn-mode [data-module][data-param] {
+            cursor: crosshair;
         }
 
         .toolbar-label {

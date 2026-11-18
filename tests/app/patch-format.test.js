@@ -114,7 +114,7 @@ describe('patch-format', () => {
                     outputs: {},
                     process() {}
                 }),
-                ui: { knobs: controls }
+                ui: id === 'custom' ? { state: controls } : { knobs: controls }
             };
             };
             await registerPlugin({
@@ -139,6 +139,25 @@ describe('patch-format', () => {
             cables: [],
             midiMappings: {}
         })).toThrow('Unsupported patch state version: missing');
+    });
+
+    it('restores deployed control encodings and preserves literal one- and two-octave patches', () => {
+        const state = {
+            version: 3, plugins: { core: 1 }, cables: [], midiMappings: {},
+            modules: [{ id: 'a', type: 'arp' }, { id: 'l', type: 'lfo' }],
+            params: { a: { octaves: 0, chord: 3.75 }, l: { waveKnob: 2 } }
+        };
+        state.midiMappings['0:74'] = { moduleId: 'a', paramId: 'octaves', min: 0, max: 1 };
+        const restored = () => normalizePatch(state, { registry: pluginRegistry });
+        expect(restored().midiMappings['0:74']).toMatchObject({ min: 1, max: 2 });
+        const restore = () => restored().params;
+        expect(restore()).toEqual({ a: { octaves: 1, chord: 4 }, l: { waveKnob: 1 } });
+        for (const count of [1, 2]) {
+            state.params.a.octaves = count;
+            expect(restore().a.octaves).toBe(count);
+        }
+        state.params.a.octaves = 3;
+        expect(restore).toThrow(/control settings/);
     });
 
     it('rejects patch state without a version before inspecting its shape', () => {

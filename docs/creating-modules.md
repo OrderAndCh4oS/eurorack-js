@@ -377,7 +377,10 @@ Knobs support:
 | step | no | Quantization step; omitted or 0 is continuous. |
 | small | no | Compact knob presentation. |
 
-Switches use id, label, param, and a default of 0 or 1.
+Switches default to the values 0 and 1. Use `values: [1, 2]` for a switch
+that sends literal octave counts. Use `positions: ['Off', 'HP', 'LP']` for
+named settings indexed from zero. Every declared position is selectable
+from the panel and through MIDI Learn.
 
 Buttons use id, label, param, and default:
 
@@ -391,6 +394,7 @@ Declarative actions use id, label, param, mode, and default:
 |---|---|
 | mode | toggle, momentary, or trigger. |
 | durationMs | Supported by toolkit.createActionButton() in custom renderers; declarative trigger actions use 80ms. |
+| editState | Optional for a trigger. Declare the target `ui.state` path as `param` and a pure `update(params)` function returning its replacement value. The rack and audio processor each apply the edit once per rising transition. |
 
 Trigger and momentary actions are transient commands. Patch loading restores
 them to their declared defaults rather than replaying a captured high pulse;
@@ -399,6 +403,9 @@ active trigger and cancels its delayed callback before a module is removed or
 replaced.
 
 All rendered parameter controls expose MIDI-learn metadata. There is no action-level MIDI flag.
+Compound controls need one assignment target per parameter. The joystick
+shows X and Y buttons on the pad while MIDI Learn is active. Choosing a
+target leaves its current value in place.
 
 ### Patch-Persisted State
 
@@ -427,7 +434,7 @@ Each port uses id, label, port, signal, and optional voltage.
 | trigger | 0V to 10V | 0V |
 | any | -10V to 10V | 0V |
 
-Override hardware behavior with voltage containing min, max, and, for inputs, normal. Initialize the DSP input buffer to the same normal; contract tests verify it.
+Override hardware behavior with voltage containing min, max, and, for inputs, normal. The normal must fall inside the inclusive range. Initialize the DSP input buffer to that voltage.
 
 Signal labels are semantic rather than a cable barrier. Eurorack is DC-coupled, but direction, endpoint existence, one-source-per-input, and buffer sizes are strict.
 
@@ -710,6 +717,16 @@ out[i] = clamp(sample, -5, 5);
 clamp() limits finite values; it does not turn NaN into a valid sample.
 
 ## Testing Checklist
+
+The rack generates a gesture-to-worklet check for every declared control and
+observes reads while the DSP processes a signal, the panel draws, or an action
+edits saved state. Telemetry serialization is excluded from the read check.
+For a custom widget, exercise its actual gesture and check the intended
+parameter on the audio thread. For a musical or display promise, give the
+module a signal or state that makes the effect measurable. Both VCA channels
+share the same gain fixture. SCOPE checks the actual drawn trace on a ramp.
+The three Bend specifications and their verification commands are described
+in [Rack laws](../laws/README.md).
 
 Cover every applicable contract:
 

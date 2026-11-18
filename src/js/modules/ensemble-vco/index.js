@@ -66,6 +66,25 @@ function scaleSlot(group, scale) {
     return Math.round(clamp(group, 0, 2)) * 10 + Math.round(clamp(scale, 0, 9));
 }
 
+function addScaleNote(params, note = params.learnNote) {
+    const slot = scaleSlot(finite(params.scaleGroup), finite(params.scale));
+    const notes = params.scaleMemory?.[slot] || [0];
+    return { ...params.scaleMemory, [slot]: sanitizeScale([...notes, finite(note)]) };
+}
+
+function deleteScaleNote(params) {
+    const slot = scaleSlot(params.scaleGroup, params.scale);
+    const notes = sanitizeScale(params.scaleMemory?.[slot] || [0]);
+    if (notes.length > 1) notes.pop();
+    return { ...params.scaleMemory, [slot]: notes };
+}
+
+function restoreScale(params) {
+    const memory = { ...params.scaleMemory };
+    delete memory[scaleSlot(params.scaleGroup, params.scale)];
+    return memory;
+}
+
 function quantizePosition(position, notes, group, crossfade) {
     const span = group === 2 ? Math.max(1, notes[notes.length - 1] - notes[0]) : 12;
     const octave = Math.floor(position / span);
@@ -158,33 +177,9 @@ function renderPanel(container, { instance, toolkit, onParamChange }) {
             onParamChange('freeze', value);
         }
     }));
-    actions.appendChild(toolkit.createActionButton({
-        id: 'addNote', label: 'Add', param: 'addNote', mode: 'trigger', value: 0,
-        onChange(value) {
-            if (value) {
-                dsp?.addLearnedNote();
-                onParamChange('scaleMemory', dsp.params.scaleMemory);
-            }
-        }
-    }));
-    actions.appendChild(toolkit.createActionButton({
-        id: 'deleteNote', label: 'Delete', param: 'deleteNote', mode: 'trigger', value: 0,
-        onChange(value) {
-            if (value) {
-                dsp?.deleteLearnedNote();
-                onParamChange('scaleMemory', dsp.params.scaleMemory);
-            }
-        }
-    }));
-    actions.appendChild(toolkit.createActionButton({
-        id: 'resetScale', label: 'Factory', param: 'resetScale', mode: 'trigger', value: 0,
-        onChange(value) {
-            if (value) {
-                dsp?.resetFactoryScale();
-                onParamChange('scaleMemory', dsp.params.scaleMemory);
-            }
-        }
-    }));
+    for (const action of instance.def.ui.actions.filter(control => control.editState)) {
+        actions.appendChild(toolkit.createActionButton(action));
+    }
     container.appendChild(actions);
 
     container.appendChild(toolkit.createSection('Out'));
@@ -381,25 +376,15 @@ export default {
             },
 
             addLearnedNote(note = this.params.learnNote) {
-                const group = Math.round(clamp(finite(this.params.scaleGroup), 0, 2));
-                const scale = Math.round(clamp(finite(this.params.scale), 0, 9));
-                const slot = scaleSlot(group, scale);
-                const current = this.params.scaleMemory?.[slot] || [0];
-                this.params.scaleMemory = { ...this.params.scaleMemory, [slot]: sanitizeScale([...current, finite(note)]) };
+                this.params.scaleMemory = addScaleNote(this.params, note);
             },
 
             deleteLearnedNote() {
-                const slot = scaleSlot(this.params.scaleGroup, this.params.scale);
-                const current = sanitizeScale(this.params.scaleMemory?.[slot] || [0]);
-                if (current.length > 1) current.pop();
-                this.params.scaleMemory = { ...this.params.scaleMemory, [slot]: current };
+                this.params.scaleMemory = deleteScaleNote(this.params);
             },
 
             resetFactoryScale() {
-                const slot = scaleSlot(this.params.scaleGroup, this.params.scale);
-                const next = { ...this.params.scaleMemory };
-                delete next[slot];
-                this.params.scaleMemory = next;
+                this.params.scaleMemory = restoreScale(this.params);
             },
 
             toggleFreeze(count = Math.round(clamp(finite(this.params.oscillatorCount, 8), 1, MAX_VOICES))) {
@@ -619,9 +604,9 @@ export default {
         actions: [
             { id: 'freeze', label: 'Freeze', param: 'freeze', mode: 'toggle', default: 0 },
             { id: 'learnMode', label: 'Learn', param: 'learnMode', mode: 'toggle', default: 0 },
-            { id: 'addNote', label: 'Add', param: 'addNote', mode: 'trigger', default: 0 },
-            { id: 'deleteNote', label: 'Delete', param: 'deleteNote', mode: 'trigger', default: 0 },
-            { id: 'resetScale', label: 'Factory', param: 'resetScale', mode: 'trigger', default: 0 }
+            { id: 'addNote', label: 'Add', param: 'addNote', mode: 'trigger', default: 0, editState: { param: 'scaleMemory', update: addScaleNote } },
+            { id: 'deleteNote', label: 'Delete', param: 'deleteNote', mode: 'trigger', default: 0, editState: { param: 'scaleMemory', update: deleteScaleNote } },
+            { id: 'resetScale', label: 'Factory', param: 'resetScale', mode: 'trigger', default: 0, editState: { param: 'scaleMemory', update: restoreScale } }
         ],
         state: [
             { param: 'scaleMemory', default: {} }

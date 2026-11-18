@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { CORE_MODULE_DEFINITIONS } from '../src/js/rack/core-definitions.js';
 import { normalizePatch } from '../src/js/app/patch-format.js';
-import { getModuleParamPaths } from '../src/js/rack/module-contract.js';
+import { controlRange, getControlDomain, legalControlValue } from '../src/js/rack/control-domain.js';
 
 export const LIMITS = Object.freeze({ stateBytes: 262144, modules: 256, cables: 2048, rows: 32,
     patches: 100, accountStateBytes: 10 * 1024 * 1024, accountImageBytes: 50 * 1024 * 1024,
@@ -83,17 +83,11 @@ export function validateState(raw, contracts = registry) {
         assert(Number.isInteger(module.index) && module.index >= 0 && module.index < LIMITS.modules, 'Invalid rack position.');
         const place = `${module.row}:${module.index}`;
         assert(!placements.has(place), 'Two modules occupy the same rack position.'); placements.add(place);
-        const ui = contracts.get(module.type)?.ui;
         rowHP.set(module.row, (rowHP.get(module.row) || 0) + (contracts.get(module.type)?.hp || 0));
         assert(rowHP.get(module.row) <= 84, 'Rack row exceeds 84 HP.');
         for (const [param, value] of Object.entries(raw.params?.[module.id] || {})) {
-            const control = [...(ui?.knobs || []), ...(ui?.switches || []), ...(ui?.buttons || []), ...(ui?.actions || [])].find(item => item.param === param);
-            if (!control) continue; // Structured ui.state is checked by the shared contract below.
-            assert(typeof value === 'number' && Number.isFinite(value), `Parameter ${module.id}.${param} must be a number.`);
-            if (Number.isFinite(control.min)) assert(value >= control.min, `Parameter ${module.id}.${param} is below its minimum.`);
-            if (Number.isFinite(control.max)) assert(value <= control.max, `Parameter ${module.id}.${param} exceeds its maximum.`);
-            if (control.values) assert(control.values.includes(value), `Parameter ${module.id}.${param} is not a supported option.`);
-            if (control.positions) assert(Number.isInteger(value) && value >= 0 && value < control.positions.length, `Parameter ${module.id}.${param} is not a supported position.`);
+            const domain = getControlDomain(contracts.get(module.type), param);
+            if (domain) assert(legalControlValue(domain, value), `Parameter ${module.id}.${param} is outside its declared control settings.`);
         }
     }
     let state;
@@ -104,12 +98,11 @@ export function validateState(raw, contracts = registry) {
         const parts = /^(\d{1,2}):(\d{1,3})$/.exec(key);
         const module = state.modules.find(item => item.id === mapping?.moduleId);
         assert(parts && Number(parts[1]) <= 15 && Number(parts[2]) <= 127 && module, 'Invalid MIDI mapping target.');
-        assert(typeof mapping.paramId === 'string' && getModuleParamPaths(contracts.get(module.type)).has(mapping.paramId), 'Invalid MIDI mapping parameter.');
+        const domain = getControlDomain(contracts.get(module.type), mapping.paramId);
+        assert(domain, 'MIDI mappings must target a visible control.');
         assert(Number.isFinite(mapping.min) && Number.isFinite(mapping.max) && mapping.min <= mapping.max, 'Invalid MIDI mapping range.');
-        const control = contracts.get(module.type).ui.knobs?.find(item => item.param === mapping.paramId);
-        assert(control, 'MIDI mappings must target a knob.');
-        if (Number.isFinite(control.min)) assert(mapping.min >= control.min, 'MIDI mapping is below the knob minimum.');
-        if (Number.isFinite(control.max)) assert(mapping.max <= control.max, 'MIDI mapping exceeds the knob maximum.');
+        const { min, max } = controlRange(domain);
+        assert(mapping.min >= min && mapping.max <= max, 'MIDI mapping is outside its control range.');
         assert(Object.keys(mapping).every(k => ['moduleId', 'paramId', 'min', 'max'].includes(k)), 'Unsupported MIDI mapping field.');
     }
     return { state, stateHash: hash(state), stateBytes: Buffer.byteLength(JSON.stringify(state)) };

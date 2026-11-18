@@ -34,6 +34,10 @@
 
 ## DSP Implementation
 
+Both channels share a gain check. With +4 V signal and +5 V gain CV, the
+manual settings 0, 0.5 and 1 must produce 0 V, +2 V and +4 V respectively.
+Hold the other channel at quarter gain and verify its output stays at +1 V.
+
 ### Algorithm Overview
 Linear VCA with CV control:
 ```

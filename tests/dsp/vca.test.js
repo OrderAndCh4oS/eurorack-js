@@ -56,6 +56,21 @@ describe('create2hpDualVCA', () => {
     });
 
     describe('gain control', () => {
+        it.each([1, 2])('applies channel %i gain independently at full CV', channel => {
+            const other = 3 - channel;
+            for (const n of [1, 2]) {
+                vca.inputs[`ch${n}In`].fill(4);
+                vca.inputs[`ch${n}CV`].fill(5);
+            }
+            vca.params[`ch${other}Gain`] = 0.25;
+            for (const [gain, volts] of [[0, 0], [0.5, 2], [1, 4]]) {
+                vca.params[`ch${channel}Gain`] = gain;
+                vca.process();
+                expect(vca.outputs[`ch${channel}Out`][511]).toBeCloseTo(volts, 6);
+                expect(vca.outputs[`ch${other}Out`][511]).toBeCloseTo(1, 6);
+            }
+        });
+
         it('should pass signal at unity gain', () => {
             // Fill input with test signal
             for (let i = 0; i < 512; i++) {

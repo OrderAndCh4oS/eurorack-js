@@ -36,6 +36,27 @@ describe('Eurorack AudioWorkletProcessor', () => {
         return message;
     }
 
+    it('delivers both edges of rapid Record presses in consecutive audio blocks', () => {
+        const processor = new Processor();
+        processor.handleMessage({ type: 'topology', topology: {
+            revision: 1, plugins: { core: 1 }, cables: [],
+            modules: [{ id: 'rec', type: 'cv-rec', pluginId: 'core', params: { mode: 1 }, order: 0, rackOrder: 0 }]
+        } });
+        const dsp = processor.modules.rec.instance;
+        const output = [[new Float32Array(128), new Float32Array(128)]];
+        const record = value => processor.handleMessage({ type: 'param', moduleId: 'rec', param: 'record', value });
+        // Both presses and releases arrive before the next render quantum.
+        // Repeated high MIDI values are one press.
+        for (const value of [1, 1, 0, 1, 0]) record(value);
+        const states = [];
+        for (let block = 0; block < 5; block++) {
+            processor.process([], output);
+            states.push(dsp.transportState);
+        }
+        expect(states).toEqual([1, 1, 0, 0, 0]); // arm, hold, cancel, released
+        expect(dsp.params.record).toBe(0);
+    });
+
     it('captures contiguous final stereo frames after summing OUT volume and limiting, without changing playback', () => {
         const processor = outputCaptureFixture();
         const reference = outputCaptureFixture();
@@ -442,6 +463,16 @@ describe('Eurorack AudioWorkletProcessor', () => {
             type: 'host-error',
             message: expect.stringContaining('has no parameter')
         }));
+    });
+
+    it('rejects invalid settings on retained modules before updating any active parameters', () => {
+        const processor = outputCaptureFixture();
+        const old = processor.lastTopology;
+        const updated = old.modules.map((spec, i) => ({ ...spec, params: { volume: i ? 2 : 0.125 } }));
+        expect(() => processor.activateTopology({ ...old, revision: 2, modules: updated })).toThrow(/control settings/);
+        expect(processor.lastTopology).toBe(old);
+        expect(processor.modules.first.instance.params.volume).toBe(0.5);
+        expect(processor.modules.second.instance.params.volume).toBe(1);
     });
 
     it('activates and processes the fully wired custom-modules diagnostic patch', () => {

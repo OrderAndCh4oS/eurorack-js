@@ -141,6 +141,7 @@
 ## Test Targets
 - Initialization creates all params, input buffers, output buffers, LEDs, and empty recorder state.
 - Default centered joystick outputs 0V on bipolar X/Y, 5V on unipolar X/Y, and 2.5V on each quadrant output.
+- In MIDI Learn the pad offers separate X and Y targets. Assigning an axis must leave the current gesture in place. Each assigned CC spans the full −1 to +1 position before voltage scaling.
 - X/Y extremes produce correct bipolar and unipolar voltages and correct quadrant corner weights.
 - Each param is clamped: `x`, `y`, `range`, `cvMode`, `cv1Amt`, `cv2Amt`, `sense`, `gateButton`, `record`, `play`, and `loopMode`.
 - Cartesian CV input moves X/Y according to attenuverter polarity and clamps to valid position/range.

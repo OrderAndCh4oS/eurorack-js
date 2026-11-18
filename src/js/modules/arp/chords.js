@@ -3,6 +3,8 @@
  * Matches 2hp Arp: 13 chord types from Major to Sus4 Min7
  */
 
+import laws from '../../rack/verified-laws.js';
+
 export const CHORDS = {
     major:    [0, 4, 7],
     maj7:     [0, 4, 7, 11],
@@ -34,12 +36,10 @@ export const ARP_MODE_NAMES = Object.keys(ARP_MODES);
  * Build the full arpeggio note sequence for given chord and octave range
  */
 export function buildArpSequence(chord, octaves, mode) {
+    const intervals = chord.reduceRight((tail, head) => ({ $: 'Con', head, tail }), { $: 'Nil' });
+    const ascending = laws.ascending(intervals, octaves === 2);
     const notes = [];
-    for (let oct = 0; oct < octaves; oct++) {
-        for (const interval of chord) {
-            notes.push(interval + (oct * 12));
-        }
-    }
+    for (let list = ascending; list.$ === 'Con'; list = list.tail) notes.push(list.head);
 
     switch (mode) {
         case 'down':

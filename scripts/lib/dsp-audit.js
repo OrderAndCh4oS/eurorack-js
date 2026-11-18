@@ -1,5 +1,6 @@
 import { getNestedValue } from '../../src/js/utils/nested-access.js';
 import { getModulePorts } from '../../src/js/rack/module-contract.js';
+import { switchValues } from '../../src/js/rack/control-domain.js';
 
 export const AUDIT_SAMPLE_RATES = Object.freeze([44100, 48000, 96000]);
 export const AUDIT_BLOCK_SIZES = Object.freeze([128, 512]);
@@ -186,13 +187,12 @@ function controlScenarios(definition) {
             { name: control.param + ':min', params: { [control.param]: control.min } },
             { name: control.param + ':max', params: { [control.param]: control.max } }
         ]),
-        ...(ui.switches || []).flatMap(control => [
-            { name: control.param + ':off', params: { [control.param]: 0 } },
-            { name: control.param + ':on', params: { [control.param]: 1 } }
-        ]),
+        ...(ui.switches || []).flatMap(control => switchValues(control).map(value => ({
+            name: control.param + ':' + value, params: { [control.param]: value }
+        }))),
         ...(ui.buttons || []).flatMap(control => {
             const values = control.values?.length ? control.values : [0, 1];
-            return [values[0], values[values.length - 1]].map(value => ({
+            return values.map(value => ({
                 name: control.param + ':' + value,
                 params: { [control.param]: value }
             }));

@@ -124,7 +124,7 @@ p.set('clock', { rate: 0.24, pause: 0 })
 p.connect('clock.clock', 'steps.clock')
 ```
 
-Unknown parameters and non-finite values are errors. Values outside panel ranges produce warnings because the canonical v3 patch format permits finite values.
+The compiler rejects unknown parameters, non-finite values and settings outside the control's declared range, step grid or list of choices. Knob steps start at the declared minimum. Patch-persisted structured values use the module's `ui.state` declaration.
 
 ### Control states
 

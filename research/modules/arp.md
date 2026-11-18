@@ -26,6 +26,11 @@
 - **Mode**: Playback direction (4 modes)
 - **Octaves**: Range switch (1 or 2 octaves)
 
+The panel and patch parameter both use literal octave counts. Early v3 panels
+also saved zero for the one-octave setting. The ascending-mode check clocks
+each supported chord through two complete passes and measures pitch in volts.
+The rack default is chord index 1 (major seventh in the implemented table).
+
 ### Inputs
 - **Trigger**: Advance to next note (0.4V threshold)
 - **Reset**: Return to first note in pattern
@@ -43,19 +48,19 @@
 
 | Index | Name | Intervals (semitones) |
 |-------|------|----------------------|
-| 0 | Unison | 0 |
-| 1 | Major | 0, 4, 7 |
-| 2 | Minor | 0, 3, 7 |
-| 3 | Diminished | 0, 3, 6 |
-| 4 | Augmented | 0, 4, 8 |
-| 5 | Sus2 | 0, 2, 7 |
-| 6 | Sus4 | 0, 5, 7 |
-| 7 | Major 7th | 0, 4, 7, 11 |
-| 8 | Minor 7th | 0, 3, 7, 10 |
-| 9 | Dominant 7th | 0, 4, 7, 10 |
-| 10 | Diminished 7th | 0, 3, 6, 9 |
-| 11 | Half-Dim 7th | 0, 3, 6, 10 |
-| 12 | Aug Major 7th | 0, 4, 8, 11 |
+| 0 | Major | 0, 4, 7 |
+| 1 | Major 7th | 0, 4, 7, 11 |
+| 2 | Dominant 7th | 0, 4, 7, 10 |
+| 3 | Minor | 0, 3, 7 |
+| 4 | Minor 7th | 0, 3, 7, 10 |
+| 5 | Diminished | 0, 3, 6 |
+| 6 | Half-diminished 7th | 0, 3, 6, 10 |
+| 7 | Diminished 7th | 0, 3, 6, 9 |
+| 8 | Augmented | 0, 4, 8 |
+| 9 | Augmented 7th | 0, 4, 8, 10 |
+| 10 | Sus4 | 0, 5, 7 |
+| 11 | Sus4 major 7th | 0, 5, 7, 11 |
+| 12 | Sus4 minor 7th | 0, 5, 7, 10 |
 
 ## Playback Modes
 

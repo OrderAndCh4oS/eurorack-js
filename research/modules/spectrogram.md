@@ -10,6 +10,12 @@ Scrolling frequency-over-time analyzer with audio passthrough and bounded histor
 - Frequency snapshots are collected at a bounded interval and history is capped at 300 entries.
 - Freeze affects analysis only; passthrough remains active.
 
+The Time control selects a real 2–30 second horizontal window for the live
+display and export. Keep 300 uniformly spaced snapshots at ten per second
+so the full window fits at every supported sample rate. Capture the first
+FFT within 2048 samples for prompt startup. At the two-second setting 20
+columns fill the display. Freeze preserves their positions while zooming.
+
 ## DSP Audit (2026-07-11)
 
 - **Measured**: passthrough remains finite, within ±5 V, and buffer-stable over the full matrix.

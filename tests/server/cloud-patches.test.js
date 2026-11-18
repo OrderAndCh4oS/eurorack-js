@@ -30,6 +30,15 @@ async function request(path, { user, method = 'GET', body, origin = 'https://rac
 }
 
 describe('cloud identity, access and revisions', () => {
+    it('accepts learned switch ranges and rejects off-grid values on new saves', () => {
+        const patch = state();
+        patch.modules[0].type = 'arp';
+        patch.params.osc = { chord: 4, octaves: 2 };
+        patch.midiMappings['0:74'] = { moduleId: 'osc', paramId: 'octaves', min: 1, max: 2 };
+        expect(validateState(patch).state).toEqual(patch);
+        patch.params.osc.chord = 4.25;
+        expect(() => validateState(patch)).toThrow(/control settings/);
+    });
     it('creates private ULID records and projects no auth identity publicly', async () => {
         const patch = await service.create(alice, draft());
         expect(isValid(patch.id)).toBe(true); expect(patch.visibility).toBe('private'); expect(patch.state).toEqual(state());

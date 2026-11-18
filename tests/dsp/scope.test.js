@@ -2,8 +2,9 @@
  * Tests for SCOPE - Dual Channel Oscilloscope Module
  * Based on Intellijel Zeroscope 1U
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import scopeModule from '../../src/js/modules/scope/index.js';
+import { cleanupRenderedModule, renderModule } from '../../src/js/ui/renderer.js';
 
 describe('SCOPE - Dual Channel Oscilloscope', () => {
     let dsp;
@@ -188,6 +189,40 @@ describe('SCOPE - Dual Channel Oscilloscope', () => {
     });
 
     describe('trigger detection', () => {
+        it('anchors both rendered traces to the chosen crossing after history wraps', () => {
+            const starts = {};
+            const ctx = {
+                fillRect() {}, stroke() {}, beginPath() {}, lineTo() {}, setLineDash() {},
+                moveTo(x, y) { if (x === 0) starts[this.strokeStyle] = y; }
+            };
+            const canvas = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx);
+            const frame = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1);
+            let panel;
+            try {
+                for (let i = 0; i < BUFFER_SIZE; i++) {
+                    dsp.inputs.in1[i] = -4 + (i % 128) / 16;
+                    dsp.inputs.in2[i] = -dsp.inputs.in1[i];
+                }
+                for (let i = 0; i < 5; i++) dsp.process();
+                dsp.params.time = 1;
+                panel = renderModule(scopeModule, 'scope_trigger', { dsp, getModule: () => ({ instance: dsp }) });
+                // At the default gain ±6 V fills the 100 px display.
+                for (const [threshold, volts] of [[0.375, -2.5], [0.625, 2.5]]) {
+                    dsp.params.trigger = threshold;
+                    frame.mock.calls.at(-1)[0]();
+                    expect(starts['#4f4']).toBeCloseTo(50 - volts * 50 / 6);
+                    expect(starts['#4ff']).toBeCloseTo(50 + volts * 50 / 6);
+                }
+                dsp.params.trigger = 1; // No +10 V crossing in this signal.
+                frame.mock.calls.at(-1)[0]();
+                expect(starts['#4f4']).toBeCloseTo(50 + 4 * 50 / 6);
+            } finally {
+                cleanupRenderedModule(panel);
+                frame.mockRestore();
+                canvas.mockRestore();
+            }
+        });
+
         it('should detect trigger on rising edge of CH1', () => {
             // Create rising edge crossing trigger level (0V at default)
             for (let i = 0; i < BUFFER_SIZE; i++) {

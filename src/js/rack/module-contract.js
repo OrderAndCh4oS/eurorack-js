@@ -1,4 +1,5 @@
-import { getNestedValue } from '../utils/nested-access.js';
+import { getNestedValue, setNestedValue } from '../utils/nested-access.js';
+import { getControlDomain, inRange, legalControlValue } from './control-domain.js';
 
 export const SIGNAL_TYPES = Object.freeze(['audio', 'cv', 'gate', 'trigger', 'any']);
 
@@ -74,6 +75,22 @@ export function assertModuleParam(definition, param, value) {
     const moduleId = definition?.id || 'unknown';
     assert(getModuleParamPaths(definition).has(param), `Module "${moduleId}" has no parameter "${param}"`);
     assert(hasOnlyFiniteLeaves(value), `Module "${moduleId}" parameter "${param}" contains a non-finite value`);
+    const domain = getControlDomain(definition, param);
+    if (domain) {
+        assert(legalControlValue(domain, value), `Module "${moduleId}" parameter "${param}" is outside its declared control settings`);
+    }
+}
+
+// A state-editing action replaces a declared patch value on its rising edge.
+// Each thread applies the edit to its own current state (including CV edits).
+export function applyControlEdit(definition, params, param, value) {
+    if (value !== 1 || getNestedValue(params, param) === 1) return null;
+    const edit = definition.ui?.actions?.find(action => action.param === param)?.editState;
+    if (!edit) return null;
+    const next = edit.update(params);
+    assertModuleParam(definition, edit.param, next);
+    setNestedValue(params, edit.param, next);
+    return edit.param;
 }
 
 export function validateModuleDefinition(definition, {
@@ -113,6 +130,31 @@ export function validateModuleDefinition(definition, {
     const state = ui.state || [];
     const parameters = [...controls, ...state];
     assertUnique(parameters, control => control.param, 'control parameter', moduleId);
+    for (const action of ui.actions || []) {
+        if (action.editState) {
+            assert(action.mode === 'trigger' && typeof action.editState.update === 'function' &&
+                state.some(item => item.param === action.editState.param),
+                `Module "${moduleId}" action "${action.param}" has an invalid state edit`);
+        }
+    }
+    for (const control of controls) {
+        const domain = getControlDomain(definition, control.param);
+        const label = `Module "${moduleId}" control "${control.param}"`;
+        if (domain.values) {
+            assert(Array.isArray(domain.values) && domain.values.length >= 2 &&
+                domain.values.every(Number.isFinite) && new Set(domain.values).size === domain.values.length,
+                `${label} has invalid choices`);
+        } else {
+            assert(Number.isFinite(domain.min) && Number.isFinite(domain.max) && domain.min < domain.max,
+                `${label} has an invalid range`);
+            assert(Number.isFinite(domain.step) && domain.step >= 0 &&
+                (!domain.step || Number.isSafeInteger(Math.ceil((domain.max - domain.min) / domain.step))),
+                `${label} has an invalid step`);
+        }
+        if (control.default !== undefined) {
+            assert(legalControlValue(domain, control.default), `${label} has an invalid default`);
+        }
+    }
     assertUnique(ui.inputs || [], port => port.port, 'input port', moduleId);
     assertUnique(ui.outputs || [], port => port.port, 'output port', moduleId);
     assertUnique((ui.leds || []).map(id => ({ id })), led => led.id, 'LED', moduleId);
@@ -126,7 +168,8 @@ export function validateModuleDefinition(definition, {
         assert(Number.isFinite(port.voltage.min) && Number.isFinite(port.voltage.max), `Module "${moduleId}" port "${port.port}" has invalid voltage range`);
         assert(port.voltage.min <= port.voltage.max, `Module "${moduleId}" port "${port.port}" has reversed voltage range`);
         if ('normal' in port.voltage) {
-            assert(Number.isFinite(port.voltage.normal), `Module "${moduleId}" input "${port.port}" has invalid normal voltage`);
+            assert(inRange(port.voltage.normal, port.voltage.min, port.voltage.max),
+                `Module "${moduleId}" input "${port.port}" has invalid normal voltage`);
         }
     });
 

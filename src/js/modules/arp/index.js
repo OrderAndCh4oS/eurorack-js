@@ -47,7 +47,7 @@ export default {
         return {
             params: {
                 root: 0,
-                chord: 0,
+                chord: 1,
                 mode: 0,
                 octaves: 1
             },
@@ -152,7 +152,7 @@ export default {
             { id: 'mode', label: 'Mode', param: 'mode', min: 0, max: ARP_MODE_NAMES.length - 1, default: 0, step: 1 }
         ],
         switches: [
-            { id: 'octaves', label: 'Oct', param: 'octaves', default: 1 }
+            { id: 'octaves', label: 'Oct', param: 'octaves', values: [1, 2], default: 1 }
         ],
         inputs: [
             { id: 'trigger', label: 'Trig', port: 'trigger', signal: 'trigger' },

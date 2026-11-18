@@ -14,7 +14,8 @@ import { parsePatchLocation } from '../patches/cloud-client.js';
 import { createCablePath, getJackCenter } from '../cables/cable-manager.js';
 import { createMidiManager } from '../midi/midi-manager.js';
 import { cleanupRenderedModule, renderModule, syncParamToModuleUI, updateModuleLEDs } from '../ui/renderer.js';
-import { updateKnobRotation } from '../ui/toolkit/components.js';
+import { setSwitchValue, updateKnobRotation } from '../ui/toolkit/components.js';
+import { controlRange, getControlDomain, snapControlValue } from '../rack/control-domain.js';
 import { RackState } from './rack-state.js';
 import { createRackHost } from './rack-host.js';
 import { createPatchWorkbench } from '../patch-script/workbench.js';
@@ -373,6 +374,16 @@ export class EurorackApp {
     }
 
     bindEvents() {
+        // Capture the whole assignment gesture before a pad, momentary button,
+        // binary switch, or native select can change its value.
+        const learnGesture = event => {
+            if (!this.midiManager?.isLearnMode) return;
+            const control = event.target.closest?.('[data-module][data-param]');
+            if (control) this.handleParamMidiLearn(control, event);
+        };
+        for (const type of ['pointerdown', 'pointerup', 'pointerleave', 'pointercancel', 'mousedown', 'click', 'change']) {
+            this.document.addEventListener(type, learnGesture, true);
+        }
         this.document.addEventListener('mousedown', event => this.handleMouseDown(event), true);
         this.document.addEventListener('click', event => this.handleClick(event));
         this.document.addEventListener('mousemove', event => this.handleMouseMove(event));
@@ -631,9 +642,6 @@ export class EurorackApp {
     }
 
     handleMouseDown(event) {
-        const midiControl = event.target.closest('[data-module][data-param]');
-        if (midiControl && !midiControl.classList.contains('jack') && this.handleParamMidiLearn(midiControl, event)) return;
-
         const jack = event.target.closest('.jack');
         if (jack) {
             event.preventDefault();
@@ -673,7 +681,7 @@ export class EurorackApp {
 
     handleModuleMouseDown(event) {
         if (event.button !== 0) return;
-        if (event.target.closest('.jack, .knob, .switch, .remove-btn, .octave-btn, .toggle-btn, .action-btn')) return;
+        if (event.target.closest('.jack, .knob, .switch, .switch-positions, .remove-btn, .octave-btn, .toggle-btn, .action-btn')) return;
 
         const moduleEl = event.target.closest('.module');
         if (!moduleEl) return;
@@ -987,8 +995,8 @@ export class EurorackApp {
                 knob.dataset.value = value;
                 updateKnobRotation(knob);
             }
-            const sw = this.document.querySelector(`.switch[data-module="${moduleId}"][data-param="${param}"]`);
-            if (sw) sw.classList.toggle('on', !!value);
+            const sw = this.document.querySelector(`:is(.switch, .switch-positions)[data-module="${moduleId}"][data-param="${param}"]`);
+            if (sw) setSwitchValue(sw, value);
             const bank = this.document.querySelector(`.button-bank[data-module="${moduleId}"][data-param="${param}"]`);
             if (bank) {
                 bank.querySelectorAll('.octave-btn').forEach(btn => {
@@ -1245,10 +1253,7 @@ export class EurorackApp {
             knobInfo.element.classList.add('midi-mapped');
             this.state.midiMappings = this.midiManager.getMappings();
         });
-        this.midiManager.setOnMidiMessage(({ moduleId, paramId, value }) => {
-            this.setParam(moduleId, paramId, value);
-            this.applyParamsToDOM(moduleId);
-        });
+        this.midiManager.setOnMidiMessage(message => this.applyMidiControl(message));
         this.midiManager.setOnConnectionChange((connected, devices) => {
             btn.title = connected
                 ? `MIDI Learn - Connected: ${devices.join(', ')}`
@@ -1271,44 +1276,34 @@ export class EurorackApp {
         this.document.defaultView?.open(path, '_blank', 'noopener,noreferrer');
     }
 
+    applyMidiControl({ moduleId, paramId, value }) {
+        const module = this.state.getModule(moduleId);
+        const domain = getControlDomain(this.host.registry.get(module?.type), paramId);
+        if (!domain || !Number.isFinite(value)) return;
+        this.setParam(moduleId, paramId, snapControlValue(domain, value));
+        this.applyParamsToDOM(moduleId);
+    }
+
     getMidiControlRange(control) {
-        if (control.classList.contains('knob')) {
-            return {
-                min: parseFloat(control.dataset.min),
-                max: parseFloat(control.dataset.max)
-            };
-        }
-
-        if (control.classList.contains('button-bank')) {
-            const values = [...control.querySelectorAll('[data-value]')]
-                .map(btn => Number(btn.dataset.value))
-                .filter(Number.isFinite);
-            if (values.length) {
-                return {
-                    min: Math.min(...values),
-                    max: Math.max(...values)
-                };
-            }
-        }
-
-        return { min: 0, max: 1 };
+        const module = this.state.getModule(control.dataset.module);
+        const domain = getControlDomain(this.host.registry.get(module?.type), control.dataset.param);
+        return domain ? controlRange(domain) : null;
     }
 
     handleParamMidiLearn(control, event) {
-        if (!this.midiManager?.isLearnMode) return false;
+        const range = this.getMidiControlRange(control);
+        if (!range) return;
         event.preventDefault();
         event.stopImmediatePropagation();
+        if (event.type !== 'click') return;
         this.document.querySelectorAll('.midi-learning').forEach(item => item.classList.remove('midi-learning'));
         control.classList.add('midi-learning');
-        const { min, max } = this.getMidiControlRange(control);
         this.midiManager.startLearning({
             element: control,
             moduleId: control.dataset.module,
             paramId: control.dataset.param,
-            min,
-            max
+            ...range
         });
-        return true;
     }
 
     updateMidiMappedIndicators() {

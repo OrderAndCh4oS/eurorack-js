@@ -1,7 +1,7 @@
 import { BUFFER, SAMPLE_RATE } from '../config/constants.js';
 import { createAudioWorkletEngine } from '../audio/worklet-engine.js';
-import { setNestedValue } from '../utils/nested-access.js';
-import { assertModuleParam } from '../rack/module-contract.js';
+import { getNestedValue, setNestedValue } from '../utils/nested-access.js';
+import { applyControlEdit, assertModuleParam } from '../rack/module-contract.js';
 import { loadCorePlugin, pluginRegistry } from '../rack/registry.js';
 import { normalizePatch } from './patch-format.js';
 import { RackState } from './rack-state.js';
@@ -135,10 +135,15 @@ export class RackHost {
     setParam(moduleId, param, value) {
         const moduleState = this.state.getModule(moduleId);
         if (!moduleState) throw new Error(`Module instance "${moduleId}" not found`);
-        assertModuleParam(this.registry.get(moduleState.type), param, value);
+        const definition = this.registry.get(moduleState.type);
+        assertModuleParam(definition, param, value);
+        const edited = applyControlEdit(definition, moduleState.params, param, value);
         if (!this.state.setParam(moduleId, param, value)) return false;
         const dsp = this.state.getModule(moduleId)?.instance;
-        if (dsp?.params) setNestedValue(dsp.params, param, value);
+        if (dsp?.params) {
+            setNestedValue(dsp.params, param, value);
+            if (edited) setNestedValue(dsp.params, edited, getNestedValue(moduleState.params, edited));
+        }
         this.engine?.setParam?.(moduleId, param, value);
         this.emit({ type: 'param-changed', moduleId, param, value });
         return true;

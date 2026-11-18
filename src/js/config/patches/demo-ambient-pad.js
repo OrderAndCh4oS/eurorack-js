@@ -90,7 +90,7 @@ export default {
             "lfo2": {
                 "rateKnob": 0.12,
                 "range": 0,
-                "waveKnob": 2
+                "waveKnob": 1
             },
             "vco1": {
                 "coarse": 0.35,

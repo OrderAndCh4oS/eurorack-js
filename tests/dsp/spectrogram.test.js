@@ -2,8 +2,9 @@
  * Tests for SPECTROGRAM - Frequency Over Time Module
  * 2D visualization of frequency content evolving over time
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import spectrogramModule from '../../src/js/modules/spectrogram/index.js';
+import { cleanupRenderedModule, renderModule } from '../../src/js/ui/renderer.js';
 
 describe('SPECTROGRAM - Frequency Over Time', () => {
     let dsp;
@@ -258,6 +259,42 @@ describe('SPECTROGRAM - Frequency Over Time', () => {
     });
 
     describe('time window', () => {
+        it.each([44100, 48000, 96000])('keeps thirty seconds at %i Hz within the telemetry limit', sampleRate => {
+            const scope = spectrogramModule.createDSP({ sampleRate, bufferSize: 128 });
+            const seconds = scope.getExportData().snapshotInterval * spectrogramModule.telemetry.history.maxEntries / sampleRate;
+            expect(seconds).toBeCloseTo(30, 5);
+        });
+
+        it('zooms the actual frozen columns and exports the same history', () => {
+            // Three seconds, with energy only in the oldest second.
+            for (let i = 0; i < 30; i++) dsp.history.push(new Float32Array(512).fill(i < 10 ? -5 : -95));
+            dsp.params.freeze = 1;
+            const columns = [];
+            const ctx = {
+                fillRect(x, _y, width, height) { if (height < 10) columns.push([x, width, this.fillStyle]); },
+                fillText() {}
+            };
+            const canvas = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx);
+            const frame = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1);
+            let panel;
+            try {
+                panel = renderModule(spectrogramModule, 'spectro_zoom', { dsp, getModule: () => ({ instance: dsp }) });
+                const width = panel.querySelector('canvas').width;
+                for (const [time, count, firstX] of [[0, 20, 0], [1, 30, width * 0.9]]) {
+                    dsp.params.time = time;
+                    columns.length = 0;
+                    frame.mock.calls.at(-1)[0]();
+                    expect(columns[0][0]).toBeCloseTo(firstX, 5);
+                    expect(new Set(columns.map(column => column[2])).size).toBe(time === 0 ? 1 : 2);
+                    expect(dsp.getExportData().history).toHaveLength(count);
+                }
+            } finally {
+                cleanupRenderedModule(panel);
+                frame.mockRestore();
+                canvas.mockRestore();
+            }
+        });
+
         it('should provide time window in seconds', () => {
             dsp.params.time = 0; // Minimum
             expect(dsp.getTimeWindow()).toBeCloseTo(2, 0);

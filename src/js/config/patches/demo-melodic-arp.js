@@ -66,7 +66,7 @@ export default {
                 "root": 4,
                 "chord": 8,
                 "mode": 1,
-                "octaves": 0
+                "octaves": 1
             },
             "vco": {
                 "coarse": 0.3466666666666666,

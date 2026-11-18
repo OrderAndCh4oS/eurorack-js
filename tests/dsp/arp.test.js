@@ -83,6 +83,21 @@ describe('arp', () => {
     });
 
     describe('buildArpSequence', () => {
+        it.each(Object.entries(CHORDS))('raises every note of %s by one volt on the second pass', (_name, chord) => {
+            const arp = createArp({ bufferSize: chord.length * 4, sampleRate: 48000 });
+            arp.params.chord = Object.values(CHORDS).indexOf(chord);
+            for (const octaves of [1, 2]) {
+                arp.reset();
+                arp.params.octaves = octaves;
+                for (let i = 0; i < arp.inputs.trigger.length; i++) arp.inputs.trigger[i] = i % 2 ? 10 : 0;
+                arp.process();
+                for (let i = 0; i < chord.length * 2; i++) {
+                    const expected = chord[i % chord.length] / 12 + (octaves === 2 && i >= chord.length ? 1 : 0);
+                    expect(arp.outputs.cv[i * 2]).toBeCloseTo(expected, 6);
+                }
+            }
+        });
+
         it('should build ascending sequence for up mode', () => {
             const seq = buildArpSequence(CHORDS.major, 1, 'up');
             expect(seq).toEqual([0, 4, 7]);
@@ -127,7 +142,7 @@ describe('arp', () => {
 
             it('should have correct default params', () => {
                 expect(arp.params.root).toBe(0);
-                expect(arp.params.chord).toBe(0);
+                expect(arp.params.chord).toBe(arpModule.ui.knobs.find(knob => knob.param === 'chord').default);
                 expect(arp.params.mode).toBe(0);
                 expect(arp.params.octaves).toBe(1);
             });

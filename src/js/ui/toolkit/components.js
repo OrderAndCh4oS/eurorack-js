@@ -1,3 +1,5 @@
+import { snapKnobValue } from '../../rack/control-domain.js';
+
 /**
  * Module Toolkit - Component Factories
  *
@@ -113,22 +115,34 @@ export function createSwitch({
     moduleId,
     value = 0,
     param = id,
+    values = [0, 1],
+    positions,
     onChange
 }) {
     const container = document.createElement('div');
     container.className = 'knob-container';
 
-    const sw = document.createElement('div');
-    sw.className = `switch ${value ? 'on' : ''}`;
+    const multi = values.length > 2;
+    const sw = document.createElement(multi ? 'select' : 'button');
+    sw.className = multi ? 'hardware-select switch-positions' : 'switch';
     sw.id = `switch-${moduleId}-${id}`;
     sw.dataset.module = moduleId;
     sw.dataset.param = param;
 
-    sw.addEventListener('click', () => {
-        const isOn = sw.classList.toggle('on');
-        const newValue = isOn ? 1 : 0;
-        onChange?.(newValue);
-    });
+    sw.setAttribute('aria-label', label);
+    if (multi) {
+        values.forEach((choice, index) => sw.add(new Option(positions?.[index] ?? String(choice), String(choice))));
+        sw.addEventListener('change', () => onChange?.(Number(sw.value)));
+    } else {
+        sw.type = 'button';
+        sw.dataset.offValue = values[0];
+        sw.addEventListener('click', () => {
+            const selected = sw.classList.contains('on') ? values[0] : values[1];
+            setSwitchValue(sw, selected);
+            onChange?.(selected);
+        });
+    }
+    setSwitchValue(sw, value);
 
     const labelEl = document.createElement('div');
     labelEl.className = 'knob-label';
@@ -138,6 +152,16 @@ export function createSwitch({
     container.appendChild(labelEl);
 
     return container;
+}
+
+export function setSwitchValue(element, value) {
+    if (element.matches('select')) {
+        element.value = String(value);
+    } else {
+        const on = Number(value) !== Number(element.dataset.offValue ?? 0);
+        element.classList.toggle('on', on);
+        element.setAttribute('aria-pressed', String(on));
+    }
 }
 
 /**
@@ -266,7 +290,10 @@ export function createActionButton({
     } else if (mode === 'trigger') {
         button.addEventListener('click', event => {
             event.preventDefault();
-            if (releaseTimer !== null) clearTimeout(releaseTimer);
+            if (releaseTimer !== null) {
+                clearTimeout(releaseTimer);
+                releaseTrigger();
+            }
             button.classList.add('active');
             onChange?.(1);
             releaseTimer = setTimeout(releaseTrigger, durationMs);
@@ -343,12 +370,7 @@ export function setupKnobDrag(knobEl, onChange) {
         const step = parseFloat(knobEl.dataset.step) || 0;
         const range = max - min;
         const dy = startY - e.clientY;
-        let newValue = startValue + (dy / 150) * range;
-
-        if (step > 0) {
-            newValue = Math.round(newValue / step) * step;
-        }
-        newValue = Math.max(min, Math.min(max, newValue));
+        const newValue = snapKnobValue(startValue + (dy / 150) * range, min, max, step);
 
         knobEl.dataset.value = newValue;
         updateKnobRotation(knobEl);
@@ -372,7 +394,7 @@ export function setupKnobDrag(knobEl, onChange) {
 export function setKnobValue(knobEl, value) {
     const min = parseFloat(knobEl.dataset.min);
     const max = parseFloat(knobEl.dataset.max);
-    knobEl.dataset.value = Math.max(min, Math.min(max, value));
+    knobEl.dataset.value = snapKnobValue(value, min, max, Number(knobEl.dataset.step) || 0);
     updateKnobRotation(knobEl);
 }
 

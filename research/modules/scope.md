@@ -91,20 +91,12 @@ write index advanced. A fixed 2048-sample circular history holds two
 maximum-width views and remains bounded.
 
 ### Trigger Detection
-Rising edge detection for stable display:
-```javascript
-const trigLevel = (triggerParam - 0.5) * 20;  // -10V to +10V
-
-if (!triggered && lastSample < trigLevel && sample >= trigLevel) {
-    triggered = true;
-    triggerIndex = writeIndex;
-}
-
-// Reset after one display cycle
-if (triggered && writeIndex === triggerIndex) {
-    triggered = false;
-}
-```
+In scope mode both traces start at the most recent CH1 rising crossing with a
+complete screen of subsequent samples. The threshold spans −10 V to +10 V.
+When the captured history has no such crossing, show the latest window. The
+renderer can search the bounded history once per frame, including across its
+wrap. Two thresholds on the same ramp should put different CH1 voltages at the
+left edge while keeping CH2 time-aligned.
 
 ### Frequency Detection (Tuner)
 Zero-crossing counting for frequency measurement:

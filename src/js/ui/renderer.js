@@ -6,10 +6,12 @@
  */
 
 import { createModuleToolkit } from './toolkit/index.js';
+import { switchValues } from '../rack/control-domain.js';
 import {
     createKnob,
     createJack,
     createSwitch,
+    setSwitchValue,
     createLED,
     createButtonBank,
     createActionButton,
@@ -149,9 +151,9 @@ function syncParamElement(element, value) {
         updateKnobRotation(knob);
     }
 
-    const sw = element.matches?.('.switch') ? element : element.querySelector?.('.switch');
+    const sw = element.matches?.('.switch, .switch-positions') ? element : element.querySelector?.('.switch, .switch-positions');
     if (sw) {
-        sw.classList.toggle('on', value === 1 || value === true);
+        setSwitchValue(sw, value);
     }
 
     const bank = element.matches?.('.button-bank') ? element : element.querySelector?.('.button-bank');
@@ -179,8 +181,8 @@ export function syncParamToModuleUI(panel, moduleId, param, value) {
         knob.dataset.value = value;
         updateKnobRotation(knob);
     }
-    const sw = panel?.querySelector?.(`.switch[data-module="${moduleId}"][data-param="${param}"]`);
-    if (sw) sw.classList.toggle('on', value === 1 || value === true);
+    const sw = panel?.querySelector?.(`:is(.switch, .switch-positions)[data-module="${moduleId}"][data-param="${param}"]`);
+    if (sw) setSwitchValue(sw, value);
     const bank = panel?.querySelector?.(`.button-bank[data-module="${moduleId}"][data-param="${param}"]`);
     if (bank) {
         bank.querySelectorAll('.octave-btn').forEach(btn => {
@@ -202,8 +204,8 @@ export function syncParamToModuleUI(panel, moduleId, param, value) {
  */
 export function renderModule(definition, moduleId, context) {
     const handleParamChange = (param, value) => {
-        if (context.dsp?.params) context.dsp.params[param] = value;
         context.onParamChange?.(moduleId, param, value);
+        if (context.dsp?.params) context.dsp.params[param] = value;
     };
     injectModuleCSS(definition.id, definition.css);
     const cleanups = [];
@@ -254,7 +256,7 @@ export function renderModule(definition, moduleId, context) {
 
     } else if (definition.ui) {
         // Declarative mode - render from UI definition
-        renderDeclarativeUI(content, definition.ui, moduleId, context, toolkit, onCleanup);
+        renderDeclarativeUI(content, definition.ui, moduleId, handleParamChange, onCleanup);
     }
 
     panel.appendChild(content);
@@ -267,12 +269,9 @@ export function renderModule(definition, moduleId, context) {
  * @param {HTMLElement} container - Content container
  * @param {Object} ui - UI definition
  * @param {string} moduleId - Module ID
- * @param {Object} context - Rendering context
- * @param {Object} toolkit - Toolkit instance
+ * @param {Function} onParamChange - Validates and applies a control value
  */
-function renderDeclarativeUI(container, ui, moduleId, context, toolkit, onCleanup) {
-    const { dsp, onParamChange } = context;
-
+function renderDeclarativeUI(container, ui, moduleId, onParamChange, onCleanup) {
     // LEDs at top
     if (ui.leds?.length) {
         const ledRow = createRow();
@@ -302,10 +301,7 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit, onCleanu
                 step: knobDef.step || 0,
                 param: knobDef.param,
                 small: knobDef.small || false,
-                onChange: (value) => {
-                    if (dsp?.params) dsp.params[knobDef.param] = value;
-                    onParamChange?.(moduleId, knobDef.param, value);
-                }
+                onChange: value => onParamChange(knobDef.param, value)
             });
             knobContainer.appendChild(knobEl);
         });
@@ -323,12 +319,11 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit, onCleanu
                 id: swDef.id,
                 label: swDef.label,
                 moduleId,
-                value: swDef.default || 0,
+                value: swDef.default ?? switchValues(swDef)[0],
+                values: switchValues(swDef),
+                positions: swDef.positions,
                 param: swDef.param,
-                onChange: (value) => {
-                    if (dsp?.params) dsp.params[swDef.param] = value;
-                    onParamChange?.(moduleId, swDef.param, value);
-                }
+                onChange: value => onParamChange(swDef.param, value)
             });
             switchRow.appendChild(swEl);
         });
@@ -346,10 +341,7 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit, onCleanu
                     values: btnDef.values,
                     defaultValue: btnDef.default,
                     param: btnDef.param,
-                    onChange: (value) => {
-                        if (dsp?.params) dsp.params[btnDef.param] = value;
-                        onParamChange?.(moduleId, btnDef.param, value);
-                    }
+                    onChange: value => onParamChange(btnDef.param, value)
                 });
                 container.appendChild(bankEl);
             });
@@ -365,8 +357,7 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit, onCleanu
                 btn.title = btnDef.label;
                 btn.addEventListener('click', () => {
                     const value = btn.classList.toggle('active') ? 1 : 0;
-                    if (dsp?.params) dsp.params[btnDef.param] = value;
-                    onParamChange?.(moduleId, btnDef.param, value);
+                    onParamChange(btnDef.param, value);
                 });
                 row.appendChild(btn);
             });
@@ -385,10 +376,7 @@ function renderDeclarativeUI(container, ui, moduleId, context, toolkit, onCleanu
                 mode: actionDef.mode || 'toggle',
                 param: actionDef.param,
                 onCleanup,
-                onChange: (value) => {
-                    if (dsp?.params) dsp.params[actionDef.param] = value;
-                    onParamChange?.(moduleId, actionDef.param, value);
-                }
+                onChange: value => onParamChange(actionDef.param, value)
             });
             row.appendChild(btn);
         });
@@ -601,9 +589,9 @@ export function applyParamsToUI(moduleId, params) {
         }
 
         // Try to find a switch
-        const sw = document.querySelector(`#switch-${moduleId}-${param}, .switch[data-module="${moduleId}"][data-param="${param}"]`);
+        const sw = document.querySelector(`#switch-${moduleId}-${param}, :is(.switch, .switch-positions)[data-module="${moduleId}"][data-param="${param}"]`);
         if (sw) {
-            sw.classList.toggle('on', !!value);
+            setSwitchValue(sw, value);
             return;
         }
 

@@ -20,7 +20,9 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:webmcp": "playwright test --config=playwright.webmcp.config.js",
-    "audit:dsp": "node scripts/dsp-audit.mjs"
+    "audit:dsp": "node scripts/dsp-audit.mjs",
+    "laws:check": "node scripts/verify-laws.mjs",
+    "laws:generate": "node scripts/verify-laws.mjs --write"
   },
   "engines": {
     "node": ">=22"

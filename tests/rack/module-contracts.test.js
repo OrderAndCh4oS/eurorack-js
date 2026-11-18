@@ -5,8 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CATEGORY_ORDER, MODULE_MANIFEST, MODULE_ORDER } from '../../src/js/rack/module-manifest.js';
 import { CORE_MODULE_DEFINITIONS } from '../../src/js/rack/core-definitions.js';
 import { PluginRegistry } from '../../src/js/rack/registry.js';
-import { SIGNAL_TYPES, getModulePorts, validateModuleDefinition } from '../../src/js/rack/module-contract.js';
+import { SIGNAL_TYPES, assertModuleParam, getModulePorts, validateModuleDefinition } from '../../src/js/rack/module-contract.js';
 import { getNestedValue } from '../../src/js/utils/nested-access.js';
+import { createDefaultParams } from '../../src/js/app/rack-state.js';
+import { getControlDomain, legalControlValue, snapControlValue } from '../../src/js/rack/control-domain.js';
 import { cleanupRenderedModule, renderModule } from '../../src/js/ui/renderer.js';
 
 async function loadManifestDefinitions() {
@@ -160,8 +162,10 @@ describe('module contracts', () => {
             const dsp = definition.createDSP({ sampleRate: 44100, bufferSize: 16 });
             const ui = definition.ui || {};
 
+            const defaults = createDefaultParams(definition);
             getControlParams(ui).forEach(param => {
                 expect(dsp.params, `${definition.id} missing params.${param}`).toHaveProperty(param);
+                expect(getNestedValue(dsp.params, param), `${definition.id}.${param} default`).toBe(defaults[param]);
             });
 
             (ui.inputs || []).forEach(input => {
@@ -174,6 +178,51 @@ describe('module contracts', () => {
                 expect(dsp.outputs, `${definition.id} missing outputs.${output.port}`).toHaveProperty(output.port);
             });
         });
+    });
+
+    it('requires a finite normal inside each input range, including either rail', () => {
+        const module = CORE_MODULE_DEFINITIONS.find(def => def.id === 'vca');
+        const check = normal => validateModuleDefinition({
+            ...module, ui: { ...module.ui, inputs: [{ id: 'cv', port: 'cv', signal: 'cv', voltage: { min: -2, max: 1.25, normal } }] }
+        }, { instantiate: false });
+        for (const value of [-2, 0, 1.25]) expect(() => check(value)).not.toThrow();
+        for (const value of [-2.01, 1.2500000000000002, NaN]) expect(() => check(value)).toThrow(/normal voltage/);
+    });
+
+    it('enforces continuous ranges, exact step selections and enumerated values', () => {
+        const check = (id, param, value) => assertModuleParam(CORE_MODULE_DEFINITIONS.find(def => def.id === id), param, value);
+        for (const v of [-0.1, 1.1, '1', {}]) expect(() => check('vca', 'ch1Gain', v)).toThrow();
+        expect(() => check('arp', 'chord', 2.5)).toThrow();
+        expect(() => check('granulita', 'hitMode', 3)).toThrow();
+        expect(() => check('granulita', 'hitMode', 2)).not.toThrow();
+        expect(() => check('arp', 'octaves', 0)).toThrow();
+        expect(() => check('arp', 'octaves', 2)).not.toThrow();
+    });
+
+    it('preserves each catalog detent and measures step offsets from the minimum', () => {
+        for (const definition of CORE_MODULE_DEFINITIONS) {
+            for (const knob of definition.ui.knobs || []) {
+                if (!knob.step) continue;
+                const domain = getControlDomain(definition, knob.param);
+                const steps = Math.floor((knob.max - knob.min) / knob.step);
+                let failed;
+                for (let position = 0; position <= steps; position++) {
+                    const value = Math.min(knob.max, knob.min + position * knob.step);
+                    const snapped = snapControlValue(domain, value);
+                    if (!legalControlValue(domain, value) || snapped !== value) {
+                        failed = { position, value, snapped };
+                        break;
+                    }
+                }
+                expect(failed, `${definition.id}.${knob.param}`).toBeUndefined();
+            }
+        }
+        const offset = { min: 1, max: 7, step: 2 };
+        expect(snapControlValue(offset, 3.4)).toBe(3);
+        expect(legalControlValue(offset, 4)).toBe(false);
+        const partialStep = { min: 1, max: 6, step: 2 };
+        expect(snapControlValue(partialStep, 5.4)).toBe(5);
+        expect(snapControlValue(partialStep, 5.6)).toBe(6);
     });
 
     it('validates diagnostic terminal inputs against the declared input ports', () => {
@@ -247,6 +296,10 @@ describe('module contracts', () => {
 
             const inputPorts = new Set((ui.inputs || []).map(input => input.port));
             const outputPorts = new Set((ui.outputs || []).map(output => output.port));
+            for (const [direction, ports] of [['input', inputPorts], ['output', outputPorts]]) {
+                const rendered = [...panel.querySelectorAll(`.jack[data-dir="${direction}"]`)].map(jack => jack.dataset.port);
+                expect(new Set(rendered), `${definition.id} ${direction} jacks`).toEqual(ports);
+            }
             panel.querySelectorAll('.jack').forEach(jack => {
                 const ports = jack.dataset.dir === 'output' ? outputPorts : inputPorts;
                 expect(

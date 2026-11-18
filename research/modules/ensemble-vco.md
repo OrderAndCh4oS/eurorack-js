@@ -68,6 +68,9 @@
 
 - Entering Learn mode targets the selected scale slot. `learnNote` plus Add stores a semitone offset; Delete removes the last note; Fine adjusts it.
 - A rising edge on `learn` samples the `pitch` input and appends a note.
+- The Add, Delete and Factory panel actions edit the selected slot on the
+  rising control transition. The same transaction applies to MIDI and offline
+  edits. Repeated high values must leave the slot unchanged until release.
 - Leaving Learn mode writes a new immutable `scaleMemory` object through `onParamChange`; Reset Factory removes the selected override.
 - Patch v3 already accepts nested finite-number parameter values, so no schema version or legacy migration is added.
 

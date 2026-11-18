@@ -16,6 +16,21 @@
 const DISPLAY_HISTORY_SIZE = 2048;
 const MAX_CANVAS_SAMPLES = 1024;
 
+// Search only captured samples with a predecessor and a complete following
+// window. This runs at display rate and works across circular-buffer wrap.
+function latestCrossing(buffer, writeIndex, captured, width, level) {
+    for (let age = width; age < captured; age++) {
+        const i = (writeIndex - age + buffer.length) % buffer.length;
+        const previous = (i + buffer.length - 1) % buffer.length;
+        if (buffer[previous] < level && buffer[i] >= level) return i;
+    }
+    return -1;
+}
+
+function triggerLevel(value) {
+    return Number.isFinite(value) ? (Math.max(0, Math.min(1, value)) - 0.5) * 20 : 0;
+}
+
 export default {
     id: 'scope',
     name: 'SCOPE',
@@ -25,7 +40,7 @@ export default {
     diagnostics: { terminalInputs: ['in1', 'in2'] },
     telemetry: {
         fields: ['displayBuffer1', 'displayBuffer2', 'displaySize'],
-        methods: ['getDetectedFreq', 'getWriteIndex']
+        methods: ['getDetectedFreq', 'getWriteIndex', 'getHistoryLength']
     },
 
     // Custom CSS for scope display
@@ -109,9 +124,8 @@ export default {
         const displayBuffer2 = new Float32Array(displaySize);
         let writeIndex = 0;
 
-        // Trigger state
-        let triggered = false;
-        let triggerIndex = 0;
+        let captured = 0;
+        const triggerIndexAt = threshold => latestCrossing(displayBuffer1, writeIndex, captured, 1, triggerLevel(threshold));
         let lastSample = 0;
 
         // Frequency detection for tune mode
@@ -145,18 +159,14 @@ export default {
             displayBuffer2,
             displaySize,
             getWriteIndex() { return writeIndex; },
-            getTriggerIndex() { return triggerIndex; },
-            isTriggered() { return triggered; },
+            getHistoryLength() { return captured; },
+            getTriggerIndex() { return Math.max(0, triggerIndexAt(this.params.trigger)); },
+            isTriggered() { return triggerIndexAt(this.params.trigger) >= 0; },
             getDetectedFreq() { return detectedFreq; },
 
             process() {
                 const input1 = this.inputs.in1;
                 const input2 = this.inputs.in2;
-                const triggerParam = Number.isFinite(this.params.trigger)
-                    ? Math.max(0, Math.min(1, this.params.trigger))
-                    : 0.5;
-                const trigLevel = (triggerParam - 0.5) * 20; // -10V to +10V
-
                 // Copy inputs to circular display buffers
                 for (let i = 0; i < input1.length; i++) {
                     const sample1 = Number.isFinite(input1[i]) ? input1[i] : 0;
@@ -166,12 +176,6 @@ export default {
                     out2[i] = sample2;
                     displayBuffer1[writeIndex] = sample1;
                     displayBuffer2[writeIndex] = sample2;
-
-                    // Rising edge trigger detection on CH1
-                    if (!triggered && lastSample < trigLevel && sample1 >= trigLevel) {
-                        triggered = true;
-                        triggerIndex = writeIndex;
-                    }
 
                     // Zero-crossing detection for frequency measurement
                     if (lastSample < 0 && sample1 >= 0) {
@@ -194,10 +198,7 @@ export default {
                     writeIndex = (writeIndex + 1) % displaySize;
                 }
 
-                // Reset trigger after one full display cycle
-                if (triggered && writeIndex === triggerIndex) {
-                    triggered = false;
-                }
+                captured = Math.min(displaySize, captured + input1.length);
 
                 // LED shows signal presence per channel
                 let max1 = 0, max2 = 0;
@@ -217,8 +218,7 @@ export default {
                 displayBuffer1.fill(0);
                 displayBuffer2.fill(0);
                 writeIndex = 0;
-                triggered = false;
-                triggerIndex = 0;
+                captured = 0;
                 lastSample = 0;
                 lastZeroCrossing = 0;
                 zeroCrossingCount = 0;
@@ -581,12 +581,12 @@ export default {
 
                 const samplesPerScreen = Math.floor(128 + (1 - dsp.params.time) * (MAX_CANVAS_SAMPLES - 128));
 
-                // Always read from behind the write index to avoid discontinuities
-                const startIdx = (writeIdx - samplesPerScreen + bufferSize) % bufferSize;
+                const trigLevel = triggerLevel(dsp.params.trigger);
+                const crossing = latestCrossing(buffer1, writeIdx, dsp.getHistoryLength(), samplesPerScreen, trigLevel);
+                const startIdx = crossing >= 0 ? crossing : (writeIdx - samplesPerScreen + bufferSize) % bufferSize;
 
                 // Draw trigger level indicator
-                const trigLevel = (dsp.params.trigger - 0.5) * 20; // ±10V
-                const trigY = centerY - (trigLevel / range1) * (height / 2);
+                const trigY = centerY - ((trigLevel + offset1) / range1) * (height / 2);
                 if (trigY >= 0 && trigY <= height) {
                     ctx.strokeStyle = '#664400';
                     ctx.lineWidth = 0.5;

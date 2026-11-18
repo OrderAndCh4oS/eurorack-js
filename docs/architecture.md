@@ -131,7 +131,18 @@ export default {
 
 Visible parameters are declared by `knobs`, `switches`, `buttons`, or `actions`. `ui.state` declares patch-persisted finite values that have no direct control, such as learned scale tables. These state paths are accepted by patch/worklet validation but are not rendered or MIDI-learnable. Runtime-only bulk data remains separate and uses the runtime-state hooks.
 
+The worklet presents each press and release of a trigger or momentary action to
+DSP for at least one audio block. Two presses arriving in one block therefore
+produce two rising edges. Actions with `editState` apply their saved-state
+change immediately on each rising edge.
+
 ### Port Contract
+
+At registration the rack checks every input's normal against its inclusive
+voltage limits. Live parameter messages must satisfy the control's declared
+range, step or enumerated choices on both sides of the worklet boundary.
+The compiled ARP sequence and the range checks share their implementation
+with the [Bend specifications](../laws/README.md).
 
 `signal` is one of `audio`, `cv`, `gate`, `trigger`, or `any`. It is semantic metadata for validation, rendering, and tooling; Eurorack remains DC-coupled, so differing signal labels do not prohibit a cable.
 

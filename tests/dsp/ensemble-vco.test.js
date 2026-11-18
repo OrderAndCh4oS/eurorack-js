@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import ensembleModule from '../../src/js/modules/ensemble-vco/index.js';
 import { createPatchUrlHash, createVersionedPatch, parsePatchUrlHash } from '../../src/js/app/patch-format.js';
 import { renderModule } from '../../src/js/ui/renderer.js';
+import { RackHost } from '../../src/js/app/rack-host.js';
 import {
     energy,
     expectExhaustivePanelCoverage,
@@ -328,11 +329,13 @@ describe('ensemble-vco', () => {
         expect(dsp.params.scaleMemory['23']).toBeUndefined();
     });
 
-    it('wires every custom panel action to DSP state and patch callbacks', () => {
+    it('wires every custom panel action to DSP state and patch callbacks', async () => {
+        const host = await new RackHost({ blockSize: 16 }).init();
+        const module = host.addModule('ensemble-vco', { id: 'ensemble_actions' });
         vi.useFakeTimers();
-        const dsp = create({ bufferSize: 16 });
+        const dsp = module.instance;
         dsp.process();
-        const onParamChange = vi.fn();
+        const onParamChange = vi.fn(host.setParam.bind(host));
         const panel = renderModule(ensembleModule, 'ensemble_actions', { dsp, onParamChange });
         document.body.appendChild(panel);
 
@@ -351,10 +354,13 @@ describe('ensemble-vco', () => {
         expect(dsp.params.scaleMemory['1']).toEqual([0]);
         panel.querySelector('[data-param="resetScale"]').click();
         expect(dsp.params.scaleMemory['1']).toBeUndefined();
-        expect(onParamChange).toHaveBeenCalledWith('ensemble_actions', 'scaleMemory', expect.any(Object));
+        expect(onParamChange).toHaveBeenCalledWith('ensemble_actions', 'resetScale', 1);
+        expect(module.params.scaleMemory).toEqual({});
 
         vi.runAllTimers();
         panel.remove();
+        host.unsubscribeRegistry?.();
+        host.unsubscribeUsage?.();
         vi.useRealTimers();
     });
 

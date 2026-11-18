@@ -482,7 +482,7 @@
             "root": 4,
             "chord": 8,
             "mode": 1,
-            "octaves": 0
+            "octaves": 1
           },
           "vco": {
             "coarse": 0.3466666666666666,
@@ -1920,7 +1920,7 @@
           "lfo2": {
             "rateKnob": 0.12,
             "range": 0,
-            "waveKnob": 2
+            "waveKnob": 1
           },
           "vco1": {
             "coarse": 0.35,

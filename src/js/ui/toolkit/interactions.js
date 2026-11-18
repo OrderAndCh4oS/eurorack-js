@@ -6,6 +6,7 @@
  */
 
 import { updateKnobRotation } from './components.js';
+import { snapKnobValue } from '../../rack/control-domain.js';
 
 /**
  * Create a knob controller for handling drag interactions
@@ -44,15 +45,7 @@ export function createKnobController({ onParamChange = null } = {}) {
         const step = parseFloat(knob.dataset.step) || 0;
         const range = max - min;
         const dy = dragState.startY - clientY;
-        let newValue = dragState.startValue + (dy / 150) * range;
-
-        // Apply stepping if defined
-        if (step > 0) {
-            newValue = Math.round(newValue / step) * step;
-        }
-
-        // Clamp to range
-        newValue = Math.max(min, Math.min(max, newValue));
+        const newValue = snapKnobValue(dragState.startValue + (dy / 150) * range, min, max, step);
 
         // Update knob
         knob.dataset.value = newValue;

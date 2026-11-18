@@ -101,6 +101,14 @@ export default {
             touch-action: none;
             cursor: crosshair;
         }
+        .joystick-midi-axes {
+            display: none;
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+        }
+        .midi-learn-mode .joystick-midi-axes { display: flex; }
+        .joystick-midi-axes button { flex: 1; }
         .joystick-pad::before,
         .joystick-pad::after {
             content: '';
@@ -616,14 +624,22 @@ export default {
             return liveDsp?.params || mod?.params || {};
         }
 
-        toolkit.registerParamControl('x', pad, value => {
-            const params = getLiveParams();
-            setPadPosition(value, params.y ?? 0);
-        });
-        toolkit.registerParamControl('y', pad, value => {
-            const params = getLiveParams();
-            setPadPosition(params.x ?? 0, value);
-        });
+        const learnAxes = document.createElement('div');
+        learnAxes.className = 'joystick-midi-axes';
+        for (const axis of ['x', 'y']) {
+            const target = document.createElement('button');
+            target.type = 'button';
+            target.className = 'hardware-button';
+            target.textContent = axis.toUpperCase();
+            target.title = `Assign MIDI to the ${target.textContent} axis`;
+            toolkit.registerParamControl(axis, target, value => {
+                const params = getLiveParams();
+                if (axis === 'x') setPadPosition(value, params.y ?? 0);
+                else setPadPosition(params.x ?? 0, value);
+            });
+            learnAxes.appendChild(target);
+        }
+        pad.appendChild(learnAxes);
 
         function updateFromPointer(event) {
             const rect = pad.getBoundingClientRect();

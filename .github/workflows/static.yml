@@ -22,6 +22,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  laws:
+    uses: ./.github/workflows/laws.yml
   test:
     runs-on: ubuntu-latest
     steps:
@@ -42,7 +44,7 @@ jobs:
         run: npm run test:e2e
 
   deploy:
-    needs: test
+    needs: [test, laws]
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

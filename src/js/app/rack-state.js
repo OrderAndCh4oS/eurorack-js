@@ -1,5 +1,6 @@
 import { getNestedValue, setNestedValue } from '../utils/nested-access.js';
 import { assertModuleParam, getModulePort } from '../rack/module-contract.js';
+import { switchValues } from '../rack/control-domain.js';
 
 export const MAX_HP_PER_ROW = 84;
 
@@ -12,7 +13,7 @@ export function createDefaultParams(definition) {
     });
 
     (ui.switches || []).forEach(sw => {
-        params[sw.param] = sw.default ? 1 : 0;
+        params[sw.param] = sw.default ?? switchValues(sw)[0];
     });
 
     (ui.buttons || []).forEach(button => {

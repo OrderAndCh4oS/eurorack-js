@@ -35,6 +35,27 @@ npm run audit:dsp -- --module vcf --json
 
 ## Remediation Completed
 
+### Rack control verification (2026-11-18)
+
+- The panel-to-worklet test operates 370 declared controls across 75 modules.
+  The strict voltage matrix covered 4,878 scenarios across 450 module and
+  configuration combinations with zero voltage violations.
+- A Chromium capture at OUT measures the pitches 0, 4 and 7 semitones with
+  ARP Oct at one. Selecting two adds 12, 16 and 19. All 13 chords also have
+  worklet-compatible DSP fixtures for the second pass.
+- Granulita Direction and Hit and the COMP sidechain filter now expose all
+  three declared positions. SCOPE aligns both traces to the selected CH1
+  crossing. Ensemble's scale-edit buttons update the saved notes and the
+  running oscillator on the same rising transition.
+- The spectrogram Time knob now changes the displayed and exported history.
+  Its 300 columns span 30 seconds at each supported sample rate, and the
+  two-second setting displays the most recent 20 snapshots.
+- The worklet preserves a momentary press and release delivered in the same
+  audio block. A CV Recorder test sends two rapid Record presses and observes
+  the recorder arm and cancel in sequence.
+- The shared verification commands and proof boundaries are in
+  [Rack laws](../laws/README.md).
+
 ### Signal And Voltage Contracts
 
 | Modules | Resolution |

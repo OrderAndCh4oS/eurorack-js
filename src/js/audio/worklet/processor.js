@@ -1,7 +1,7 @@
 // Keep this revision aligned with worklet-engine.js and core-plugin.js.
-import './core-plugin.js?core=20260731-3-c993e926';
+import './core-plugin.js?core=20261118-1-c993e926';
 import { compileGraph } from '../graph.js';
-import { assertModuleParam, getModulePort, getModulePorts } from '../../rack/module-contract.js';
+import { applyControlEdit, assertModuleParam, getModulePort, getModulePorts } from '../../rack/module-contract.js';
 import { getNestedValue, setNestedValue } from '../../utils/nested-access.js';
 import { getWorkletModule, getWorkletPlugin } from './plugin-registry.js';
 
@@ -134,6 +134,26 @@ function timingSummary(samples, deadlineMs) {
     };
 }
 
+function setWorkletParam(module, param, value) {
+    const params = module.instance.params;
+    const action = module.def.ui.actions?.find(control => control.param === param);
+    if (action && !action.editState && (action.mode === 'trigger' || action.mode === 'momentary')) {
+        // A fast release or a second click can arrive before the next render
+        // quantum. Binary edges alternate, so a count preserves every edge.
+        const pending = module.actionEdges.get(param);
+        if (pending) {
+            if (pending.last !== value) {
+                pending.last = value;
+                pending.count++;
+            }
+        } else if (getNestedValue(params, param) !== value) {
+            module.actionEdges.set(param, { next: value, last: value, count: 1 });
+        }
+    }
+    applyControlEdit(module.def, params, param, value);
+    setNestedValue(params, param, value);
+}
+
 class EurorackProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
@@ -157,6 +177,8 @@ class EurorackProcessor extends AudioWorkletProcessor {
             throw new Error(`Worklet module "${specification.type}" belongs to plugin "${registered.plugin.id}", not "${specification.pluginId}"`);
         }
         const definition = registered.definition;
+        const params = Object.entries(specification.params || {});
+        for (const [param, value] of params) assertModuleParam(definition, param, value);
         const instance = definition.createDSP({
             sampleRate,
             bufferSize: this.blockSize,
@@ -164,15 +186,13 @@ class EurorackProcessor extends AudioWorkletProcessor {
             services: { midiManager: this.midi },
             audioCtx: null
         });
-        Object.entries(specification.params || {}).forEach(([param, value]) => {
-            assertModuleParam(definition, param, value);
-            setNestedValue(instance.params, param, value);
-        });
+        for (const [param, value] of params) setNestedValue(instance.params, param, value);
         if (specification.runtimeState && definition.restoreRuntimeState) {
             definition.restoreRuntimeState(instance, specification.runtimeState);
         }
         return {
             instance,
+            actionEdges: new Map(),
             type: specification.type,
             pluginId: specification.pluginId,
             def: definition,
@@ -203,6 +223,11 @@ class EurorackProcessor extends AudioWorkletProcessor {
                 const module = existing
                     ? { ...existing, order: specification.order, rackOrder: specification.rackOrder }
                     : this.createModule(specification);
+                if (existing) {
+                    for (const [param, value] of Object.entries(specification.params || {})) {
+                        assertModuleParam(module.def, param, value);
+                    }
+                }
                 if (!existing) createdModules.push(module);
                 nextModules[specification.id] = module;
             });
@@ -260,7 +285,7 @@ class EurorackProcessor extends AudioWorkletProcessor {
                 const module = this.modules[message.moduleId];
                 if (!module) throw new Error(`Module instance "${message.moduleId}" not found`);
                 assertModuleParam(module.def, message.param, message.value);
-                setNestedValue(module.instance.params, message.param, message.value);
+                setWorkletParam(module, message.param, message.value);
             } else if (message.type === 'midi') this.midi.push(message.data, message.audioTime);
             else if (message.type === 'retry') this.disabled.delete(message.moduleId);
             else if (message.type === 'profiling') {
@@ -367,6 +392,13 @@ class EurorackProcessor extends AudioWorkletProcessor {
             }
             try {
                 const moduleStarted = this.profiling.enabled ? profileNow() : 0;
+                if (module.actionEdges.size) {
+                    for (const [param, edge] of module.actionEdges) {
+                        setNestedValue(module.instance.params, param, edge.next);
+                        if (--edge.count === 0) module.actionEdges.delete(param);
+                        else edge.next = 1 - edge.next;
+                    }
+                }
                 module.instance.process({ time: currentTime, sampleRate, blockSize: this.blockSize });
                 if (this.profiling.enabled) {
                     if (!this.profiling.modules.has(id)) this.profiling.modules.set(id, []);

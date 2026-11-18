@@ -147,6 +147,7 @@ test('records and replays the CV Recorder test patch through the production work
     await openTestPatch(page, 'Test - CV Recorder');
     await page.waitForFunction(() => window.eurorackApp.state.getModule('recorder'));
     await page.locator('#startButton').click();
+    await expect(page.locator('#startButton')).toHaveClass(/active/);
 
     const recorder = page.locator('#module-recorder');
     const record = recorder.locator('.action-btn[data-param="record"]');

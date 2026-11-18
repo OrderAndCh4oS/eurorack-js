@@ -1,5 +1,21 @@
 import { createRealFft } from '../../utils/fft.js';
 
+const MAX_WINDOW_SECONDS = 30;
+const MAX_HISTORY = 300;
+
+function timeWindowSeconds(time) {
+    const value = Number.isFinite(time) ? Math.max(0, Math.min(1, time)) : 0.5;
+    return 2 + value * (MAX_WINDOW_SECONDS - 2);
+}
+
+function snapshotInterval(sampleRate) {
+    return Math.max(1, Math.round(sampleRate * MAX_WINDOW_SECONDS / MAX_HISTORY));
+}
+
+function windowColumns(seconds, sampleRate) {
+    return Math.max(1, Math.min(MAX_HISTORY, Math.round(seconds * sampleRate / snapshotInterval(sampleRate))));
+}
+
 /**
  * SPECTROGRAM - Frequency Over Time Module
  *
@@ -24,7 +40,7 @@ export default {
     telemetry: {
         fields: [],
         methods: ['getFFTSize', 'getSampleRate', 'getTimeWindow'],
-        history: { field: 'history', maxEntries: 300 }
+        history: { field: 'history', maxEntries: MAX_HISTORY }
     },
 
     css: `
@@ -125,9 +141,7 @@ export default {
         const FFT_SIZE = 1024;
         const NUM_BINS = FFT_SIZE / 2;
 
-        // History settings - store snapshots for scrolling display
-        const MAX_HISTORY = 300; // Max number of FFT snapshots
-        const SNAPSHOT_INTERVAL = 2048; // Samples between snapshots
+        const interval = snapshotInterval(sampleRate);
 
         // Buffers
         const inputBuffer = new Float32Array(FFT_SIZE);
@@ -136,8 +150,7 @@ export default {
 
         // History: array of magnitude arrays
         const history = [];
-        let historyIndex = 0;
-        let sampleCounter = 0;
+        let samplesUntilSnapshot = Math.min(2048, interval);
         let writeIndex = 0;
 
         function performFFT() {
@@ -164,10 +177,7 @@ export default {
             getSampleRate() { return sampleRate; },
 
             getTimeWindow() {
-                const time = Number.isFinite(this.params.time)
-                    ? Math.max(0, Math.min(1, this.params.time))
-                    : 0.5;
-                return 2 + time * 28; // 2-30 seconds
+                return timeWindowSeconds(this.params.time);
             },
 
             getHistoryCount() {
@@ -179,13 +189,15 @@ export default {
             },
 
             getExportData() {
+                const seconds = timeWindowSeconds(this.params.time);
+                const rate = this.getSampleRate();
                 return {
-                    history: history.map(h => Array.from(h)),
-                    timeWindow: this.getTimeWindow(),
+                    history: history.slice(-windowColumns(seconds, rate)).map(h => Array.from(h)),
+                    timeWindow: seconds,
                     fftSize: FFT_SIZE,
                     numBins: NUM_BINS,
-                    sampleRate: this.getSampleRate(),
-                    snapshotInterval: SNAPSHOT_INTERVAL,
+                    sampleRate: rate,
+                    snapshotInterval: snapshotInterval(rate),
                     floor: -80 + (
                         Number.isFinite(this.params.floor)
                             ? Math.max(0, Math.min(1, this.params.floor))
@@ -207,11 +219,11 @@ export default {
                     for (let i = 0; i < input.length; i++) {
                         inputBuffer[writeIndex] = out[i];
                         writeIndex = (writeIndex + 1) % FFT_SIZE;
-                        sampleCounter++;
+                        samplesUntilSnapshot--;
 
                         // Take snapshot at intervals
-                        if (sampleCounter >= SNAPSHOT_INTERVAL) {
-                            sampleCounter = 0;
+                        if (samplesUntilSnapshot === 0) {
+                            samplesUntilSnapshot = interval;
                             const snapshot = performFFT();
 
                             // Add to history, remove old if needed
@@ -238,8 +250,7 @@ export default {
                 inputBuffer.fill(0);
                 fftOutput.fill(0);
                 history.length = 0;
-                historyIndex = 0;
-                sampleCounter = 0;
+                samplesUntilSnapshot = Math.min(2048, interval);
                 writeIndex = 0;
                 ownAudio.fill(0);
                 out.fill(0);
@@ -535,12 +546,12 @@ export default {
             const floorDb = data.floor;
             const rangeDb = 0 - floorDb;
 
-            const colWidth = plotWidth / history.length;
+            const colWidth = plotWidth / windowColumns(data.timeWindow, data.sampleRate);
             const rowHeight = plotHeight / 64; // Display 64 frequency bands
 
             for (let t = 0; t < history.length; t++) {
                 const snapshot = history[t];
-                const x = plotLeft + t * colWidth;
+                const x = plotRight - (history.length - t) * colWidth;
 
                 for (let band = 0; band < 64; band++) {
                     // Map band to frequency bin (log scale)
@@ -583,8 +594,7 @@ export default {
 
             // Time labels (X axis)
             ectx.textAlign = 'center';
-            const timePerSnapshot = data.snapshotInterval / data.sampleRate;
-            const totalTime = history.length * timePerSnapshot;
+            const totalTime = data.timeWindow;
             for (let t = 0; t <= totalTime; t += Math.ceil(totalTime / 5)) {
                 const x = plotLeft + (t / totalTime) * plotWidth;
                 ectx.fillText(`${t.toFixed(1)}s`, x, plotBottom + 20);
@@ -657,15 +667,17 @@ export default {
             const numBins = dsp.getFFTSize() / 2;
             const sampleRate = dsp.getSampleRate();
 
-            // Draw from right to left (newest on right)
-            const displayCols = Math.min(width, history.length);
-            const startIdx = Math.max(0, history.length - displayCols);
+            const seconds = timeWindowSeconds(dsp.params.time);
+            const columns = windowColumns(seconds, sampleRate);
+            const colWidth = width / columns;
+            const displayCols = Math.min(columns, history.length);
+            const startIdx = history.length - displayCols;
             const numBands = 64;
             const bandHeight = height / numBands;
 
             for (let col = 0; col < displayCols; col++) {
                 const snapshot = history[startIdx + col];
-                const x = width - displayCols + col;
+                const x = width - (displayCols - col) * colWidth;
 
                 for (let band = 0; band < numBands; band++) {
                     // Log frequency mapping
@@ -679,7 +691,7 @@ export default {
                     const norm = Math.max(0, Math.min(1, (mag - floorDb) / rangeDb));
 
                     ctx.fillStyle = getColor(norm);
-                    ctx.fillRect(x, height - (band + 1) * bandHeight, 1, Math.ceil(bandHeight));
+                    ctx.fillRect(x, height - (band + 1) * bandHeight, Math.ceil(colWidth), Math.ceil(bandHeight));
                 }
             }
 
@@ -695,7 +707,7 @@ export default {
             ctx.fillStyle = '#666';
             ctx.font = '8px monospace';
             ctx.textAlign = 'right';
-            ctx.fillText(`${dsp.getTimeWindow().toFixed(0)}s`, width - 2, 10);
+            ctx.fillText(`${seconds.toFixed(0)}s`, width - 2, 10);
 
         }
 

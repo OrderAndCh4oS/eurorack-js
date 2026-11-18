@@ -1,7 +1,7 @@
 import { compileGraph } from '../audio/graph.js';
 import { normalizePatch } from '../app/patch-format.js';
 import { RackState } from '../app/rack-state.js';
-import { getModuleParamPaths } from '../rack/module-contract.js';
+import { getControlDomain } from '../rack/control-domain.js';
 import { analyseRackConnections } from '../rack/diagnostics.js';
 import { setNestedValue } from '../utils/nested-access.js';
 
@@ -25,37 +25,13 @@ function parseEndpoint(endpoint, label) {
     throw new Error(`${label} endpoint must be a "module.port" string or { module, port } object`);
 }
 
-function getControls(definition) {
-    const ui = definition?.ui || {};
-    return [
-        ...(ui.knobs || []).map(control => ({ ...control, kind: 'knob' })),
-        ...(ui.switches || []).map(control => ({ ...control, kind: 'switch' })),
-        ...(ui.buttons || []).map(control => ({ ...control, kind: 'button' })),
-        ...(ui.actions || []).map(control => ({ ...control, kind: 'action' })),
-        ...(ui.state || []).map(control => ({ ...control, kind: 'state' }))
-    ];
-}
-
 function collectWarnings(patch, registry) {
     const warnings = [];
     patch.modules.forEach(module => {
         const definition = registry.get(module.type);
-        const controls = new Map(getControls(definition).map(control => [control.param, control]));
-        Object.entries(patch.params[module.id] || {}).forEach(([param, value]) => {
-            const control = controls.get(param);
-            if (!control || typeof value !== 'number') return;
-            if (Number.isFinite(control.min) && value < control.min || Number.isFinite(control.max) && value > control.max) {
-                warnings.push(`${module.id}.${param}=${value} is outside ${control.min}..${control.max}`);
-            }
-            if (Array.isArray(control.positions) && !Number.isInteger(value) ||
-                Array.isArray(control.positions) && (value < 0 || value >= control.positions.length)) {
-                warnings.push(`${module.id}.${param}=${value} is not a declared switch position`);
-            }
-            if (Array.isArray(control.values) && !control.values.includes(value)) {
-                warnings.push(`${module.id}.${param}=${value} is not one of ${control.values.join(', ')}`);
-            }
-            if (control.kind === 'action' && ['momentary', 'trigger'].includes(control.mode) && value !== 0) {
-                warnings.push(`${module.id}.${param} is a ${control.mode} action and will be active when applied`);
+        (definition.ui.actions || []).forEach(control => {
+            if (['momentary', 'trigger'].includes(control.mode) && patch.params[module.id]?.[control.param] === 1) {
+                warnings.push(`${module.id}.${control.param} is a ${control.mode} action and will return to idle when applied`);
             }
         });
     });
@@ -70,7 +46,7 @@ function validateMidiMappings(mappings, state, registry) {
         if (!mapping.moduleId && !mapping.paramId) return;
         const module = state.getModule(mapping.moduleId);
         if (!module) throw new Error(`MIDI mapping "${key}" references missing module "${mapping.moduleId}"`);
-        if (!getModuleParamPaths(registry.get(module.type)).has(mapping.paramId)) {
+        if (!getControlDomain(registry.get(module.type), mapping.paramId)) {
             throw new Error(`MIDI mapping "${key}" references unknown parameter "${mapping.moduleId}.${mapping.paramId}"`);
         }
     });

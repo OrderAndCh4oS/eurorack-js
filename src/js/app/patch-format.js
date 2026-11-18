@@ -1,5 +1,6 @@
 import { createDefaultParams } from './rack-state.js';
 import { assertModuleParam, getModulePort } from '../rack/module-contract.js';
+import { controlRange, getControlDomain, inRange, legalControlValue, snapControlValue } from '../rack/control-domain.js';
 import { PATCH_URL_V2_CORE_TOKENS } from './patch-url-tokens.js';
 
 export const PATCH_VERSION = 3;
@@ -12,6 +13,18 @@ const LOCAL_REVISION_PLUGIN_ID = /^local-[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 
 function clone(value) {
     return JSON.parse(JSON.stringify(value || {}));
+}
+
+function restoreControlValue(definition, param, value) {
+    // Older v3 panels saved ARP off as 0. The archived Ambient Pad patch
+    // saved LFO Wave at 2, which the LFO interpreted as the top of its range.
+    if (definition.id === 'arp' && param === 'octaves' && value === 0) return 1;
+    if (definition.id === 'lfo' && param === 'waveKnob' && value === 2) return 1;
+    const domain = getControlDomain(definition, param);
+    if (!domain || !Number.isFinite(value) || legalControlValue(domain, value)) return value;
+    // MIDI Learn previously wrote fractional CC values into discrete controls.
+    const { min, max } = controlRange(domain);
+    return inRange(value, min, max) ? snapControlValue(domain, value) : value;
 }
 
 function encodeUtf8(value) {
@@ -351,20 +364,34 @@ export function normalizePatch(rawPatchOrState, options = {}) {
     });
 
     const modulesById = new Map(modules.map(module => [module.id, module]));
+    const midiMappings = clone(state.midiMappings);
+    for (const mapping of Object.values(midiMappings)) {
+        // The old binary switch advertised 0..1 when learning an ARP Oct CC.
+        if (modulesById.get(mapping?.moduleId)?.type === 'arp' && mapping.paramId === 'octaves' &&
+            mapping.min === 0 && mapping.max === 1) {
+            mapping.min = 1;
+            mapping.max = 2;
+        }
+    }
     const params = Object.fromEntries(Object.entries(state.params).map(([moduleId, moduleParams]) => {
         const module = modulesById.get(moduleId);
         if (!module) throw new Error(`Patch params reference missing module "${moduleId}"`);
         if (!isPlainObject(moduleParams)) throw new Error(`Patch params for module "${moduleId}" must be an object`);
         const definition = options.registry?.get(module.type);
         if (definition) {
-            Object.entries(moduleParams).forEach(([param, value]) => assertModuleParam(definition, param, value));
-        } else {
-            Object.entries(moduleParams).forEach(([param, value]) => {
-                if (!hasOnlyFiniteNumbers(value)) {
-                    throw new Error(`Patch parameter "${moduleId}.${param}" contains a non-finite value`);
-                }
-            });
+            const restored = {};
+            for (const [param, raw] of Object.entries(moduleParams)) {
+                const value = restoreControlValue(definition, param, raw);
+                assertModuleParam(definition, param, value);
+                restored[param] = value;
+            }
+            return [moduleId, clone(restored)];
         }
+        Object.entries(moduleParams).forEach(([param, value]) => {
+            if (!hasOnlyFiniteNumbers(value)) {
+                throw new Error(`Patch parameter "${moduleId}.${param}" contains a non-finite value`);
+            }
+        });
         return [moduleId, clone(moduleParams)];
     }));
 
@@ -374,7 +401,7 @@ export function normalizePatch(rawPatchOrState, options = {}) {
         modules,
         params,
         cables: normalizeCables(state.cables, modules, options.registry),
-        midiMappings: clone(state.midiMappings)
+        midiMappings
     };
 }
 

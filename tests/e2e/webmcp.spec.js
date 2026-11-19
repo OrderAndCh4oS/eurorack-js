@@ -11,7 +11,7 @@ async function bootWithTools(page) {
         }});
     });
     await page.goto('/');
-    await page.waitForFunction(() => Object.keys(window.rackTools).length === 6);
+    await page.waitForFunction(() => Object.keys(window.rackTools).length === 7);
 }
 const invoke = (page, name, input = {}) => page.evaluate(async ({name,input}) => window.rackTools[name].execute(input), {name,input});
 const source = `patch().module('vco','osc',{coarse:Math.random()}).module('out','main').connect('osc.triangle','main.L')`;

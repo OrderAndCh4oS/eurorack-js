@@ -44,7 +44,7 @@ Agents developing modules for others should follow the [contribution workflow](c
 
 ## Tool reference
 
-All six tools take a JSON object. Use `{}` for tools with no arguments. Extra or unknown fields are rejected.
+All seven tools take a JSON object. Use `{}` for tools with no arguments. Extra or unknown fields are rejected.
 
 | Tool | Input | Success result, alongside `ok: true` |
 | --- | --- | --- |
@@ -55,6 +55,7 @@ All six tools take a JSON object. Use `{}` for tools with no arguments. Extra or
 | `apply_draft` | `{ "draftId": "…" }` | `applied: true`, or `applied: false` if you cancel the confirmation |
 | `debug_rack` | `{}` | Current `revision`, `moduleCount`, `cableCount`, and structured `issues` |
 | `measure_audio` | `{ "expectedRevision": 1, "durationSeconds": 5 }` | `revision`, `implementationVersion`, `capture` details and a JSON `report` of the running stereo output |
+| `present_step` | `{ "caption": "The filter now follows the envelope.", "moduleId": "filter", "holdSeconds": 6 }` | The caption, optional module instance ID and hold duration, returned when the viewing time has elapsed |
 
 Use the actual revision returned by `get_rack`, rather than the example value `1`. The draft ID is a 26-character ULID; pass it back unchanged. `expiresAt` is a timestamp in milliseconds since the Unix epoch.
 
@@ -100,6 +101,10 @@ These wiring checks are separate from the audio measurements below. Listening st
 
 ## Measure the audio
 
+To measure it yourself, press **Start**, open **Analysis** beside it, choose a capture length, and select **Measure**. The panel shows left and right levels, loudness, stereo correlation and the distribution of spectral energy across three bands. Expand **Measurement details** for more values or **Exact measurement JSON** for the full response with capture metadata and precision. A dash marks an undefined measurement. The latest successful capture keeps its author, time and rack revision when a later attempt fails.
+
+The same panel follows agent measurements from loading through capture and analysis. Its toolbar indicator stays visible with the panel closed. **Activity** lists the caller, start time, elapsed time, outcome and full request and response. History stays in this tab and includes in-flight calls and up to 16 completed entries. Large patches can displace older entries sooner. The latest successful measurement stays available in **Measurements**.
+
 Press **Start** in the rack, call `get_rack`, then pass its revision to `measure_audio`. `durationSeconds` defaults to 5 and accepts 0.5–10 seconds. The tool measures the live final stereo output, after OUT volume controls and the output limiter. It does not start playback or change the patch.
 
 The AudioWorklet captures an exact number of samples into bounded buffers. A separate Worker runs the Rust/WASM analysis and returns JSON. Audio is not uploaded, saved or turned into a share URL. WASM loads only when a measurement is requested; its versioned assets are cached.
@@ -117,6 +122,16 @@ Undefined measurements are `null`: for example, dBFS for silence, correlation wi
 Each response carries the rack revision, implementation version, capture duration/sample count, and engine revision. Changing a control or connection, stopping/suspending audio, or cancelling the call discards the measurement. Only one measurement runs at a time. The first version accepts sample rates from 8 to 192 kHz.
 
 These measurements describe the captured signal. They do not establish that a patch sounds good, identify every faulty module, or prove that upstream signals were unclipped: the measured output has already passed through the limiter. Short captures also do not represent the loudness or structure of a whole composition. Pitch, tempo, MFCC/chroma and genre classification are not included in this version.
+
+## Record a live walkthrough
+
+Open the rack, press **Start**, and start recording the browser window and its audio in OBS. Leave **Analysis → Activity** open to include tool calls in the shot, or choose **Measurements** to show the latest test results. Walkthrough captions appear on the rack with either tab open or with the panel closed.
+
+> Build a patch slowly for an OBS recording. Start with a playable voice. Add one layer at a time and test it. After each change, use present_step to highlight the module, caption what changed or what you measured, and wait eight seconds before continuing.
+
+For each stage, the agent reads the current rack, extends its source, validates it, and applies the retained draft. Each applied stage becomes visible and audible as it is built. The usual unsaved-changes prompt appears when needed. The agent can then check the wiring or measure the output using the new revision and put the finding in a caption.
+
+`present_step` accepts a plain-text caption of up to 240 characters and an optional instance ID from `get_rack.patch.modules`. A targeted step scrolls that module into view and highlights it. The hold defaults to 5 seconds and accepts 0.5–30 seconds. The agent should await the call before continuing. Playback continues during the hold. Completion or cancellation clears the caption and highlight.
 
 ## Troubleshooting
 
@@ -153,7 +168,7 @@ The adapter follows Chrome's [imperative API](https://developer.chrome.com/docs/
 
 The evaluator iframe is prepared before tools are registered. Each evaluation reuses that host and creates a fresh worker, without navigating a child frame during the tool call.
 
-The default browser tests exercise the real isolated evaluator and AudioWorklet → Worker → WASM analysis through a tool registration stub. The optional native suite uses installed Chrome with WebMCP enabled and calls its actual `WebMCP.enable`, `invokeTool` and `cancelInvocation` CDP commands. It fails rather than skips when the native API is unavailable. It covers all six tools, exact draft application, diagnostics, audio measurement, cancellation, stale edits and timeout recovery.
+The default browser tests exercise the real isolated evaluator, staged walkthroughs and AudioWorklet → Worker → WASM analysis through a tool registration stub. The optional native suite uses installed Chrome with WebMCP enabled and calls its actual `WebMCP.enable`, `invokeTool` and `cancelInvocation` CDP commands. It covers all seven tools, exact draft application, diagnostics, audio measurement, captions, cancellation, stale edits and timeout recovery.
 
 For an isolated native test session, use a recent Chrome with `--enable-features=WebMCP` and a separate user-data directory. Browser and agent support outside the tested setup still needs checking.
 

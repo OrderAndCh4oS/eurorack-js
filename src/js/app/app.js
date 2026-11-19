@@ -22,6 +22,8 @@ import { createPatchWorkbench } from '../patch-script/workbench.js';
 import { createRackDebugger } from '../ui/rack-debugger.js';
 import { registerRackTools } from './webmcp.js';
 import { createAudioAnalysis } from '../audio/audio-analysis.js';
+import { RackActivity } from './rack-activity.js';
+import { initRackAnalysis } from '../ui/rack-analysis.js';
 import {
     PATCH_VERSION,
     createPatchUrlHash,
@@ -250,8 +252,16 @@ export class EurorackApp {
             registry: pluginRegistry
         }).init();
         // Feature detection keeps the normal instrument independent of experimental browser support.
-        this.audioAnalysis = createAudioAnalysis({host: this.host, getRevision: () => this.patchWorkbench.drafts.getRack().revision});
-        void registerRackTools({document: this.document, workbench: this.patchWorkbench, registry: pluginRegistry, analysis: this.audioAnalysis})
+        this.audioAnalysis = createAudioAnalysis({host: this.host, getRevision: () => this.patchWorkbench.drafts.observe().revision});
+        const activity = new RackActivity();
+        const panel = initRackAnalysis({document: this.document, host: this.host, analysis: this.audioAnalysis, activity,
+            redrawCables: () => this.renderAllCables()});
+        this.document.defaultView?.addEventListener('pagehide', event => {
+            if (event.persisted) return;
+            this.audioAnalysis.dispose();
+            panel?.dispose();
+        });
+        void registerRackTools({document: this.document, workbench: this.patchWorkbench, registry: pluginRegistry, analysis: this.audioAnalysis, activity})
             .then(adapter => { this.webmcp = adapter; });
         this.markEmptyRows();
     }

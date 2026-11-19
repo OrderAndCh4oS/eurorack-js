@@ -37,7 +37,9 @@ The **Modules** tab lists **Your modules** first and lets you search the built-i
 
 **Debug**, beside Code, highlights modules with no cables, unconnected outputs, and branches that do not reach an output or monitor. Select an issue to find its module. Checks update as you patch, work with audio stopped, and stay out of saved rack images. Spare jacks and feedback are allowed; these checks inspect wiring rather than measure sound.
 
-Experimental [WebMCP tools](docs/webmcp.md) let a compatible browser agent inspect the rack and module contracts, validate JavaScript, apply a retained draft, read connection diagnostics, and measure the running stereo output. Audio measurements use Rust/WASM in a separate browser Worker and return JSON; audio stays in the browser. The normal editor works without WebMCP.
+**Analysis**, beside Start, measures the playing rack's final stereo output with Rust/Wasm. It shows output levels, loudness, stereo and spectral measurements alongside the full JSON. Measurements run locally and work without a connected agent.
+
+A compatible browser agent can inspect module contracts, validate JavaScript and apply a retained draft through WebMCP. **Analysis → Activity** shows each tool call, its timing, request and response. For an OBS walkthrough, ask the agent to build the patch one playable layer at a time, test each layer, and hold a caption on the relevant module between edits. See the [WebMCP walkthrough](docs/webmcp.md#record-a-live-walkthrough).
 
 ## Introduction and documentation
 

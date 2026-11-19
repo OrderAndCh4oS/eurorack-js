@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createRackTools, registerRackTools } from '../../src/js/app/webmcp.js';
+import { RackActivity } from '../../src/js/app/rack-activity.js';
 import { loadCorePlugin, pluginRegistry } from '../../src/js/rack/registry.js';
 
 beforeAll(() => loadCorePlugin());
@@ -12,8 +13,9 @@ function fixture() {
         applyDraft: vi.fn(async () => ({applied: true}))
     };
     const analysis = {measure: vi.fn(async () => ({report: {schemaVersion: 1}}))};
-    const tools = Object.fromEntries(createRackTools({workbench, registry: pluginRegistry, analysis}).map(tool => [tool.name, tool]));
-    return {tools, workbench, rack, analysis};
+    const activity = new RackActivity();
+    const tools = Object.fromEntries(createRackTools({workbench, registry: pluginRegistry, analysis, activity}).map(tool => [tool.name, tool]));
+    return {tools, workbench, rack, analysis, activity};
 }
 
 describe('Eurorack WebMCP tools', () => {
@@ -81,7 +83,7 @@ describe('Eurorack WebMCP tools', () => {
         const {tools, analysis} = fixture();
         const controller = new AbortController();
         expect(await tools.measure_audio.execute({expectedRevision: 3}, {signal: controller.signal})).toEqual({ok: true, report: {schemaVersion: 1}});
-        expect(analysis.measure).toHaveBeenCalledWith({durationSeconds: 5, expectedRevision: 3, signal: controller.signal});
+        expect(analysis.measure).toHaveBeenCalledWith({durationSeconds: 5, expectedRevision: 3, signal: controller.signal, onPhase: expect.any(Function)});
         for (const input of [{}, {durationSeconds: 11, expectedRevision: 3}, {durationSeconds: '5', expectedRevision: 3}, {expectedRevision: 3, upload: true}]) {
             expect(await tools.measure_audio.execute(input)).toMatchObject({ok: false, error: {code: 'invalid-input'}});
         }
@@ -89,14 +91,65 @@ describe('Eurorack WebMCP tools', () => {
         expect(tools.measure_audio.annotations.readOnlyHint).toBe(true);
     });
 
-    it('uses document.modelContext and an AbortSignal to register and dispose all six tools', async () => {
+    it('keeps a caption visible for the requested hold, including through other calls, and releases it on cancellation', async () => {
+        vi.useFakeTimers();
+        try {
+            const {tools, activity} = fixture();
+            const present = tools.present_step.execute;
+            const step = present({caption: 'Listen to the filter open.', holdSeconds: 1.5});
+            const entry = activity.entries[0];
+            expect(entry).toMatchObject({source: 'agent', phase: 'presenting', status: 'running', step: {caption: 'Listen to the filter open.'}});
+            expect(await present({caption: 'Too soon'})).toMatchObject({ok: false, error: {code: 'busy'}});
+            for (let i = 0; i < 18; i++) await tools.get_rack.execute({});
+            expect(activity.entries).toContain(entry);
+            await vi.advanceTimersByTimeAsync(1499);
+            expect(entry.status).toBe('running');
+            await vi.advanceTimersByTimeAsync(1);
+            expect(await step).toEqual({ok: true, caption: entry.step.caption, holdSeconds: 1.5});
+            expect(entry.status).toBe('complete');
+            expect(activity.entries).toHaveLength(16);
+            expect(activity.entries).toContain(entry);
+            const controller = new AbortController();
+            const pending = present({caption: 'Next stage'}, {signal: controller.signal});
+            controller.abort();
+            expect(await pending).toMatchObject({ok: false, error: {code: 'cancelled'}});
+            expect(activity.entries[0].status).toBe('cancelled');
+            expect(vi.getTimerCount()).toBe(0);
+        } finally { vi.useRealTimers(); }
+    });
+
+    it('reports invalid presentation inputs and retains the exact tool response', async () => {
+        const {tools, activity} = fixture();
+        for (const input of [{caption: ' '}, {caption: 'x'.repeat(241)}, {caption: 'Ready', holdSeconds: 31}, {caption: 'Ready', holdSeconds: 0}]) {
+            const result = await tools.present_step.execute(input);
+            expect(result).toMatchObject({ok: false, error: {code: 'invalid-input'}});
+            expect(JSON.parse(activity.entries[0].response)).toEqual(result);
+        }
+        const rack = await tools.get_rack.execute({});
+        expect(JSON.parse(activity.entries[0].response)).toEqual(rack);
+        expect(await tools.present_step.execute({caption: 'Focus', moduleId: 'missing'})).toMatchObject({ok: false, error: {code: 'unknown-module'}});
+    });
+
+    it('keeps large visible responses whole and the last successful measurement after history rolls over', async () => {
+        const {tools, activity, rack} = fixture();
+        const measurement = await tools.measure_audio.execute({expectedRevision: 3});
+        rack.source = 'x'.repeat(1024 * 1024);
+        let latest;
+        for (let i = 0; i < 5; i++) latest = await tools.get_rack.execute({});
+        expect(activity.entries.length).toBeLessThan(5);
+        expect(JSON.parse(activity.entries[0].response)).toEqual(latest);
+        expect(activity.entries).not.toContain(activity.lastMeasurement);
+        expect(JSON.parse(activity.lastMeasurement.response)).toEqual(measurement);
+    });
+
+    it('uses document.modelContext and an AbortSignal to register and dispose all seven tools', async () => {
         const {workbench} = fixture();
         const registerTool = vi.fn(async () => {});
         const prepareEvaluator = vi.fn(async () => {expect(registerTool).not.toHaveBeenCalled();});
         const adapter = await registerRackTools({document: {modelContext:{registerTool}}, workbench, registry:pluginRegistry, prepareEvaluator});
         expect(prepareEvaluator).toHaveBeenCalledOnce();
         expect(adapter.supported).toBe(true);
-        expect(registerTool.mock.calls.map(([tool]) => tool.name)).toEqual(['get_rack','describe_modules','validate_script','apply_draft','debug_rack','measure_audio']);
+        expect(registerTool.mock.calls.map(([tool]) => tool.name)).toEqual(['get_rack','describe_modules','validate_script','apply_draft','debug_rack','measure_audio','present_step']);
         const signal = registerTool.mock.calls[0][1].signal;
         expect(signal.aborted).toBe(false);
         expect(registerTool.mock.calls.every(([,options]) => options.signal === signal)).toBe(true);
@@ -115,17 +168,20 @@ describe('Eurorack WebMCP tools', () => {
         warn.mockRestore();
     });
 
-    it('keeps lifecycle cleanup after a BFCache pagehide and disposes analysis on real departure', async () => {
+    it('keeps tools across BFCache and leaves shared measurement lifecycle to the rack', async () => {
         const {workbench} = fixture();
         const view = Object.assign(new EventTarget(), {AbortController});
         const registerTool = vi.fn(async () => {});
         const analysis = {dispose: vi.fn()};
         await registerRackTools({document: {defaultView:view,modelContext:{registerTool}},workbench,registry:pluginRegistry,analysis,prepareEvaluator:async()=>{}});
         const signal = registerTool.mock.calls[0][1].signal;
+        const present = registerTool.mock.calls.find(([tool]) => tool.name === 'present_step')[0];
+        const pending = present.execute({caption: 'Hold this stage.', holdSeconds: 30});
         view.dispatchEvent(new PageTransitionEvent('pagehide', {persisted:true}));
         expect(signal.aborted).toBe(false); expect(analysis.dispose).not.toHaveBeenCalled();
         view.dispatchEvent(new PageTransitionEvent('pagehide', {persisted:false}));
-        expect(signal.aborted).toBe(true); expect(analysis.dispose).toHaveBeenCalledOnce();
+        expect(signal.aborted).toBe(true); expect(analysis.dispose).not.toHaveBeenCalled();
+        expect(await pending).toMatchObject({ok: false, error: {code: 'cancelled'}});
     });
 
     it('does not expose tools if the isolated evaluator cannot be prepared', async () => {

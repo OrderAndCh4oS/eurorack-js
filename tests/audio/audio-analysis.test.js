@@ -20,7 +20,9 @@ afterEach(() => vi.useRealTimers());
 describe('browser audio analysis lifecycle', () => {
     it('is lazy and measures actual output without starting or changing audio', async () => {
         const f = fixture(); expect(f.workers).toHaveLength(0);
-        const result = await f.service.measure({durationSeconds: 0.5, expectedRevision: 7});
+        const onPhase = vi.fn();
+        const result = await f.service.measure({durationSeconds: 0.5, expectedRevision: 7, onPhase});
+        expect(onPhase.mock.calls.flat()).toEqual(['loading', 'capturing', 'analysing']);
         expect(result).toMatchObject({revision: 7, implementationVersion: 'fixture', capture: {frames: 24000, sampleRate: 48000, engineRevision: 2}, report: {schemaVersion: 1}});
         expect(f.host.engine.captureOutput).toHaveBeenCalledWith({durationSeconds: 0.5, signal: expect.any(AbortSignal)});
         expect(f.workers[0].sent.transfer).toHaveLength(2);

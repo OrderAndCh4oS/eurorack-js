@@ -301,6 +301,10 @@ Port names are source-defined in each module's `ui.inputs[]` and `ui.outputs[]`.
 
 The app imports `TEST_PATCHES` directly. Retained musical demos, SFX, and drum compositions are exported separately as `ARCHIVED_DEMO_PATCHES` from `src/js/config/patches/index.js`, with an importable collection and source index in `archive/demo-patches/`. Keep them outside the main and Test patches views. Update the archive JSON whenever an archived source changes.
 
+## Live patch walkthroughs
+
+For a requested **live walkthrough or OBS recording** in the running app, build one playable stage at a time. Read `get_rack`, extend the current source, validate, and apply each stage individually. Check the wiring or measure the playing output at the new revision. Call `present_step` with a concise caption about the change or a measured result, the relevant module instance ID when useful, and the requested viewing time. Await the hold before continuing. The user can follow the calls and full measurement reports in **Analysis**. See [Record a live walkthrough](docs/webmcp.md#record-a-live-walkthrough).
+
 ## Updating Patches
 
 When module specs change (renamed/removed params, inputs, outputs, switches):

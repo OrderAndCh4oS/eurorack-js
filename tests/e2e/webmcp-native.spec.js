@@ -19,7 +19,7 @@ async function connectTools(page) {
         waiting.get(event.invocationId)?.(event);
     });
     await cdp.send('WebMCP.enable');
-    await expect.poll(() => tools.size).toBe(6);
+    await expect.poll(() => tools.size).toBe(7);
     const start = async (name,input = {}) => {
         const tool = tools.get(name);
         const {invocationId} = await cdp.send('WebMCP.invokeTool',{frameId:tool.frameId,toolName:name,input});
@@ -40,9 +40,9 @@ async function connectTools(page) {
 
 test('native Chrome discovers all tools, catches wiring issues and applies the exact validated patch', async ({page,browser},testInfo) => {
     testInfo.annotations.push({type:'browser',description:browser.version()});
-    const {tools,cdp,invoke} = await connectTools(page);
+    const {tools,cdp,invoke,start} = await connectTools(page);
     try {
-        expect([...tools.keys()].sort()).toEqual(['apply_draft','debug_rack','describe_modules','get_rack','measure_audio','validate_script']);
+        expect([...tools.keys()].sort()).toEqual(['apply_draft','debug_rack','describe_modules','get_rack','measure_audio','present_step','validate_script']);
         const navigations = [];
         page.on('framenavigated',frame => navigations.push(frame.url()));
         const before = await invoke('get_rack');
@@ -61,6 +61,11 @@ test('native Chrome discovers all tools, catches wiring issues and applies the e
         expect(await invoke('apply_draft',{draftId:fixed.draftId})).toEqual({ok:true,applied:true});
         expect((await invoke('get_rack')).patch).toEqual(fixed.patch);
         expect((await invoke('debug_rack')).issues).toEqual([]);
+        const caption = 'The LFO now modulates the oscillator.';
+        const held = await start('present_step', {caption, moduleId: 'motion', holdSeconds: 0.8});
+        await expect(page.locator('#agent-caption')).toContainText(caption);
+        expect((await held.response).status).toBe('Completed');
+        await expect(page.locator('#agent-caption')).toBeHidden();
         expect(await page.evaluate(()=>window.eurorackApp.patchLibrary.isDirty())).toBe(true);
         expect(await page.evaluate(()=>window.eurorackApp.host.engine)).toBeNull();
         await expect(page.locator('#module-osc')).toBeVisible();

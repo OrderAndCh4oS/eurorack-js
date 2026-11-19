@@ -1807,6 +1807,7 @@
     </style>
     <link rel="stylesheet" href="/patch-library.css">
     <link rel="stylesheet" href="/rack-debugger.css">
+    <link rel="stylesheet" href="/rack-analysis.css">
     <link rel="stylesheet" href="/site.css">
     <link rel="stylesheet" href="/docs.css">
     <link rel="stylesheet" href="/marketing.css">
@@ -1832,6 +1833,7 @@
 <div id="toolbar">
     <div class="toolbar-section">
         <button id="startButton">▶ Start</button>
+        <button id="analysisToggle" type="button" aria-controls="rack-analysis" aria-expanded="false" title="Audio measurements and agent activity">Analysis<span id="analysisIndicator" role="status"></span></button>
     </div>
     <div class="toolbar-divider"></div>
     <div class="toolbar-section">
@@ -1903,6 +1905,34 @@
                 </nav>
             </footer>
         </div>
+    </div>
+    <aside id="rack-analysis" class="rack-analysis" aria-labelledby="analysis-heading" hidden>
+        <header class="analysis-header">
+            <h2 id="analysis-heading">Audio analysis</h2>
+            <button type="button" data-action="close" aria-label="Close analysis">Close</button>
+        </header>
+        <div class="analysis-tabs" role="tablist" aria-label="Analysis views">
+            <button type="button" role="tab" id="measurements-tab" aria-selected="true" aria-controls="measurements-view">Measurements</button>
+            <button type="button" role="tab" id="activity-tab" aria-selected="false" aria-controls="activity-view" tabindex="-1">Activity <span data-field="count">0</span></button>
+        </div>
+        <p class="analysis-status" role="status" aria-atomic="true"></p>
+        <section id="measurements-view" role="tabpanel" aria-labelledby="measurements-tab">
+            <form class="analysis-controls">
+                <label>Capture length (s) <input name="duration" type="number" min="0.5" max="10" step="any" value="5" required></label>
+                <button type="submit">Measure</button>
+                <button type="button" data-action="cancel" hidden>Cancel</button>
+            </form>
+            <p class="analysis-note">Final stereo output after volume and limiting, measured locally with Rust/Wasm.</p>
+            <div data-field="measurement"></div>
+        </section>
+        <section id="activity-view" role="tabpanel" aria-labelledby="activity-tab" hidden>
+            <p class="analysis-note" data-field="empty">Agent tool calls and your measurements will appear here. For a recorded build, ask the agent to caption each playable stage. <a href="/docs/webmcp#record-a-live-walkthrough" target="_blank" rel="noopener">Walkthrough guide</a></p>
+            <ol class="analysis-activity" aria-label="Recent activity"></ol>
+        </section>
+    </aside>
+    <div id="agent-caption" class="agent-caption" role="status" aria-atomic="true" hidden>
+        <strong>Agent walkthrough</strong>
+        <p></p>
     </div>
 </div>
 

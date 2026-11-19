@@ -1,4 +1,4 @@
-const CHANGES = new Set(['param-changed', 'module-added', 'module-removed', 'cables-changed', 'patch-loaded', 'registry']);
+export const MEASUREMENT_CHANGES = new Set(['param-changed', 'module-added', 'module-removed', 'cables-changed', 'patch-loaded', 'registry']);
 const error = (code, message) => Object.assign(new Error(message), {code});
 
 /** Opt-in analysis of the live final output. PCM stays in memory in this tab. */
@@ -6,7 +6,7 @@ export function createAudioAnalysis({host, getRevision, Worker = globalThis.Work
     let active = null;
     let disposed = false;
     return {
-        async measure({durationSeconds = 5, expectedRevision, signal} = {}) {
+        async measure({durationSeconds = 5, expectedRevision, signal, onPhase} = {}) {
             signal?.throwIfAborted();
             if (!Number.isFinite(durationSeconds) || durationSeconds < 0.5 || durationSeconds > 10
                 || (expectedRevision !== undefined && (!Number.isInteger(expectedRevision) || expectedRevision < 1))) {
@@ -30,7 +30,7 @@ export function createAudioAnalysis({host, getRevision, Worker = globalThis.Work
                 if (context.state !== 'running') controller.abort(error('audio-not-running', 'Audio stopped during the measurement.'));
             };
             const onChange = event => {
-                if (CHANGES.has(event.type)) controller.abort(error('rack-changed', 'The rack changed during the measurement. Measure again.'));
+                if (MEASUREMENT_CHANGES.has(event.type)) controller.abort(error('rack-changed', 'The rack changed during the measurement. Measure again.'));
                 else if (['audio-stopped', 'audio-error', 'module-error'].includes(event.type)) {
                     controller.abort(error('audio-not-running', 'Audio stopped or failed during the measurement.'));
                 }
@@ -43,6 +43,7 @@ export function createAudioAnalysis({host, getRevision, Worker = globalThis.Work
                 let loaded, analysed;
                 const ready = new Promise(resolve => {loaded = resolve;});
                 const report = new Promise(resolve => {analysed = resolve;});
+                onPhase?.('loading');
                 worker = new Worker(new URL('./analysis-worker.js', import.meta.url), {type: 'module'});
                 worker.onmessage = ({data}) => {
                     if (data?.type === 'ready') loaded(data.version);
@@ -56,12 +57,14 @@ export function createAudioAnalysis({host, getRevision, Worker = globalThis.Work
                     const implementationVersion = await ready;
                     controller.signal.throwIfAborted();
                     const requestedAtContextTime = context.currentTime;
+                    onPhase?.('capturing');
                     const pcm = await engine.captureOutput({durationSeconds, signal: controller.signal});
                     controller.signal.throwIfAborted();
                     if (getRevision() !== revision || host.engine !== engine) throw error('rack-changed', 'The rack changed during the measurement. Measure again.');
                     const capture = {frames: pcm.frames, sampleRate: pcm.sampleRate, durationSeconds: pcm.frames / pcm.sampleRate,
                         engineRevision: pcm.revision, requestedAtContextTime, startTimeSeconds: pcm.startTimeSeconds ?? null,
                         signal: 'final-stereo-output-after-volume-and-limiter'};
+                    onPhase?.('analysing');
                     worker.postMessage({type: 'analyze', left: pcm.left, right: pcm.right, sampleRate: pcm.sampleRate}, [pcm.left.buffer, pcm.right.buffer]);
                     const result = await report;
                     controller.signal.throwIfAborted();
@@ -79,6 +82,7 @@ export function createAudioAnalysis({host, getRevision, Worker = globalThis.Work
                 if (active === controller) active = null;
             }
         },
+        cancel() {active?.abort(new DOMException('Measurement cancelled.', 'AbortError'));},
         dispose() {disposed = true; active?.abort(new DOMException('Audio analysis closed.', 'AbortError'));}
     };
 }

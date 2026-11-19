@@ -34,7 +34,9 @@ Worklet topology activation is atomic: a compilation failure leaves the previous
 
 ### Audio Measurements
 
-The optional `measure_audio` [WebMCP tool](webmcp.md#measure-the-audio) captures the actual final stereo output for 0.5–10 seconds. `audio/audio-analysis.js` owns request cancellation, host mutation checks and a disposable analysis Worker. `AudioWorkletEngine.captureOutput()` allocates and transfers bounded capture buffers to the processor, which copies final samples after limiting and returns those owned buffers at the exact requested frame count.
+The rack's **Analysis** panel and the optional `measure_audio` WebMCP tool share one analysis service. Both capture the final stereo output for 0.5–10 seconds. `audio/audio-analysis.js` owns request cancellation, host mutation checks and a disposable analysis Worker. `AudioWorkletEngine.captureOutput()` allocates and transfers bounded capture buffers to the processor, which copies final samples after limiting and returns those owned buffers at the exact requested frame count.
+
+`app/rack-activity.js` tracks in-flight calls, up to 16 completed calls and the latest successful measurement in tab memory. Older entries expire sooner when the JSON history exceeds four million characters. The UI reads capture phases and results from those same calls. The `present_step` tool holds a caption over the rack for a requested interval and can highlight a module instance. Its timer runs on the main thread independently of audio processing. See the [live walkthrough](webmcp.md#record-a-live-walkthrough).
 
 `audio/analysis-worker.js` loads the content-hashed program from `wasm/audio-analysis/manifest.js` and runs Rust/WASM off the realtime thread. Rust source lives in the repository's `wasm/audio-analysis/` crate. The Worker returns JSON metrics and is terminated; captured PCM is not uploaded or persisted. Live playback is required and is never started by the tool. Parameter/topology edits, audio suspension/stop, tool cancellation and timeouts invalidate the measurement.
 

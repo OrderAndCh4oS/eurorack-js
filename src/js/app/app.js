@@ -235,7 +235,12 @@ export class EurorackApp {
         void this.initMidi().catch(error => console.error('Failed to initialize MIDI:', error));
         this.initPatchBank();
         const recovered = await this.patchLibrary?.run(() => this.patchLibrary.restoreDraft());
-        if (!recovered) {
+        const entry = new URL(window.location.href);
+        if (this.patchLibrary && entry.pathname === '/' && !entry.hash && entry.searchParams.get('new') === '1') {
+            // Consume the navigation action once, including when a sign-in draft needs the discard prompt.
+            this.patchLibrary.setLocation(null);
+            await this.patchLibrary.run(() => this.patchLibrary.newPatch());
+        } else if (!recovered) {
             if (this.patchLibrary) await this.patchLibrary.run(() => {
                 if (isIntroductionDemoLocation(window.location)) return this.patchLibrary.loadLocation();
                 const location = parsePatchLocation(window.location.hash, window.location.pathname);
@@ -603,6 +608,7 @@ export class EurorackApp {
     }
 
     rerenderRack() {
+        this.cancelCableDrag();
         this.cancelModuleDrag();
         this.selection.clear();
         this.clearVisualCables();

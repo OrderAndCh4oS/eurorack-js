@@ -169,6 +169,18 @@ describe('patch library coordination', () => {
         expect(library.active.name).toBe('Original'); expect(library.replacing).toBe(false);
         expect(document.title).toBe('Original · Eurorack');
     });
+    it('keeps the saved patch identity, name and URL when starting a new rack fails', async () => {
+        const { app, library } = setup();
+        const original = { source: 'cloud', id, name: 'Original' };
+        library.setActive(original);
+        library.setLocation(id);
+        library.choose = vi.fn(async () => 'discard');
+        app.loadPatchState.mockRejectedValue(new Error('worklet rejected'));
+        await expect(library.newPatch()).rejects.toThrow('worklet rejected');
+        expect(library.active).toBe(original);
+        expect(document.getElementById('patchName').value).toBe('Original');
+        expect(window.location.pathname).toBe(`/patches/${id}`);
+    });
     it('does not apply an old account fetch after the account changes', async () => {
         const { app, cloud, library } = setup(); const pending = deferred(); cloud.get.mockReturnValue(pending.promise);
         const open = library.open({ source: 'cloud', id }); library.accountGeneration++;

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import sharp from 'sharp';
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
 const panel = (page, id) => page.locator(`#module-${id} > .module-label`);
@@ -16,6 +17,71 @@ async function openRack(page, state = patch) {
     await page.waitForFunction(() => window.eurorackApp?.patchWorkbench);
     await page.evaluate(state => window.eurorackApp.loadPatchState(state, { managed: true }), state);
 }
+
+test('rack shortcut hints use three compact lines on desktop and wrap within a narrow footer', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1728, height: 960 });
+    await openRack(page);
+    const hints = page.locator('.cable-hints');
+    await hints.scrollIntoViewIfNeeded();
+    await expect(hints).toHaveCSS('text-transform', 'none');
+    await expect(hints).toHaveCSS('font-family', /Space Grotesk/);
+    await page.evaluate(() => document.fonts.ready);
+    const metrics = () => hints.evaluate(el => ({
+        lines: el.offsetHeight / parseFloat(getComputedStyle(el).lineHeight),
+        width: el.clientWidth, contentWidth: el.scrollWidth
+    }));
+    expect((await metrics()).lines).toBeCloseTo(3, 1);
+    await page.locator('.rack-bottom-bar').screenshot({ path: testInfo.outputPath('desktop-shortcuts.png') });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await hints.scrollIntoViewIfNeeded();
+    const narrow = await metrics();
+    expect(narrow.lines).toBeGreaterThan(3);
+    expect(narrow.contentWidth).toBe(narrow.width);
+    const box = await hints.boundingBox();
+    expect((await page.locator('.app-footer').boundingBox()).y).toBeGreaterThanOrEqual(box.y + box.height - 1);
+    await page.locator('.rack-bottom-bar').screenshot({ path: testInfo.outputPath('mobile-shortcuts.png') });
+});
+
+test('selected panels have a continuous orange ring and their titles identify individual instances', async ({ page }, testInfo) => {
+    await openRack(page, { ...patch, params: {}, cables: [],
+        modules: ['swing-left', 'swing-right'].map((id, index) => ({ id, type: 'swing', row: 1, index }))
+    });
+    const left = panel(page, 'swing-left');
+    const right = panel(page, 'swing-right');
+    const tip = page.getByRole('tooltip');
+    await left.hover({ position: { x: 5, y: 3 } });
+    await expect(tip).toHaveText('swing-left');
+    const bubble = await tip.boundingBox();
+    expect(bubble.y + bubble.height).toBeLessThan((await left.boundingBox()).y);
+    await right.hover();
+    await expect(tip).toHaveText('swing-right');
+    await page.locator('#rack-row-2').hover();
+    await expect(tip).toBeHidden();
+
+    await left.click();
+    await right.click({ modifiers: ['Control'] });
+    await expect(selected(page)).toHaveCount(2);
+    await page.locator('#rack-container').focus();
+    await page.keyboard.press('Tab');
+    await expect(left).toBeFocused();
+    await expect(left).toHaveCSS('outline-style', 'none');
+    await expect(tip).toHaveText('swing-left');
+
+    const module = page.locator('#module-swing-left');
+    const accent = await module.evaluate(el => getComputedStyle(el).getPropertyValue('--factory-orange').trim());
+    const orange = Buffer.from(accent.slice(1), 'hex');
+    const screenshot = await module.screenshot({ scale: 'css', path: testInfo.outputPath('selected-swing.png') });
+    const { data, info: { width, height, channels } } = await sharp(screenshot).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    const center = Math.floor(width / 2);
+    const middle = Math.floor(height / 2);
+    for (const [x, y] of [[center, 1], [2, 9], [width - 2, 9], [2, middle], [width - 2, middle], [center, height - 2]]) {
+        const offset = (y * width + x) * channels;
+        // The factory skin overlays its colors with a 5% paper texture.
+        for (const [channel, value] of orange.entries()) {
+            expect(Math.abs(data[offset + channel] - value), `panel edge at ${x},${y}`).toBeLessThanOrEqual(13);
+        }
+    }
+});
 
 test('range and individual selection copy just the internal wiring while audio runs', async ({ page }) => {
     await openRack(page);

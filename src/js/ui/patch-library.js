@@ -1,4 +1,5 @@
 import { TEST_PATCHES } from '../config/test-patches.js';
+import { RackState } from '../app/rack-state.js';
 import { CloudClient, newRequestId, parsePatchLocation, savedPatchUrl, rackPatchUrl } from '../patches/cloud-client.js';
 import { LocalPatchStore } from '../patches/local-patch-store.js';
 import { parseCatalogueLocation, catalogueUrl, paginateLocalPatches } from '../patches/catalogue-state.js';
@@ -40,6 +41,7 @@ export class PatchLibrary {
         this.surface = this.document.getElementById('patchLibrary');
         if (!this.surface) return this;
         this.document.querySelectorAll('[data-patch-view]').forEach(button => button.addEventListener('click', () => this.navigate(button.dataset.patchView)));
+        this.document.getElementById('newPatch')?.addEventListener('click', () => this.run(() => this.newPatch()));
         this.document.addEventListener('click', event => {
             const link = event.target.closest('a[href]');
             if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download')) return;
@@ -163,7 +165,7 @@ export class PatchLibrary {
         await Promise.allSettled(requests);
     }
     openProfile() { return openProfileDialog(this); }
-    isDirty() { return snapshot(this.app.host.serializePatch()) !== this.baseline; }
+    isDirty(state = this.app.host.serializePatch()) { return snapshot(state) !== this.baseline; }
     setActive(record, baseline = snapshot(this.app.host.serializePatch())) {
         this.active = record; this.baseline = baseline;
         const input = this.document.getElementById('patchName'); if (input && record?.name) input.value = record.name;
@@ -458,21 +460,31 @@ export class PatchLibrary {
             if (current()) { this.listLoading[list] = false; this.render({ previewImages }); }
         }
     }
-    async confirmReplace({ signal } = {}) {
+    async confirmReplace({ signal, startingNew = false } = {}) {
         if (signal?.aborted) return false;
-        if (!this.isDirty()) return true;
-        const answer = await this.choose('Unsaved rack changes', 'Save this rack before opening another patch?', [['cancel', 'Cancel'], ['discard', 'Discard changes'], ['save', 'Save']], { signal });
+        const state = this.app.host.serializePatch();
+        const dirty = this.isDirty(state);
+        if (!dirty) {
+            if (!startingNew) return true;
+            const name = this.document.getElementById('patchName')?.value.trim();
+            if (!this.active && !state.modules.length && !name) return true;
+        }
+        const answer = await this.choose(dirty ? 'Unsaved rack changes' : 'Start a new patch?',
+            startingNew ? 'Save this rack before starting a new patch?' : 'Save this rack before opening another patch?',
+            [['cancel', 'Cancel'], ['discard', 'Discard changes'], ['save', 'Save']], { signal });
         if (answer === 'discard') return true;
         if (answer === 'save') { const saved = await this.openSave(); return saved && !this.isDirty(); }
         return false;
     }
-    async replaceState(state, record = null, { skipPrompt = false, beforeApply = null, edit = false, signal } = {}) {
+    async replaceState(state, record = null, { skipPrompt = false, beforeApply = null, edit = false, signal, startingNew = false } = {}) {
         if (this.replacing) throw new Error('A patch is still opening.');
         this.replacing = true; const request = ++this.loadGeneration; const account = this.accountGeneration;
         try {
-            if (!skipPrompt && !await this.confirmReplace({ signal })) return false;
+            if (!skipPrompt && !await this.confirmReplace({ signal, startingNew })) return false;
             if (record?.source === 'cloud' && account !== this.accountGeneration) return false;
             await this.app.loadPatchState(state, { managed: true, beforeApply, signal });
+            const name = startingNew && this.document.getElementById('patchName');
+            if (name) name.value = '';
             // Code applies are edits to the open patch, just like changing modules by hand.
             // Keep its saved identity/baseline so these changes remain unsaved and credited.
             if (edit) this.updateActiveLabel();
@@ -480,6 +492,13 @@ export class PatchLibrary {
             if (request === this.loadGeneration) this.show('rack');
             return true;
         } finally { this.replacing = false; }
+    }
+    async newPatch() {
+        const history = this.view === 'rack' ? 'replace' : 'push';
+        const empty = new RackState().serializePatch(this.app.host.registry);
+        if (!await this.replaceState(empty, null, { startingNew: true })) return false;
+        this.setLocation(null, history);
+        return true;
     }
     async open(record, { updateLocation = true, history = this.view === 'rack' ? 'replace' : 'push' } = {}) {
         if (this.replacing) throw new Error('A patch is still opening.');

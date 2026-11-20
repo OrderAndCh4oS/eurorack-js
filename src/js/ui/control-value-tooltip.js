@@ -1,4 +1,6 @@
-const selector = '.knob, input[type="range"], [role="slider"]';
+const valueControls = '.knob, input[type="range"], [role="slider"]';
+const moduleTitle = '#rack-container .module:not(.dragging, .drop-indicator) > .module-label';
+const selector = `${valueControls}, ${moduleTitle}`;
 const fractions = new Intl.NumberFormat('en', { minimumFractionDigits: 2, maximumFractionDigits: 3, useGrouping: false });
 const tooltip = document.createElement('div');
 tooltip.id = 'control-value-tooltip';
@@ -36,9 +38,10 @@ function describe(control, visible) {
 // sliders can change values without dispatching DOM input events.
 function draw() {
     const box = active.getBoundingClientRect();
-    if (!box.width || !box.height || box.bottom <= 0 || box.top >= window.innerHeight ||
+    const isTitle = active.classList.contains('module-label');
+    if ((isTitle && !active.matches(moduleTitle)) || !box.width || !box.height || box.bottom <= 0 || box.top >= window.innerHeight ||
         box.right <= 0 || box.left >= document.documentElement.clientWidth) { clear(); return; }
-    const text = [label, valueText(active)].filter(Boolean).join(' ');
+    const text = isTitle ? active.parentElement.dataset.instanceId : [label, valueText(active)].filter(Boolean).join(' ');
     if (tooltip.textContent !== text) tooltip.textContent = text;
     const gap = 6;
     // A circular knob's CSS rotation changes its bounding box, not its diameter.
@@ -84,7 +87,7 @@ document.addEventListener('pointerout', event => {
 });
 document.addEventListener('pointerdown', event => {
     if (!event.isPrimary || event.button !== 0) return;
-    pressed = controlAt(event.target);
+    pressed = event.target.closest?.(valueControls) ?? null;
     pointerId = pressed ? event.pointerId : null;
     focused = null;
     select();

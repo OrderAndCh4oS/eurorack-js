@@ -809,7 +809,7 @@
             font-size: 11px;
             color: #666;
             text-align: left;
-            flex: 1;
+            flex: 1 1 32rem;
             min-width: 0;
             padding: 0;
         }
@@ -945,11 +945,30 @@
             cursor: grabbing;
         }
 
-        .rack-row .module.module-selected {
-            outline: 3px solid var(--factory-orange, #ff4a0a);
-            outline-offset: -3px;
+        .rack-row .module > .module-label {
+            align-self: stretch;
+            margin-top: -8px;
+            margin-inline: -4px;
+            padding: 8px 4px 0;
+            text-align: center;
         }
-        .rack-row .module-label:focus-visible { outline: 2px solid currentColor; }
+
+        .rack-row .module-label:focus { outline: none; }
+
+        /* Paint the ring over the header strip and panel contents without intercepting controls. */
+        .rack-row .module-selected::after,
+        .rack-row .module:has(> .module-label:focus-visible)::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 12;
+            border: 3px solid var(--factory-orange, #ff4a0a);
+            pointer-events: none;
+        }
+
+        .rack-row .module:not(.module-selected):has(> .module-label:focus-visible)::after {
+            border: 2px dashed var(--factory-ink, currentColor);
+        }
 
         .module.dragging {
             position: absolute;
@@ -1540,7 +1559,6 @@
             filter: none;
         }
 
-        body.skin-factory .cable-hints,
         body.skin-factory .app-footer {
             color: var(--factory-ink);
             font-family: inherit;
@@ -1553,8 +1571,9 @@
         }
 
         body.skin-factory .cable-hints {
-            font-size: 10px;
-            line-height: 1.12;
+            color: var(--factory-ink);
+            font: 700 9.5px/1.35 var(--site-heading-font, Arial, sans-serif);
+            text-transform: none;
         }
 
         body.skin-factory .app-footer {
@@ -1824,6 +1843,7 @@
 <nav class="patch-navigation" aria-label="Patch views">
     <div class="patch-view-tabs">
         <button type="button" data-patch-view="rack" aria-current="page">Rack</button>
+        <button type="button" id="newPatch">New patch</button>
         <button type="button" data-patch-view="mine">My patches</button>
         <button type="button" data-patch-view="public">Public patches</button>
         <button type="button" data-patch-view="tests">Test patches</button>
@@ -1896,13 +1916,9 @@
         <div class="rack rack-row" id="rack-row-2"></div>
         <div class="rack-bottom-bar">
             <div class="cable-hints">
-                Click a panel to select it. Shift-click for a range, Ctrl/⌘-click to toggle individual panels.<br>
-                Ctrl/⌘+C copies. Ctrl/⌘+V pastes the modules with their internal cables. Click an empty row to paste there.<br>
-                Drag a panel to reorder it or move it between rows.<br>
-                Drag sockets to add or move cable ends<br>
-                Shift+click to add additional cables<br>
-                Ctrl+click to cycle cables<br>
-                Right-click or drop cable on empty space to remove
+                <p>Click a panel to select it. Shift-click for a range or Ctrl/⌘-click to toggle individual panels. Drag a panel to reorder it or move it between rows.</p>
+                <p>Ctrl/⌘+C copies modules with their internal cables. Ctrl/⌘+V pastes them. Click an empty row to paste there.</p>
+                <p>Drag sockets to add or move cable ends. Shift-click to add another cable or Ctrl/⌘-click to cycle cables. Right-click a socket or drop a cable on empty space to remove it.</p>
             </div>
             <footer class="app-footer">
                 <div class="footer-links-row">

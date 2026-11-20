@@ -88,7 +88,7 @@ export function renderMarkdown(markdown, source, { extractHeader = false } = {})
 
 export function renderSiteNavigation(path) {
     const active = path.startsWith('/docs') ? '/docs' : path;
-    const patchLinks = [['/', 'Rack'], ['/patches?view=mine', 'My patches'], ['/patches', 'Public patches'], ['/patches?view=tests', 'Test patches']];
+    const patchLinks = [['/', 'Rack'], ['/?new=1', 'New patch'], ['/patches?view=mine', 'My patches'], ['/patches', 'Public patches'], ['/patches?view=tests', 'Test patches']];
     const siteLinks = [['/introduction', 'Introduction'], ['/docs', 'Docs']];
     const links = entries => entries.map(([href, label]) => `<a href="${escapeHtml(href)}"${href === active ? ' aria-current="page"' : ''}>${label}</a>`).join('');
     return `<nav class="patch-navigation" aria-label="Patch views">

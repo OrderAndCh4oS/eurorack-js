@@ -46,7 +46,7 @@ beforeEach(() => {
     const neon = betterAuth({ baseURL: neonUrl, basePath: '/neondb/auth', secret: env.BETTER_AUTH_SECRET,
         trustedOrigins: [origin], database: memoryAdapter(upstream), logger: { disabled: true }, plugins: [magicLink({
             storeToken: 'hashed', async sendMagicLink({ email, token, url }) {
-                lastEvent = { event_id: randomUUID(), event_type: 'send.magic_link', context: { endpoint_id: 'ep-fixture' },
+                lastEvent = { event_id: randomUUID(), event_type: 'send.magic_link', context: { endpoint_id: 'internal-endpoint' },
                     user: { email }, event_data: { link_type: 'sign-in', token, link_url: url } };
                 const delivered = await app(webhookRequest(lastEvent));
                 if (!delivered.ok) throw new Error('Webhook failed');
@@ -102,7 +102,8 @@ it('requires a fresh, signed event for this branch and gives delivery retries th
     const tampered = new Request(signed.url, { method: 'POST', headers: signed.headers, body: JSON.stringify({ ...lastEvent, user: { email: 'different@example.org' } }) });
     expect((await app(tampered)).status).toBe(401);
     expect((await app(webhookRequest(lastEvent, Date.now() - 360000))).status).toBe(401);
-    expect((await app(webhookRequest({ ...lastEvent, context: { endpoint_id: 'ep-other' } }))).status).toBe(400);
+    const sibling = { ...lastEvent.event_data, link_url: lastEvent.event_data.link_url.replace('ep-fixture', 'ep-other') };
+    expect((await app(webhookRequest({ ...lastEvent, event_data: sibling }))).status).toBe(400);
     expect(messages).toHaveLength(1);
     expect((await app(signed)).status).toBe(200);
     expect(messages[1].key).toBe(messages[0].key);

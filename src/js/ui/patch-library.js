@@ -4,6 +4,7 @@ import { LocalPatchStore } from '../patches/local-patch-store.js';
 import { parseCatalogueLocation, catalogueUrl, paginateLocalPatches } from '../patches/catalogue-state.js';
 import { ContentViews, contentView } from './content-views.js';
 import { openProfileDialog } from './profile-dialog.js';
+import { chooseSignIn, emailSentNotice } from './sign-in-dialog.js';
 
 export const DRAFT_KEY = 'eurorack-login-draft-v1';
 export const isIntroductionDemoLocation = location => location.pathname === '/' && !location.hash && new URLSearchParams(location.search).get('demo') === 'introduction';
@@ -83,6 +84,9 @@ export class PatchLibrary {
         this.window.addEventListener('hashchange', locationChanged);
         this.window.addEventListener('popstate', locationChanged);
         this.window.addEventListener('beforeunload', event => { if (!this.redirecting && this.isDirty()) { event.preventDefault(); event.returnValue = ''; } });
+        this.window.addEventListener('pagehide', () => {
+            if (this.emailSignIn && this.emailSignIn.generation === this.loadGeneration) this.storeSignInDraft(this.emailSignIn.intent);
+        });
         this.window.addEventListener('focus', () => { if (this.config.enabled) void this.refreshSession(); });
         this.updateActiveLabel();
         this.ready = this.initializeCloud();
@@ -115,12 +119,20 @@ export class PatchLibrary {
             this.user = user; this.updateAccount();
             if (refreshView && changed && this.surface && this.view !== 'rack') this.show(this.view, { preserveFocus: true });
             else if (refreshView && renamed) await this.refreshAttribution();
+            if (changed && user && this.emailSignIn) {
+                const pending = this.emailSignIn;
+                this.emailSignIn = null;
+                if (pending.generation === this.loadGeneration) {
+                    if (pending.intent) await this.resumeSignInIntent(pending.intent);
+                    else if (!this.active && !this.isDirty() && parsePatchLocation(this.window.location.hash, this.window.location.pathname)?.source === 'cloud') await this.loadLocation();
+                }
+            }
         } catch (error) { if (request === this.sessionRequest && account === this.accountGeneration && error.name !== 'AbortError') this.notice(error.message); }
     }
     updateAccount() {
         const button = this.document.getElementById('patchAccount');
         if (button) {
-            button.textContent = this.user ? 'Sign out' : 'Sign in'; button.title = this.user ? `Signed in as ${this.user.name}` : 'Sign in with Google';
+            button.textContent = this.user ? 'Sign out' : 'Sign in'; button.title = this.user ? `Signed in as ${this.user.name}` : 'Sign in to your account';
         }
         const profile = this.document.getElementById('patchProfile'); if (profile) profile.hidden = !this.user;
         this.revealActiveTab();
@@ -554,7 +566,9 @@ export class PatchLibrary {
             const updateFields = () => { const cloud = target.value === 'cloud'; visibility.parentElement.hidden = !cloud; description.parentElement.hidden = !cloud; author.hidden = !cloud;
                 help.textContent = cloud ? copy ? 'Copies start private. Save again before publishing. The original creator stays credited.' : visibility.value === 'public' ? 'Anyone can open and copy this patch.' : 'Only you can open this patch.' : 'Saved in this browser only.'; };
             target.addEventListener('change', updateFields); visibility.addEventListener('change', updateFields); updateFields();
-            if (!this.user && this.config.enabled) form.append(this.button('Sign in with Google', () => this.run(() => this.signIn({ action: 'save', copy }))));
+            if (!this.user && this.config.enabled) form.append(this.button('Sign in to save to your account', () => this.run(async () => {
+                if (await this.signIn({ action: 'save', copy }) === 'email') finish(false);
+            })));
             const error = element(this.document, 'p', '', 'patch-dialog-error'); error.hidden = true; error.setAttribute('role', 'alert'); form.append(error);
             const actions = element(this.document, 'div', undefined, 'patch-dialog-actions'); let saving = false;
             const finish = result => { if (saving) return; dialog.close?.(); dialog.remove(); resolve(result); };
@@ -647,15 +661,29 @@ export class PatchLibrary {
         await this.app.writeClipboardText(savedPatchUrl(record.id, this.window.location.origin));
         this.notice('Link copied.');
     }
+    storeSignInDraft(intent) {
+        this.window.sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ state: this.app.host.serializePatch(), name: this.app.getCurrentPatchName(), active: this.active, baseline: this.baseline, intent, createdAt: Date.now() }));
+    }
     async signIn(intent = null) {
         if (!this.config.enabled) { this.notice('Sign-in is unavailable. Try again later.'); return; }
-        this.window.sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ state: this.app.host.serializePatch(), name: this.app.getCurrentPatchName(), active: this.active, baseline: this.baseline, intent, createdAt: Date.now() }));
-        this.redirecting = true;
-        const callbackUrl = this.active?.source === 'cloud'
-            ? rackPatchUrl(this.active.id, this.window.location.origin)
-            : this.window.location.href;
-        try { await this.cloud.signIn(callbackUrl); }
-        catch (error) { this.redirecting = false; throw error; }
+        const method = await chooseSignIn({ document: this.document, methods: this.config.authMethods,
+            google: async () => {
+                this.storeSignInDraft(intent);
+                this.redirecting = true;
+                const callback = this.active?.source === 'cloud' ? rackPatchUrl(this.active.id, this.window.location.origin) : this.window.location.href;
+                try { await this.cloud.signIn(callback); } catch (error) { this.redirecting = false; throw error; }
+            },
+            email: address => this.cloud.sendEmailLink(address)
+        });
+        if (method === 'email') {
+            this.emailSignIn = { intent, generation: this.loadGeneration };
+            this.notice(emailSentNotice);
+        }
+        return method;
+    }
+    async resumeSignInIntent(intent) {
+        if (intent?.action === 'save') void this.openSave({ copy: intent.copy, destination: 'cloud' });
+        if (intent?.action === 'like') await this.run(async () => { await this.cloud.like(intent.id, true); this.notice('Liked.'); });
     }
     async restoreDraft() {
         const raw = this.window.sessionStorage.getItem(DRAFT_KEY); if (!raw) return false;
@@ -689,8 +717,7 @@ export class PatchLibrary {
                 } catch { /* The recovered rack remains usable if access changed. */ }
             }
             if (!this.user || restoredGeneration !== this.loadGeneration || account !== this.accountGeneration) return;
-            if (draft.intent?.action === 'save') void this.openSave({ copy: draft.intent.copy, destination: 'cloud' });
-            if (draft.intent?.action === 'like') await this.run(async () => { await this.cloud.like(draft.intent.id, true); this.notice('Liked.'); });
+            await this.resumeSignInIntent(draft.intent);
         });
         return true;
     }

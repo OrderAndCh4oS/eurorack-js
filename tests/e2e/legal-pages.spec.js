@@ -7,7 +7,8 @@ test('privacy and terms are public, server-rendered and linked from the instrume
         const privacy = await document.goto('/privacy-policy');
         expect(privacy.status()).toBe(200);
         await expect(document.getByRole('heading', { name: 'Privacy policy', exact: true })).toBeVisible();
-        await expect(document.getByRole('heading', { name: 'Google sign-in and saved data' })).toBeVisible();
+        await expect(document.getByRole('heading', { name: 'Sign-in and saved data' })).toBeVisible();
+        await expect(document.getByRole('link', { name: 'Resend’s privacy policy' })).toBeVisible();
         await expect(document.locator('a[href="mailto:support@orderandchaos.xyz"]').first()).toBeVisible();
         await document.screenshot({ path: testInfo.outputPath('privacy-desktop.png') });
         await document.getByRole('link', { name: 'Terms of service', exact: true }).click();

@@ -4,6 +4,8 @@ The application remains a static synthesizer. The single Vercel Web Handler in `
 
 ## Authentication decision
 
+Email sign-in uses the branch-specific Neon managed Better Auth Magic Link plugin. Its signed `send.magic_link` webhook calls the Vercel function, which delivers the email through Resend. The link opens a confirmation page. On confirmation, the server redeems the one-time token with Neon and uses Better Auth’s verified-account linking and session cookie. An existing Google user keeps their patch-owner ID. [Neon Magic Link](https://neon.com/docs/auth/guides/plugins/magic-link) · [Neon email events](https://neon.com/docs/auth/guides/customize-emails)
+
 Use self-hosted Better Auth on the application's Vercel origin with Google OAuth, backed by Neon PostgreSQL. Its `pg.Pool` adapter, Fetch handler and database-backed rate limiter are supported by the pinned installed package. Same-origin secure cookies avoid the separate auth-domain cookie dependency. Sessions are checked against the database on API calls, with no browser-readable JWT or cookie-session cache. Application mutations require the exact application Origin. Google and Better Auth own the OAuth state/PKCE/callback flow. [Better Auth PostgreSQL adapter](https://better-auth.com/docs/adapters/postgresql), [Better Auth installation](https://better-auth.com/docs/installation).
 
 `api/index.js` uses the documented `export default { fetch }` format. Rewrites forward `/api/:path*` to `/api?__path=/api/:path*`, `/patches/:id` to `/api?__path=/patches/:id`, and `/patches/:id/images/:previewId/:variant` to `/api?__path=/patches/:id/images/:previewId/:variant`. The entry point restores that route only if the runtime exposes the rewritten `/api` destination; otherwise it retains the original pathname. `/patches` is the static gallery. [Vercel Node runtime](https://vercel.com/docs/functions/runtimes/node-js), [Vercel rewrites](https://vercel.com/docs/routing/rewrites).
@@ -18,6 +20,8 @@ The existing Vercel project is connected to Neon with a separate preview databas
 | `BETTER_AUTH_URL` | Exact application origin, for example `https://your-domain.example`; no path. `APP_URL` is an accepted fallback. |
 | `BETTER_AUTH_SECRET` | High-entropy secret of at least 32 characters; server only. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google web OAuth application credentials. |
+| `NEON_AUTH_BASE_URL`, `RESEND_API_KEY` | Managed auth branch URL and server-only Resend sending key for email sign-in. |
+| `RESEND_FROM` | Optional Resend sender address on a verified domain. Defaults to `Eurorack JS <support@orderandchaos.xyz>`. |
 | `BLOB_READ_WRITE_TOKEN` | Server-only read/write token for the connected **private** Vercel Blob store. Takes priority over optional S3 configuration. Never include it in browser bundles or public configuration. |
 
 Google's authorized redirect URI is `<BETTER_AUTH_URL>/api/auth/callback/google`. Use separate credentials/database/bucket for development and preview deployments, with exact origins; never wildcard trust arbitrary preview domains. Vercel production must use HTTPS. No secret belongs in `dist`, public config, git, or a patch URL.

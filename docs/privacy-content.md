@@ -14,7 +14,9 @@ You can use the instrument without an account. Browser-saved patches, workbench 
 
 Audio synthesis and MIDI interaction run in your browser. Cloud patch saves contain module settings, connections and MIDI mappings, together with a rack image. They do not upload recorded audio or workbench source code.
 
-### Google sign-in and cloud data
+### Sign-in and cloud data
+
+If you request an email sign-in link, Neon creates a one-time verification token and Resend receives your email address and the link to deliver it. Confirming the link signs you in. Using the same verified email as your Google account opens your existing Eurorack JS account. [Resend privacy policy](https://resend.com/legal/privacy-policy)
 
 If you choose Google sign-in, Google provides an account identifier, email address, name, profile image and email-verification information. We use these to create and identify your account. Our authentication system also stores login tokens, sessions, timestamps, and available IP-address and browser information to maintain and protect sign-in. We do not receive your Google password or request access to Gmail, contacts, Drive or Calendar.
 
@@ -38,7 +40,7 @@ The editor loads **Vercel Web Analytics** before sign-in to help us understand v
 
 ### Service providers
 
-**Google** handles sign-in. **Neon** provides the database for accounts, sessions and cloud patch records. **Vercel** hosts the site and API, stores rack images in private Blob storage, and provides analytics and operational logging. Hosting and authentication may process ordinary request information, including IP addresses. The optional system-architecture page loads its diagram library from **jsDelivr**, which receives a normal web request when that page is opened.
+**Google** handles Google sign-in. **Neon** verifies email sign-ins and provides the database for accounts, sessions and cloud patch records. **Resend** delivers sign-in emails. **Vercel** hosts the site and API, stores rack images in private Blob storage, and provides analytics and operational logging. Hosting and authentication may process ordinary request information, including IP addresses. The optional system-architecture page loads its diagram library from **jsDelivr**, which receives a normal web request when that page is opened.
 
 These providers may process information outside the UK. Their privacy information is available from [Google](https://policies.google.com/privacy), [Neon/Databricks](https://www.databricks.com/legal/privacynotice), [Vercel](https://vercel.com/legal/privacy-notice) and [jsDelivr](https://www.jsdelivr.com/terms/privacy-policy). Contact us for questions about the providers used for this service.
 
@@ -64,7 +66,7 @@ These terms cover Eurorack JS at **eurorackjs.orderandchaos.xyz**, operated by *
 
 ### Using Eurorack JS
 
-Eurorack JS lets you build and play modular synthesizer patches in your browser. An account is optional for local use and needed for account-based saving and community actions. Keep access to your Google account secure and do not use someone else's account or bypass access controls, storage limits or security measures.
+Eurorack JS lets you build and play modular synthesizer patches in your browser. An account is optional for local use and needed for account-based saving and community actions. Keep your sign-in email and Google account secure and do not use someone else's account or bypass access controls, storage limits or security measures.
 
 Use the service lawfully. Do not upload material you have no right to share, malicious content, or another person's private information without permission. Do not falsely claim to be another creator or remove attribution to present their patch as entirely your own. Send abuse, copyright or privacy reports to the contact address above.
 

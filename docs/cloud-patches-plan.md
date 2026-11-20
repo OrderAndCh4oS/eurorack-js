@@ -1,5 +1,7 @@
 # Cloud patch storage and login plan
 
+This November 13 implementation record documents the original Google-only release. The current sign-in flow also supports Neon managed Better Auth email links delivered through Resend. [Current setup and account behavior](cloud-setup.md)
+
 Add Google login, private and public cloud patches, and a public patch catalogue using Neon and Vercel. Public patches have rack-only preview images, thumbs-up reactions, Save a copy, and stable saved-patch URLs with social previews. Keep the existing browser synthesizer and its current patch serialization and transactional loading boundary. Cloud records store full version 3 JSON, with account, visibility, and community metadata outside the patch state.
 
 This plan and implementation record was updated on 13 November 2026. Users can save privately or publicly and switch an existing patch between those states. New patches default to private. Every copy is initially a private fork and requires a subsequent explicit Save before publication. The existing unsaved, self-contained code URL is a separate feature from a saved patch's permanent URL. Test patches get their own illustrated view; the existing musical demos are archived for later work. Collaborative editing, comments, automatic background synchronization, script storage, and recorded audio uploads are later features.

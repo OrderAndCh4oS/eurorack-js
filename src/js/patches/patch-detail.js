@@ -1,5 +1,6 @@
 import { CloudClient, newRequestId, savedPatchUrl, rackPatchUrl } from './cloud-client.js';
 import { LocalPatchStore } from './local-patch-store.js';
+import { chooseSignIn, emailSentNotice } from '../ui/sign-in-dialog.js';
 
 const cloud = new CloudClient();
 const document = globalThis.document;
@@ -36,8 +37,12 @@ function render() {
 
 async function signIn(intent) {
     if (!config?.enabled) throw new Error('Sign-in is unavailable. Try again later.');
-    sessionStorage.setItem('eurorack-detail-intent', JSON.stringify({ id, action: intent }));
-    await cloud.signIn(location.href);
+    const remember = () => sessionStorage.setItem('eurorack-detail-intent', JSON.stringify({ id, action: intent }));
+    const method = await chooseSignIn({ document, methods: config.authMethods,
+        google: () => { remember(); return cloud.signIn(location.href); },
+        email: address => cloud.sendEmailLink(address) });
+    if (method === 'email') { remember(); status(emailSentNotice); }
+    return method;
 }
 
 function copyDialog() {
@@ -51,7 +56,10 @@ function copyDialog() {
     const output = node('p'); output.setAttribute('role', 'alert');
     const actions = node('div'); actions.className = 'patch-actions'; const cancel = button('Cancel', 'cancel-copy'); cancel.addEventListener('click', () => { dialog.close(); dialog.remove(); });
     const submit = node('button', 'Save copy'); submit.type = 'submit'; actions.append(cancel, submit);
-    if (!user) { const login = button('Sign in with Google', 'dialog-login'); login.addEventListener('click', () => signIn('copy').catch(error => { output.textContent = error.message; })); actions.append(login); }
+    if (!user) { const login = button('Sign in to save to your account', 'dialog-login'); login.addEventListener('click', async () => {
+        try { if (await signIn('copy') === 'email') { dialog.close(); dialog.remove(); } }
+        catch (error) { output.textContent = error.message; }
+    }); actions.append(login); }
     form.append(title, label, node('p'), targetLabel, help, output, actions); dialog.append(form); document.body.append(dialog); dialog.showModal();
     form.addEventListener('submit', async event => {
         event.preventDefault(); submit.disabled = true; cancel.disabled = true;
@@ -83,6 +91,10 @@ async function action(name, trigger) {
 }
 
 if (id) {
+    window.addEventListener('focus', async () => {
+        if (user || !sessionStorage.getItem('eurorack-detail-intent')) return;
+        try { if ((await cloud.me()).user) location.reload(); } catch (error) { status(error.message); }
+    });
     document.addEventListener('click', event => { const target = event.target.closest('[data-action]'); if (target && ['sign-in', 'share', 'copy', 'like'].includes(target.dataset.action)) void action(target.dataset.action, target).catch(error => status(error.message)); });
     void (async () => {
         config = await cloud.configuration();

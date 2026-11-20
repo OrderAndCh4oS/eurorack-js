@@ -21,9 +21,19 @@ export function readImageConfig(env = process.env) {
     if (env.BLOB_READ_WRITE_TOKEN) return { provider: 'vercel-blob', enabled: typeof env.BLOB_READ_WRITE_TOKEN === 'string' && !!env.BLOB_READ_WRITE_TOKEN.trim(), token: env.BLOB_READ_WRITE_TOKEN };
     return readS3ImageConfig(env);
 }
+export function readEmailAuthConfig(env) {
+    if (!env.RESEND_API_KEY?.trim()) return null;
+    try {
+        const url = new URL(env.NEON_AUTH_BASE_URL);
+        if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) return null;
+        return { neonUrl: url.href.replace(/\/$/, ''), apiKey: env.RESEND_API_KEY, from: env.RESEND_FROM?.trim() || 'Eurorack JS <support@orderandchaos.xyz>' };
+    } catch { return null; }
+}
 export function readConfig(env = process.env) {
-    const required = ['BETTER_AUTH_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'];
-    const missing = required.filter(key => !env[key]);
+    const missing = env.BETTER_AUTH_SECRET ? [] : ['BETTER_AUTH_SECRET'];
+    const emailAuth = readEmailAuthConfig(env);
+    const authMethods = { google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), magicLink: !!emailAuth };
+    if (!authMethods.google && !authMethods.magicLink) missing.push('Google OAuth or Neon magic link configuration');
     const databaseUrl = env.DATABASE_URL || env.STORAGE_URL;
     let databaseConfigured = false;
     try {
@@ -41,5 +51,5 @@ export function readConfig(env = process.env) {
         baseUrl = parsed.origin;
     } catch { if (!missing.includes('BETTER_AUTH_URL')) missing.push('BETTER_AUTH_URL (valid application origin)'); }
     const imagesEnabled = readImageConfig(env).enabled;
-    return { enabled: missing.length === 0, imagesEnabled, baseUrl, databaseUrl, databaseConfigured, missing };
+    return { enabled: missing.length === 0, imagesEnabled, baseUrl, databaseUrl, databaseConfigured, authMethods, emailAuth, missing };
 }

@@ -120,6 +120,14 @@ export class CloudClient {
         if (result.error) throw new Error(result.error.message || 'Could not sign in. Try again.');
         return result;
     }
+    async sendEmailLink(email) {
+        const { error } = await (await this.auth()).signIn.magicLink({ email });
+        if (error) throw new Error(error.message || 'Could not send the sign-in link. Try again.');
+    }
+    async confirmEmailLink(token) {
+        const { error } = await (await this.auth()).magicLink.confirm({ token });
+        if (error) throw new Error(error.message || 'Could not sign in. Request a new link.');
+    }
     async signOut() {
         const result = await (await this.auth()).signOut();
         if (result.error) throw new Error(result.error.message || 'Could not sign out. Try again.');

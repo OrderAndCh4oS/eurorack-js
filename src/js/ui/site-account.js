@@ -1,5 +1,6 @@
 import { CloudClient } from '../patches/cloud-client.js';
 import { openProfileDialog } from './profile-dialog.js';
+import { chooseSignIn, emailSentNotice } from './sign-in-dialog.js';
 
 // Account controls for static docs and introduction pages. Keep this independent
 // of rack state, audio modules, patch catalogues, and image preview generation.
@@ -60,7 +61,7 @@ export class SiteAccount {
         const button = this.document.getElementById('patchAccount');
         if (button) {
             button.textContent = this.user ? 'Sign out' : 'Sign in';
-            button.title = this.user ? `Signed in as ${this.user.name}` : 'Sign in with Google';
+            button.title = this.user ? `Signed in as ${this.user.name}` : 'Sign in to your account';
             button.disabled = !this.initialized || this.authPending;
             button.setAttribute('aria-busy', String(!this.initialized || this.authPending));
         }
@@ -81,7 +82,12 @@ export class SiteAccount {
         if (this.disposed || this.authPending) return false;
         if (!this.config.enabled) { this.notice('Sign-in is unavailable. Try again later.'); return false; }
         this.authPending = true; this.updateAccount();
-        try { await this.cloud.signIn(this.window.location.href); return true; }
+        try {
+            const method = await chooseSignIn({ document: this.document, methods: this.config.authMethods,
+                google: () => this.cloud.signIn(this.window.location.href), email: address => this.cloud.sendEmailLink(address) });
+            if (method === 'email') this.notice(emailSentNotice);
+            return !!method;
+        }
         finally { this.authPending = false; if (!this.disposed) this.updateAccount(); }
     }
 

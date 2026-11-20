@@ -8,7 +8,7 @@ Browser-based Eurorack modular synthesizer and patch-sharing community. Build a 
 
 ## Patches and community
 
-Play the synth and explore public patches without an account. Sign in with Google to save patches to your account, publish your own, and give other people's patches a thumbs-up.
+Play the synth and explore public patches without an account. Sign in with Google or an email link to save patches to your account, publish your own, and give other people's patches a thumbs-up.
 
 - **Discover patches.** Browse **Public patches** with rack previews, descriptions, and creator credits. Open any patch directly in the rack to play it or try changes.
 - **Find something new.** Search the catalogue and sort by **Newest** or **Most popular**, ranked by thumbs-up received across all time, the past day, week, month, or year. Search, filters, and cursor-based pagination live in the URL, so links, refresh, and browser back/forward preserve your place.
@@ -256,7 +256,7 @@ src/js/
     └── voltage.js        # Shared voltage rail limiting
 ```
 
-Account and community features use a Node.js API on Vercel Functions, Better Auth for Google sign-in, Neon PostgreSQL for accounts, patches, copy lineage, and thumbs-up, and private Vercel Blob storage for rack images. The synthesizer and audio processing run in the browser. See [cloud setup](docs/cloud-setup.md) and [backend contracts](docs/cloud-backend.md) for configuration and access rules.
+Account and community features run on Vercel Functions. Better Auth handles Google sign-in and app sessions. Neon managed Better Auth verifies email links delivered by Resend. Neon PostgreSQL stores accounts and patches, and private Vercel Blob stores rack images. The synthesizer and audio processing run in the browser. See [cloud setup](docs/cloud-setup.md) and [backend contracts](docs/cloud-backend.md).
 
 Runtime invariants:
 

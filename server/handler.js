@@ -22,18 +22,22 @@ async function readJson(request) {
         assert(value && !Array.isArray(value) && typeof value === 'object', 'Expected a JSON object.'); return value;
     } catch (error) { if (error instanceof HttpError) throw error; throw new HttpError(400, 'invalid_json', 'Invalid JSON request.'); }
 }
-export function createHandler({ store, authenticate = async () => null, authHandler, imageStore, baseUrl = 'http://localhost:3000', enabled = true, configurationMessage, cleanupSecret, service: suppliedService, ...serviceOptions } = {}) {
+export function createHandler({ store, authenticate = async () => null, authHandler, emailHandler, authMethods = { google: true, magicLink: false }, imageStore, baseUrl = 'http://localhost:3000', enabled = true, configurationMessage, cleanupSecret, service: suppliedService, ...serviceOptions } = {}) {
     const service = suppliedService || (store && createPatchService({ store, imageStore, ...serviceOptions }));
     const origin = new URL(baseUrl).origin;
     return async request => {
         const url = new URL(request.url); const path = url.pathname.replace(/\/$/, '') || '/'; const method = request.method;
         try {
-            if (path === '/api/config' && method === 'GET') return json({ enabled, authEnabled: enabled, imagesEnabled: enabled && !!imageStore, limits: LIMITS,
+            if (path === '/api/config' && method === 'GET') return json({ enabled, authEnabled: enabled, authMethods: enabled ? authMethods : { google: false, magicLink: false }, imagesEnabled: enabled && !!imageStore, limits: LIMITS,
                 ...(!enabled ? { message: configurationMessage || 'Account saving is unavailable. Try again later.' } : {}) });
             const detail = /^\/patches\/([0-7][0-9A-HJKMNP-TV-Z]{25})$/.exec(path);
             if (!enabled) {
                 if (detail && method === 'GET') return new Response(await rackPage(null, origin, detail[1]), { status: 503, headers: { ...securityHeaders, 'Content-Type': 'text/html; charset=utf-8' } });
                 throw new HttpError(503, 'cloud_not_configured', configurationMessage || 'Account saving is unavailable. Try again later.');
+            }
+            if (path === '/api/webhooks/neon-auth' && method === 'POST' && emailHandler) {
+                await emailHandler(request.headers, await boundedBody(request, 32768));
+                return json({ received: true });
             }
             if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
                 assert(request.headers.get('origin') === origin, 'Refresh the page and try again.', 403, 'invalid_origin');
@@ -128,7 +132,8 @@ export async function productionHandler(request) {
         const [{ Pool }, { createAuth }, { PostgresStore }, { createImageStore }] = await Promise.all([import('pg'), import('./auth.js'), import('./postgres-store.js'), import('./image-store.js')]);
         const pool = new Pool({ connectionString: config.databaseUrl, max: 3, idleTimeoutMillis: 20000, connectionTimeoutMillis: 10000 });
         const auth = createAuth(pool, process.env);
-        return createHandler({ store: new PostgresStore(pool), baseUrl: config.baseUrl, cleanupSecret: process.env.CRON_SECRET, authHandler: request => auth.handler(request),
+        const emailHandler = config.emailAuth && (await import('./neon-auth-email.js')).createNeonEmailHandler(config.emailAuth, config.baseUrl);
+        return createHandler({ store: new PostgresStore(pool), baseUrl: config.baseUrl, authMethods: config.authMethods, emailHandler, cleanupSecret: process.env.CRON_SECRET, authHandler: request => auth.handler(request),
             authenticate: async request => (await auth.api.getSession({ headers: request.headers }))?.user || null,
             imageStore: config.imagesEnabled ? await createImageStore(process.env) : undefined });
     })().catch(error => { production = undefined; throw error; });

@@ -70,7 +70,7 @@ test('direct pages share rack navigation and support profile changes without loa
     let signInRequest;
     const requested = [];
     page.on('request', request => requested.push(new URL(request.url()).pathname));
-    await page.route('**/api/config', route => route.fulfill({ json: { enabled: true, authEnabled: true } }));
+    await page.route('**/api/config', route => route.fulfill({ json: { enabled: true, authMethods: { google: true, magicLink: true } } }));
     await page.route('**/api/me', async route => {
         if (route.request().method() === 'PATCH') user = { ...user, ...route.request().postDataJSON() };
         await route.fulfill({ json: { user } });
@@ -104,6 +104,7 @@ test('direct pages share rack navigation and support profile changes without loa
     await expect(page.locator('#patchAccount')).toHaveText('Sign in');
     await expect(page.locator('#patchProfile')).toBeHidden();
     await page.locator('#patchAccount').click();
+    await page.getByRole('button', { name: 'Continue with Google' }).click();
     await expect.poll(() => signInRequest?.callbackURL).toBe(page.url());
     expect(signInRequest.provider).toBe('google');
     expect(requested.some(path => /\/js\/(app\/app|ui\/patch-library|modules\/|config\/patches)/.test(path))).toBe(false);

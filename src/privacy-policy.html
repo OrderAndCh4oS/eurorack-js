@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Privacy policy · Eurorack JS</title>
-    <meta name="description" content="How Eurorack JS handles Google sign-in, private and public patches, rack images, cookies and analytics.">
+    <meta name="description" content="How Eurorack JS handles Google and email sign-in, private and public patches, rack images, cookies and analytics.">
     <link rel="canonical" href="https://eurorackjs.orderandchaos.xyz/privacy-policy">
     <link rel="stylesheet" href="/legal.css">
 </head>
@@ -16,7 +16,7 @@
         <p class="eyebrow">Your account. Your patches.</p>
         <h1>Privacy policy</h1>
         <p class="intro">How we handle information when you play, save and share with Eurorack JS.</p>
-        <p class="updated">Last updated · 13 November 2026</p>
+        <p class="updated">Last updated · 20 November 2026</p>
     </header>
     <aside class="quick-note"><p>You can use the instrument without an account. Cloud patches can be private or public. Public patches can be copied by other users, with original creator credit.</p></aside>
     <section>
@@ -29,7 +29,8 @@
         <p>Cloud saves contain module settings, connections and MIDI mappings, together with a rack image. They do not upload recorded audio or workbench source code. Clearing this site's browser storage removes local records; it does not delete your cloud patches.</p>
     </section>
     <section>
-        <h2>Google sign-in and saved data</h2>
+        <h2>Sign-in and saved data</h2>
+        <p>If you request an email sign-in link, Neon creates a one-time verification token and Resend receives your email address and the link to deliver it. Confirming the link signs you in. Using the same verified email as your Google account opens your existing Eurorack JS account.</p>
         <p>If you choose Google sign-in, Google provides an account identifier, email address, name, profile image and email-verification information. We use this information to create and identify your account. Our authentication system stores login tokens, sessions, timestamps and available IP-address and browser information to maintain and protect sign-in.</p>
         <p>We do not receive your Google password or request access to Gmail, contacts, Drive or Calendar. We do not sell your personal information or use your Google profile for advertising.</p>
         <p>Cloud features store your patches, titles, descriptions, chosen creator name, visibility, rack images, saved revisions, copy ancestry and thumbs-up records. We use account and patch information to provide the service you request. For UK data-protection purposes, we rely on providing that service for this processing, and our legitimate interests in operating, securing and understanding use of the service for proportionate technical and usage information.</p>
@@ -48,8 +49,9 @@
     <section>
         <h2>Service providers</h2>
         <ul>
-            <li><strong>Google</strong> handles sign-in.</li>
-            <li><strong>Neon</strong> provides the database for accounts, sessions and cloud patches.</li>
+            <li><strong>Google</strong> handles Google sign-in.</li>
+            <li><strong>Neon</strong> verifies email sign-ins and provides the database for accounts, sessions and cloud patches.</li>
+            <li><strong>Resend</strong> delivers sign-in emails. Read <a href="https://resend.com/legal/privacy-policy">Resend’s privacy policy</a>.</li>
             <li><strong>Vercel</strong> hosts the site and API, stores rack images in private Blob storage, and provides analytics and operational logs.</li>
             <li>The optional system-architecture guide loads its diagram library from <strong>jsDelivr</strong>, which receives a normal web request when you open that guide.</li>
         </ul>

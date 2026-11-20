@@ -1,6 +1,6 @@
 # Account and patch sharing setup
 
-The backend is Node.js on Vercel Functions, Better Auth with Google sign-in, Neon PostgreSQL for accounts/patches/forks/thumbs-up, and **private Vercel Blob** for rack images. The instrument still runs in the browser. See [the implementation plan](cloud-patches-plan.md) and [backend contracts](cloud-backend.md).
+Vercel Functions run the app’s Better Auth session service. Google OAuth and Neon managed Better Auth email links share one account for the same verified email. Resend delivers the links, Neon PostgreSQL stores accounts and patches, and private Vercel Blob stores rack images. See [backend contracts](cloud-backend.md).
 
 ## Already configured
 
@@ -14,6 +14,16 @@ The backend is Node.js on Vercel Functions, Better Auth with Google sign-in, Neo
 - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are configured for **Production only**. The live `/api/config` reports `enabled`, `authEnabled`, and `imagesEnabled` as `true`.
 - Live anonymous checks passed: `/api/me` returned `configured: true, user: null`, the public patch listing returned HTTP 200, and the private patch listing returned HTTP 401.
 - Live sign-in initiation returned an `accounts.google.com` authorization URL with the canonical `/api/auth/callback/google` redirect, only `email profile openid` scopes, and PKCE `S256`. A real user must still complete Google sign-in to verify the callback, session persistence, and logout.
+
+## Enable email sign-in
+
+1. Connect the Neon branch to the matching Vercel project environment. It supplies `NEON_AUTH_BASE_URL`. Keep the existing `BETTER_AUTH_SECRET`, database connection and exact `BETTER_AUTH_URL` for that environment.
+2. Set the server-only `RESEND_API_KEY` in Vercel. The default sender is `Eurorack JS <support@orderandchaos.xyz>`. Verify the sending domain in Resend, or set `RESEND_FROM` to an address on a domain verified for that key. Disable click tracking for sign-in mail so the verification link reaches the browser intact. [Resend domains](https://resend.com/docs/dashboard/domains/introduction)
+3. Deploy the app. In the Neon branch’s **Settings → Better Auth → Webhooks**, subscribe `send.magic_link` to `<BETTER_AUTH_URL>/api/webhooks/neon-auth`. Use the stable alias for the matching environment. For a protected Vercel preview, the webhook URL needs a project automation bypass scoped to that preview where available. Include its secret query parameter only in the Neon webhook configuration. Keep the preview deployment protected. [Neon webhooks](https://neon.com/docs/auth/guides/webhooks) · [Vercel automation bypass](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation)
+4. Add the exact app origin to the branch’s trusted domains. In **Magic Link**, enable the plugin and allow new user registration. The default link lifetime is five minutes. Configure each preview branch’s webhook for its own deployment. [Neon Magic Link](https://neon.com/docs/auth/guides/plugins/magic-link)
+5. Check `/api/config` for `authMethods.magicLink`. It reports local configuration. Test delivery and redemption with an inbox you control. Signing in with the verified email of a Google account should open that account’s saved patches. Google credentials are optional in an email-only preview.
+
+The existing Better Auth account, session and verification tables support this change without an application database migration.
 
 ## Create the Google client
 

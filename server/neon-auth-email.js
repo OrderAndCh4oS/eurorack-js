@@ -24,11 +24,21 @@ export function createNeonEmailHandler({ neonUrl, apiKey, from }, appOrigin,
             .catch(() => { throw unauthorized(); });
         if (!protectedHeader.kid || protectedHeader.kid !== headers.get('x-neon-signature-kid')) throw unauthorized();
         const event = JSON.parse(body.toString('utf8'));
-        assert(event.event_type === 'send.magic_link' && event.event_type === headers.get('x-neon-event-type')
-            && z.uuid().safeParse(event.event_id).success && event.event_id === headers.get('x-neon-event-id')
-            && event.context?.endpoint_id === branch.hostname.split('.')[0], 'Invalid Neon email event.');
         const data = event.event_data, email = event.user?.email;
-        assert(z.email().safeParse(email).success && Object.hasOwn(subjects, data?.link_type), 'Invalid email message.');
+        // The signature covers the envelope. Use its event ID for retries and
+        // its branch for isolation even when a proxy rewrites transport headers.
+        const checks = {
+            event: event.event_type === 'send.magic_link',
+            id: typeof event.event_id === 'string' && /^[\w-]{1,128}$/.test(event.event_id),
+            branch: event.context?.endpoint_id === branch.hostname.split('.')[0],
+            recipient: z.email().safeParse(email).success,
+            type: Object.hasOwn(subjects, data?.link_type)
+        };
+        const rejected = Object.keys(checks).filter(key => !checks[key]);
+        if (rejected.length) {
+            console.warn('Neon email event rejected', { fields: rejected });
+            throw new HttpError(400, 'invalid_email_event', 'Invalid Neon email event.');
+        }
         const subject = subjects[data.link_type];
         let link;
         if (data.link_type === 'sign-in') {
@@ -49,6 +59,11 @@ export function createNeonEmailHandler({ neonUrl, apiKey, from }, appOrigin,
             body: JSON.stringify({ from, to: [email], subject, text: `${subject}\n\n${link.href}\n\n${note}`,
                 html: `<p><a href="${href}">${subject}</a></p><p>${note}</p>` })
         });
-        if (!response.ok) throw new HttpError(502, 'email_delivery_failed', 'Email delivery is temporarily unavailable.');
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            console.warn('Resend rejected an authentication email', { status: response.status,
+                code: /^[a-z_]{1,64}$/.test(error.name) ? error.name : 'unknown' });
+            throw new HttpError(502, 'email_delivery_failed', 'Email delivery is temporarily unavailable.');
+        }
     };
 }

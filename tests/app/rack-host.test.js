@@ -98,6 +98,75 @@ function createTestPatch({
 }
 
 describe('RackHost', () => {
+    it('copies a snapshot in rack order and remaps only internal cables, including fan-out and feedback', async () => {
+        const { host } = await createHost();
+        const outside = host.addModule('sink').id;
+        const a = host.addModule('source', { params: { level: 0.625 } });
+        const b = host.addModule('sink').id;
+        const c = host.addModule('sink', { row: 2 }).id;
+        const wire = (fromModule, toModule) => ({ fromModule, fromPort: 'out', toModule, toPort: 'in' });
+        for (const cable of [wire(a.id, a.id), wire(a.id, b), wire(a.id, outside), wire(outside, c)]) host.connect(cable);
+        const group = host.copyModules(new Set([c, b, a.id]));
+        expect(group.modules.map(m => m.id)).toEqual([a.id, b, c]);
+        expect(group.cables).toEqual([wire(a.id, a.id), wire(a.id, b)]);
+        host.setParam(a.id, 'level', 0.2);
+        const original = host.serializePatch();
+        const originalInstance = a.instance;
+        host.engine = { setPatchState: vi.fn().mockResolvedValue(undefined) };
+
+        const { modules, cables } = await host.pasteModules(group, { row: 1, afterId: b });
+        const [one, two, three] = modules.map(m => m.id);
+        expect(new Set([outside, a.id, b, c, one, two, three]).size).toBe(7);
+        expect(host.state.getRow(1)).toEqual([outside, a.id, b, one, two]);
+        expect(host.state.getRow(2)).toEqual([c, three]);
+        expect(cables).toEqual([wire(one, one), wire(one, two)]);
+        expect(host.state.cables).toEqual([...original.cables, ...cables]);
+        expect(host.state.getParam(one, 'level')).toBe(0.625);
+        expect(host.state.getModule(a.id).instance).toBe(originalInstance);
+        expect(host.engine.setPatchState).toHaveBeenCalledTimes(1);
+        expect(host.engine.setPatchState.mock.calls[0][1].replace).toBe(false);
+    });
+
+    it('keeps a copied row together, allocates fresh IDs across types and cleans up a failed paste', async () => {
+        const { host } = await createHost();
+        host.state.maxHPPerRow = 4;
+        host.addModule('sink', { id: 'source_2' });
+        const source = host.addModule('source');
+        const group = host.copyModules(new Set(['source_2', source.id]));
+        const first = await host.pasteModules(group, { row: 1 });
+        expect(first.modules.map(m => m.row)).toEqual([2, 2]);
+        expect(first.modules[1].id).toBe('source_3');
+        const before = host.serializePatch();
+        const rows = host.state.getRowNumbers();
+        host.engine = { setPatchState: vi.fn().mockRejectedValueOnce(new Error('worklet rejected paste')).mockResolvedValue(undefined) };
+        await expect(host.pasteModules(group)).rejects.toThrow('worklet rejected paste');
+        expect(host.serializePatch()).toEqual(before);
+        expect(host.state.getRowNumbers()).toEqual(rows);
+        await expect(host.pasteModules({ ...group, plugins: { 'test-plugin': 99 } })).rejects.toThrow('contract');
+        expect(host.serializePatch()).toEqual(before);
+    });
+
+    it('leaves a replacement patch and its rows alone if an earlier paste fails', async () => {
+        const { host } = await createHost();
+        host.state.maxHPPerRow = 2;
+        host.addModule('source', { row: 1 });
+        host.addModule('sink', { row: 2 });
+        const fragment = host.copyModules(['source_1']);
+        let rejectPaste;
+        host.engine = { setPatchState: vi.fn().mockImplementationOnce(() => new Promise((_, reject) => {
+            rejectPaste = reject;
+        })).mockResolvedValue(undefined) };
+        const pending = host.pasteModules(fragment);
+        expect(host.state.getRow(3)).toEqual(['source_2']);
+        await host.loadPatch(createTestPatch({ id: 'source_2', level: 0.75 }));
+        host.state.addRow();
+        rejectPaste(new Error('Earlier revision failed'));
+        await expect(pending).rejects.toThrow('Earlier revision failed');
+        expect(host.state.getParam('source_2', 'level')).toBe(0.75);
+        expect(host.state.getRowNumbers()).toEqual([1, 2, 3]);
+        expect(host.engine.setPatchState).toHaveBeenCalledTimes(2);
+    });
+
     it('rejects a second cable to an occupied input while preserving output fan-out', async () => {
         const { host } = await createHost();
         host.addModule('source', { id: 'source_1' });

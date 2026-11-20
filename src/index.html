@@ -945,6 +945,12 @@
             cursor: grabbing;
         }
 
+        .rack-row .module.module-selected {
+            outline: 3px solid var(--factory-orange, #ff4a0a);
+            outline-offset: -3px;
+        }
+        .rack-row .module-label:focus-visible { outline: 2px solid currentColor; }
+
         .module.dragging {
             position: absolute;
             opacity: 0;
@@ -1885,12 +1891,14 @@
     <div class="sidebar" id="sidebar">
         <!-- Module categories populated by JS -->
     </div>
-    <div class="rack-container" id="rack-container">
+    <div class="rack-container" id="rack-container" tabindex="0" role="region" aria-label="Rack editor">
         <div class="rack rack-row" id="rack-row-1"></div>
         <div class="rack rack-row" id="rack-row-2"></div>
         <div class="rack-bottom-bar">
             <div class="cable-hints">
-                Click and drag modules to reorder them or move between racks<br>
+                Click a panel to select it. Shift-click for a range, Ctrl/⌘-click to toggle individual panels.<br>
+                Ctrl/⌘+C copies. Ctrl/⌘+V pastes the modules with their internal cables. Click an empty row to paste there.<br>
+                Drag a panel to reorder it or move it between rows.<br>
                 Drag sockets to add or move cable ends<br>
                 Shift+click to add additional cables<br>
                 Ctrl+click to cycle cables<br>

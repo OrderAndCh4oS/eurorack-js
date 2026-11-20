@@ -103,9 +103,15 @@ export class RackState {
         }, 0);
     }
 
-    generateInstanceId(type) {
-        this.instanceCounters[type] = (this.instanceCounters[type] || 0) + 1;
-        return `${type}_${this.instanceCounters[type]}`;
+    generateInstanceId(type, reservedIds = null) {
+        let counter = this.instanceCounters[type] || 0;
+        let id;
+        do {
+            counter = Number.isSafeInteger(counter + 1) ? counter + 1 : 1;
+            id = `${type}_${counter}`;
+        } while (this.modules.has(id) || reservedIds?.has(id));
+        this.instanceCounters[type] = counter;
+        return id;
     }
 
     reserveInstanceId(id, type) {
@@ -380,30 +386,30 @@ export class RackState {
         this.midiMappings = { ...(patchState.midiMappings || {}) };
     }
 
-    serializePatch(registry = null) {
+    serializePatch(registry = null, selection = null) {
         const modules = [];
+        const paramEntries = [];
         this.getRowNumbers().forEach(row => {
             this.rows[row].forEach((id, index) => {
+                if (selection && !selection.has(id)) return;
                 const mod = this.modules.get(id);
                 if (mod) {
                     modules.push({ id, type: mod.type, row, index });
+                    paramEntries.push([id, clone(mod.params)]);
                 }
             });
         });
-
-        const params = {};
-        this.modules.forEach((mod, id) => {
-            params[id] = clone(mod.params);
-        });
-
+        const cables = selection
+            ? this.cables.filter(cable => selection.has(cable.fromModule) && selection.has(cable.toModule))
+            : this.cables;
         const moduleTypes = modules.map(module => module.type);
         return {
             version: 3,
             plugins: registry?.getPatchDependencies?.(moduleTypes) || { core: 1 },
             modules,
-            params,
-            cables: this.cables.map(cable => ({ ...cable })),
-            midiMappings: { ...this.midiMappings }
+            params: Object.fromEntries(paramEntries),
+            cables: cables.map(cable => ({ ...cable })),
+            midiMappings: selection ? {} : { ...this.midiMappings }
         };
     }
 }

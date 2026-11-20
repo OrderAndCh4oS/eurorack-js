@@ -91,6 +91,91 @@ export class RackHost {
         return moduleState;
     }
 
+    copyModules(ids) {
+        return this.state.serializePatch(this.registry, new Set(ids));
+    }
+
+    async pasteModules(fragment, { row = 1, afterId = null, onApplied } = {}) {
+        const patch = normalizePatch(fragment, { registry: this.registry });
+        const state = this.state;
+        if (!state.rows[row]) throw new Error('Choose an existing rack row to paste into.');
+        if (!patch.modules.length) return { modules: [], cables: [] };
+        const groups = new Map();
+        for (const module of patch.modules) {
+            if (typeof module.id !== 'string' || !Number.isSafeInteger(module.row) || module.row < 1 ||
+                !Number.isSafeInteger(module.index) || module.index < 0) throw new Error('Invalid copied module placement.');
+            if (!groups.has(module.row)) groups.set(module.row, []);
+            groups.get(module.row).push(module);
+        }
+        const sourceIds = new Set(patch.modules.map(module => module.id));
+        const copies = new Map();
+        const cables = [];
+        const addedRows = new Map();
+        let nextRow = row;
+        let activating = false;
+        let result;
+        try {
+            for (const sourceRow of [...groups.keys()].sort((a, b) => a - b)) {
+                const group = groups.get(sourceRow).sort((a, b) => a.index - b.index);
+                const width = group.reduce((hp, module) => hp + this.registry.get(module.type).hp, 0);
+                if (width > state.maxHPPerRow) throw new Error('The copied modules exceed the width of a rack row.');
+                let target = state.getRowNumbers().find(n => n >= nextRow && state.getRowHP(n, this.registry) + width <= state.maxHPPerRow);
+                if (!target) {
+                    target = state.addRow();
+                    addedRows.set(target, state.rows[target]);
+                }
+                const ids = state.getRow(target);
+                const anchor = target === row ? ids.indexOf(afterId) : -1;
+                let index = anchor < 0 ? ids.length : anchor + 1;
+                for (const original of group) {
+                    const copy = state.addModule(original.type, this.registry, {
+                        id: state.generateInstanceId(original.type, sourceIds),
+                        row: target,
+                        index: index++,
+                        params: Object.hasOwn(patch.params, original.id) ? patch.params[original.id] : null,
+                        releaseTransientActions: true
+                    });
+                    copies.set(original.id, copy);
+                    this.createDSP(copy);
+                }
+                nextRow = target + 1;
+            }
+            for (const cable of patch.cables) {
+                const copy = state.connect({
+                    ...cable,
+                    fromModule: copies.get(cable.fromModule).id,
+                    toModule: copies.get(cable.toModule).id
+                }, { registry: this.registry });
+                if (!copy) throw new Error('Could not connect the copied modules.');
+                cables.push(copy);
+            }
+            activating = true;
+            await this.syncTopology({ throwOnError: true });
+            const activeCables = new Set(state.cables);
+            result = {
+                modules: [...copies.values()].filter(copy => state.getModule(copy.id) === copy),
+                cables: cables.filter(cable => activeCables.has(cable))
+            };
+            onApplied?.(result);
+        } catch (error) {
+            // Other edits or a full rack replacement can finish while the audio worklet acknowledges the paste.
+            const ownedRows = [...addedRows].filter(([n, entries]) => state.rows[n] === entries);
+            const ownedModules = [...copies.values()].filter(copy => state.getModule(copy.id) === copy);
+            for (const copy of ownedModules) {
+                this.disposeDSP(copy);
+                state.removeModule(copy.id);
+            }
+            for (const [n] of ownedRows.reverse()) {
+                if (n === state.getRowCount() && !state.getRow(n).length) state.removeRow(n);
+            }
+            if (activating && ownedModules.length) await this.syncTopology();
+            throw error;
+        }
+        for (const module of result.modules) this.emit({ type: 'module-added', moduleId: module.id });
+        if (result.cables.length) this.emit({ type: 'cables-changed' });
+        return result;
+    }
+
     removeModule(moduleId) {
         const moduleState = this.state.getModule(moduleId);
         if (!moduleState) return null;

@@ -15,6 +15,7 @@ import { createCablePath, getJackCenter } from '../cables/cable-manager.js';
 import { createMidiManager } from '../midi/midi-manager.js';
 import { cleanupRenderedModule, renderModule, syncParamToModuleUI, updateModuleLEDs } from '../ui/renderer.js';
 import { setSwitchValue, updateKnobRotation } from '../ui/toolkit/components.js';
+import { RackSelection } from '../ui/rack-selection.js';
 import { controlRange, getControlDomain, snapControlValue } from '../rack/control-domain.js';
 import { RackState } from './rack-state.js';
 import { createRackHost } from './rack-host.js';
@@ -35,7 +36,8 @@ import { adjustColor, getModuleColorToken, isHexColor } from '../utils/color.js'
 export const PATCH_EXPORT_SCHEMA = 'eurorack-js/patch-export';
 export const PATCH_EXPORT_VERSION = 1;
 export const CABLE_OPACITY_STORAGE_KEY = 'eurorack-cables-full-opacity';
-const CABLE_DRAG_THRESHOLD_PX = 4;
+const DRAG_THRESHOLD_PX = 4;
+const PANEL_CONTROLS = '.jack, .knob, [data-param], button, input, select, textarea, a, canvas, [contenteditable], [role="slider"], [role="button"]:not(.module-label)';
 
 function isPlainObject(value) {
     return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -193,6 +195,7 @@ export class EurorackApp {
             onModuleError: ({ moduleId, error }) => console.error(`Module "${moduleId}" disabled:`, error)
         });
         this.state = this.host.state;
+        this.selection = new RackSelection(this);
         this.audioCtx = null;
         this.engine = null;
         this.midiManager = null;
@@ -201,6 +204,7 @@ export class EurorackApp {
         this.dragState = null;
         this.previewPath = null;
         this.draggedModule = null;
+        this.pendingModuleDrag = null;
         this.draggedModuleEl = null;
         this.dropIndicator = null;
         this.lastCtrlClickJack = null;
@@ -399,7 +403,8 @@ export class EurorackApp {
         this.document.addEventListener('mousemove', event => this.handleMouseMove(event));
         this.document.addEventListener('mouseup', event => this.handleMouseUp(event));
         this.document.addEventListener('contextmenu', event => {
-            if (event.target.closest('.jack')) event.preventDefault();
+            const panelToggle = event.ctrlKey && event.target.closest('.rack-row .module') && !event.target.closest(PANEL_CONTROLS);
+            if (event.target.closest('.jack') || panelToggle) event.preventDefault();
         });
         this.document.addEventListener('keydown', event => {
             if (event.key === 'Escape' && this.dragState) {
@@ -407,7 +412,7 @@ export class EurorackApp {
                 this.cancelCableDrag();
                 return;
             }
-            if (event.key === 'Escape' && this.draggedModule) {
+            if (event.key === 'Escape' && (this.draggedModule || this.pendingModuleDrag)) {
                 event.preventDefault();
                 this.cancelModuleDrag();
                 return;
@@ -416,6 +421,7 @@ export class EurorackApp {
                 this.toggleMidiLearnMode();
             }
         });
+        this.selection.bind(this.rackContainer);
 
         window.addEventListener('resize', () => this.renderAllCables());
         window.addEventListener('blur', () => {
@@ -531,6 +537,28 @@ export class EurorackApp {
         return moduleState.id;
     }
 
+    async pasteModules(fragment, destination) {
+        await this.localModuleRuntime.preparePatch(fragment);
+        let mounting = false;
+        const mountPanels = ({ modules, cables }) => {
+            mounting = true;
+            this.markEmptyRows();
+            for (const module of modules) {
+                if (!module.element?.isConnected) this.renderModule(module.id);
+            }
+            this.renderStateCables(cables);
+            this.renderAllCables();
+        };
+        try {
+            const { modules } = await this.host.pasteModules(fragment, { ...destination, onApplied: mountPanels });
+            if (modules.length) this.patchLibrary?.updateActiveLabel();
+            return modules;
+        } catch (error) {
+            if (mounting) this.rerenderRack();
+            throw error;
+        }
+    }
+
     renderModule(id) {
         const moduleState = this.state.getModule(id);
         const definition = pluginRegistry.get(moduleState.type);
@@ -543,6 +571,11 @@ export class EurorackApp {
 
         element.dataset.instanceId = id;
         element.dataset.row = moduleState.row;
+        const label = element.querySelector('.module-label');
+        label.tabIndex = 0;
+        label.setAttribute('role', 'button');
+        label.setAttribute('aria-label', `Select ${definition.name}`);
+        label.setAttribute('aria-pressed', 'false');
 
         const removeBtn = this.document.createElement('button');
         removeBtn.className = 'remove-btn';
@@ -560,15 +593,16 @@ export class EurorackApp {
         if (!rowEl) return;
         const rowIds = this.state.getRow(moduleState.row);
         const position = rowIds.indexOf(id);
-        const beforeId = rowIds[position + 1];
-        const beforeEl = beforeId ? this.document.getElementById(`module-${beforeId}`) : null;
+        const beforeId = rowIds.slice(position + 1).find(next => this.state.getModule(next)?.element?.parentNode === rowEl);
+        const beforeEl = this.state.getModule(beforeId)?.element ?? null;
         rowEl.insertBefore(element, beforeEl);
         this.applyParamsToDOM(id);
     }
 
     rerenderRack() {
+        this.cancelModuleDrag();
+        this.selection.clear();
         this.clearVisualCables();
-        this.syncRowElements();
         Object.values(this.rows).forEach(row => {
             row.querySelectorAll('.module:not(.drop-indicator)').forEach(el => {
                 cleanupRenderedModule(el);
@@ -576,6 +610,7 @@ export class EurorackApp {
             });
         });
 
+        this.syncRowElements();
         this.state.getRowNumbers().forEach(row => {
             this.state.getRow(row).forEach(id => this.renderModule(id));
         });
@@ -591,6 +626,8 @@ export class EurorackApp {
         const mod = this.state.getModule(id);
         if (!mod) return;
 
+        if (id === this.draggedModule || this.pendingModuleDrag?.element === mod.element) this.cancelModuleDrag();
+        this.selection.remove(id);
         cleanupRenderedModule(mod.element);
         mod.element?.remove();
         this.host.removeModule(id);
@@ -677,10 +714,16 @@ export class EurorackApp {
 
     handleMouseMove(event) {
         if (this.dragState) this.updateCablePreview(event);
+        const pending = this.pendingModuleDrag;
+        if (pending && Math.hypot(event.clientX - pending.x, event.clientY - pending.y) >= DRAG_THRESHOLD_PX) {
+            this.pendingModuleDrag = null;
+            this.startModuleDrag(pending.element);
+        }
         if (this.draggedModule) this.handleModuleDragMove(event);
     }
 
     handleMouseUp(event) {
+        this.pendingModuleDrag = null;
         if (this.dragState) {
             this.endCableDrag(event.target?.closest?.('.jack') || null);
         }
@@ -690,14 +733,22 @@ export class EurorackApp {
     }
 
     handleModuleMouseDown(event) {
-        if (event.button !== 0) return;
-        if (event.target.closest('.jack, .knob, input[type="range"], [role="slider"], .switch, .switch-positions, .remove-btn, .octave-btn, .toggle-btn, .action-btn')) return;
+        if (event.button !== 0 && !(event.ctrlKey && event.button === 2)) return;
+        if (event.target.closest(PANEL_CONTROLS)) return;
 
         const moduleEl = event.target.closest('.module');
         if (!moduleEl) return;
         event.preventDefault();
         event.stopPropagation();
+        this.selection.select(moduleEl.dataset.instanceId, event);
+        moduleEl.querySelector('.module-label')?.focus({ preventScroll: true });
+        if (!event.shiftKey && !event.ctrlKey && !event.metaKey) {
+            this.pendingModuleDrag = { element: moduleEl, x: event.clientX, y: event.clientY };
+        }
+    }
 
+    startModuleDrag(moduleEl) {
+        if (!moduleEl.isConnected) return;
         this.draggedModule = moduleEl.dataset.instanceId;
         this.draggedModuleEl = moduleEl;
         this.dropIndicator = moduleEl.cloneNode(true);
@@ -733,7 +784,7 @@ export class EurorackApp {
     }
 
     handleModuleDragEnd() {
-        if (this.dropIndicator?.parentNode) {
+        if (this.dropIndicator?.parentNode && this.dropIndicator.nextElementSibling !== this.draggedModuleEl) {
             const row = this.getRowNumberFromElement(this.dropIndicator.parentNode);
             const beforeEl = this.dropIndicator.nextElementSibling;
             const beforeId = beforeEl?.dataset?.instanceId;
@@ -753,6 +804,7 @@ export class EurorackApp {
     }
 
     cancelModuleDrag() {
+        this.pendingModuleDrag = null;
         if (!this.draggedModule) return;
         this.finishModuleDrag();
     }
@@ -819,7 +871,7 @@ export class EurorackApp {
         if (!this.previewPath || !this.dragState) return;
         const deltaX = event.clientX - this.dragState.pointerStart.x;
         const deltaY = event.clientY - this.dragState.pointerStart.y;
-        if (Math.hypot(deltaX, deltaY) >= CABLE_DRAG_THRESHOLD_PX) this.dragState.moved = true;
+        if (Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX) this.dragState.moved = true;
         const start = getJackCenter(this.dragState.startJack);
         this.previewPath.setAttribute('d', createCablePath(start.x, start.y, event.clientX, event.clientY));
     }
@@ -950,11 +1002,12 @@ export class EurorackApp {
         this.markConnectedJacks();
     }
 
-    renderStateCables() {
-        this.state.cables.forEach(cable => {
+    renderStateCables(cables = this.state.cables) {
+        const connectedInputs = new Set(this.visualCables.map(cable => cable.toEl));
+        cables.forEach(cable => {
             const fromJack = this.document.querySelector(`.jack.output[data-module="${cable.fromModule}"][data-port="${cable.fromPort}"]`);
             const toJack = this.document.querySelector(`.jack.input[data-module="${cable.toModule}"][data-port="${cable.toPort}"]`);
-            if (fromJack && toJack) {
+            if (fromJack && toJack && !connectedInputs.has(toJack)) {
                 this.addCable(fromJack, toJack, {
                     updateState: false,
                     cableState: cable

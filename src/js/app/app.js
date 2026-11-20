@@ -691,7 +691,7 @@ export class EurorackApp {
 
     handleModuleMouseDown(event) {
         if (event.button !== 0) return;
-        if (event.target.closest('.jack, .knob, .switch, .switch-positions, .remove-btn, .octave-btn, .toggle-btn, .action-btn')) return;
+        if (event.target.closest('.jack, .knob, input[type="range"], [role="slider"], .switch, .switch-positions, .remove-btn, .octave-btn, .toggle-btn, .action-btn')) return;
 
         const moduleEl = event.target.closest('.module');
         if (!moduleEl) return;

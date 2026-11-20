@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MIDI Controller</title>
     <link rel="stylesheet" href="midi-tools.css">
+    <link rel="stylesheet" href="control-value-tooltip.css">
+    <script type="module" src="js/ui/control-value-tooltip.js"></script>
     <script type="module" src="js/app/midi-tool-theme.js"></script>
 </head>
 <body>
@@ -63,9 +65,10 @@
         <p><br>Each knob sends a different CC number (1-12). The value is shown below each knob.</p>
     </div>
 
-    <script>
+    <script type="module">
+        import { createMidiKnobs } from './js/app/midi-tool-knobs.js';
+
         let midiOutput = null;
-        const knobValues = {};
         const CC_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
         async function initMIDI() {
@@ -123,74 +126,6 @@
             midiOutput.send([status, cc, value]);
 
             console.log(`Sent CC ${cc} = ${value} on channel ${channel + 1}`);
-        }
-
-        function createKnobs() {
-            const container = document.getElementById('knobs');
-
-            CC_NUMBERS.forEach((cc, index) => {
-                knobValues[cc] = 64;  // Start at middle
-
-                const knobContainer = document.createElement('div');
-                knobContainer.className = 'knob-container';
-
-                knobContainer.innerHTML = `
-                    <div class="knob-label">Knob ${index + 1}</div>
-                    <div class="knob" data-cc="${cc}" style="transform: rotate(${valueToAngle(64)}deg)"></div>
-                    <div class="knob-value" id="value-${cc}">64</div>
-                    <div class="cc-number">CC ${cc}</div>
-                `;
-
-                container.appendChild(knobContainer);
-
-                const knob = knobContainer.querySelector('.knob');
-                setupKnobDrag(knob, cc);
-            });
-        }
-
-        function valueToAngle(value) {
-            // Map 0-127 to -135 to 135 degrees
-            return (value / 127) * 270 - 135;
-        }
-
-        function setupKnobDrag(knob, cc) {
-            let isDragging = false;
-            let startY = 0;
-            let startValue = 0;
-
-            knob.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                startY = e.clientY;
-                startValue = knobValues[cc];
-                e.preventDefault();
-            });
-
-            document.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-
-                const deltaY = startY - e.clientY;
-                const deltaValue = Math.round(deltaY / 2);  // 2 pixels per step
-                let newValue = Math.max(0, Math.min(127, startValue + deltaValue));
-
-                if (newValue !== knobValues[cc]) {
-                    knobValues[cc] = newValue;
-                    knob.style.transform = `rotate(${valueToAngle(newValue)}deg)`;
-                    document.getElementById(`value-${cc}`).textContent = newValue;
-                    sendCC(cc, newValue);
-                }
-            });
-
-            document.addEventListener('mouseup', () => {
-                isDragging = false;
-            });
-
-            // Double-click to reset to center
-            knob.addEventListener('dblclick', () => {
-                knobValues[cc] = 64;
-                knob.style.transform = `rotate(${valueToAngle(64)}deg)`;
-                document.getElementById(`value-${cc}`).textContent = 64;
-                sendCC(cc, 64);
-            });
         }
 
         // ============================================
@@ -381,7 +316,7 @@
         });
 
         // Initialize
-        createKnobs();
+        createMidiKnobs(document.getElementById('knobs'), CC_NUMBERS, sendCC);
         createKeyboard();
         initMIDI();
     </script>

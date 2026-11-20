@@ -6,7 +6,7 @@ const tools = [
 ];
 
 for (const tool of tools) {
-    test(`${tool.title} ignores retired themes and fits mobile`, async ({ page }) => {
+    test(`${tool.title} shows CC values and fits the Industrial Light mobile layout`, async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });
         await page.addInitScript(() => {
             localStorage.setItem('eurorack-theme', 'classic');
@@ -19,6 +19,13 @@ for (const tool of tools) {
         expect(await page.evaluate(() => [localStorage.getItem('eurorack-theme'), localStorage.getItem('eurorack-theme-mode')])).toEqual([null, null]);
         await expect(page.getByRole('heading', { level: 1, name: tool.title })).toBeVisible();
         await expect(page.locator('.controller-grid')).toBeVisible();
+        const knob = page.getByRole('slider', { name: 'Knob 1', exact: true });
+        await knob.hover();
+        await expect(page.getByRole('tooltip')).toHaveText('Knob 1 64');
+        await knob.press('ArrowUp');
+        await expect(page.getByRole('tooltip')).toHaveText('Knob 1 65');
+        await knob.dblclick();
+        await expect(page.getByRole('tooltip')).toHaveText('Knob 1 64');
         expect(await page.evaluate(() => document.body.scrollWidth)).toBeLessThanOrEqual(390);
         expect(await page.locator('.controller-grid').evaluate(element => (
             getComputedStyle(element).gridTemplateColumns.split(' ').length

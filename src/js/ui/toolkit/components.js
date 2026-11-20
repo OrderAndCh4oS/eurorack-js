@@ -44,6 +44,7 @@ export function createKnob({
     knob.dataset.min = min;
     knob.dataset.max = max;
     knob.dataset.step = step;
+    knob.setAttribute('aria-label', label);
 
     const labelEl = document.createElement('div');
     labelEl.className = 'knob-label';
@@ -343,47 +344,66 @@ export function updateKnobRotation(knobEl) {
     const value = parseFloat(knobEl.dataset.value);
     const rotation = -135 + ((value - min) / (max - min)) * 270;
     knobEl.style.transform = `rotate(${rotation}deg)`;
+    knobEl.setAttribute('aria-valuenow', String(value));
 }
 
 /**
  * Set up drag interaction for a knob
  * @param {HTMLElement} knobEl - Knob element
  * @param {Function} onChange - Callback when value changes
+ * @param {number} travel - Vertical pixels from minimum to maximum
  */
-export function setupKnobDrag(knobEl, onChange) {
-    let isDragging = false;
-    let startY = 0;
-    let startValue = 0;
+export function setupKnobDrag(knobEl, onChange, travel = 150) {
+    const doc = knobEl.ownerDocument;
+    knobEl.tabIndex = 0;
+    knobEl.setAttribute('role', 'slider');
+    knobEl.setAttribute('aria-valuemin', knobEl.dataset.min);
+    knobEl.setAttribute('aria-valuemax', knobEl.dataset.max);
 
-    const onMouseDown = (e) => {
-        isDragging = true;
-        startY = e.clientY;
-        startValue = parseFloat(knobEl.dataset.value);
-        e.preventDefault();
-    };
+    function change(value) {
+        setKnobValue(knobEl, value);
+        onChange?.(getKnobValue(knobEl));
+    }
 
-    const onMouseMove = (e) => {
-        if (!isDragging) return;
+    function start(event) {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        const startValue = getKnobValue(knobEl);
+        const range = Number(knobEl.dataset.max) - Number(knobEl.dataset.min);
+        const gesture = new doc.defaultView.AbortController();
+        const options = { signal: gesture.signal };
+        const end = () => gesture.abort();
+        const move = next => change(startValue + (event.clientY - next.clientY) * range / travel);
+        if (event.type === 'mousedown') {
+            doc.addEventListener('mousemove', move, options);
+            doc.addEventListener('mouseup', end, options);
+        } else {
+            knobEl.setPointerCapture(event.pointerId);
+            knobEl.addEventListener('pointermove', next => { if (next.pointerId === event.pointerId) move(next); }, options);
+            knobEl.addEventListener('lostpointercapture', next => { if (next.pointerId === event.pointerId) end(); }, options);
+        }
+        doc.defaultView.addEventListener('blur', end, options);
+    }
+    knobEl.addEventListener('mousedown', start);
+    knobEl.addEventListener('pointerdown', event => {
+        if (event.pointerType !== 'mouse' && event.isPrimary) start(event);
+    });
 
-        const min = parseFloat(knobEl.dataset.min);
-        const max = parseFloat(knobEl.dataset.max);
-        const step = parseFloat(knobEl.dataset.step) || 0;
-        const range = max - min;
-        const dy = startY - e.clientY;
-        const newValue = snapKnobValue(startValue + (dy / 150) * range, min, max, step);
-
-        knobEl.dataset.value = newValue;
-        updateKnobRotation(knobEl);
-        onChange?.(newValue);
-    };
-
-    const onMouseUp = () => {
-        isDragging = false;
-    };
-
-    knobEl.addEventListener('mousedown', onMouseDown);
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    // A custom panel can handle a stepped control's keys before they bubble here.
+    (knobEl.parentElement || knobEl).addEventListener('keydown', event => {
+        if (event.target !== knobEl || event.defaultPrevented) return;
+        const min = Number(knobEl.dataset.min), max = Number(knobEl.dataset.max);
+        const step = Number(knobEl.dataset.step) || (max - min) / 100;
+        const value = getKnobValue(knobEl);
+        switch (event.key) {
+            case 'ArrowUp': case 'ArrowRight': change(value + step); break;
+            case 'ArrowDown': case 'ArrowLeft': change(value - step); break;
+            case 'Home': change(min); break;
+            case 'End': change(max); break;
+            default: return;
+        }
+        event.preventDefault();
+    });
 }
 
 /**

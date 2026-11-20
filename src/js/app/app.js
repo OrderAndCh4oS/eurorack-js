@@ -566,7 +566,10 @@ export class EurorackApp {
         const element = renderModule(definition, id, {
             dsp,
             getModule: () => this.state.getModule(id),
-            onParamChange: (moduleId, param, value) => this.setParam(moduleId, param, value)
+            onParamChange: (moduleId, param, value) => {
+                // A retiring panel may release a held control after the rack has loaded a different instance.
+                if (this.state.getModule(moduleId) === moduleState) this.setParam(moduleId, param, value);
+            }
         });
 
         element.dataset.instanceId = id;

@@ -68,7 +68,7 @@ test('checks live connections, focuses modules and clears highlights without edi
 });
 
 test('keeps the compact toolbar and hides connection checks outside the rack', async ({ page }, testInfo) => {
-    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setViewportSize({ width: 820, height: 844 });
     await setup(page);
     await page.locator('#rackDebuggerToggle').click();
     const panel = page.locator('#rack-debugger');
@@ -78,8 +78,8 @@ test('keeps the compact toolbar and hides connection checks outside the rack', a
     });
     expect(metrics.toolbar.height).toBe(38);
     expect(metrics.panel.width).toBeLessThanOrEqual(metrics.width);
-    expect(metrics.panel.bottom).toBeLessThanOrEqual(metrics.rack.top);
-    await page.screenshot({ path: testInfo.outputPath('rack-debugger-mobile.png') });
+    expect(metrics.panel.left).toBeGreaterThanOrEqual(metrics.rack.right);
+    await page.screenshot({ path: testInfo.outputPath('rack-debugger-compact.png') });
     for (const view of ['tests', 'public', 'mine']) {
         await page.locator(`[data-patch-view="${view}"]`).click();
         await expect(panel).toBeHidden();

@@ -37,6 +37,7 @@ function describe(control, visible) {
 // Only the visible tooltip tracks its control. MIDI, patch loads and custom
 // sliders can change values without dispatching DOM input events.
 function draw() {
+    if (active.closest('[inert]')) { clear(); return; }
     const box = active.getBoundingClientRect();
     const isTitle = active.classList.contains('module-label');
     if ((isTitle && !active.matches(moduleTitle)) || !box.width || !box.height || box.bottom <= 0 || box.top >= window.innerHeight ||

@@ -2,6 +2,7 @@ import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { buildDocs } from './build-docs.mjs';
+import { rackShell } from '../server/rack-page.js';
 import { validateAudioAnalysisAssets } from './audio-analysis-assets.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -14,7 +15,10 @@ await mkdir(out, { recursive: true });
 await cp(new URL('../src/', import.meta.url), out, { recursive: true });
 // Preview regeneration must work when the demo source has changed but its
 // committed image manifest is stale. Normal builds keep that validation strict.
-if (!process.argv.includes('--instrument-only')) await buildDocs({ root, out });
+if (!process.argv.includes('--instrument-only')) {
+    await buildDocs({ root, out });
+    await writeFile(`${out}/index.html`, await rackShell());
+}
 await build({
     stdin: {
         contents: "export { createAuthClient } from 'better-auth/client'; export { ulid } from 'ulid'; export { toBlob, toPng } from 'html-to-image';",

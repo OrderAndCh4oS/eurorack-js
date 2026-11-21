@@ -34,10 +34,3 @@
 body.skin-factory .module.rack-debugger-flagged { outline: 3px solid var(--factory-orange); outline-offset: -3px; }
 body.skin-factory .module.rack-debugger-flagged:focus-visible { outline-color: var(--factory-ink); outline-style: dashed; }
 .rack-debugger-marker { position: absolute; left: 0; top: 20px; z-index: 11; pointer-events: none; }
-@media (max-width: 760px) {
-    #rackView.rack-debugger-open { display: grid; grid-template-columns: 180px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-    .rack-debugger-open > .sidebar { grid-column: 1; grid-row: 2; min-height: 0; }
-    .rack-debugger-open > .rack-container { grid-column: 2; grid-row: 2; min-height: 0; }
-    .rack-debugger { grid-column: 1 / -1; grid-row: 1; width: auto; height: auto; max-height: min(32vh, calc(100vh - var(--library-toolbar) * 2 - var(--rack-debugger-workbench-height, 0px))); border-bottom: 3px solid var(--debug-ink); }
-    .rack-debugger-header { padding-block: 6px; }
-}

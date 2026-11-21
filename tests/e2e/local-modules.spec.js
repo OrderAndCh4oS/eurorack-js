@@ -65,8 +65,8 @@ test('own modules survive reload and old patches retain their working audio revi
     expect(errors).toEqual([]);
 });
 
-test('module source stays usable on mobile and draft errors preserve the rack', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
+test('module source stays usable in a narrow desktop window and draft errors preserve the rack', async ({ page }) => {
+    await page.setViewportSize({ width: 820, height: 844 });
     await page.goto('/');
     const browser = await openModules(page);
     await browser.getByRole('searchbox', { name: 'Search modules' }).fill('vco');

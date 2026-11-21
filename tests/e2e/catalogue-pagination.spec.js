@@ -133,7 +133,7 @@ test('phone navigation keeps the current view and account controls visible', asy
         };
         await checkNavigation('Test patches');
         await page.locator('.patch-entry').first().getByRole('button', { name: 'Open in rack', exact: true }).click();
-        await checkNavigation('Rack');
+        await expect(page.getByRole('button', { name: 'Patches', exact: true })).toBeVisible();
         await expect(page.locator('#startButton')).toBeVisible();
         await page.goBack();
         await checkNavigation('Test patches');

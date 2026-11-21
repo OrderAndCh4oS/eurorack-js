@@ -245,7 +245,7 @@ test('social crawlers receive public cached cards from the initial HTML', async 
     }
 });
 
-test('rack hints and page headings share one small cached local font', async ({ page }) => {
+test('rack hints and page headings load their own cached Space Grotesk weights on demand', async ({ page }) => {
     const fontResponses = [];
     const socialCardRequests = [];
     page.on('request', request => {
@@ -258,18 +258,24 @@ test('rack hints and page headings share one small cached local font', async ({ 
     await page.waitForFunction(() => window.eurorackApp?.patchWorkbench);
     await page.evaluate(() => document.fonts.ready);
     expect(fontResponses).toHaveLength(1);
+    expect(fontResponses[0].url()).toMatch(/\/fonts\/space-grotesk-regular-latin\.[a-f0-9]{8}\.woff2$/);
+    await expect(page.locator('.cable-hints')).toHaveCSS('font-weight', '400');
+    await expect(page.locator('.cable-hints')).toHaveCSS('font-size', '9px');
+    await expect(page.locator('.cable-hints')).toHaveCSS('line-height', '12.15px');
 
     await page.locator('[data-content-view="docs"]').click();
     await expect(page.locator('#contentView h1')).toHaveText('Documentation');
     await page.evaluate(() => document.fonts.ready);
-    expect(fontResponses).toHaveLength(1);
-    const font = fontResponses[0];
-    expect(new URL(font.url()).origin).toBe(new URL(page.url()).origin);
-    expect(font.url()).toMatch(/\/fonts\/space-grotesk-bold-latin\.[a-f0-9]{8}\.woff2$/);
-    expect(font.status()).toBe(200);
-    expect(await font.headerValue('content-type')).toBe('font/woff2');
-    expect(await font.headerValue('cache-control')).toBe('public, max-age=31536000, immutable');
-    expect((await font.body()).byteLength).toBeLessThan(16 * 1024);
+    expect(fontResponses).toHaveLength(2);
+    const bold = fontResponses[1];
+    expect(bold.url()).toMatch(/\/fonts\/space-grotesk-bold-latin\.[a-f0-9]{8}\.woff2$/);
+    for (const font of fontResponses) {
+        expect(new URL(font.url()).origin).toBe(new URL(page.url()).origin);
+        expect(font.status()).toBe(200);
+        expect(await font.headerValue('content-type')).toBe('font/woff2');
+        expect(await font.headerValue('cache-control')).toBe('public, max-age=31536000, immutable');
+        expect((await font.body()).byteLength).toBeLessThan(16 * 1024);
+    }
     expect(await page.evaluate(() => [...document.fonts].some(face => face.family.includes('Space Grotesk') && face.status === 'loaded'))).toBe(true);
     await expect(page.locator('#contentView h1')).toHaveCSS('font-weight', '700');
     await expect(page.locator('#contentView h1')).toHaveCSS('font-family', /Space Grotesk/);
@@ -278,15 +284,15 @@ test('rack hints and page headings share one small cached local font', async ({ 
     await page.locator('[data-content-view="introduction"]').click();
     await expect(page.locator('#contentView h1')).toHaveText('EurorackJS');
     await page.evaluate(() => document.fonts.ready);
-    expect(fontResponses).toHaveLength(1);
+    expect(fontResponses).toHaveLength(2);
 
     for (const path of ['/docs', '/introduction']) {
         await page.goto(path);
         await page.evaluate(() => document.fonts.ready);
-        await expect(page.locator('link[rel="preload"][as="font"]')).toHaveAttribute('href', new URL(font.url()).pathname);
+        await expect(page.locator('link[rel="preload"][as="font"]')).toHaveAttribute('href', new URL(bold.url()).pathname);
         const timing = await page.evaluate(fontUrl => performance.getEntriesByName(fontUrl).map(entry => ({
             transferred: entry.transferSize, decoded: entry.decodedBodySize
-        })), font.url());
+        })), bold.url());
         expect(timing).toHaveLength(1);
         expect(timing[0].decoded).toBeGreaterThan(0);
         expect(timing[0].transferred).toBe(0);

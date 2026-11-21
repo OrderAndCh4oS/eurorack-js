@@ -799,9 +799,11 @@
             min-width: 0;
             overflow-x: auto;
             overflow-y: auto;
+            /* The fixed cable SVG uses viewport coordinates but only paints inside the rack. */
+            clip-path: inset(0);
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 12px;
             padding: 16px;
         }
 
@@ -1572,7 +1574,7 @@
 
         body.skin-factory .cable-hints {
             color: var(--factory-ink);
-            font: 700 9.5px/1.35 var(--site-heading-font, Arial, sans-serif);
+            font: 400 9px / 1.35 var(--site-heading-font, Arial, sans-serif);
             text-transform: none;
         }
 
@@ -1838,20 +1840,23 @@
     <link rel="stylesheet" href="/site.css">
     <link rel="stylesheet" href="/docs.css">
     <link rel="stylesheet" href="/marketing.css">
+    <link rel="stylesheet" href="/rack-player.css">
 </head>
 <body class="theme-industrial theme-light skin-factory">
 <nav class="patch-navigation" aria-label="Patch views">
-    <div class="patch-view-tabs">
-        <button type="button" data-patch-view="rack" aria-current="page">Rack</button>
-        <button type="button" id="newPatch">New patch</button>
-        <button type="button" data-patch-view="mine">My patches</button>
-        <button type="button" data-patch-view="public">Public patches</button>
-        <button type="button" data-patch-view="tests">Test patches</button>
-    </div>
-    <span id="activePatchLabel">Unsaved rack</span>
-    <div class="patch-site-links">
-        <a href="/introduction" data-content-view="introduction">Introduction</a>
-        <a href="/docs" data-content-view="docs">Docs</a>
+    <div class="patch-nav-strip">
+        <div class="patch-view-tabs">
+            <button type="button" data-patch-view="rack" aria-current="page">Rack</button>
+            <button type="button" id="newPatch">New patch</button>
+            <button type="button" data-patch-view="mine" aria-label="My patches" data-short-label="Mine"><span>My patches</span></button>
+            <button type="button" data-patch-view="public" aria-label="Public patches" data-short-label="Public"><span>Public patches</span></button>
+            <button type="button" data-patch-view="tests" aria-label="Test patches" data-short-label="Tests"><span>Test patches</span></button>
+        </div>
+        <span id="activePatchLabel">Unsaved rack</span>
+        <div class="patch-site-links">
+            <a href="/introduction" data-content-view="introduction">Introduction</a>
+            <a href="/docs" data-content-view="docs">Docs</a>
+        </div>
     </div>
     <div class="patch-account-actions">
         <button id="patchProfile" type="button" aria-haspopup="dialog" hidden>My profile</button>
@@ -1859,7 +1864,9 @@
     </div>
 </nav>
 <div id="toolbar">
-    <div class="toolbar-section">
+    <div class="toolbar-section rack-transport">
+        <button type="button" id="playerLibrary" class="player-only"><span aria-hidden="true">‹</span> Patches</button>
+        <h1 id="playerPatchName" class="player-only"></h1>
         <button id="startButton">▶ Start</button>
         <button id="analysisToggle" type="button" aria-controls="rack-analysis" aria-expanded="false" title="Audio measurements and agent activity">Analysis<span id="analysisIndicator" role="status"></span></button>
     </div>
@@ -1905,20 +1912,35 @@
 <div id="patchNotice" class="patch-notice" role="status" aria-live="polite" hidden></div>
 <section id="patchLibrary" class="patch-library" aria-label="Patch library" hidden></section>
 <div id="contentView" class="content-view" hidden></div>
-<svg id="cable-svg"></svg>
-
 <div class="app-container" id="rackView">
     <div class="sidebar" id="sidebar">
         <!-- Module categories populated by JS -->
     </div>
     <div class="rack-container" id="rack-container" tabindex="0" role="region" aria-label="Rack editor">
-        <div class="rack rack-row" id="rack-row-1"></div>
-        <div class="rack rack-row" id="rack-row-2"></div>
+        <section class="player-only" id="playerPatchChoices" aria-labelledby="playerPatchHeading">
+            <h2 id="playerPatchHeading">Choose a patch to play</h2>
+            <a class="player-demo-preview" href="/?demo=introduction" aria-label="Open the Introduction demo patch">
+                <img data-demo-image loading="lazy" decoding="async" sizes="(max-height: 480px) 32svh, min(calc(100vw - 40px), 48svh, 30rem)" alt="The two rows of the Introduction patch with their modules and cables.">
+            </a>
+            <div>
+                <button type="button" id="playerDemo">Open demo patch</button>
+                <button type="button" id="playerBrowse">Browse public patches</button>
+            </div>
+        </section>
+        <div id="rackStage">
+            <div id="rackPanels">
+                <svg id="cable-svg" aria-hidden="true"></svg>
+                <div class="rack rack-row" id="rack-row-1"></div>
+                <div class="rack rack-row" id="rack-row-2"></div>
+            </div>
+        </div>
         <div class="rack-bottom-bar">
             <div class="cable-hints">
-                <p>Click a panel to select it. Shift-click for a range or Ctrl/⌘-click to toggle individual panels. Drag a panel to reorder it or move it between rows.</p>
+                <p>Drag a panel to reorder it or move it between rows. Drag sockets to add or move cable ends.</p>
+                <p>Shift-click to add another cable. Ctrl/⌘-click to cycle cables.</p>
+                <p>Right-click a socket or drop a cable on empty space to remove it.</p>
+                <p>Click a panel to select it. Shift-click for a range or Ctrl/⌘-click to toggle individual panels.</p>
                 <p>Ctrl/⌘+C copies modules with their internal cables. Ctrl/⌘+V pastes them. Click an empty row to paste there.</p>
-                <p>Drag sockets to add or move cable ends. Shift-click to add another cable or Ctrl/⌘-click to cycle cables. Right-click a socket or drop a cable on empty space to remove it.</p>
             </div>
             <footer class="app-footer">
                 <div class="footer-links-row">
@@ -1931,6 +1953,7 @@
                 </nav>
             </footer>
         </div>
+        <footer id="playerFooter" class="player-only">On mobile, you can browse and play your own patches or patches shared by others. To create a patch, use the desktop editor.</footer>
     </div>
     <aside id="rack-analysis" class="rack-analysis" aria-labelledby="analysis-heading" hidden>
         <header class="analysis-header">

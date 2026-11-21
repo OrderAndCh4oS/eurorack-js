@@ -40,6 +40,8 @@ export class PatchLibrary {
     init() {
         this.surface = this.document.getElementById('patchLibrary');
         if (!this.surface) return this;
+        const strip = this.document.querySelector('.patch-nav-strip');
+        if (strip && this.window.ResizeObserver) new this.window.ResizeObserver(() => this.revealActiveTab()).observe(strip);
         this.document.querySelectorAll('[data-patch-view]').forEach(button => button.addEventListener('click', () => this.navigate(button.dataset.patchView)));
         this.document.getElementById('newPatch')?.addEventListener('click', () => this.run(() => this.newPatch()));
         this.document.addEventListener('click', event => {
@@ -50,7 +52,8 @@ export class PatchLibrary {
             if (contentView(url)) {
                 event.preventDefault(); this.openContent(url); return;
             }
-            if (!contentView(this.window.location) || !link.closest('#contentView')) return;
+            const fromContent = contentView(this.window.location) && link.closest('#contentView');
+            if (!fromContent && !link.closest('#playerPatchChoices')) return;
             if (url.pathname === '/' && !url.hash && !url.search) {
                 event.preventDefault(); this.navigate('rack');
             } else if (parseCatalogueLocation(url)) {
@@ -143,7 +146,9 @@ export class PatchLibrary {
     revealActiveTab() {
         const tab = this.document.querySelector('.patch-view-tabs [aria-current="page"], .patch-site-links [aria-current="page"]');
         if (!tab) return;
-        const strip = tab.parentElement, bounds = strip.getBoundingClientRect(), item = tab.getBoundingClientRect();
+        const strip = this.app.inPlayerView
+            ? tab.closest('.patch-nav-strip') : tab.parentElement;
+        const bounds = strip.getBoundingClientRect(), item = tab.getBoundingClientRect();
         // Move only the horizontal tab strip, preserving the rack and gallery scroll positions.
         if (item.left < bounds.left) strip.scrollLeft -= bounds.left - item.left;
         else if (item.right > bounds.right) strip.scrollLeft += item.right - bounds.right;
@@ -181,6 +186,8 @@ export class PatchLibrary {
         if (this.document.title !== title) this.document.title = title;
     }
     updateActiveLabel() {
+        const playerName = this.document.getElementById('playerPatchName');
+        if (playerName) playerName.textContent = this.app.getCurrentPatchName(this.app.state.modules.size ? 'Untitled' : '');
         this.updateDocumentTitle();
         const label = this.document.getElementById('activePatchLabel');
         if (label) label.textContent = `${this.active?.name || 'Untitled'} · ${this.active ? sourceLabel(this.active) : 'Unsaved rack'}${this.isDirty() ? ' · Edited' : ''}`;
@@ -251,6 +258,7 @@ export class PatchLibrary {
     show(view, { preserveFocus = false } = {}) {
         this.view = view; this.renderGeneration++; this.observer?.disconnect(); this.previewAbort?.abort();
         this.listAbort?.abort();
+        if (LIBRARY_VIEWS[view]) this.lastCatalogueView = view;
         const isContent = view === 'docs' || view === 'introduction';
         if (!isContent) this.content.hide();
         this.updateDocumentTitle();
@@ -264,7 +272,10 @@ export class PatchLibrary {
         });
         this.revealActiveTab();
         if (isContent) { void this.content.show(this.window.location); return; }
-        if (view === 'rack') { requestAnimationFrame(() => this.app.renderAllCables()); return; }
+        if (view === 'rack') {
+            requestAnimationFrame(() => this.app.inPlayerView ? this.app.player?.fit() : this.app.renderAllCables());
+            return;
+        }
         if (view === 'public' && this.config.enabled && !this.cloudLoading) void this.fetchList(true, this.cursor, { preserveFocus });
         else if (view === 'mine' && this.user && !this.cloudLoading) void this.fetchList(false, this.cursor, { preserveFocus });
         else this.render({ preserveFocus });
@@ -387,7 +398,7 @@ export class PatchLibrary {
         }
         card.append(caption);
         const actions = element(this.document, 'div', undefined, 'patch-entry-actions');
-        actions.append(this.button('Open in rack', () => this.run(() => this.open(record)), 'primary'), this.button('Save a copy', () => this.run(() => this.openSave({ copy: true, record, fromEditor: false }))));
+        actions.append(this.button('Open in rack', () => this.run(() => this.open(record)), 'primary'), this.button('Save a copy', () => this.run(() => this.openSave({ copy: true, record, fromEditor: false })), 'patch-manage'));
         if (record.source === 'cloud') {
             actions.append(this.button('Copy URL', () => this.run(() => this.share(record))));
             if (record.visibility === 'public') {
@@ -398,11 +409,11 @@ export class PatchLibrary {
                     finally { like.disabled = false; }
                 })); like.setAttribute('aria-pressed', String(!!record.likedByMe)); like.disabled = !!record.canEdit; actions.append(like);
             }
-            if (record.canEdit) actions.append(this.button(record.visibility === 'public' ? 'Make private' : 'Make public', () => this.run(() => this.toggleVisibility(record))));
+            if (record.canEdit) actions.append(this.button(record.visibility === 'public' ? 'Make private' : 'Make public', () => this.run(() => this.toggleVisibility(record)), 'patch-manage'));
         }
-        if (record.source === 'local') actions.append(this.button('Export JSON', () => this.exportRecord(record)));
-        if (record.source === 'local' && this.user) actions.append(this.button('Save to account', () => this.run(() => this.openSave({ record, fromEditor: false, destination: 'cloud' }))));
-        if (record.source === 'local' || record.canEdit) actions.append(this.button('Delete', () => this.run(() => this.remove(record))));
+        if (record.source === 'local') actions.append(this.button('Export JSON', () => this.exportRecord(record), 'patch-manage'));
+        if (record.source === 'local' && this.user) actions.append(this.button('Save to account', () => this.run(() => this.openSave({ record, fromEditor: false, destination: 'cloud' })), 'patch-manage'));
+        if (record.source === 'local' || record.canEdit) actions.append(this.button('Delete', () => this.run(() => this.remove(record)), 'patch-manage'));
         card.append(actions); return card;
     }
     observePreview(frame, record) {

@@ -7,6 +7,7 @@ import { DOCS_PAGES } from './docs-manifest.mjs';
 import introductionDemo from '../src/js/config/patches/demo-introduction.js';
 import { PATCH_PREVIEW_RENDERER_VERSION } from '../src/js/patches/patch-preview.js';
 import { getSocialCardSourceFingerprint } from './build-social-cards.mjs';
+import { introductionImageSource } from '../server/rack-page.js';
 
 export { DOCS_PAGES } from './docs-manifest.mjs';
 const ORIGIN = 'https://eurorackjs.orderandchaos.xyz';
@@ -167,21 +168,16 @@ export async function renderIntroduction(root, socialCard) {
     if (preview.stateHash !== stateHash || preview.rendererVersion !== PATCH_PREVIEW_RENDERER_VERSION) {
         throw new Error('Introduction preview is stale. Run npm run build:introduction-preview against the local preview server.');
     }
-    const variants = [...preview.variants].sort((a, b) => a.width - b.width);
-    for (const variant of variants) {
+    for (const variant of preview.variants) {
         if (!/^[a-f0-9]{64}\.webp$/.test(variant.file)) throw new Error('Invalid introduction image filename');
         const image = await readFile(join(root, 'src/patch-previews/introduction', variant.file));
         if (createHash('sha256').update(image).digest('hex') + '.webp' !== variant.file) throw new Error('Introduction image content hash does not match');
     }
-    const imagePath = variant => `/patch-previews/introduction/${variant.file}`;
-    const fallback = variants.find(variant => variant.width === 1280);
-    if (!fallback || variants.at(-1)?.width < 1920) throw new Error('Introduction needs 1280px and 1920px image variants');
-    const srcset = variants.map(variant => `${imagePath(variant)} ${variant.width}w`).join(', ');
     // Match the hero's height-constrained rack, grid and padding.
     // Keep the full rack visible without downloading pixels for empty side margins.
-    const ratio = fallback.width / fallback.height;
+    const { attributes, ratio } = introductionImageSource(preview.variants);
     const sizes = `(max-width: 680px) calc(100vw - 50px), (max-width: 980px) min(calc(92vw - 34px), ${Math.ceil(520 * ratio)}px), min(calc(46.1vw - 34px), ${(54 * ratio).toFixed(3)}svh, ${Math.ceil(560 * ratio)}px)`;
-    const image = `<img src="${imagePath(fallback)}" srcset="${srcset}" sizes="${sizes}" width="${fallback.width}" height="${fallback.height}" fetchpriority="high" decoding="async" alt="The EurorackJS demo patch, with its modules and patch cables.">`;
+    const image = `<img ${attributes} sizes="${sizes}" fetchpriority="high" decoding="async" alt="The EurorackJS demo patch, with its modules and patch cables.">`;
     const replacements = {
         '<!-- SITE_NAVIGATION -->': renderSiteNavigation('/introduction'),
         '<!-- INTRODUCTION_PREVIEW -->': image,

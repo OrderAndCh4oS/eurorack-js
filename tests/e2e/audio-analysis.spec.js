@@ -97,7 +97,7 @@ test('cancels capture on edits and tool cancellation and can measure again', asy
 });
 
 test('a user can measure silence, cancel and retry when agent registration fails', async ({page}, testInfo) => {
-    await page.setViewportSize({width: 390, height: 844});
+    await page.setViewportSize({width: 820, height: 844});
     await page.addInitScript(() => Object.defineProperty(document, 'modelContext', {
         value: {registerTool: () => { throw new Error('Registration unavailable'); }}
     }));
@@ -122,7 +122,7 @@ test('a user can measure silence, cancel and retry when agent registration fails
     await expect(panel.locator('[data-field="measurement"]')).toContainText('You ·');
     expect(wasm.length).toBeGreaterThan(0);
     expect((await panel.boundingBox()).width).toBeLessThanOrEqual(390);
-    await page.screenshot({path: testInfo.outputPath('mobile-measurement.png')});
+    await page.screenshot({path: testInfo.outputPath('compact-measurement.png')});
     await panel.getByLabel('Capture length (s)').fill('10');
     await measure.click();
     await page.waitForFunction(() => window.eurorackApp.host.engine.pendingOutputCapture);

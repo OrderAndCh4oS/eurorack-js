@@ -31,9 +31,9 @@ export class RackDebugger {
     }
 
     init() {
-        this.rackView = this.document.getElementById('rackView');
+        const rackView = this.document.getElementById('rackView');
         this.toggleButton = this.document.getElementById('rackDebuggerToggle');
-        if (!this.rackView || !this.toggleButton) return this;
+        if (!rackView || !this.toggleButton) return this;
 
         this.panel = element(this.document, 'aside', 'rack-debugger');
         this.panel.id = 'rack-debugger';
@@ -56,7 +56,7 @@ export class RackDebugger {
         this.list.setAttribute('aria-label', 'Connection issues');
         this.note = element(this.document, 'p', 'rack-debugger-note', 'Checks cable routing only. Unused connections can be intentional.');
         this.panel.append(header, this.summary, this.list, this.note);
-        this.rackView.append(this.panel);
+        rackView.append(this.panel);
 
         this.toggleButton.addEventListener('click', this.handleToggle);
         this.closeButton.addEventListener('click', this.handleClose);
@@ -83,7 +83,6 @@ export class RackDebugger {
         if (!this.panel) return;
         this.enabled = enabled;
         this.panel.hidden = !enabled;
-        this.rackView.classList.toggle('rack-debugger-open', enabled);
         this.toggleButton.classList.toggle('active', enabled);
         this.toggleButton.setAttribute('aria-expanded', String(enabled));
         this.toggleButton.setAttribute('aria-pressed', String(enabled));

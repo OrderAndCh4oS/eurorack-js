@@ -17,6 +17,22 @@ const invoke = (page, name, input = {}) => page.evaluate(async ({name,input}) =>
 const source = `patch().module('vco','osc',{coarse:Math.random()}).module('out','main').connect('osc.triangle','main.L')`;
 const validate = async page => invoke(page, 'validate_script', {source, expectedRevision:(await invoke(page,'get_rack')).revision});
 
+test('a desktop draft stays available when the rack switches to the phone player and back', async ({page}) => {
+    await bootWithTools(page);
+    const before = await invoke(page, 'get_rack');
+    const draft = await validate(page);
+    expect(draft.ok).toBe(true);
+    await page.setViewportSize({width: 390, height: 844});
+    await expect(page.locator('#playerFooter')).toBeVisible();
+    await expect(page.locator('#patch-workbench')).toBeHidden();
+    expect(await validate(page)).toMatchObject({ok: false, error: {code: 'player-read-only'}});
+    expect(await invoke(page, 'apply_draft', {draftId: draft.draftId})).toMatchObject({ok: false, error: {code: 'player-read-only'}});
+    expect((await invoke(page, 'get_rack')).patch).toEqual(before.patch);
+    await page.setViewportSize({width: 1280, height: 720});
+    await expect(page.locator('#sidebar')).toBeVisible();
+    expect(await invoke(page, 'apply_draft', {draftId: draft.draftId})).toMatchObject({ok: true, applied: true});
+});
+
 test('registered tools validate isolated code, apply the exact draft and preserve unsaved patch identity', async ({page}) => {
     await bootWithTools(page);
     const before = await invoke(page,'get_rack');

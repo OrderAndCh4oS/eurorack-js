@@ -61,8 +61,7 @@ test('browses illustrated test racks and saves an independent local copy', async
 
 test('fits complete rack previews in a 360px mobile catalogue', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 360, height: 800 });
-    await page.goto('/'); await page.waitForFunction(() => window.eurorackApp?.host);
-    await page.locator('[data-patch-view="tests"]').click();
+    await page.goto('/patches?view=tests');
     await expectPreviewFits(page.locator('.patch-entry').first());
     const library = page.locator('#patchLibrary');
     const sizing = await library.evaluate(node => ({ width: node.clientWidth, contentWidth: node.scrollWidth }));

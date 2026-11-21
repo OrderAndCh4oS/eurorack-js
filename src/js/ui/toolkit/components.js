@@ -373,7 +373,11 @@ export function setupKnobDrag(knobEl, onChange, travel = 150) {
         const gesture = new doc.defaultView.AbortController();
         const options = { signal: gesture.signal };
         const end = () => gesture.abort();
-        const move = next => change(startValue + (event.clientY - next.clientY) * range / travel);
+        const move = next => {
+            // A desktop mouse drag still receives document events after its panel becomes inert.
+            if (knobEl.closest('[inert]')) return end();
+            change(startValue + (event.clientY - next.clientY) * range / travel);
+        };
         if (event.type === 'mousedown') {
             doc.addEventListener('mousemove', move, options);
             doc.addEventListener('mouseup', end, options);

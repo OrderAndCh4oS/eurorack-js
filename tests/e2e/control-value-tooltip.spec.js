@@ -62,8 +62,7 @@ test('a native slider on a custom panel shows its current value on hover, drag a
     await expect(tip).toBeHidden();
 });
 
-test.describe('touch input', () => {
-    test.use({ hasTouch: true });
+test.describe('desktop editor touch input', () => {
     test('a touch drag shows the knob value until release', async ({ page, context }) => {
         const knob = await openOutput(page);
         const box = await knob.boundingBox();

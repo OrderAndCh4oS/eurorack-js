@@ -81,7 +81,7 @@ export class RackSelection {
             const header = event.target.closest('.module-label');
             if (header && event.detail === 0) this.select(header.closest('.module').dataset.instanceId, event);
         });
-        const inRack = event => !rack.closest('[hidden]') && !doc.querySelector('dialog[open]')
+        const inRack = event => !this.app.inPlayerView && !rack.closest('[hidden]') && !doc.querySelector('dialog[open]')
             && (event.target === doc || event.target === doc.body || rack.contains(event.target))
             && !event.target.closest?.(TEXT_FIELD) && !event.target.isContentEditable;
 

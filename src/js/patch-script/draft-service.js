@@ -122,6 +122,10 @@ export class PatchDraftService {
         });
     }
 
+    requireEditor() {
+        if (this.app.inPlayerView) throw draftError('player-read-only', 'Open the desktop editor to edit patches.');
+    }
+
     async apply(draftId, {signal, isCurrent = () => true} = {}) {
         return this.exclusive(async () => {
             this.prune();
@@ -131,6 +135,7 @@ export class PatchDraftService {
             const account = this.app.patchLibrary?.accountGeneration;
             const beforeApply = () => {
                 signal?.throwIfAborted();
+                this.requireEditor();
                 if (draft.expiresAt <= this.now()) throw draftError('draft-not-found', 'This draft expired. Validate again.');
                 if (account !== this.app.patchLibrary?.accountGeneration) throw draftError('rack-changed', 'Your account changed. Validate again.');
                 if (!isCurrent()) throw draftError('source-changed', 'The code changed. Validate again.');

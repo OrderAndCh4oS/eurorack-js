@@ -18,10 +18,12 @@ async function openRack(page, state = patch) {
     await page.evaluate(state => window.eurorackApp.loadPatchState(state, { managed: true }), state);
 }
 
-test('rack shortcut hints use three compact lines on desktop and wrap within a narrow footer', async ({ page }, testInfo) => {
+test('rack shortcut hints use five lines on desktop and wrap within a narrow footer', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1728, height: 960 });
     await openRack(page);
     const hints = page.locator('.cable-hints');
+    await expect(page.locator('.rack-container')).toHaveCSS('gap', '12px');
+    await expect(hints.locator('p')).toHaveCount(5);
     await hints.scrollIntoViewIfNeeded();
     await expect(hints).toHaveCSS('text-transform', 'none');
     await expect(hints).toHaveCSS('font-family', /Space Grotesk/);
@@ -30,16 +32,16 @@ test('rack shortcut hints use three compact lines on desktop and wrap within a n
         lines: el.offsetHeight / parseFloat(getComputedStyle(el).lineHeight),
         width: el.clientWidth, contentWidth: el.scrollWidth
     }));
-    expect((await metrics()).lines).toBeCloseTo(3, 1);
+    expect((await metrics()).lines).toBeCloseTo(5, 1);
     await page.locator('.rack-bottom-bar').screenshot({ path: testInfo.outputPath('desktop-shortcuts.png') });
-    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setViewportSize({ width: 780, height: 844 });
     await hints.scrollIntoViewIfNeeded();
     const narrow = await metrics();
-    expect(narrow.lines).toBeGreaterThan(3);
+    expect(narrow.lines).toBeGreaterThanOrEqual(5);
     expect(narrow.contentWidth).toBe(narrow.width);
     const box = await hints.boundingBox();
     expect((await page.locator('.app-footer').boundingBox()).y).toBeGreaterThanOrEqual(box.y + box.height - 1);
-    await page.locator('.rack-bottom-bar').screenshot({ path: testInfo.outputPath('mobile-shortcuts.png') });
+    await page.locator('.rack-bottom-bar').screenshot({ path: testInfo.outputPath('compact-shortcuts.png') });
 });
 
 test('selected panels have a continuous orange ring and their titles identify individual instances', async ({ page }, testInfo) => {

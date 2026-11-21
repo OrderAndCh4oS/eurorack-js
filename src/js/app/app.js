@@ -15,6 +15,7 @@ import { createCablePath, getJackCenter } from '../cables/cable-manager.js';
 import { createMidiManager } from '../midi/midi-manager.js';
 import { cleanupRenderedModule, renderModule, syncParamToModuleUI, updateModuleLEDs } from '../ui/renderer.js';
 import { setSwitchValue, updateKnobRotation } from '../ui/toolkit/components.js';
+import { RackPlayer } from '../ui/rack-player.js';
 import { RackSelection } from '../ui/rack-selection.js';
 import { controlRange, getControlDomain, snapControlValue } from '../rack/control-domain.js';
 import { RackState } from './rack-state.js';
@@ -198,7 +199,9 @@ export class EurorackApp {
         this.selection = new RackSelection(this);
         this.audioCtx = null;
         this.engine = null;
+        this.audioTransitionPending = false;
         this.midiManager = null;
+        this.midiAccessRequested = false;
         this.visualCables = [];
         this.colorIndex = 0;
         this.dragState = null;
@@ -230,16 +233,14 @@ export class EurorackApp {
             if (event.type === 'registry') this.populateSidebar();
         });
         this.bindEvents();
-        // MIDI permission can remain pending until the browser/user resolves it.
-        // Rack startup and client-side tools must not wait on that external prompt.
-        void this.initMidi().catch(error => console.error('Failed to initialize MIDI:', error));
+        this.initMidi();
         this.initPatchBank();
         const recovered = await this.patchLibrary?.run(() => this.patchLibrary.restoreDraft());
         const entry = new URL(window.location.href);
         if (this.patchLibrary && entry.pathname === '/' && !entry.hash && entry.searchParams.get('new') === '1') {
             // Consume the navigation action once, including when a sign-in draft needs the discard prompt.
             this.patchLibrary.setLocation(null);
-            await this.patchLibrary.run(() => this.patchLibrary.newPatch());
+            if (!this.inPlayerView) await this.patchLibrary.run(() => this.patchLibrary.newPatch());
         } else if (!recovered) {
             if (this.patchLibrary) await this.patchLibrary.run(() => {
                 if (isIntroductionDemoLocation(window.location)) return this.patchLibrary.loadLocation();
@@ -324,9 +325,8 @@ export class EurorackApp {
             if (row && !wantedRows.has(row)) rowEl.remove();
         });
 
-        const anchor = this.rackContainer.querySelector('.rack-bottom-bar')
-            || this.rackContainer.querySelector('.cable-hints')
-            || this.rackContainer.querySelector('.app-footer');
+        const parent = this.document.getElementById('rackPanels') || this.rackContainer;
+        const footer = parent === this.rackContainer ? parent.querySelector('.rack-bottom-bar, .cable-hints, .app-footer') : null;
         this.state.getRowNumbers().forEach(row => {
             let rowEl = this.rackContainer.querySelector(`#rack-row-${row}`);
             if (!rowEl) {
@@ -334,8 +334,8 @@ export class EurorackApp {
             }
             rowEl.classList.add('rack', 'rack-row');
             rowEl.dataset.row = row;
-            if (rowEl.parentNode !== this.rackContainer) {
-                this.rackContainer.insertBefore(rowEl, anchor);
+            if (rowEl.parentNode !== parent) {
+                parent.insertBefore(rowEl, footer);
             }
         });
 
@@ -393,6 +393,8 @@ export class EurorackApp {
     }
 
     bindEvents() {
+        this.player = new RackPlayer(this);
+        this.player.bind();
         // Capture the whole assignment gesture before a pad, momentary button,
         // binary switch, or native select can change its value.
         const learnGesture = event => {
@@ -446,6 +448,34 @@ export class EurorackApp {
         this.document.getElementById('removeRackRow')?.addEventListener('click', () => this.removeRackRow());
     }
 
+    get inPlayerView() {
+        return this.document.body.classList.contains('rack-player');
+    }
+
+    setPlayerMode(player) {
+        this.document.body.classList.toggle('rack-player', player);
+        this.rackContainer.setAttribute('aria-label', player ? 'Rack player' : 'Rack editor');
+        this.player.panels.inert = player;
+        this.player.panels.setAttribute('aria-hidden', String(player));
+        if (player) this.player.stage.setAttribute('role', 'img');
+        else {
+            this.player.stage.removeAttribute('role');
+            this.player.stage.removeAttribute('aria-label');
+        }
+        this.updateTransport();
+        if (player) {
+            this.cancelCableDrag();
+            this.cancelModuleDrag();
+            this.selection.clear();
+            if (this.midiManager?.isLearnMode) this.toggleMidiLearnMode();
+            if (this.rackDebugger?.enabled) this.rackDebugger.toggle(false);
+            if (this.patchWorkbench?.drawer && !this.patchWorkbench.drawer.hidden) this.patchWorkbench.toggle(false);
+            const analysis = this.document.getElementById('analysisToggle');
+            if (analysis?.getAttribute('aria-expanded') === 'true') analysis.click();
+        }
+        this.connectMidiIfNeeded();
+    }
+
     applySkin() {
         this.document.body.classList.remove('theme-classic', 'theme-dark');
         this.document.body.classList.add('theme-industrial', 'theme-light', 'skin-factory');
@@ -493,11 +523,13 @@ export class EurorackApp {
         this.state.getRowNumbers().forEach(row => {
             this.rows[row]?.classList.toggle('empty', this.state.getRow(row).length === 0);
         });
+        this.player?.fit();
+        this.updateTransport();
+        this.connectMidiIfNeeded();
     }
 
     addRackRow() {
         const row = this.state.addRow();
-        this.syncRowElements();
         this.markEmptyRows();
         this.renderAllCables();
         return row;
@@ -667,30 +699,37 @@ export class EurorackApp {
         this.engine = this.host.engine;
     }
 
-    async toggleAudio() {
-        if (this.host.engine) {
-            const context = await this.host.stopAudio();
-            this.engine = null;
-            await context?.close();
-            this.audioCtx = null;
-            this.startButton.textContent = 'Start';
-            this.startButton.classList.remove('active');
-            return;
-        }
+    updateTransport() {
+        if (!this.startButton) return;
+        const playing = !!this.host.engine;
+        this.startButton.textContent = playing ? 'Stop' : this.inPlayerView ? 'Play' : '▶ Start';
+        this.startButton.classList.toggle('active', playing);
+        this.startButton.disabled = this.audioTransitionPending || (this.inPlayerView && !playing && !this.state.modules.size);
+    }
 
-        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    async toggleAudio() {
+        if (this.audioTransitionPending) return;
+        this.audioTransitionPending = true;
+        this.updateTransport();
+        let startingContext;
         try {
-            await this.audioCtx.resume();
-            this.engine = await this.host.startAudio(this.audioCtx);
+            if (this.host.engine) {
+                const context = await this.host.stopAudio();
+                await context?.close();
+            } else {
+                startingContext = new (window.AudioContext || window.webkitAudioContext)();
+                await startingContext.resume();
+                await this.host.startAudio(startingContext);
+            }
         } catch (error) {
-            await this.audioCtx.close();
-            this.audioCtx = null;
-            this.engine = null;
+            if (startingContext && startingContext.state !== 'closed') await startingContext.close();
             alert(error.message);
-            return;
+        } finally {
+            this.audioCtx = this.host.audioCtx;
+            this.engine = this.host.engine;
+            this.audioTransitionPending = false;
+            this.updateTransport();
         }
-        this.startButton.textContent = 'Stop';
-        this.startButton.classList.add('active');
     }
 
     updateLEDs(ledStates) {
@@ -698,6 +737,7 @@ export class EurorackApp {
     }
 
     handleMouseDown(event) {
+        if (this.inPlayerView) return;
         const jack = event.target.closest('.jack');
         if (jack) {
             event.preventDefault();
@@ -742,6 +782,7 @@ export class EurorackApp {
     }
 
     handleModuleMouseDown(event) {
+        if (this.inPlayerView) return;
         if (event.button !== 0 && !(event.ctrlKey && event.button === 2)) return;
         if (event.target.closest(PANEL_CONTROLS)) return;
 
@@ -955,7 +996,8 @@ export class EurorackApp {
 
         const visualCable = { ...pureCable, fromEl: fromJack, toEl: toJack, pathEl: path };
         this.visualCables.push(visualCable);
-        this.markConnectedJacks();
+        fromJack.classList.add('connected');
+        toJack.classList.add('connected');
         this.renderCable(visualCable);
         if (updateState) this.engine?.setCables(this.state.cables);
         return visualCable;
@@ -1023,6 +1065,7 @@ export class EurorackApp {
                 });
             }
         });
+        this.player?.fit();
     }
 
     renderCable(cable) {
@@ -1038,7 +1081,15 @@ export class EurorackApp {
         }
         const from = getJackCenter(fromEl);
         const to = getJackCenter(toEl);
-        cable.pathEl.setAttribute('d', createCablePath(from.x, from.y, to.x, to.y));
+        if (this.inPlayerView && this.player) {
+            // The overview SVG shares the panels' transform, so its paths use rack-local coordinates.
+            const { left, top } = this.cableSvg.getBoundingClientRect();
+            const scale = this.player.scale;
+            cable.pathEl.setAttribute('d', createCablePath((from.x - left) / scale, (from.y - top) / scale,
+                (to.x - left) / scale, (to.y - top) / scale));
+        } else {
+            cable.pathEl.setAttribute('d', createCablePath(from.x, from.y, to.x, to.y));
+        }
     }
 
     renderAllCables() {
@@ -1249,9 +1300,9 @@ export class EurorackApp {
         });
     }
 
-    getCurrentPatchName() {
-        const inputName = this.document.getElementById('patchName')?.value;
-        return normalizePatchName(inputName || this.patchLibrary?.active?.name || 'Untitled');
+    getCurrentPatchName(fallback = 'Untitled') {
+        const inputName = this.document.getElementById('patchName')?.value.trim();
+        return normalizePatchName(inputName || this.patchLibrary?.active?.name, fallback);
     }
 
     exportCurrentPatchToFile() {
@@ -1308,18 +1359,13 @@ export class EurorackApp {
         }
     }
 
-    async initMidi() {
+    initMidi() {
         this.midiManager = createMidiManager();
         this.host.setService('midiManager', this.midiManager);
         this.midiManager.setOnRawMidiMessage((data, receivedTime) => (
             this.host.engine?.sendMidi?.(data, receivedTime)
         ));
-        const success = await this.midiManager.init();
         const btn = this.document.getElementById('midiLearnBtn');
-        if (!success) {
-            btn.style.display = 'none';
-            return;
-        }
         this.midiManager.setOnMidiLearnComplete((key, knobInfo) => {
             knobInfo.element.classList.remove('midi-learning');
             knobInfo.element.classList.add('midi-mapped');
@@ -1331,6 +1377,19 @@ export class EurorackApp {
                 ? `MIDI Learn - Connected: ${devices.join(', ')}`
                 : 'MIDI Learn - No devices connected';
         });
+        this.connectMidiIfNeeded();
+    }
+
+    connectMidiIfNeeded() {
+        if (!this.midiManager || this.midiAccessRequested) return;
+        // Trusted plugin modules may use the MIDI service in any category.
+        if (this.inPlayerView && [...this.state.modules.values()].every(({ type }) =>
+                pluginRegistry.getPluginForModule(type) === 'core' && pluginRegistry.get(type)?.category !== 'midi')) return;
+        this.midiAccessRequested = true;
+        // A hardware permission prompt must never delay rack startup or playback.
+        void this.midiManager.init().then(available => {
+            if (!available) this.document.getElementById('midiLearnBtn').style.display = 'none';
+        }).catch(error => console.error('Failed to initialize MIDI:', error));
     }
 
     toggleMidiLearnMode() {
@@ -1349,6 +1408,7 @@ export class EurorackApp {
     }
 
     applyMidiControl({ moduleId, paramId, value }) {
+        if (this.inPlayerView) return;
         const module = this.state.getModule(moduleId);
         const domain = getControlDomain(this.host.registry.get(module?.type), paramId);
         if (!domain || !Number.isFinite(value)) return;

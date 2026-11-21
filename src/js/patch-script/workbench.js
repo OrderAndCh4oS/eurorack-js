@@ -211,7 +211,7 @@ export class PatchWorkbench {
                 else this.moduleBrowser?.saveDraft();
                 return;
             }
-            if ((event.ctrlKey || event.metaKey) && event.key === '`') {
+            if ((event.ctrlKey || event.metaKey) && event.key === '`' && !this.app.inPlayerView) {
                 event.preventDefault();
                 this.toggle();
             }
@@ -243,7 +243,6 @@ export class PatchWorkbench {
         if (force) this.app.patchLibrary?.navigate('rack');
         if (force && !this.sessionSeeded && !this.sessionHasWork) this.loadCurrentRack();
         this.drawer.hidden = !force;
-        this.document.body.classList.toggle('patch-workbench-open', force);
         this.document.getElementById('patchWorkbenchToggle')?.classList.toggle('active', force);
         if (force) {
             if (this.activeTab === 'modules') this.moduleBrowser?.focus();
@@ -431,6 +430,7 @@ export class PatchWorkbench {
     }
 
     stageAgentScript(source) {
+        this.drafts.requireEditor();
         if (this.operationPending) throw draftError('busy', 'A patch operation is still running.');
         if (typeof source !== 'string' || source.length > 65536) throw draftError('source-limit', 'Use a script of at most 64 KiB.');
         // A new local script preserves the user's current code and makes agent edits reviewable.

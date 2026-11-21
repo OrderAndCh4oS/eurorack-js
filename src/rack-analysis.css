@@ -87,13 +87,5 @@
 .module.agent-step-target { outline: 4px solid var(--library-accent); outline-offset: -4px; }
 .rack-analysis-open > .rack-container, .rack-container:has(.agent-step-target) { height: calc(100% - var(--analysis-code-height, 0px)); }
 @media (max-width: 760px) {
-    #rackView.rack-analysis-open { display: grid; grid-template-columns: 180px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) min(55%, 30rem); height: calc(100dvh - 2 * var(--library-toolbar) - var(--analysis-code-height, 0px)); }
-    #rackView.rack-analysis-open.rack-debugger-open { grid-template-rows: auto minmax(0, 1fr) min(55%, 30rem); }
-    .rack-analysis-open > .sidebar, .rack-analysis-open > .rack-container { grid-row: -3 / -2; min-height: 0; }
-    .rack-analysis-open > .sidebar { grid-column: 1; }
-    .rack-analysis-open > .rack-container { grid-column: 2; height: auto; }
-    .rack-analysis { grid-column: 1 / -1; grid-row: -2 / -1; height: 100%; border: 0; border-top: 2px solid; }
-    .analysis-controls input { font-size: 16px; }
     .agent-caption { left: 6px; bottom: calc(var(--analysis-code-height, 0px) + 6px); max-width: calc(100vw - 12px); }
-    .rack-analysis-open > .agent-caption { position: relative; grid-column: 1 / -1; grid-row: -3 / -2; place-self: end start; bottom: auto; left: auto; margin: 6px; }
 }

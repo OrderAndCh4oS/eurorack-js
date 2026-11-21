@@ -16,6 +16,7 @@ const LIBRARY_VIEWS = {
 };
 const snapshot = state => JSON.stringify(state);
 const clone = value => JSON.parse(JSON.stringify(value));
+const needsPreviewWork = record => !record.images?.dark?.thumbnail || record.needsPreviewCheck;
 const sourceLabel = record => ({ test: 'Test patch', demo: 'Demo patch', local: 'This browser', cloud: record.visibility === 'public' ? 'Public' : 'Private' }[record.source] || 'Unsaved rack');
 
 function element(document, tag, text, className) {
@@ -431,6 +432,22 @@ export class PatchLibrary {
         const reuse = previous?.url === images.thumbnail && previous.visibility === record.visibility;
         const img = reuse ? previous.image : frame.querySelector('img') || element(this.document, 'img');
         img.alt = `Rack for ${record.name}`; img.loading = 'lazy'; img.decoding = 'async';
+        const signal = this.previewAbort.signal;
+        const sources = [images.thumbnail, images.thumbnail];
+        if (images.thumbnail !== record.images.thumbnail) sources.push(record.images.thumbnail);
+        let attempt = 0;
+        const failed = () => {
+            if (signal.aborted || !frame.isConnected || img.parentNode !== frame) return;
+            const next = sources[++attempt];
+            if (!next) {
+                frame.replaceChildren(element(this.document, 'span', 'Preview unavailable', 'patch-preview-placeholder'));
+                return;
+            }
+            this.window.setTimeout(() => {
+                if (!signal.aborted && img.parentNode === frame && img.onerror === failed) img.src = next;
+            }, 750);
+        };
+        img.onerror = failed;
         if (img.getAttribute('src') !== images.thumbnail) img.src = images.thumbnail;
         if (img.parentNode !== frame) frame.replaceChildren(img);
     }
@@ -440,18 +457,19 @@ export class PatchLibrary {
         if (status) { status.textContent = message; status.hidden = !message; }
     }
     async fillCloudPreviews(records, signal, retryDelay = 2000) {
-        if (signal.aborted || !records.some(record => !record.images?.dark?.thumbnail)) return;
-        this.setPreviewStatus('Generating missing patch previews…');
+        if (signal.aborted || !records.some(needsPreviewWork)) return;
+        this.setPreviewStatus(records.some(record => !record.images?.dark?.thumbnail) ? 'Generating missing patch previews…' : 'Checking patch previews…');
         const pending = [];
         for (const record of records) {
             if (signal.aborted) return;
-            if (record.images?.dark?.thumbnail) continue;
+            if (!needsPreviewWork(record)) continue;
             try {
                 const result = await this.cloud.ensurePreviews(record.id, signal);
                 if (signal.aborted) return;
                 if (result.pending) { pending.push(record); continue; }
                 if (result.revision !== record.revision) continue;
                 Object.assign(record, { images: result.images, previewId: result.previewId });
+                delete record.needsPreviewCheck;
                 const card = this.surface.querySelector(`[data-patch-source="cloud"][data-patch-id="${record.id}"]`);
                 const frame = card?.querySelector('.patch-preview-frame');
                 if (frame) this.showCloudPreview(frame, record);
@@ -465,7 +483,7 @@ export class PatchLibrary {
             this.window.setTimeout(() => { void this.fillCloudPreviews(pending, signal, Math.min(10000, retryDelay * 2)); }, retryDelay);
         } else {
             const page = this.view === 'public' ? this.publicPatches : this.accountPatches;
-            this.setPreviewStatus(page.some(record => !record.images?.dark?.thumbnail) ? 'Some previews are unavailable. This page will retry on your next visit.' : '');
+            this.setPreviewStatus(page.some(needsPreviewWork) ? 'Some previews are unavailable. This page will retry on your next visit.' : '');
         }
     }
     observePreview(frame, record) {

@@ -20,7 +20,8 @@ beforeEach(async () => {
     store = new MemoryStore(); images = new MemoryImageStore(); clock = new Date('2026-11-13T12:00:00Z');
     service = createPatchService({ store, imageStore: images, now: () => clock });
     handler = createHandler({ store, imageStore: images, service, baseUrl: 'https://rack.example', authenticate: async req => ({ alice, bob, charlie })[req.headers.get('x-test-user')] || null });
-    png = await sharp({ create: { width: 300, height: 100, channels: 3, background: '#f0eee2' } }).png().toBuffer();
+    png = await sharp({ create: { width: 300, height: 100, channels: 3, background: '#f0eee2' } })
+        .composite([{ input: { create: { width: 80, height: 50, channels: 3, background: '#252621' } } }]).png().toBuffer();
 });
 async function preview(user = alice, patchState = state()) { return service.uploadPreview(user, { state: patchState }, png); }
 async function published() { const image = await preview(); return service.create(alice, draft({ visibility: 'public', previewId: image.id })); }
@@ -33,6 +34,37 @@ describe('automatic catalogue previews', () => {
     function withRenderer(renderPreviews) {
         return createPatchService({ store, imageStore: images, now: () => clock, renderPreviews });
     }
+
+    it('recognizes a flat legacy dark thumbnail, repairs its palette and keeps the valid light image', async () => {
+        const blank = await sharp({ create: { width: 300, height: 100, channels: 3, background: '#171813' } }).png().toBuffer();
+        const pair = await service.uploadPreview(alice, { state: state() }, png, blank);
+        const patch = await service.create(alice, draft({ visibility: 'public', previewId: pair.id }));
+        const before = await store.getPreview(pair.id);
+        const light = await service.image(null, patch.id, pair.id, 'thumbnail', { includeAccess: true });
+        const oldDark = await service.image(null, patch.id, pair.id, 'dark-thumbnail', { includeAccess: true });
+        const render = vi.fn(async () => ({ dark: blank }));
+        const gallery = withRenderer(render);
+        expect((await gallery.list({ publicOnly: true })).patches[0].needsPreviewCheck).toBe(true);
+        await expect(gallery.ensurePreviews(null, patch.id)).rejects.toMatchObject({ code: 'blank_preview' });
+        expect((await store.getPreview(pair.id)).variants).toEqual(before.variants);
+        clock = new Date(clock.getTime() + 31000);
+        render.mockResolvedValue({ dark: png });
+        const ready = await gallery.ensurePreviews(null, patch.id);
+        expect(render).toHaveBeenLastCalledWith(patch.state, ['dark']);
+        expect(ready.images.thumbnail).toBe(patch.images.thumbnail);
+        expect(ready.images.dark.thumbnail).not.toBe(patch.images.dark.thumbnail);
+        expect((await service.image(null, patch.id, pair.id, 'thumbnail', { includeAccess: true })).etag).toBe(light.etag);
+        expect((await service.image(null, patch.id, pair.id, 'dark-thumbnail', { includeAccess: true })).etag).not.toBe(oldDark.etag);
+        const checked = (await gallery.list({ publicOnly: true })).patches[0];
+        expect(checked).not.toHaveProperty('needsPreviewCheck');
+        expect(checked.updatedAt).toBe(patch.updatedAt);
+        expect(checked.revision).toBe(patch.revision);
+        const saved = await store.getPreview(pair.id);
+        expect(saved.bytes).toBe(Object.values(saved.variants).reduce((n, v) => n + v.bytes, 0));
+        expect(await store.garbageCount()).toBe(3);
+        expect(await gallery.ensurePreviews(null, patch.id)).toEqual(ready);
+        expect(render).toHaveBeenCalledTimes(2);
+    });
 
     it('adds only missing variants, preserves existing bytes and skips rendering a completed pair', async () => {
         const patch = await published();

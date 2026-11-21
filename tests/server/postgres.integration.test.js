@@ -48,8 +48,9 @@ suite('real PostgreSQL adapter and Better Auth migration', () => {
         expect(new URL(result.url).searchParams.get('redirect_uri')).toBe('http://localhost:4173/api/auth/callback/google');
     });
     it('persists previews, forks, idempotency, likes and revisions using real SQL transactions', async () => {
-        const png = await sharp({ create: { width: 60, height: 40, channels: 3, background: '#f0eee2' } }).png().toBuffer();
-        const dark = await sharp({ create: { width: 60, height: 40, channels: 3, background: '#171813' } }).png().toBuffer();
+        const panel = { input: { create: { width: 20, height: 30, channels: 3, background: '#75776a' } } };
+        const png = await sharp({ create: { width: 60, height: 40, channels: 3, background: '#f0eee2' } }).composite([panel]).png().toBuffer();
+        const dark = await sharp({ create: { width: 60, height: 40, channels: 3, background: '#171813' } }).composite([panel]).png().toBuffer();
         const image = await service.uploadPreview(user, { state }, png);
         const input = { name: 'SQL fixture', state, requestId: ulid(), visibility: 'public', previewId: image.id };
         const original = await service.create(user, input);

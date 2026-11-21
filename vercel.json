@@ -11,7 +11,7 @@
     { "source": "/patch-previews/:path*", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
     { "source": "/fonts/:file.woff2", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
   ],
-  "functions": { "api/index.js": { "maxDuration": 120, "includeFiles": "{src/{index.html,patch-preview.html,industrial-theme.css,js/**,patch-previews/introduction/manifest.json},node_modules/@sparticuz/chromium/bin/**,node_modules/html-to-image/dist/html-to-image.js}" } },
+  "functions": { "api/index.js": { "maxDuration": 120, "includeFiles": "{src/{index.html,patch-preview.html,industrial-theme.css,js/**,patch-previews/introduction/manifest.json},node_modules/@sparticuz/chromium/bin/**}" } },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api?__path=/api/:path*" },
     { "source": "/patches/:id/images/:previewId/:variant", "destination": "/api?__path=/patches/:id/images/:previewId/:variant" },

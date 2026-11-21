@@ -324,7 +324,8 @@ describe('patch library coordination', () => {
         const rows = [
             { id, name: 'Ready', images: ready, revision: 1 },
             { id: '01K00000000000000000000001', name: 'Legacy', images: { thumbnail: '/original' }, revision: 2 },
-            { id: '01K00000000000000000000002', name: 'Missing', images: null, revision: 3 }
+            { id: '01K00000000000000000000002', name: 'Missing', images: null, revision: 3 },
+            { id: '01K00000000000000000000003', name: 'Unchecked', images: { thumbnail: '/light', dark: { thumbnail: '/blank' } }, needsPreviewCheck: true, revision: 3 }
         ];
         cloud.list.mockResolvedValue({ patches: rows });
         cloud.ensurePreviews = vi.fn().mockReturnValueOnce(pending.promise).mockResolvedValue({ revision: 3, images: ready, previewId: id });
@@ -337,8 +338,27 @@ describe('patch library coordination', () => {
         await vi.waitFor(() => expect(library.surface.querySelector('[data-patch-name="Missing"] img')?.getAttribute('src')).toBe('/dark'));
         expect(image.getAttribute('src')).toBe('/dark');
         expect(document.activeElement).toBe(search);
-        expect(cloud.ensurePreviews.mock.calls.map(([patchId]) => patchId)).toEqual([rows[1].id, rows[2].id]);
+        expect(cloud.ensurePreviews.mock.calls.map(([patchId]) => patchId)).toEqual([rows[1].id, rows[2].id, rows[3].id]);
+        expect(library.surface.querySelector('[data-patch-name="Unchecked"] img').getAttribute('src')).toBe('/dark');
         expect(cloud.list).toHaveBeenCalledTimes(1);
+    });
+    it('retries a failed dark thumbnail and falls back to the saved light image', async () => {
+        vi.useFakeTimers();
+        try {
+            const { cloud, library, app } = setup();
+            library.view = 'public'; library.config.enabled = true; app.themeMode = 'dark';
+            cloud.list.mockResolvedValue({ patches: [{ id, name: 'Rack', images: { thumbnail: '/light', dark: { thumbnail: '/dark' } } }] });
+            await library.fetchList(true);
+            const img = library.surface.querySelector('.patch-entry img');
+            const frame = img.parentNode;
+            for (const next of ['/dark', '/light']) {
+                img.dispatchEvent(new Event('error'));
+                await vi.advanceTimersByTimeAsync(750);
+                expect(img.getAttribute('src')).toBe(next);
+            }
+            img.dispatchEvent(new Event('error'));
+            expect(frame.textContent).toBe('Preview unavailable');
+        } finally { vi.useRealTimers(); }
     });
     it('searches account pages without sending public ranking filters', async () => {
         const { cloud, library } = setup(); library.config.enabled = true; library.user = { id: 'me' };

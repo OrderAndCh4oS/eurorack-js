@@ -1,6 +1,6 @@
 import { ulid } from 'ulid';
 import { LIMITS, assert, assertBuiltInModules, id, revision, hash, textField, publicName, visibility, validateState, HttpError } from './validation.js';
-import { rasterVariants } from './image-store.js';
+import { hasRackDetail, rasterVariants } from './image-store.js';
 import { cataloguePage } from './catalogue-pagination.js';
 import { createImageByteCache } from './image-byte-cache.js';
 import { PATCH_PREVIEW_MODES, PATCH_PREVIEW_RENDERER_VERSION } from '../src/js/patches/patch-preview.js';
@@ -8,6 +8,11 @@ import { PATCH_PREVIEW_MODES, PATCH_PREVIEW_RENDERER_VERSION } from '../src/js/p
 const imageVariants = ['full', 'thumbnail', 'social'];
 const variantName = (mode, variant) => mode === 'dark' ? `dark-${variant}` : variant;
 const renderLeaseMs = 150000;
+
+function previewFields(preview) {
+    return { previewId: preview?.id || null, hasDarkPreview: !!preview?.variants['dark-thumbnail'],
+        previewChecked: !!preview?.checked, previewVersions: preview?.paletteVersions || {} };
+}
 
 async function renderStoredPatch(state, modes) {
     const { renderPatchPreviews } = await import('./render-patch-previews.js');
@@ -65,12 +70,15 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
         const profileIds = [...new Set(patches.flatMap(p => [p.ownerId, parentCreator(p), originalCreator(p)]).filter(Boolean))];
         return { related, profiles: await tx.getProfiles(profileIds), parentCreator, originalCreator };
     }
-    function imageUrls(patch, prefix = '') {
+    function imageUrls(patch, mode = 'light') {
+        const prefix = mode === 'dark' ? 'dark-' : '';
+        const version = patch.previewVersions?.[mode];
+        const query = version ? `?v=${version}` : '';
         const base = `/patches/${patch.id}/images/${patch.previewId}/${prefix}`;
-        return { thumbnail: `${base}thumbnail`, full: `${base}full.png`, social: `${base}social.png` };
+        return { thumbnail: `${base}thumbnail${query}`, full: `${base}full.png${query}`, social: `${base}social.png${query}` };
     }
     function patchImages(patch) {
-        return patch.previewId ? { ...imageUrls(patch), ...(patch.hasDarkPreview ? { dark: imageUrls(patch, 'dark-') } : {}) } : null;
+        return patch.previewId ? { ...imageUrls(patch), ...(patch.hasDarkPreview ? { dark: imageUrls(patch, 'dark') } : {}) } : null;
     }
     async function storeVariants(groupId, rasters, commit) {
         const uploaded = [];
@@ -109,31 +117,40 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
             const patch = accessible(await tx.getPatch(patchId), user);
             const preview = patch.previewId && await tx.getPreview(patch.previewId);
             if (preview) assert(preview.ownerId === patch.ownerId && preview.stateHash === patch.stateHash, 'Preview does not match its patch.', 409, 'preview_mismatch');
-            const modes = PATCH_PREVIEW_MODES.filter(mode => imageVariants.some(v => !preview?.variants[variantName(mode, v)]));
-            if (!modes.length) {
-                if (!patch.hasDarkPreview) await tx.putPatch({ ...patch, hasDarkPreview: true });
-                return { result: { previewId: patch.previewId, images: patchImages({ ...patch, hasDarkPreview: true }), revision: patch.revision } };
+            if (preview?.checked) {
+                const checked = { ...patch, ...previewFields(preview) };
+                if (!patch.previewChecked) await tx.putPatch(checked);
+                return { result: { previewId: checked.previewId, images: patchImages(checked), revision: checked.revision } };
             }
             const target = preview || patch;
             if (target.previewRender?.stateHash === patch.stateHash && target.previewRender.until > now().getTime()) return { result: { pending: true } };
             // Rendering uses only the stored, built-in patch. Anonymous readers
             // may request public artwork but cannot provide state or pixels.
             const validated = validateState(patch.state, contracts);
-            await checkImageQuota(tx, patch.ownerId, 1);
             const token = generateId();
             const claimed = { ...target, previewRender: { token, stateHash: patch.stateHash, until: now().getTime() + renderLeaseMs } };
             if (preview) await tx.putPreview(claimed);
             else await tx.putPatch(claimed);
-            return { patch, preview, modes, token, state: validated.state };
+            return { patch, preview, token, state: validated.state };
         });
         if (claim.result) return claim.result;
-        const { patch, preview, modes, token } = claim;
+        const { patch, preview, token, state } = claim;
         try {
-            const captures = await renderPreviews(claim.state, modes);
+            const blank = new Set();
+            for (const mode of PATCH_PREVIEW_MODES) {
+                const thumb = preview?.variants[variantName(mode, 'thumbnail')];
+                if (thumb && state.modules.length && !await hasRackDetail(await imageStore.get(thumb.key))) blank.add(mode);
+            }
+            const modes = PATCH_PREVIEW_MODES.filter(mode => blank.has(mode) ||
+                imageVariants.some(variant => !preview?.variants[variantName(mode, variant)]));
+            const captures = modes.length ? await renderPreviews(state, modes) : {};
             const rasters = {};
             for (const mode of modes) {
-                for (const [key, image] of Object.entries(await rasterVariants(captures[mode], mode))) {
-                    if (!preview?.variants[key]) rasters[key] = image;
+                const generated = await rasterVariants(captures[mode], mode);
+                if (state.modules.length) assert(await hasRackDetail(generated[variantName(mode, 'thumbnail')].body),
+                    'The rack preview was blank. Try again later.', 503, 'blank_preview');
+                for (const [key, image] of Object.entries(generated)) {
+                    if (blank.has(mode) || !preview?.variants[key]) rasters[key] = image;
                 }
             }
             return await storeVariants(token, rasters, async (tx, added, bytes) => {
@@ -141,16 +158,21 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 const held = preview ? await tx.getPreview(preview.id) : latest;
                 assert(held?.previewRender?.token === token && latest.stateHash === patch.stateHash && latest.previewId === patch.previewId,
                     'The saved rack changed during preview generation.', 409, 'preview_mismatch');
-                await checkImageQuota(tx, latest.ownerId, bytes);
+                const replaced = Object.keys(added).map(key => preview?.variants[key]).filter(Boolean);
+                const growth = bytes - replaced.reduce((sum, old) => sum + old.bytes, 0);
+                if (growth > 0) await checkImageQuota(tx, latest.ownerId, growth);
                 const previewId = preview?.id || token;
+                const paletteVersions = { ...preview?.paletteVersions };
+                for (const mode of blank) paletteVersions[mode] = token;
                 const completed = { ...preview, id: previewId, ownerId: latest.ownerId, stateHash: latest.stateHash,
                     createdAt: preview?.createdAt || timestamp(), rendererVersion: PATCH_PREVIEW_RENDERER_VERSION, theme: 'industrial',
-                    bytes: (preview?.bytes || 0) + bytes, variants: { ...preview?.variants, ...added } };
+                    checked: true, paletteVersions, bytes: (preview?.bytes || 0) + growth, variants: { ...preview?.variants, ...added } };
                 delete completed.previewRender;
                 await tx.putPreview(completed);
                 const { previewRender, ...record } = latest;
-                const updated = { ...record, previewId, hasDarkPreview: true };
+                const updated = { ...record, ...previewFields(completed) };
                 await tx.putPatch(updated);
+                for (const old of replaced) if (await tx.objectReferences(old.key) === 0) await tx.addGarbage(old.key);
                 return { previewId, images: patchImages(updated), revision: updated.revision };
             });
         } catch (error) {
@@ -184,6 +206,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 parentAvailable: !!parent && (parent.visibility === 'public' || parent.ownerId === user?.id),
                 rootAvailable: !!root && (root.visibility === 'public' || root.ownerId === user?.id) },
             ...(context.likes?.get(patch.id) || await tx.likes(patch.id, user?.id)),
+            ...(patch.hasDarkPreview && !patch.previewChecked ? { needsPreviewCheck: true } : {}),
             images: patchImages(patch)
         };
     }
@@ -233,13 +256,15 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
             await store.transaction(async tx => rate(tx, user, 'preview', 12));
             const variants = await rasterVariants(bytes);
             if (darkBytes) Object.assign(variants, await rasterVariants(darkBytes, 'dark'));
+            const checked = !!darkBytes && (!validated.state.modules.length ||
+                (await hasRackDetail(variants.thumbnail.body) && await hasRackDetail(variants['dark-thumbnail'].body)));
             const previewId = generateId();
             const rendererVersion = textField(body.rendererVersion, 'Renderer version', 40, 'rack-v1');
             const theme = textField(body.theme, 'Theme', 40, 'industrial-light');
             await storeVariants(previewId, variants, async (tx, stored, bytes) => {
                 await checkImageQuota(tx, user.id, bytes);
                 await tx.putPreview({ id: previewId, ownerId: user.id, stateHash: validated.stateHash, createdAt: timestamp(),
-                    rendererVersion, theme, bytes, variants: stored });
+                    rendererVersion, theme, bytes, checked, variants: stored });
             });
             return { id: previewId, stateHash: validated.stateHash };
         },
@@ -268,7 +293,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 const patchId = generateId(); const time = timestamp();
                 const creatorName = await authorName(tx, user, body);
                 const patch = { id: patchId, ownerId: user.id, ...labels(body), ...validated, authorName: creatorName,
-                    revision: 1, visibility: selectedVisibility, previewId: preview?.id || null, hasDarkPreview: !!preview?.variants['dark-thumbnail'],
+                    revision: 1, visibility: selectedVisibility, ...previewFields(preview),
                     createdAt: time, updatedAt: time, publishedAt: selectedVisibility === 'public' ? time : null,
                     requestId: body.requestId, requestHash: inputHash, parentId: null, parentRevision: null, rootId: patchId,
                     originalCreatorId: user.id, originalCreatorName: creatorName, parentCreatorId: null, parentCreatorName: null, savedAfterCopyAt: null,
@@ -288,7 +313,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 const time = timestamp();
                 const next = { ...patch, ...labels(body, patch), ...validated,
                     authorName: await authorName(tx, user, body, patch.authorName),
-                    visibility: selectedVisibility, previewId: preview?.id || null, hasDarkPreview: !!preview?.variants['dark-thumbnail'],
+                    visibility: selectedVisibility, ...previewFields(preview),
                     revision: patch.revision + 1, updatedAt: time,
                     savedAfterCopyAt: patch.parentId || patch.requiresSaveBeforePublish || patch.savedAfterCopyAt ? time : null,
                     requiresSaveBeforePublish: false,
@@ -351,7 +376,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 const sourceCredit = await project(tx, source, user, false, sourceContext);
                 const patch = { id: generateId(), ownerId: user.id, ...labels({ ...body, name: body.name ?? `${source.name.slice(0, 123)} copy` }),
                     ...validated, authorName: await authorName(tx, user, body),
-                    revision: 1, visibility: 'private', previewId: preview?.id || null, hasDarkPreview: !!preview?.variants['dark-thumbnail'], createdAt: time, updatedAt: time, publishedAt: null,
+                    revision: 1, visibility: 'private', ...previewFields(preview), createdAt: time, updatedAt: time, publishedAt: null,
                     requestId: body.requestId, requestHash: inputHash, parentId: source.id, parentRevision: source.revision, rootId: source.rootId,
                     originalCreatorId: sourceContext.originalCreator(source) || source.ownerId, originalCreatorName: sourceCredit.provenance.originalCreatorName,
                     parentCreatorId: source.ownerId, parentCreatorName: sourceCredit.authorName, savedAfterCopyAt: null, requiresSaveBeforePublish: true };

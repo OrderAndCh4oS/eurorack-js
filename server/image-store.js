@@ -3,6 +3,13 @@ import sharp from 'sharp';
 import { LIMITS, assert, HttpError } from './validation.js';
 import { readImageConfig, readS3ImageConfig } from './config.js';
 
+export async function hasRackDetail(thumbnail) {
+    // A nonempty rack has contrasting panel controls and rails. A nearly
+    // uniform WebP can still decode successfully and have the right dimensions.
+    const { channels } = await sharp(thumbnail, { limitInputPixels: LIMITS.imagePixels }).stats();
+    return channels.slice(0, 3).some(channel => channel.max - channel.min > 12);
+}
+
 export async function rasterVariants(input, mode = 'light') {
     assert(input.byteLength && input.byteLength <= LIMITS.uploadBytes, 'Rack image exceeds 2 MiB.', 413, 'image_too_large');
     try {

@@ -17,13 +17,44 @@ async function json(response, status = 200) {
     return response.json();
 }
 
+test('a dark gallery card replaces an existing blank file with a visible rack', async ({ page, request }) => {
+    const owner = { ...headers, cookie: 'eurorack-test-user=alice' };
+    const flat = await sharp({ create: { width: 120, height: 80, channels: 3, background: '#171813' } }).png().toBuffer();
+    const light = await sharp(flat).composite([{ input: { create: { width: 60, height: 50, channels: 3, background: '#e5dfce' } } }]).png().toBuffer();
+    const preview = await json(await request.post('/api/patch-previews', { headers: owner, multipart: {
+        state: JSON.stringify(state), image: { name: 'light.png', mimeType: 'image/png', buffer: light },
+        darkImage: { name: 'dark.png', mimeType: 'image/png', buffer: flat }
+    } }), 201);
+    const name = `Blank rack ${ulid()}`;
+    const record = await json(await request.post('/api/patches', { headers: owner, data: {
+        name, requestId: ulid(), state, visibility: 'public', previewId: preview.id
+    } }), 201);
+    try {
+        await page.goto('/');
+        await page.getByRole('button', { name: 'Dark mode', exact: true }).click();
+        await page.goto('/patches?q=' + encodeURIComponent(name));
+        const img = page.locator(`article[data-patch-id="${record.id}"] img`);
+        await expect(img).toHaveAttribute('src', /dark-thumbnail\?v=/, { timeout: 45000 });
+        await expect.poll(() => img.evaluate(el => el.complete && el.naturalWidth > 0)).toBe(true);
+        const repaired = await json(await request.get(`/api/patches/${record.id}`));
+        expect(repaired.images.thumbnail).toBe(record.images.thumbnail);
+        expect(repaired.revision).toBe(record.revision);
+        const response = await request.get(repaired.images.dark.thumbnail);
+        const stats = await sharp(await response.body()).stats();
+        expect(stats.channels[0].stdev).toBeGreaterThan(10);
+    } finally {
+        await request.delete(`/api/patches/${record.id}`, { headers: owner, data: { expectedRevision: record.revision } });
+    }
+});
+
 test('the list saves missing artwork for a public patch, preserves its light cache and supports later saves', async ({ browser }) => {
     test.setTimeout(60000);
     const context = await browser.newContext();
     await context.addCookies([{ name: 'eurorack-test-user', value: 'alice', url: origin }]);
     let patchId;
     try {
-        const png = await sharp({ create: { width: 120, height: 80, channels: 3, background: '#eeeade' } }).png().toBuffer();
+        const png = await sharp({ create: { width: 120, height: 80, channels: 3, background: '#eeeade' } })
+            .composite([{ input: { create: { width: 40, height: 50, channels: 3, background: '#333' } } }]).png().toBuffer();
         const preview = await json(await context.request.post(`${origin}/api/patch-previews`, { headers, multipart: {
             state: JSON.stringify(state), image: { name: 'rack.png', mimeType: 'image/png', buffer: png }
         } }), 201);
@@ -79,6 +110,14 @@ test('the list saves missing artwork for a public patch, preserves its light cac
             const thumbnail = visitor.locator(`article[data-patch-id="${patchId}"] img`);
             await expect(thumbnail).toHaveAttribute('src', /\/dark-thumbnail$/, { timeout: 45000 });
             await expect.poll(() => thumbnail.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+            const pixels = await thumbnail.evaluate(img => {
+                const canvas = document.createElement('canvas');
+                canvas.width = canvas.height = 64;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, 64, 64);
+                return Array.from(ctx.getImageData(0, 0, 64, 64).data).filter((_, i) => i % 4 === 0);
+            });
+            expect(pixels.filter(red => Math.abs(red - pixels[0]) > 14).length).toBeGreaterThan(200);
         } finally { await anonymous.close(); }
         expect(original.images.dark).toBeUndefined();
         const repaired = await json(await context.request.get(`${origin}/api/patches/${patchId}`));

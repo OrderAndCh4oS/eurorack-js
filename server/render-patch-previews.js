@@ -12,10 +12,6 @@ async function serveRendererFile(route) {
     const url = new URL(route.request().url());
     if (url.origin !== origin) return route.abort();
     const path = url.pathname;
-    if (path === '/vendor/cloud.js') {
-        const library = await readFile(new URL(import.meta.resolve('html-to-image/dist/html-to-image.js')), 'utf8');
-        return route.fulfill({ contentType: types.js, body: `${library}\nexport const toBlob = globalThis.htmlToImage.toBlob;` });
-    }
     if (!rendererFiles.has(path) && !/^\/js\/(?:[\w-]+\/)*[\w-]+\.js$/.test(path)) return route.abort();
     const body = await readFile(new URL(`../src${path}`, import.meta.url));
     return route.fulfill({ contentType: types[path.split('.').at(-1)], body });
@@ -37,20 +33,20 @@ export async function renderPatchPreviews(state, modes) {
     try {
         const page = await browser.newPage({ viewport: { width: 1600, height: 1600 }, serviceWorkers: 'block' });
         await page.route('**/*', route => serveRendererFile(route).catch(() => route.abort().catch(() => {})));
-        await page.goto(`${origin}/patch-preview.html`);
-        await page.waitForFunction(() => window.eurorackPatchPreview);
         const images = {};
         for (const mode of modes) {
-            const data = await page.evaluate(async ({ state, mode }) => {
-                const blob = await window.eurorackPatchPreview.capture(state, { mode });
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result.split(',')[1]);
-                    reader.onerror = () => reject(reader.error);
-                    reader.readAsDataURL(blob);
-                });
+            await page.goto(`${origin}/patch-preview.html`);
+            const clip = await page.evaluate(async ({ state, mode }) => {
+                const { renderPatchPreview } = await import('/js/patches/patch-preview-frame.js');
+                const { getPreviewDimensions } = await import('/js/patches/patch-preview.js');
+                const { element } = await renderPatchPreview(state, { mode });
+                const bounds = element.getBoundingClientRect();
+                const size = getPreviewDimensions(Math.ceil(bounds.width), Math.ceil(bounds.height));
+                element.style.transformOrigin = 'top left';
+                element.style.transform = `scale(${size.width / bounds.width}, ${size.height / bounds.height})`;
+                return { x: bounds.x, y: bounds.y, ...size };
             }, { state, mode });
-            images[mode] = Buffer.from(data, 'base64');
+            images[mode] = await page.screenshot({ clip, type: 'png', animations: 'disabled', scale: 'css' });
         }
         return images;
     } finally {

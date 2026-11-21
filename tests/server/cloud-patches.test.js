@@ -29,6 +29,70 @@ async function request(path, { user, method = 'GET', body, origin = 'https://rac
         ...(method !== 'GET' ? { origin, 'content-type': 'application/json' } : {}), ...headers }, ...(body ? { body: JSON.stringify(body) } : {}) }));
 }
 
+describe('automatic catalogue previews', () => {
+    function withRenderer(renderPreviews) {
+        return createPatchService({ store, imageStore: images, now: () => clock, renderPreviews });
+    }
+
+    it('adds only missing variants, preserves existing bytes and skips rendering a completed pair', async () => {
+        const patch = await published();
+        const original = await store.getPreview(patch.previewId);
+        const writes = vi.spyOn(images, 'put');
+        const render = vi.fn(async () => ({ dark: png }));
+        const gallery = withRenderer(render);
+        const result = await gallery.ensurePreviews(null, patch.id);
+        expect(render).toHaveBeenCalledExactlyOnceWith(patch.state, ['dark']);
+        expect(writes).toHaveBeenCalledTimes(3);
+        expect(result.images.thumbnail).toBe(patch.images.thumbnail);
+        const next = await service.get(patch.id, null);
+        expect(next).toEqual({ ...patch, canEdit: false, images: result.images });
+        const stored = await store.getPreview(patch.previewId);
+        expect(stored.variants).toMatchObject(original.variants);
+        expect(stored.bytes).toBe(Object.values(stored.variants).reduce((sum, variant) => sum + variant.bytes, 0));
+        expect(await gallery.ensurePreviews(bob, patch.id)).toEqual(result);
+        expect(render).toHaveBeenCalledTimes(1);
+    });
+
+    it('fills an imageless private copy for its owner without satisfying its publication gate', async () => {
+        const copy = await service.create(alice, draft({ copy: true }));
+        const render = vi.fn(async () => ({ light: png, dark: png }));
+        const gallery = withRenderer(render);
+        for (const viewer of [null, bob]) await expect(gallery.ensurePreviews(viewer, copy.id)).rejects.toMatchObject({ status: 404 });
+        expect(render).not.toHaveBeenCalled();
+        const ready = await gallery.ensurePreviews(alice, copy.id);
+        expect(render).toHaveBeenCalledExactlyOnceWith(copy.state, ['light', 'dark']);
+        expect(await service.get(copy.id, alice)).toEqual({ ...copy, previewId: ready.previewId, images: ready.images });
+        await expect(service.setVisibility(alice, copy.id, { expectedRevision: copy.revision, visibility: 'public' })).rejects.toMatchObject({ code: 'copy_needs_save' });
+    });
+
+    it('shares an in-flight render and discards results if the saved patch changes', async () => {
+        const patch = await published();
+        const started = Promise.withResolvers(), finish = Promise.withResolvers();
+        const gallery = withRenderer(async () => { started.resolve(); await finish.promise; return { dark: png }; });
+        const generating = gallery.ensurePreviews(null, patch.id);
+        await started.promise;
+        expect(await gallery.ensurePreviews(bob, patch.id)).toEqual({ pending: true });
+        const replacement = await preview();
+        await service.update(alice, patch.id, { expectedRevision: 1, state: state(), previewId: replacement.id });
+        finish.resolve();
+        await expect(generating).rejects.toMatchObject({ code: 'preview_mismatch' });
+        expect((await service.get(patch.id, alice)).previewId).toBe(replacement.id);
+        expect(images.objects.size).toBe(6);
+    });
+
+    it('retries a failed render after its cooldown without losing the light image', async () => {
+        const patch = await published();
+        const render = vi.fn().mockRejectedValueOnce(new Error('renderer unavailable')).mockResolvedValue({ dark: png });
+        const gallery = withRenderer(render);
+        await expect(gallery.ensurePreviews(null, patch.id)).rejects.toThrow('renderer unavailable');
+        expect((await service.get(patch.id, alice)).images).toEqual(patch.images);
+        expect(await gallery.ensurePreviews(alice, patch.id)).toEqual({ pending: true });
+        clock = new Date(clock.getTime() + 31000);
+        expect((await gallery.ensurePreviews(null, patch.id)).images.dark.full).toBeTruthy();
+        expect(render).toHaveBeenCalledTimes(2);
+    });
+});
+
 describe('cloud identity, access and revisions', () => {
     it('accepts learned switch ranges and rejects off-grid values on new saves', () => {
         const patch = state();

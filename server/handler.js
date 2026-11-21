@@ -73,12 +73,17 @@ export function createHandler({ store, authenticate = async () => null, authHand
                 return json(await service.uploadPreview(user, { state, rendererVersion: form.get('rendererVersion') || undefined, theme: form.get('theme') || undefined },
                     Buffer.from(await file.arrayBuffer()), dark ? Buffer.from(await dark.arrayBuffer()) : undefined), 201);
             }
-            const match = /^\/api\/patches\/([0-7][0-9A-HJKMNP-TV-Z]{25})(?:\/(visibility|like|copies))?$/.exec(path);
+            const match = /^\/api\/patches\/([0-7][0-9A-HJKMNP-TV-Z]{25})(?:\/(visibility|like|copies|previews))?$/.exec(path);
             if (match) {
                 const [, patchId, action] = match;
                 if (!action && method === 'GET') return json(await service.get(patchId, user));
                 if (!action && method === 'PUT') return json(await service.update(user, patchId, await readJson(request)));
                 if (!action && method === 'DELETE') return json(await service.remove(user, patchId, await readJson(request)));
+                if (action === 'previews' && method === 'POST') {
+                    await boundedBody(request, 0);
+                    const result = await service.ensurePreviews(user, patchId);
+                    return json(result, result.pending ? 202 : 200);
+                }
                 if (action === 'visibility' && method === 'PUT') return json(await service.setVisibility(user, patchId, await readJson(request)));
                 if (action === 'like' && method === 'PUT') return json(await service.like(user, patchId, (await readJson(request)).liked));
                 if (action === 'copies' && method === 'POST') return json(await service.copy(user, patchId, await readJson(request)), 201);

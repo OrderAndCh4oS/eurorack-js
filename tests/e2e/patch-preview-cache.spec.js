@@ -22,7 +22,7 @@ test('loads test patch thumbnails without creating rack renderers', async ({ pag
     expect(renderers).toEqual([]);
 });
 
-test('reuses a browser patch thumbnail after a full reload', async ({ page }) => {
+test('opening My patches caches both browser thumbnails and reuses them after reload', async ({ page }) => {
     let captures = 0;
     page.on('request', request => { if (new URL(request.url()).pathname.endsWith('/patch-preview.html')) captures++; });
     await page.goto('/');
@@ -39,22 +39,11 @@ test('reuses a browser patch thumbnail after a full reload', async ({ page }) =>
         await expect.poll(() => image.evaluate(node => node.complete && node.naturalWidth > 0)).toBe(true);
     };
     await openAndWait();
-    expect(captures).toBe(1);
-    expect(await page.evaluate(async () => (await (await caches.open('eurorack-local-rack-previews-v1')).keys()).length)).toBe(1);
-    await page.reload();
-    await page.waitForFunction(() => window.eurorackApp?.patchLibrary);
-    await openAndWait();
-    expect(captures).toBe(1);
-    await page.locator('[data-patch-name="Cached local rack"]').getByRole('button', { name: 'Open in rack' }).click();
-    await page.locator('#savePatch').click();
-    const dialog = page.getByRole('dialog');
-    await dialog.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(dialog).toHaveCount(0, { timeout: 30000 });
-    const afterSave = captures;
-    expect(afterSave).toBeGreaterThan(1);
+    await expect.poll(() => page.evaluate(async () => (await (await caches.open('eurorack-local-rack-previews-v1')).keys()).length)).toBe(2);
+    expect(captures).toBe(2);
     await page.getByRole('button', { name: 'Dark mode', exact: true }).click();
     await page.reload();
     await page.waitForFunction(() => window.eurorackApp?.patchLibrary);
     await openAndWait();
-    expect(captures).toBe(afterSave);
+    expect(captures).toBe(2);
 });

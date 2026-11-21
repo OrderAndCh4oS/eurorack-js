@@ -13,7 +13,7 @@ import { MemoryImageStore } from '../../server/local-image-store.js';
 const url = process.env.TEST_DATABASE_URL;
 const suite = url ? describe : describe.skip;
 suite('real PostgreSQL adapter and Better Auth migration', () => {
-    let pool, store, service, auth;
+    let pool, store, service, auth, imageStore;
     const env = { BETTER_AUTH_URL: 'http://localhost:4173', BETTER_AUTH_SECRET: 'test-only-secret-with-at-least-32-characters', GOOGLE_CLIENT_ID: 'test-google-client', GOOGLE_CLIENT_SECRET: 'test-google-secret' };
     const user = { id: `fixture-${ulid()}`, name: 'Fixture creator' };
     const other = { id: `fixture-${ulid()}`, name: 'Second creator' };
@@ -26,7 +26,8 @@ suite('real PostgreSQL adapter and Better Auth migration', () => {
         await migration.runMigrations();
         await pool.query(await readFile(new URL('../../db/001-patches.sql', import.meta.url), 'utf8'));
         store = new PostgresStore(pool);
-        service = createPatchService({ store, imageStore: new MemoryImageStore() });
+        imageStore = new MemoryImageStore();
+        service = createPatchService({ store, imageStore });
         auth = createAuth(pool, env);
     });
     afterAll(async () => { await pool?.end(); });
@@ -49,9 +50,14 @@ suite('real PostgreSQL adapter and Better Auth migration', () => {
     it('persists previews, forks, idempotency, likes and revisions using real SQL transactions', async () => {
         const png = await sharp({ create: { width: 60, height: 40, channels: 3, background: '#f0eee2' } }).png().toBuffer();
         const dark = await sharp({ create: { width: 60, height: 40, channels: 3, background: '#171813' } }).png().toBuffer();
-        const image = await service.uploadPreview(user, { state }, png, dark);
+        const image = await service.uploadPreview(user, { state }, png);
         const input = { name: 'SQL fixture', state, requestId: ulid(), visibility: 'public', previewId: image.id };
-        const patch = await service.create(user, input);
+        const original = await service.create(user, input);
+        const gallery = createPatchService({ store, imageStore, renderPreviews: async () => ({ dark }) });
+        await gallery.ensurePreviews(null, original.id);
+        const patch = await service.get(original.id, user);
+        expect(patch.images.thumbnail).toBe(original.images.thumbnail);
+        expect(patch.revision).toBe(original.revision);
         expect((await service.create(user, input)).id).toBe(patch.id);
         const listed = (await service.list({ publicOnly: true, query: 'SQL fixture' })).patches.find(p => p.id === patch.id);
         expect(listed.images.dark.thumbnail).toBe(patch.images.dark.thumbnail);

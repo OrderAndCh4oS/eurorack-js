@@ -23,7 +23,7 @@ Play the synth and explore public patches without an account. Sign in with Googl
 
 Saved account patches have a stable URL at `/patches/<ULID>`. **Copy URL** shares that address, and saving from the rack updates the browser URL to match. Visitors open the saved patch directly in the rack, and later saves appear at the same address. Private patches remain accessible only to their owner.
 
-Public saved patches include Open Graph and Twitter/X cards with the patch title, description, and a rack-only image. Saving a patch generates light and dark previews from the same rack. The gallery and patch details follow the top-bar **Dark mode** toggle. Resave an older patch once to add its dark preview, even if you haven’t edited the rack.
+Public saved patches include Open Graph and Twitter/X cards with the patch title, description, and a rack-only image. Saving a patch generates light and dark previews from the same rack. The gallery and patch details follow the top-bar **Dark mode** toggle. Opening Public patches or My patches automatically fills in missing preview images for the patches on that page.
 
 **Copy snapshot link** shares the current rack, including unsaved edits, inside the URL fragment (`#patch=…`). It is a fixed snapshot and does not follow later saves. Snapshot links do not have patch-specific social cards; use a public saved patch's **Copy URL** for those.
 

@@ -17,7 +17,7 @@ async function json(response, status = 200) {
     return response.json();
 }
 
-test('resaving a light-only patch backfills both palettes and revalidates gallery thumbnails', async ({ browser }) => {
+test('the list saves missing artwork for a public patch, preserves its light cache and supports later saves', async ({ browser }) => {
     test.setTimeout(60000);
     const context = await browser.newContext();
     await context.addCookies([{ name: 'eurorack-test-user', value: 'alice', url: origin }]);
@@ -71,10 +71,26 @@ test('resaving a light-only patch backfills both palettes and revalidates galler
         };
 
         // No route interception: the browser's real HTTP cache must stay enabled.
-        await page.goto(`${origin}/patches?q=${encodeURIComponent(name)}`);
+        const anonymous = await browser.newContext();
+        try {
+            const visitor = await anonymous.newPage();
+            await visitor.goto(`${origin}/patches?q=${encodeURIComponent(name)}`);
+            await visitor.getByRole('button', { name: 'Dark mode', exact: true }).click();
+            const thumbnail = visitor.locator(`article[data-patch-id="${patchId}"] img`);
+            await expect(thumbnail).toHaveAttribute('src', /\/dark-thumbnail$/, { timeout: 45000 });
+            await expect.poll(() => thumbnail.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+        } finally { await anonymous.close(); }
         expect(original.images.dark).toBeUndefined();
+        const repaired = await json(await context.request.get(`${origin}/api/patches/${patchId}`));
+        expect(repaired.images.thumbnail).toBe(original.images.thumbnail);
+        expect(repaired.previewId).toBe(original.previewId);
+        expect(repaired.updatedAt).toBe(original.updatedAt);
+        expect(repaired.revision).toBe(original.revision);
+        expect(repaired.stateHash).toBe(original.stateHash);
+        const repairs = [];
+        page.on('request', request => { if (new URL(request.url()).pathname.endsWith('/previews')) repairs.push(request.url()); });
+        await page.goto(`${origin}/patches?q=${encodeURIComponent(name)}`);
         const toggle = page.getByRole('button', { name: 'Dark mode', exact: true });
-        await toggle.click();
         await waitForThumbnail(original.images.thumbnail);
         await expect.poll(() => entriesFor(original.images.thumbnail).some(request => request.status === 200)).toBe(true);
         const originalEtag = header(entriesFor(original.images.thumbnail).find(request => request.status === 200).responseHeaders, 'etag');
@@ -116,6 +132,7 @@ test('resaving a light-only patch backfills both palettes and revalidates galler
         expect((await context.request.get(`${origin}${original.images.thumbnail}`, { headers: { 'If-None-Match': originalEtag } })).status()).toBe(404);
 
         await page.locator('[data-patch-view="public"]').click();
+        await toggle.click();
         await waitForThumbnail(saved.images.dark.thumbnail);
         await toggle.click();
         await waitForThumbnail(saved.images.thumbnail);
@@ -130,6 +147,7 @@ test('resaving a light-only patch backfills both palettes and revalidates galler
         await toggle.click();
         await expect.poll(() => page.locator('.rack-preview').evaluate(img => img.currentSrc)).toBe(origin + saved.images.full);
         expect(previewUploads).toBe(1);
+        expect(repairs).toEqual([]);
     } finally {
         if (patchId) {
             const response = await context.request.get(`${origin}/api/patches/${patchId}`);

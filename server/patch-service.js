@@ -3,9 +3,20 @@ import { LIMITS, assert, assertBuiltInModules, id, revision, hash, textField, pu
 import { rasterVariants } from './image-store.js';
 import { cataloguePage } from './catalogue-pagination.js';
 import { createImageByteCache } from './image-byte-cache.js';
+import { PATCH_PREVIEW_MODES, PATCH_PREVIEW_RENDERER_VERSION } from '../src/js/patches/patch-preview.js';
 
-export function createPatchService({ store, imageStore, now = () => new Date(), generateId = ulid, contracts }) {
+const imageVariants = ['full', 'thumbnail', 'social'];
+const variantName = (mode, variant) => mode === 'dark' ? `dark-${variant}` : variant;
+const renderLeaseMs = 150000;
+
+async function renderStoredPatch(state, modes) {
+    const { renderPatchPreviews } = await import('./render-patch-previews.js');
+    return renderPatchPreviews(state, modes);
+}
+
+export function createPatchService({ store, imageStore, now = () => new Date(), generateId = ulid, contracts, renderPreviews = renderStoredPatch }) {
     const imageBytes = createImageByteCache();
+    let activePreviewRenders = 0;
     const timestamp = () => now().toISOString();
     function signedIn(user) { assert(user?.id, 'Sign in to continue.', 401, 'sign_in_required'); return user; }
     function accessible(patch, user) { assert(patch && (patch.visibility === 'public' || patch.ownerId === user?.id), 'Patch not found.', 404, 'not_found'); return patch; }
@@ -58,6 +69,104 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
         const base = `/patches/${patch.id}/images/${patch.previewId}/${prefix}`;
         return { thumbnail: `${base}thumbnail`, full: `${base}full.png`, social: `${base}social.png` };
     }
+    function patchImages(patch) {
+        return patch.previewId ? { ...imageUrls(patch), ...(patch.hasDarkPreview ? { dark: imageUrls(patch, 'dark-') } : {}) } : null;
+    }
+    async function storeVariants(groupId, rasters, commit) {
+        const uploaded = [];
+        const variants = {};
+        let bytes = 0;
+        try {
+            for (const [name, image] of Object.entries(rasters)) {
+                const key = `rack-previews/${groupId}/${name}.${image.format}`;
+                uploaded.push(key);
+                await imageStore.put(key, image.body, { contentType: image.contentType });
+                variants[name] = { key, bytes: image.body.length, width: image.width, height: image.height, contentType: image.contentType };
+                bytes += image.body.length;
+            }
+            return await store.transaction(tx => commit(tx, variants, bytes));
+        } catch (error) {
+            // An interrupted PUT may already have reached the provider. Every
+            // attempt uses fresh keys, so cleanup can never remove active images.
+            const unused = await store.transaction(async tx => {
+                const keys = [];
+                for (const key of uploaded) {
+                    if (await tx.objectReferences(key) === 0) { await tx.addGarbage(key); keys.push(key); }
+                }
+                return keys;
+            }).catch(() => []);
+            await Promise.allSettled(unused.map(key => imageStore.delete(key)));
+            throw error;
+        }
+    }
+    async function checkImageQuota(tx, ownerId, bytes) {
+        const totals = await tx.totals(ownerId);
+        assert(totals.imageBytes + bytes <= LIMITS.accountImageBytes, 'Your preview storage is full. Save in this browser instead.', 413, 'image_quota');
+    }
+    async function fillStoredPreviews(user, patchId) {
+        assert(imageStore, 'Previews are unavailable.', 503, 'images_unavailable');
+        const claim = await store.transaction(async tx => {
+            const patch = accessible(await tx.getPatch(patchId), user);
+            const preview = patch.previewId && await tx.getPreview(patch.previewId);
+            if (preview) assert(preview.ownerId === patch.ownerId && preview.stateHash === patch.stateHash, 'Preview does not match its patch.', 409, 'preview_mismatch');
+            const modes = PATCH_PREVIEW_MODES.filter(mode => imageVariants.some(v => !preview?.variants[variantName(mode, v)]));
+            if (!modes.length) {
+                if (!patch.hasDarkPreview) await tx.putPatch({ ...patch, hasDarkPreview: true });
+                return { result: { previewId: patch.previewId, images: patchImages({ ...patch, hasDarkPreview: true }), revision: patch.revision } };
+            }
+            const target = preview || patch;
+            if (target.previewRender?.stateHash === patch.stateHash && target.previewRender.until > now().getTime()) return { result: { pending: true } };
+            // Rendering uses only the stored, built-in patch. Anonymous readers
+            // may request public artwork but cannot provide state or pixels.
+            const validated = validateState(patch.state, contracts);
+            await checkImageQuota(tx, patch.ownerId, 1);
+            const token = generateId();
+            const claimed = { ...target, previewRender: { token, stateHash: patch.stateHash, until: now().getTime() + renderLeaseMs } };
+            if (preview) await tx.putPreview(claimed);
+            else await tx.putPatch(claimed);
+            return { patch, preview, modes, token, state: validated.state };
+        });
+        if (claim.result) return claim.result;
+        const { patch, preview, modes, token } = claim;
+        try {
+            const captures = await renderPreviews(claim.state, modes);
+            const rasters = {};
+            for (const mode of modes) {
+                for (const [key, image] of Object.entries(await rasterVariants(captures[mode], mode))) {
+                    if (!preview?.variants[key]) rasters[key] = image;
+                }
+            }
+            return await storeVariants(token, rasters, async (tx, added, bytes) => {
+                const latest = accessible(await tx.getPatch(patchId), user);
+                const held = preview ? await tx.getPreview(preview.id) : latest;
+                assert(held?.previewRender?.token === token && latest.stateHash === patch.stateHash && latest.previewId === patch.previewId,
+                    'The saved rack changed during preview generation.', 409, 'preview_mismatch');
+                await checkImageQuota(tx, latest.ownerId, bytes);
+                const previewId = preview?.id || token;
+                const completed = { ...preview, id: previewId, ownerId: latest.ownerId, stateHash: latest.stateHash,
+                    createdAt: preview?.createdAt || timestamp(), rendererVersion: PATCH_PREVIEW_RENDERER_VERSION, theme: 'industrial',
+                    bytes: (preview?.bytes || 0) + bytes, variants: { ...preview?.variants, ...added } };
+                delete completed.previewRender;
+                await tx.putPreview(completed);
+                const { previewRender, ...record } = latest;
+                const updated = { ...record, previewId, hasDarkPreview: true };
+                await tx.putPatch(updated);
+                return { previewId, images: patchImages(updated), revision: updated.revision };
+            });
+        } catch (error) {
+            await store.transaction(async tx => {
+                const current = preview ? await tx.getPreview(preview.id) : await tx.getPatch(patchId);
+                if (current?.previewRender?.token === token) {
+                    // A failed renderer or full account should not start again
+                    // on every catalogue request. An expired lease is retryable.
+                    current.previewRender.until = now().getTime() + 30000;
+                    if (preview) await tx.putPreview(current);
+                    else await tx.putPatch(current);
+                }
+            });
+            throw error;
+        }
+    }
     async function project(tx, patch, user, includeState = true, context) {
         context ||= await projectionContext(tx, [patch]);
         const parent = context.related.get(patch.parentId);
@@ -75,7 +184,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 parentAvailable: !!parent && (parent.visibility === 'public' || parent.ownerId === user?.id),
                 rootAvailable: !!root && (root.visibility === 'public' || root.ownerId === user?.id) },
             ...(context.likes?.get(patch.id) || await tx.likes(patch.id, user?.id)),
-            images: patch.previewId ? { ...imageUrls(patch), ...(patch.hasDarkPreview ? { dark: imageUrls(patch, 'dark-') } : {}) } : null
+            images: patchImages(patch)
         };
     }
     function labels(body, previous) {
@@ -125,28 +234,24 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
             const variants = await rasterVariants(bytes);
             if (darkBytes) Object.assign(variants, await rasterVariants(darkBytes, 'dark'));
             const previewId = generateId();
-            const record = { id: previewId, ownerId: user.id, stateHash: validated.stateHash, createdAt: timestamp(),
-                rendererVersion: textField(body.rendererVersion, 'Renderer version', 40, 'rack-v1'), theme: textField(body.theme, 'Theme', 40, 'industrial-light'), bytes: 0, variants: {} };
-            const uploaded = [];
-            try {
-                for (const [name, variant] of Object.entries(variants)) {
-                    const key = `rack-previews/${previewId}/${name}.${variant.format}`;
-                    uploaded.push(key); await imageStore.put(key, variant.body, { contentType: variant.contentType });
-                    record.variants[name] = { key, bytes: variant.body.length, width: variant.width, height: variant.height, contentType: variant.contentType };
-                    record.bytes += variant.body.length;
-                }
-                await store.transaction(async tx => {
-                    const totals = await tx.totals(user.id);
-                    assert(totals.imageBytes + record.bytes <= LIMITS.accountImageBytes, 'Your preview storage is full. Save in this browser instead.', 413, 'image_quota');
-                    await tx.putPreview(record);
-                });
-            } catch (error) {
-                // Failed uploads may have reached the provider despite a lost response. Queue
-                // every attempted key for a later idempotent cleanup, then try immediate removal.
-                try { await store.transaction(async tx => { for (const key of uploaded) await tx.addGarbage(key); }); } catch { /* Preserve the original failure if the database is unavailable too. */ }
-                await Promise.allSettled(uploaded.map(key => imageStore.delete(key))); throw error;
+            const rendererVersion = textField(body.rendererVersion, 'Renderer version', 40, 'rack-v1');
+            const theme = textField(body.theme, 'Theme', 40, 'industrial-light');
+            await storeVariants(previewId, variants, async (tx, stored, bytes) => {
+                await checkImageQuota(tx, user.id, bytes);
+                await tx.putPreview({ id: previewId, ownerId: user.id, stateHash: validated.stateHash, createdAt: timestamp(),
+                    rendererVersion, theme, bytes, variants: stored });
+            });
+            return { id: previewId, stateHash: validated.stateHash };
+        },
+        async ensurePreviews(user, patchId) {
+            id(patchId);
+            if (activePreviewRenders >= 2) {
+                accessible(await store.getPatch(patchId), user);
+                return { pending: true };
             }
-            return { id: previewId, stateHash: record.stateHash };
+            activePreviewRenders++;
+            try { return await fillStoredPreviews(user, patchId); }
+            finally { activePreviewRenders--; }
         },
         async create(user, body) {
             signedIn(user); id(body.requestId, 'requestId');
@@ -237,6 +342,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                         assert(totals.imageBytes + original.bytes <= LIMITS.accountImageBytes, 'Your preview storage is full. Save in this browser instead.', 413, 'image_quota');
                         // Independent association, immutable bytes. Cleanup counts every association.
                         preview = { ...original, id: generateId(), ownerId: user.id, createdAt: timestamp() };
+                        delete preview.previewRender;
                         await tx.putPreview(preview);
                     }
                 }

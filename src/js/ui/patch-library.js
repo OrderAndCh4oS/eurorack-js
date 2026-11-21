@@ -257,6 +257,7 @@ export class PatchLibrary {
         return true;
     }
     show(view, { preserveFocus = false } = {}) {
+        this.previewStatus = '';
         this.view = view; this.renderGeneration++; this.observer?.disconnect(); this.previewAbort?.abort();
         this.listAbort?.abort();
         if (LIBRARY_VIEWS[view]) this.lastCatalogueView = view;
@@ -334,15 +335,28 @@ export class PatchLibrary {
         try {
             const page = paginateLocalPatches(records, { query: this.query, cursor: this[cursorKey], kind });
             this.section(title, page.patches, this.query ? 'No matching patches.' : kind === 'local' ? 'No patches saved in this browser.' : 'No patches found.', page, cursorKey);
+            if (kind === 'local' && page.patches.length) void this.cacheLocalListPreviews(page.patches, this.previewAbort.signal);
         } catch (error) {
             const section = this.section(title, [], error.message);
             if (error.code === 'invalid_cursor') section.append(this.pageLink('First page', cursorKey, null));
+        }
+    }
+    async cacheLocalListPreviews(records, signal) {
+        const preview = await this.previewLoader().catch(() => null);
+        if (!preview) return;
+        for (const record of records) {
+            if (signal.aborted) return;
+            try { await preview.cacheLocalPatchPreviews(record.state); }
+            catch { /* A patch that cannot render should not hold up the page. */ }
         }
     }
     cloudSection(title, list, empty, previewImages) {
         const error = this.listErrors[list];
         const loading = this.cloudLoading || this.listLoading[list];
         const section = this.section(title, this[`${list}Patches`], loading ? 'Loading patches…' : error ? 'Could not load patches. Try again.' : empty, this.listPages[list], 'cursor', previewImages);
+        const status = element(this.document, 'p', this.previewStatus || '', 'patch-preview-status');
+        status.setAttribute('role', 'status'); status.hidden = !this.previewStatus;
+        section.querySelector('h2').after(status);
         if (error) {
             section.append(this.button('Try again', () => this.fetchList(list === 'public')));
             if (this.cursor) section.append(this.pageLink('First page', 'cursor', null));
@@ -377,15 +391,8 @@ export class PatchLibrary {
         if (record.visibility) card.dataset.patchVisibility = record.visibility;
         const frame = element(this.document, 'div', undefined, 'patch-preview-frame');
         frame.append(element(this.document, 'span', 'Rack preview', 'patch-preview-placeholder'));
-        if (record.images?.thumbnail) {
-            const images = this.app.themeMode === 'dark' ? record.images.dark ?? record.images : record.images;
-            const url = images.thumbnail;
-            const previous = previewImages?.get(record.id);
-            const img = previous?.url === url && previous.visibility === record.visibility ? previous.image : element(this.document, 'img');
-            img.alt = `Rack for ${record.name}`; img.loading = 'lazy'; img.decoding = 'async';
-            if (img.getAttribute('src') !== url) img.src = url;
-            frame.replaceChildren(img);
-        } else if (record.state) this.observePreview(frame, record);
+        if (record.images?.thumbnail) this.showCloudPreview(frame, record, previewImages?.get(record.id));
+        else if (record.state) this.observePreview(frame, record);
         card.append(frame);
         const caption = element(this.document, 'div', undefined, 'patch-entry-caption'); const meta = element(this.document, 'div', undefined, 'patch-entry-meta');
         meta.append(element(this.document, 'span', record.source === 'cloud' ? record.visibility : record.source === 'test' ? 'Test patch' : 'This browser'), element(this.document, 'span', `${record.moduleCount ?? record.state?.modules?.length ?? 0} modules`));
@@ -419,6 +426,48 @@ export class PatchLibrary {
         if (record.source === 'local' || record.canEdit) actions.append(this.button('Delete', () => this.run(() => this.remove(record)), 'patch-manage'));
         card.append(actions); return card;
     }
+    showCloudPreview(frame, record, previous) {
+        const images = this.app.themeMode === 'dark' ? record.images.dark ?? record.images : record.images;
+        const reuse = previous?.url === images.thumbnail && previous.visibility === record.visibility;
+        const img = reuse ? previous.image : frame.querySelector('img') || element(this.document, 'img');
+        img.alt = `Rack for ${record.name}`; img.loading = 'lazy'; img.decoding = 'async';
+        if (img.getAttribute('src') !== images.thumbnail) img.src = images.thumbnail;
+        if (img.parentNode !== frame) frame.replaceChildren(img);
+    }
+    setPreviewStatus(message) {
+        this.previewStatus = message;
+        const status = this.surface.querySelector('.patch-preview-status');
+        if (status) { status.textContent = message; status.hidden = !message; }
+    }
+    async fillCloudPreviews(records, signal, retryDelay = 2000) {
+        if (signal.aborted || !records.some(record => !record.images?.dark?.thumbnail)) return;
+        this.setPreviewStatus('Generating missing patch previews…');
+        const pending = [];
+        for (const record of records) {
+            if (signal.aborted) return;
+            if (record.images?.dark?.thumbnail) continue;
+            try {
+                const result = await this.cloud.ensurePreviews(record.id, signal);
+                if (signal.aborted) return;
+                if (result.pending) { pending.push(record); continue; }
+                if (result.revision !== record.revision) continue;
+                Object.assign(record, { images: result.images, previewId: result.previewId });
+                const card = this.surface.querySelector(`[data-patch-source="cloud"][data-patch-id="${record.id}"]`);
+                const frame = card?.querySelector('.patch-preview-frame');
+                if (frame) this.showCloudPreview(frame, record);
+            } catch (error) {
+                // A temporary failure on one rack should not hold up the rest of the page.
+                if (!signal.aborted && retryDelay === 2000 && (error.name === 'TypeError' || error.status >= 500)) pending.push(record);
+            }
+        }
+        if (signal.aborted) return;
+        if (pending.length) {
+            this.window.setTimeout(() => { void this.fillCloudPreviews(pending, signal, Math.min(10000, retryDelay * 2)); }, retryDelay);
+        } else {
+            const page = this.view === 'public' ? this.publicPatches : this.accountPatches;
+            this.setPreviewStatus(page.some(record => !record.images?.dark?.thumbnail) ? 'Some previews are unavailable. This page will retry on your next visit.' : '');
+        }
+    }
     observePreview(frame, record) {
         const signal = this.previewAbort.signal;
         const mode = this.app.themeMode || 'light';
@@ -450,6 +499,7 @@ export class PatchLibrary {
     async fetchList(publicOnly, cursor = this.cursor, { preserveFocus = true, preservePreviews = false } = {}) {
         if (this.cloudLoading || !this.config.enabled || (!publicOnly && !this.user)) return;
         this.listAbort?.abort(); const controller = this.listAbort = new AbortController();
+        this.previewStatus = '';
         const generation = this.renderGeneration, account = this.accountGeneration;
         const list = publicOnly ? 'public' : 'account'; const request = ++this.listRequests[list];
         const current = () => generation === this.renderGeneration && account === this.accountGeneration && request === this.listRequests[list];
@@ -471,8 +521,11 @@ export class PatchLibrary {
             this.listPages[list] = { nextCursor: result.nextCursor, previousCursor: result.previousCursor };
         } catch (error) { if (current() && error.name !== 'AbortError') this.listErrors[list] = error; }
         finally {
-            if (this.listAbort === controller) this.listAbort = null;
-            if (current()) { this.listLoading[list] = false; this.render({ previewImages }); }
+            if (current()) {
+                this.listLoading[list] = false;
+                this.render({ previewImages });
+                if (this.config.imagesEnabled) void this.fillCloudPreviews(this[`${list}Patches`], controller.signal);
+            }
         }
     }
     async confirmReplace({ signal, startingNew = false } = {}) {

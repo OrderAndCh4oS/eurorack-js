@@ -111,6 +111,7 @@ export class CloudClient {
         return this.request(`/api/${publicOnly ? 'public-patches' : 'patches'}?${params}`, { signal });
     }
     get(id) { return this.request(`/api/patches/${id}`); }
+    ensurePreviews(id, signal) { return this.request(`/api/patches/${id}/previews`, { method: 'POST', signal }); }
     create(body) { return this.request('/api/patches', { method: 'POST', body }); }
     update(id, body) { return this.request(`/api/patches/${id}`, { method: 'PUT', body }); }
     copy(id, body) { return this.request(`/api/patches/${id}/copies`, { method: 'POST', body }); }

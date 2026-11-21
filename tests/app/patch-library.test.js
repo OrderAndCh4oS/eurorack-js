@@ -316,6 +316,30 @@ describe('patch library coordination', () => {
         expect(library.publicPatches[0].name).toBe('Latest page');
         expect(library.listErrors.public).toBeNull(); expect(library.listLoading.public).toBe(false);
     });
+    it('fills only missing images on the loaded page and preserves the gallery while waiting', async () => {
+        const { cloud, library, app } = setup();
+        library.view = 'public'; library.config = { enabled: true, imagesEnabled: true }; app.themeMode = 'dark';
+        const pending = deferred();
+        const ready = { thumbnail: '/light', dark: { thumbnail: '/dark' } };
+        const rows = [
+            { id, name: 'Ready', images: ready, revision: 1 },
+            { id: '01K00000000000000000000001', name: 'Legacy', images: { thumbnail: '/original' }, revision: 2 },
+            { id: '01K00000000000000000000002', name: 'Missing', images: null, revision: 3 }
+        ];
+        cloud.list.mockResolvedValue({ patches: rows });
+        cloud.ensurePreviews = vi.fn().mockReturnValueOnce(pending.promise).mockResolvedValue({ revision: 3, images: ready, previewId: id });
+        await library.fetchList(true);
+        expect(cloud.ensurePreviews.mock.calls.map(([patchId]) => patchId)).toEqual([rows[1].id]);
+        const search = library.surface.querySelector('input[type=search]'); search.focus();
+        const image = library.surface.querySelector('[data-patch-name="Legacy"] img');
+        expect(image.getAttribute('src')).toBe('/original');
+        pending.resolve({ revision: 2, images: ready, previewId: id });
+        await vi.waitFor(() => expect(library.surface.querySelector('[data-patch-name="Missing"] img')?.getAttribute('src')).toBe('/dark'));
+        expect(image.getAttribute('src')).toBe('/dark');
+        expect(document.activeElement).toBe(search);
+        expect(cloud.ensurePreviews.mock.calls.map(([patchId]) => patchId)).toEqual([rows[1].id, rows[2].id]);
+        expect(cloud.list).toHaveBeenCalledTimes(1);
+    });
     it('searches account pages without sending public ranking filters', async () => {
         const { cloud, library } = setup(); library.config.enabled = true; library.user = { id: 'me' };
         library.query = 'bass'; library.cursor = 'account-page';

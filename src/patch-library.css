@@ -38,6 +38,7 @@ body .app-container, body.skin-factory .app-container { margin-top: calc(var(--l
 .patch-library-filters label { display: grid; gap: 4px; flex: 1; min-width: 0; font-size: 10px; font-weight: 900; text-transform: uppercase; }
 .patch-library-filters select { width: 100%; min-width: 0; font-size: 12px; cursor: pointer; }
 .patch-library-section { margin-top: 24px; }
+.patch-preview-status { padding: 6px 12px; font-size: 12px; }
 .patch-library-section > h2 { font-size: 12px; text-transform: uppercase; padding: 10px 12px; border: 2px solid var(--library-line); border-left: 12px solid var(--library-accent); }
 .patch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); border-left: 2px solid var(--library-line); }
 .patch-entry { min-width: 0; border-right: 2px solid var(--library-line); border-bottom: 2px solid var(--library-line); display: flex; flex-direction: column; }

@@ -54,6 +54,10 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
         const profileIds = [...new Set(patches.flatMap(p => [p.ownerId, parentCreator(p), originalCreator(p)]).filter(Boolean))];
         return { related, profiles: await tx.getProfiles(profileIds), parentCreator, originalCreator };
     }
+    function imageUrls(patch, prefix = '') {
+        const base = `/patches/${patch.id}/images/${patch.previewId}/${prefix}`;
+        return { thumbnail: `${base}thumbnail`, full: `${base}full.png`, social: `${base}social.png` };
+    }
     async function project(tx, patch, user, includeState = true, context) {
         context ||= await projectionContext(tx, [patch]);
         const parent = context.related.get(patch.parentId);
@@ -71,7 +75,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 parentAvailable: !!parent && (parent.visibility === 'public' || parent.ownerId === user?.id),
                 rootAvailable: !!root && (root.visibility === 'public' || root.ownerId === user?.id) },
             ...(context.likes?.get(patch.id) || await tx.likes(patch.id, user?.id)),
-            images: patch.previewId ? Object.fromEntries(['thumbnail', 'full', 'social'].map(variant => [variant, `/patches/${patch.id}/images/${patch.previewId}/${variant}${variant === 'thumbnail' ? '' : '.png'}`])) : null
+            images: patch.previewId ? { ...imageUrls(patch), ...(patch.hasDarkPreview ? { dark: imageUrls(patch, 'dark-') } : {}) } : null
         };
     }
     function labels(body, previous) {
@@ -114,11 +118,12 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 };
             });
         },
-        async uploadPreview(user, body, bytes) {
+        async uploadPreview(user, body, bytes, darkBytes) {
             signedIn(user); assert(imageStore, 'Previews are unavailable. Try again later.', 503, 'images_unavailable');
             const validated = validateState(body.state, contracts);
             await store.transaction(async tx => rate(tx, user, 'preview', 12));
             const variants = await rasterVariants(bytes);
+            if (darkBytes) Object.assign(variants, await rasterVariants(darkBytes, 'dark'));
             const previewId = generateId();
             const record = { id: previewId, ownerId: user.id, stateHash: validated.stateHash, createdAt: timestamp(),
                 rendererVersion: textField(body.rendererVersion, 'Renderer version', 40, 'rack-v1'), theme: textField(body.theme, 'Theme', 40, 'industrial-light'), bytes: 0, variants: {} };
@@ -158,7 +163,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 const patchId = generateId(); const time = timestamp();
                 const creatorName = await authorName(tx, user, body);
                 const patch = { id: patchId, ownerId: user.id, ...labels(body), ...validated, authorName: creatorName,
-                    revision: 1, visibility: selectedVisibility, previewId: preview?.id || null,
+                    revision: 1, visibility: selectedVisibility, previewId: preview?.id || null, hasDarkPreview: !!preview?.variants['dark-thumbnail'],
                     createdAt: time, updatedAt: time, publishedAt: selectedVisibility === 'public' ? time : null,
                     requestId: body.requestId, requestHash: inputHash, parentId: null, parentRevision: null, rootId: patchId,
                     originalCreatorId: user.id, originalCreatorName: creatorName, parentCreatorId: null, parentCreatorName: null, savedAfterCopyAt: null,
@@ -178,7 +183,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 const time = timestamp();
                 const next = { ...patch, ...labels(body, patch), ...validated,
                     authorName: await authorName(tx, user, body, patch.authorName),
-                    visibility: selectedVisibility, previewId: preview?.id || null,
+                    visibility: selectedVisibility, previewId: preview?.id || null, hasDarkPreview: !!preview?.variants['dark-thumbnail'],
                     revision: patch.revision + 1, updatedAt: time,
                     savedAfterCopyAt: patch.parentId || patch.requiresSaveBeforePublish || patch.savedAfterCopyAt ? time : null,
                     requiresSaveBeforePublish: false,
@@ -240,7 +245,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
                 const sourceCredit = await project(tx, source, user, false, sourceContext);
                 const patch = { id: generateId(), ownerId: user.id, ...labels({ ...body, name: body.name ?? `${source.name.slice(0, 123)} copy` }),
                     ...validated, authorName: await authorName(tx, user, body),
-                    revision: 1, visibility: 'private', previewId: preview?.id || null, createdAt: time, updatedAt: time, publishedAt: null,
+                    revision: 1, visibility: 'private', previewId: preview?.id || null, hasDarkPreview: !!preview?.variants['dark-thumbnail'], createdAt: time, updatedAt: time, publishedAt: null,
                     requestId: body.requestId, requestHash: inputHash, parentId: source.id, parentRevision: source.revision, rootId: source.rootId,
                     originalCreatorId: sourceContext.originalCreator(source) || source.ownerId, originalCreatorName: sourceCredit.provenance.originalCreatorName,
                     parentCreatorId: source.ownerId, parentCreatorName: sourceCredit.authorName, savedAfterCopyAt: null, requiresSaveBeforePublish: true };
@@ -258,7 +263,7 @@ export function createPatchService({ store, imageStore, now = () => new Date(), 
             });
         },
         async image(user, patchId, previewId, variant, { includeAccess = false, ifNoneMatch, head = false } = {}) {
-            id(patchId); id(previewId); assert(['full', 'thumbnail', 'social'].includes(variant), 'Image not found.', 404, 'not_found');
+            id(patchId); id(previewId); assert(/^(?:dark-)?(?:full|thumbnail|social)$/.test(variant), 'Image not found.', 404, 'not_found');
             assert(imageStore, 'Previews are unavailable. Try again later.', 503, 'images_unavailable');
             // One fresh joined read, without the global mutation lock. Never cache
             // authorization: this runs even on a byte-cache hit or conditional GET.

@@ -1,9 +1,11 @@
 import { initSiteAccount } from './site-account.js';
+import { syncPatchImageSources } from './patch-image-sources.js';
 
 // Shared by the static documentation pages and the same pages inside the rack.
 export function enhanceContentPage(root) {
     if (!root || root.dataset.enhanced) return;
     root.dataset.enhanced = 'true';
+    syncPatchImageSources(root);
     const win = root.ownerDocument.defaultView;
     if (win.matchMedia?.('(max-width: 900px)').matches) {
         root.querySelectorAll('.docs-menu').forEach(menu => { menu.open = false; });

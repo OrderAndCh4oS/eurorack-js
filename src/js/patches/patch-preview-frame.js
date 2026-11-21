@@ -122,6 +122,7 @@ export function drawPreviewCables(root, state, documentRef = document) {
 }
 
 export async function renderPatchPreview(state, {
+    mode = 'light',
     documentRef = document,
     registry = pluginRegistry,
     styles,
@@ -148,7 +149,7 @@ export async function renderPatchPreview(state, {
             documentRef.head.appendChild(style);
         }
         style.textContent = `${css}\n${PREVIEW_STYLE}`;
-        documentRef.body.className = 'theme-industrial theme-light skin-factory';
+        documentRef.body.className = `theme-industrial theme-${mode === 'dark' ? 'dark' : 'light'} skin-factory`;
         await host.init();
         if (registry === pluginRegistry) {
             localModuleRuntime ||= new LocalModuleRuntime({ store: new LocalModuleStore(), registry });
@@ -209,7 +210,7 @@ async function capture(state, options = {}) {
         const vendorUrl = new URL('../../vendor/cloud.js', import.meta.url).href;
         const { toBlob } = await import(/* @vite-ignore */ vendorUrl);
         if (startedAt !== generation) throw new Error('Patch preview cancelled');
-        activePreview = await renderPatchPreview(state);
+        activePreview = await renderPatchPreview(state, { mode: options.mode });
         if (startedAt !== generation) throw new Error('Patch preview cancelled');
         const node = activePreview.element;
         const width = Math.ceil(node.getBoundingClientRect().width);

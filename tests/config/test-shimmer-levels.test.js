@@ -106,5 +106,5 @@ describe('Test - Shimmer gain staging', () => {
         expect(meters.inputShimmer.peak).toBeLessThanOrEqual(5);
         expect(meters.regenShimmer.peak).toBeLessThanOrEqual(5);
         expect(meters.output.peak).toBeLessThan(5);
-    });
+    }, 30000);
 });

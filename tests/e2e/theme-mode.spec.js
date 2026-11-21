@@ -38,6 +38,11 @@ test('the top bar switches the live rack, drawers, catalogue and reading views',
     await navigation.getByRole('link', { name: 'Introduction' }).click();
     await expect(page.locator('.marketing-page')).toHaveCSS('background-color', darkPaper);
     await expect(page.locator('.marketing-rack figcaption')).toHaveCSS('color', darkInk);
+    const hero = page.locator('.marketing-rack img');
+    await expect(hero).toHaveAttribute('srcset', await hero.getAttribute('data-dark-srcset'));
+    await toggle(page).click();
+    await expect(hero).toHaveAttribute('srcset', await hero.getAttribute('data-light-srcset'));
+    await toggle(page).click();
     await navigation.getByRole('link', { name: 'Docs' }).click();
     await expect(page.locator('.docs-page')).toHaveCSS('background-color', darkPaper);
     await expect(page.locator('.docs-intro')).toHaveCSS('color', 'rgb(168, 165, 152)');
@@ -67,6 +72,7 @@ test('the phone player, library and standalone pages share the mode', async ({ p
         await tools.goto(path);
         await expect(toggle(tools)).toHaveAttribute('aria-pressed', 'true');
         await expect(tools.locator('body')).toHaveCSS('background-color', darkPaper);
+        await expect(tools.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute('href', '/favicon.svg');
     }
     await toggle(tools).click();
     await expect(toggle(page)).toHaveAttribute('aria-pressed', 'false');

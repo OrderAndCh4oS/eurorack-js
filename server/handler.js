@@ -63,12 +63,15 @@ export function createHandler({ store, authenticate = async () => null, authHand
             if (path === '/api/patch-previews' && method === 'POST') {
                 assert(user, 'Sign in to upload a rack preview.', 401, 'sign_in_required');
                 assert(request.headers.get('content-type')?.startsWith('multipart/form-data;'), 'Upload a multipart rack image and state.', 415, 'unsupported_media_type');
-                const bytes = await boundedBody(request, LIMITS.uploadBytes + LIMITS.stateBytes + 16384);
+                const bytes = await boundedBody(request, 2 * LIMITS.uploadBytes + LIMITS.stateBytes + 16384);
                 let form; try { form = await new Request(request.url, { method: 'POST', headers: { 'content-type': request.headers.get('content-type') }, body: bytes }).formData(); }
                 catch { throw new HttpError(400, 'invalid_upload', 'Invalid rack image upload.'); }
                 const file = form.get('image'); assert(file && typeof file.arrayBuffer === 'function', 'Rack image is required.');
+                const dark = form.get('darkImage');
+                assert(!form.has('darkImage') || typeof dark?.arrayBuffer === 'function', 'Invalid dark rack image.');
                 let state; try { state = JSON.parse(form.get('state')); } catch { throw new HttpError(400, 'invalid_patch', 'Upload the exact saved patch state with its image.'); }
-                return json(await service.uploadPreview(user, { state, rendererVersion: form.get('rendererVersion') || undefined, theme: form.get('theme') || undefined }, Buffer.from(await file.arrayBuffer())), 201);
+                return json(await service.uploadPreview(user, { state, rendererVersion: form.get('rendererVersion') || undefined, theme: form.get('theme') || undefined },
+                    Buffer.from(await file.arrayBuffer()), dark ? Buffer.from(await dark.arrayBuffer()) : undefined), 201);
             }
             const match = /^\/api\/patches\/([0-7][0-9A-HJKMNP-TV-Z]{25})(?:\/(visibility|like|copies))?$/.exec(path);
             if (match) {
@@ -81,7 +84,7 @@ export function createHandler({ store, authenticate = async () => null, authHand
                 if (action === 'copies' && method === 'POST') return json(await service.copy(user, patchId, await readJson(request)), 201);
                 throw new HttpError(405, 'method_not_allowed', 'This method is not supported.');
             }
-            const image = /^\/patches\/([^/]+)\/images\/([^/]+)\/(full|thumbnail|social)(?:\.png)?$/.exec(path);
+            const image = /^\/patches\/([^/]+)\/images\/([^/]+)\/((?:dark-)?(?:full|thumbnail|social))(?:\.png)?$/.exec(path);
             if (image && ['GET', 'HEAD'].includes(method)) {
                 const { bytes, visibility, contentType, etag, length, notModified } = await service.image(user, image[1], image[2], image[3], {
                     includeAccess: true, ifNoneMatch: request.headers.get('if-none-match'), head: method === 'HEAD'

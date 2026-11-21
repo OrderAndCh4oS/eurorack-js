@@ -11,6 +11,14 @@ test('loads test patch thumbnails without creating rack renderers', async ({ pag
         await expect(image).toHaveAttribute('src', /\/patch-previews\/[a-f0-9]{64}\.webp$/);
         await expect.poll(() => image.evaluate(node => node.complete && node.naturalWidth > 0)).toBe(true);
     }
+    const first = page.locator('.patch-entry img').first();
+    const light = await first.getAttribute('src');
+    const toggle = page.getByRole('button', { name: 'Dark mode', exact: true });
+    await toggle.click();
+    await expect(first).toHaveAttribute('src', /\/patch-previews\/[a-f0-9]{64}\.webp$/);
+    await expect(first).not.toHaveAttribute('src', light);
+    await toggle.click();
+    await expect(first).toHaveAttribute('src', light);
     expect(renderers).toEqual([]);
 });
 
@@ -37,4 +45,16 @@ test('reuses a browser patch thumbnail after a full reload', async ({ page }) =>
     await page.waitForFunction(() => window.eurorackApp?.patchLibrary);
     await openAndWait();
     expect(captures).toBe(1);
+    await page.locator('[data-patch-name="Cached local rack"]').getByRole('button', { name: 'Open in rack' }).click();
+    await page.locator('#savePatch').click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(dialog).toHaveCount(0, { timeout: 30000 });
+    const afterSave = captures;
+    expect(afterSave).toBeGreaterThan(1);
+    await page.getByRole('button', { name: 'Dark mode', exact: true }).click();
+    await page.reload();
+    await page.waitForFunction(() => window.eurorackApp?.patchLibrary);
+    await openAndWait();
+    expect(captures).toBe(afterSave);
 });

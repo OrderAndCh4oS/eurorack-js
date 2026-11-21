@@ -5,6 +5,14 @@ export const loadCloudVendor = () => {
     return (vendor ||= import(/* @vite-ignore */ url));
 };
 export async function newRequestId() { return (await loadCloudVendor()).ulid(); }
+
+export async function uploadThemedPreview(cloud, state, preview, assertCurrent = () => {}) {
+    const light = await preview.capturePatchPreview(state, { mode: 'light' });
+    assertCurrent();
+    const darkImage = await preview.capturePatchPreview(state, { mode: 'dark' });
+    assertCurrent();
+    return cloud.uploadPreview(state, light, { darkImage, theme: 'industrial', rendererVersion: preview.PATCH_PREVIEW_RENDERER_VERSION });
+}
 export function savedPatchUrl(id, base = globalThis.location?.origin) {
     if (!ULID_PATTERN.test(id)) throw new Error('This patch link is invalid.');
     return new URL(`/patches/${id}`, base).href;
@@ -109,8 +117,9 @@ export class CloudClient {
     visibility(id, body) { return this.request(`/api/patches/${id}/visibility`, { method: 'PUT', body }); }
     remove(id, expectedRevision) { return this.request(`/api/patches/${id}`, { method: 'DELETE', body: { expectedRevision } }); }
     like(id, liked) { return this.request(`/api/patches/${id}/like`, { method: 'PUT', body: { liked } }); }
-    uploadPreview(state, blob, { theme = 'industrial-light', rendererVersion = 'rack-v1' } = {}) {
+    uploadPreview(state, blob, { darkImage, theme = 'industrial-light', rendererVersion = 'rack-v1' } = {}) {
         const body = new FormData(); body.append('image', blob, 'rack.png'); body.append('state', JSON.stringify(state));
+        if (darkImage) body.append('darkImage', darkImage, 'rack-dark.png');
         body.append('theme', theme); body.append('rendererVersion', rendererVersion);
         return this.request('/api/patch-previews', { method: 'POST', body });
     }

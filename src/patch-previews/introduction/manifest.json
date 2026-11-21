@@ -2,7 +2,7 @@
   "sourceName": "Introduction",
   "sourceFile": "src/js/config/patches/demo-introduction.js",
   "stateHash": "a8b6ebd9982047524ce0a52f71e9f87a0f9c64134bb744d3cbf51a4175ddc93a",
-  "rendererVersion": "rack-industrial-light-v2",
+  "rendererVersion": "rack-industrial-v3",
   "capture": {
     "deviceScaleFactor": 3,
     "padding": 8,
@@ -72,6 +72,68 @@
         "lossless": 1204732,
         "quality90": 480850,
         "quality88": 440544
+      }
+    }
+  ],
+  "darkVariants": [
+    {
+      "width": 640,
+      "height": 663,
+      "bytes": 110356,
+      "file": "2dd6e5ba72b9a73ea0f0202ed7347786b93bdd70c575700acc690a7a4425e463.webp",
+      "encoding": "quality-90",
+      "comparedBytes": {
+        "lossless": 283558,
+        "quality90": 110356,
+        "quality88": 103732
+      }
+    },
+    {
+      "width": 960,
+      "height": 995,
+      "bytes": 187296,
+      "file": "99046af7a2dab238595054575fef9cc98122e95daebc366512b83fb985ce9c41.webp",
+      "encoding": "quality-90",
+      "comparedBytes": {
+        "lossless": 483788,
+        "quality90": 187296,
+        "quality88": 175114
+      }
+    },
+    {
+      "width": 1280,
+      "height": 1326,
+      "bytes": 276632,
+      "file": "7ed63593b5a3ec127b15eccfed369d3467be1625b0ea11701c3fb55ecdc74344.webp",
+      "encoding": "quality-90",
+      "comparedBytes": {
+        "lossless": 710930,
+        "quality90": 276632,
+        "quality88": 258900
+      }
+    },
+    {
+      "width": 1600,
+      "height": 1658,
+      "bytes": 367276,
+      "file": "092c2a907a648d88c4123f4657721584f32e492684bf526c88424c0b63815e92.webp",
+      "encoding": "quality-90",
+      "comparedBytes": {
+        "lossless": 929756,
+        "quality90": 367276,
+        "quality88": 337416
+      }
+    },
+    {
+      "width": 1920,
+      "height": 1989,
+      "bytes": 466246,
+      "file": "270e9fe628b0e548147f0bf3dab5b1e0401c06a7c1af41075a3fbdef9aa58e11.webp",
+      "encoding": "quality-90",
+      "comparedBytes": {
+        "lossless": 1178536,
+        "quality90": 466246,
+        "quality88": 425624
       }
     }
   ]

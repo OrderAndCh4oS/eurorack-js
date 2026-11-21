@@ -17,7 +17,7 @@ async function json(response, status = 200) {
     return response.json();
 }
 
-test('normal saves replace all image variants and gallery reloads revalidate cached thumbnail bytes', async ({ browser }) => {
+test('resaving a light-only patch backfills both palettes and revalidates gallery thumbnails', async ({ browser }) => {
     test.setTimeout(60000);
     const context = await browser.newContext();
     await context.addCookies([{ name: 'eurorack-test-user', value: 'alice', url: origin }]);
@@ -72,6 +72,9 @@ test('normal saves replace all image variants and gallery reloads revalidate cac
 
         // No route interception: the browser's real HTTP cache must stay enabled.
         await page.goto(`${origin}/patches?q=${encodeURIComponent(name)}`);
+        expect(original.images.dark).toBeUndefined();
+        const toggle = page.getByRole('button', { name: 'Dark mode', exact: true });
+        await toggle.click();
         await waitForThumbnail(original.images.thumbnail);
         await expect.poll(() => entriesFor(original.images.thumbnail).some(request => request.status === 200)).toBe(true);
         const originalEtag = header(entriesFor(original.images.thumbnail).find(request => request.status === 200).responseHeaders, 'etag');
@@ -81,7 +84,6 @@ test('normal saves replace all image variants and gallery reloads revalidate cac
 
         await card.getByRole('button', { name: 'Open in rack', exact: true }).click();
         await expect(page.locator('#module-osc')).toBeVisible();
-        await page.evaluate(() => window.eurorackApp.setParam('osc', 'coarse', 0.37));
         await page.locator('#savePatch').click();
         const dialog = page.getByRole('dialog');
         await dialog.getByRole('button', { name: 'Save', exact: true }).click();
@@ -89,7 +91,7 @@ test('normal saves replace all image variants and gallery reloads revalidate cac
         expect(previewUploads).toBe(1);
         const saved = await json(await context.request.get(`${origin}/api/patches/${patchId}`));
         expect(saved.previewId).not.toBe(original.previewId);
-        expect(saved.state.params.osc.coarse).toBe(0.37);
+        expect(saved.state.params.osc.coarse).toBe(original.state.params.osc.coarse);
         for (const [variant, format, width, height] of [['thumbnail', 'webp', 640, 420], ['full', 'png', 1600, 1600], ['social', 'png', 1200, 630]]) {
             expect(saved.images[variant]).not.toBe(original.images[variant]);
             const response = await context.request.get(`${origin}${saved.images[variant]}`);
@@ -100,16 +102,33 @@ test('normal saves replace all image variants and gallery reloads revalidate cac
             expect(metadata.width).toBeLessThanOrEqual(width);
             expect(metadata.height).toBeLessThanOrEqual(height);
             if (variant === 'social') expect([metadata.width, metadata.height]).toEqual([width, height]);
+            const darkResponse = await context.request.get(`${origin}${saved.images.dark[variant]}`);
+            expect(darkResponse.status()).toBe(200);
+            const darkBytes = await darkResponse.body();
+            const dark = await sharp(darkBytes).metadata();
+            expect([dark.format, dark.width, dark.height]).toEqual([format, metadata.width, metadata.height]);
+            if (variant === 'full') {
+                const corner = bytes => sharp(bytes).removeAlpha().extract({ left: 0, top: 0, width: 1, height: 1 }).raw().toBuffer();
+                expect((await corner(await response.body()))[0]).toBeGreaterThan(200);
+                expect((await corner(darkBytes))[0]).toBeLessThan(50);
+            }
         }
         expect((await context.request.get(`${origin}${original.images.thumbnail}`, { headers: { 'If-None-Match': originalEtag } })).status()).toBe(404);
 
         await page.locator('[data-patch-view="public"]').click();
+        await waitForThumbnail(saved.images.dark.thumbnail);
+        await toggle.click();
         await waitForThumbnail(saved.images.thumbnail);
         await expect.poll(() => entriesFor(saved.images.thumbnail).some(request => request.status === 200)).toBe(true);
         const savedEtag = header(entriesFor(saved.images.thumbnail).find(request => request.status === 200).responseHeaders, 'etag');
         expect(savedEtag).not.toBe(originalEtag);
         await returnToGallery(saved.images.thumbnail);
         await reloadAndExpectConditionalHit(saved.images.thumbnail, savedEtag);
+        await page.goto(`${origin}/patches/${patchId}?view=details`);
+        await toggle.click();
+        await expect.poll(() => page.locator('.rack-preview').evaluate(img => img.currentSrc)).toBe(origin + saved.images.dark.full);
+        await toggle.click();
+        await expect.poll(() => page.locator('.rack-preview').evaluate(img => img.currentSrc)).toBe(origin + saved.images.full);
         expect(previewUploads).toBe(1);
     } finally {
         if (patchId) {

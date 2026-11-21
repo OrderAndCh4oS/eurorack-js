@@ -14,7 +14,9 @@ function setup() {
     const cloud = { get: vi.fn(), create: vi.fn(), copy: vi.fn(), update: vi.fn(), uploadPreview: vi.fn(), cancel: vi.fn(),
         updateProfile: vi.fn(), me: vi.fn(async () => ({ user: null })), signOut: vi.fn(async () => {}),
         configuration: vi.fn(async () => ({ enabled: false })), list: vi.fn(async () => ({ patches: [], nextCursor: null, previousCursor: null })) };
-    const library = new PatchLibrary({ app, cloud, createId: async () => id }); library.surface = document.getElementById('patchLibrary');
+    const library = new PatchLibrary({ app, cloud, createId: async () => id,
+        previewLoader: async () => ({ cacheLocalPatchPreviews: vi.fn() }) });
+    library.surface = document.getElementById('patchLibrary');
     return { app, cloud, library, edit: value => { current = value; } };
 }
 beforeEach(() => {

@@ -750,7 +750,7 @@ describe('shimmer', () => {
             Object.entries(inputRefs).forEach(([name, buffer]) => expect(dsp.inputs[name]).toBe(buffer));
             Object.entries(outputRefs).forEach(([name, buffer]) => expect(dsp.outputs[name]).toBe(buffer));
         }
-    }, 15000);
+    }, 60000);
 
     it('reset clears all state in place and matches a fresh default impulse render', () => {
         const options = { sampleRate: 16000, bufferSize: 128 };

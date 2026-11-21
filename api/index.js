@@ -9,7 +9,7 @@ export function forwardedRequest(request) {
     const routes = url.searchParams.getAll('__path');
     if (routes.length > 1) throw new HttpError(400, 'invalid_route', 'Ambiguous application route.');
     const route = routes[0];
-    if (route !== undefined && !/^\/(?:api\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*|patches\/[0-7][0-9A-HJKMNP-TV-Z]{25}(?:\/images\/[0-7][0-9A-HJKMNP-TV-Z]{25}\/(?:thumbnail|(?:full|thumbnail|social)\.png))?)\/?$/.test(route)) {
+    if (route !== undefined && !/^\/(?:api\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*|patches\/[0-7][0-9A-HJKMNP-TV-Z]{25}(?:\/images\/[0-7][0-9A-HJKMNP-TV-Z]{25}\/(?:dark-)?(?:thumbnail|(?:full|thumbnail|social)\.png))?)\/?$/.test(route)) {
         throw new HttpError(400, 'invalid_route', 'Invalid application route.');
     }
     if (route && ['/api', '/api/', '/api/index', '/api/index.js'].includes(url.pathname)) {

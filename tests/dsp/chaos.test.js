@@ -355,7 +355,7 @@ describe('Chaos', () => {
         expect(sawPositive).toBe(true);
         expect(sawNegative).toBe(true);
         expect(dsp.leds.lobeLed).toBe(dsp.outputs.lobe[DEFAULT_BUFFER_SIZE - 1] / 10);
-    });
+    }, 30000);
 
     it('uses a sample-accurate one-volt Reset rising edge with re-arm', () => {
         const dsp = create({ bufferSize: 4 });

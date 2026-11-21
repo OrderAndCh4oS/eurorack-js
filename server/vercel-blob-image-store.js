@@ -7,7 +7,7 @@ export function createVercelBlobImageStore(env = process.env, sdk = { put, get, 
     const token = env.BLOB_READ_WRITE_TOKEN;
     assert(typeof token === 'string' && token.trim(), 'Private Vercel Blob storage is not configured.', 503, 'images_unavailable');
     function checkKey(key) {
-        assert(typeof key === 'string' && /^rack-previews\/[0-7][0-9A-HJKMNP-TV-Z]{25}\/(?:(?:full|thumbnail|social)\.png|thumbnail\.webp)$/.test(key), 'Invalid rack image key.');
+        assert(typeof key === 'string' && /^rack-previews\/[0-7][0-9A-HJKMNP-TV-Z]{25}\/(?:dark-)?(?:(?:full|thumbnail|social)\.png|thumbnail\.webp)$/.test(key), 'Invalid rack image key.');
     }
     return {
         async put(key, body, { contentType = 'image/png' } = {}) {

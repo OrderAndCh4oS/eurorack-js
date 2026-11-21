@@ -48,11 +48,14 @@ suite('real PostgreSQL adapter and Better Auth migration', () => {
     });
     it('persists previews, forks, idempotency, likes and revisions using real SQL transactions', async () => {
         const png = await sharp({ create: { width: 60, height: 40, channels: 3, background: '#f0eee2' } }).png().toBuffer();
-        const image = await service.uploadPreview(user, { state }, png);
+        const dark = await sharp({ create: { width: 60, height: 40, channels: 3, background: '#171813' } }).png().toBuffer();
+        const image = await service.uploadPreview(user, { state }, png, dark);
         const input = { name: 'SQL fixture', state, requestId: ulid(), visibility: 'public', previewId: image.id };
         const patch = await service.create(user, input);
         expect((await service.create(user, input)).id).toBe(patch.id);
-        expect((await service.list({ publicOnly: true, query: 'SQL fixture' })).patches.some(p => p.id === patch.id)).toBe(true);
+        const listed = (await service.list({ publicOnly: true, query: 'SQL fixture' })).patches.find(p => p.id === patch.id);
+        expect(listed.images.dark.thumbnail).toBe(patch.images.dark.thumbnail);
+        expect((await sharp(await service.image(null, patch.id, patch.previewId, 'dark-thumbnail')).metadata()).format).toBe('webp');
         expect(await service.like(other, patch.id, true)).toEqual({ likeCount: 1, likedByMe: true });
         const fork = await service.copy(other, patch.id, { requestId: ulid(), expectedRevision: 1 });
         expect(fork.visibility).toBe('private'); expect(fork.previewId).not.toBe(patch.previewId);

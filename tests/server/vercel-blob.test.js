@@ -27,10 +27,10 @@ describe('private Vercel Blob image storage', () => {
         expect(sdk.get).toHaveBeenCalledWith(path, { token, access: 'private', useCache: true });
         await store.delete(path); expect(sdk.del).toHaveBeenCalledWith(path, { token });
     });
-    it('stores precomputed WebP thumbnails with their actual MIME type', async () => {
+    it.each(['thumbnail', 'dark-thumbnail'])('stores %s with its actual MIME type', async variant => {
         const bytes = Buffer.from('webp fixture'), sdk = sdkWithBytes(bytes);
         const store = createVercelBlobImageStore({ BLOB_READ_WRITE_TOKEN: token }, sdk);
-        const path = `rack-previews/${ulid()}/thumbnail.webp`;
+        const path = `rack-previews/${ulid()}/${variant}.webp`;
         await store.put(path, bytes, { contentType: 'image/webp' });
         expect(sdk.put.mock.calls[0][2]).toMatchObject({ contentType: 'image/webp', allowOverwrite: false, access: 'private' });
         await expect(store.put(path, bytes)).rejects.toMatchObject({ status: 400 });

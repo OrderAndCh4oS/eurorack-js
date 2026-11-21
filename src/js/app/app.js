@@ -1157,7 +1157,7 @@ export class EurorackApp {
         if (!name?.trim()) { alert('Please enter a patch name'); return false; }
         try {
             const state = this.host.serializePatch();
-            const saved = this.localPatches.save({ name, state }, { key: name.trim() });
+            const { patch: saved } = await this.localPatches.saveWithPreviews({ name, state }, { key: name.trim() });
             this.patchLibrary?.setActive(saved, JSON.stringify(state));
             this.updatePatchSelect();
             return true;

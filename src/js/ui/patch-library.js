@@ -1,6 +1,6 @@
 import { TEST_PATCHES } from '../config/test-patches.js';
 import { RackState } from '../app/rack-state.js';
-import { CloudClient, newRequestId, parsePatchLocation, savedPatchUrl, rackPatchUrl } from '../patches/cloud-client.js';
+import { CloudClient, newRequestId, parsePatchLocation, savedPatchUrl, rackPatchUrl, uploadThemedPreview } from '../patches/cloud-client.js';
 import { LocalPatchStore } from '../patches/local-patch-store.js';
 import { parseCatalogueLocation, catalogueUrl, paginateLocalPatches } from '../patches/catalogue-state.js';
 import { ContentViews, contentView } from './content-views.js';
@@ -40,6 +40,7 @@ export class PatchLibrary {
     init() {
         this.surface = this.document.getElementById('patchLibrary');
         if (!this.surface) return this;
+        this.document.addEventListener('theme-mode-change', () => { if (LIBRARY_VIEWS[this.view]) this.render(); });
         const strip = this.document.querySelector('.patch-nav-strip');
         if (strip && this.window.ResizeObserver) new this.window.ResizeObserver(() => this.revealActiveTab()).observe(strip);
         this.document.querySelectorAll('[data-patch-view]').forEach(button => button.addEventListener('click', () => this.navigate(button.dataset.patchView)));
@@ -377,10 +378,12 @@ export class PatchLibrary {
         const frame = element(this.document, 'div', undefined, 'patch-preview-frame');
         frame.append(element(this.document, 'span', 'Rack preview', 'patch-preview-placeholder'));
         if (record.images?.thumbnail) {
+            const images = this.app.themeMode === 'dark' ? record.images.dark ?? record.images : record.images;
+            const url = images.thumbnail;
             const previous = previewImages?.get(record.id);
-            const img = previous?.url === record.images.thumbnail && previous.visibility === record.visibility ? previous.image : element(this.document, 'img');
+            const img = previous?.url === url && previous.visibility === record.visibility ? previous.image : element(this.document, 'img');
             img.alt = `Rack for ${record.name}`; img.loading = 'lazy'; img.decoding = 'async';
-            if (img.getAttribute('src') !== record.images.thumbnail) img.src = record.images.thumbnail;
+            if (img.getAttribute('src') !== url) img.src = url;
             frame.replaceChildren(img);
         } else if (record.state) this.observePreview(frame, record);
         card.append(frame);
@@ -418,6 +421,7 @@ export class PatchLibrary {
     }
     observePreview(frame, record) {
         const signal = this.previewAbort.signal;
+        const mode = this.app.themeMode || 'light';
         const render = async () => {
             try {
                 const preview = await this.previewLoader();
@@ -430,10 +434,10 @@ export class PatchLibrary {
                     img.onerror = retry || unavailable; img.src = url; frame.replaceChildren(img);
                 };
                 const capture = async () => {
-                    const url = await preview.getPatchPreviewObjectUrl(record.state, { ...preview.PATCH_THUMBNAIL_OPTIONS, maxWidth: 640, maxHeight: 480, signal, persistent: record.source === 'local' || record.source === 'test' });
+                    const url = await preview.getPatchPreviewObjectUrl(record.state, { ...preview.PATCH_THUMBNAIL_OPTIONS, mode, signal, persistent: record.source === 'local' || record.source === 'test' });
                     show(url);
                 };
-                const staticPreview = record.source === 'test' && await preview.getTestPatchPreview?.(record.state, record.key || record.name);
+                const staticPreview = record.source === 'test' && await preview.getTestPatchPreview?.(record.state, record.key || record.name, mode);
                 if (staticPreview) show(staticPreview.url, staticPreview, () => { void capture().catch(unavailable); });
                 else await capture();
             } catch { if (frame.isConnected && !signal.aborted) frame.replaceChildren(element(this.document, 'span', 'Preview unavailable', 'patch-preview-placeholder')); }
@@ -610,8 +614,20 @@ export class PatchLibrary {
                 const fields = { name: name.value.trim(), description: description.value.trim(), visibility: copy ? 'private' : visibility.value };
                 try {
                     let saved;
+                    let localPreviewFailed = false;
                     if (target.value === 'local') {
-                        saved = this.local.save({ ...fields, state, id: !copy && record?.source === 'local' && record.id ? record.id : await this.createId(), provenance: record?.source === 'cloud' ? { ...record.provenance, parentId: record.id, parentRevision: record.revision, parentCreatorName: record.authorName, rootId: record.provenance?.rootId || record.id, originalCreatorName: record.provenance?.originalCreatorName || record.authorName } : record?.provenance }, { key: !copy && record?.source === 'local' ? record.key : undefined, copy: copy || record?.source !== 'local' });
+                        submit.textContent = 'Creating previews…';
+                        const updateLocal = !copy && record?.source === 'local';
+                        const provenance = record?.source === 'cloud' ? {
+                            ...record.provenance, parentId: record.id, parentRevision: record.revision,
+                            parentCreatorName: record.authorName, rootId: record.provenance?.rootId || record.id,
+                            originalCreatorName: record.provenance?.originalCreatorName || record.authorName
+                        } : record?.provenance;
+                        const result = await this.local.saveWithPreviews({
+                            ...fields, state, provenance, id: updateLocal && record.id || await this.createId()
+                        }, { key: updateLocal ? record.key : undefined, copy: !updateLocal }, this.previewLoader);
+                        saved = result.patch;
+                        localPreviewFailed = !result.previewsReady;
                     } else {
                         assertAccount();
                         if (!this.user) throw new Error('Sign in to save to your account.');
@@ -628,15 +644,15 @@ export class PatchLibrary {
                         }
                         const isFork = !!forkSource;
                         const body = { ...fields, state, requestId: attempt.requestId, copy };
-                        if (this.config.imagesEnabled && !(attempt.skipPreview && fields.visibility === 'private') && !attempt.previewId && (!isFork || snapshot(forkSource.state) !== snapshot(state))) {
-                            submit.textContent = 'Creating preview…';
+                        const reuseForkPreview = forkSource?.images?.dark && snapshot(forkSource.state) === snapshot(state);
+                        const skipPrivatePreview = attempt.skipPreview && fields.visibility === 'private';
+                        if (this.config.imagesEnabled && !skipPrivatePreview && !attempt.previewId && !reuseForkPreview) {
+                            submit.textContent = 'Creating previews…';
                             try {
-                            assertAccount();
-                            const preview = await this.previewLoader(); assertAccount();
-                            const blob = await preview.capturePatchPreview(state);
-                            assertAccount();
-                            attempt.previewId = (await this.cloud.uploadPreview(state, blob, { theme: 'industrial-light', rendererVersion: preview.PATCH_PREVIEW_RENDERER_VERSION })).id;
-                            assertAccount();
+                                const preview = await this.previewLoader();
+                                assertAccount();
+                                attempt.previewId = (await uploadThemedPreview(this.cloud, state, preview, assertAccount)).id;
+                                assertAccount();
                             } catch (previewError) { attempt.previewFailed = true; throw previewError; }
                         }
                         if (attempt.previewId) body.previewId = attempt.previewId;
@@ -650,7 +666,10 @@ export class PatchLibrary {
                     }
                     if (fromEditor && loadGeneration === this.loadGeneration) { this.setActive(saved, snapshot(state)); this.setLocation(saved.source === 'cloud' ? saved.id : null); }
                     if (this.view !== 'rack') this.show(this.view);
-                    this.notice(saved.source === 'cloud' ? saved.visibility === 'public' ? 'Published.' : 'Saved privately.' : 'Saved in this browser.', fromEditor ? [] : [['Open copy', () => this.open(saved)]]);
+                    const notice = saved.source === 'cloud'
+                        ? (saved.visibility === 'public' ? 'Published.' : 'Saved privately.')
+                        : (localPreviewFailed ? 'Saved in this browser. Preview unavailable.' : 'Saved in this browser.');
+                    this.notice(notice, fromEditor ? [] : [['Open copy', () => this.open(saved)]]);
                     saving = false; finish(true);
                 } catch (failure) {
                     error.textContent = failure.message; error.hidden = false;

@@ -219,17 +219,29 @@ describe('publication, previews and social pages', () => {
         expect(legacy.status).toBe(200); expect(legacy.headers.get('content-type')).toBe('image/png');
         expect((await sharp(Buffer.from(await legacy.arrayBuffer())).metadata()).format).toBe('png');
     });
-    it('newly saved previews change every image URL and reject old cached versions', async () => {
+    it('backfills a light-only patch at the same state hash and revokes both palettes together', async () => {
         const patch = await published();
         const previous = await request(patch.images.thumbnail);
-        const nextPreview = await preview();
+        expect(patch.images.dark).toBeUndefined();
+        await expect(service.uploadPreview(alice, { state: patch.state }, png, Buffer.from('bad raster'))).rejects.toMatchObject({ code: 'invalid_image' });
+        expect((await service.get(patch.id, alice)).previewId).toBe(patch.previewId);
+        const dark = await sharp({ create: { width: 300, height: 100, channels: 3, background: '#171813' } }).png().toBuffer();
+        const nextPreview = await service.uploadPreview(alice, { state: patch.state }, png, dark);
         const next = await service.update(alice, patch.id, { state: state(), previewId: nextPreview.id, expectedRevision: 1 });
+        expect(next.stateHash).toBe(patch.stateHash);
         for (const variant of ['thumbnail', 'full', 'social']) {
             expect(next.images[variant]).not.toBe(patch.images[variant]);
             expect((await request(patch.images[variant], { user: 'alice', headers: { 'if-none-match': previous.headers.get('etag') } })).status).toBe(404);
             expect((await request(next.images[variant])).status).toBe(200);
+            const darkPath = next.images.dark[variant];
+            expect(new URL(forwardedRequest(new Request(`https://rack.example/api?__path=${darkPath}`)).url).pathname).toBe(darkPath);
+            expect((await request(darkPath)).status).toBe(200);
         }
         expect((await request(next.images.thumbnail)).headers.get('etag')).not.toBe(previous.headers.get('etag'));
+        const copy = await service.copy(bob, next.id, { requestId: ulid(), expectedRevision: next.revision });
+        await service.setVisibility(alice, next.id, { expectedRevision: next.revision, visibility: 'private' });
+        expect((await request(next.images.dark.full)).status).toBe(404);
+        expect((await request(copy.images.dark.full, { user: 'bob' })).status).toBe(200);
     });
     it('allows public social embeds but keeps private images same-origin for GET and HEAD', async () => {
         const patch = await published();

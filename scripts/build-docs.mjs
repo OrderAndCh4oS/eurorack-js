@@ -131,6 +131,8 @@ export function renderSitePage({ title, description, path, content, socialCard, 
     const fullTitle = `${title} · Eurorack`;
     return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
 <title>${escapeHtml(fullTitle)}</title><meta name="description" content="${escapeHtml(description)}">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="${ORIGIN}${escapeHtml(path)}">
@@ -171,14 +173,14 @@ export async function renderIntroduction(root, socialCard) {
     if (preview.stateHash !== stateHash || preview.rendererVersion !== PATCH_PREVIEW_RENDERER_VERSION) {
         throw new Error('Introduction preview is stale. Run npm run build:introduction-preview against the local preview server.');
     }
-    for (const variant of preview.variants) {
+    for (const variant of [...preview.variants, ...preview.darkVariants]) {
         if (!/^[a-f0-9]{64}\.webp$/.test(variant.file)) throw new Error('Invalid introduction image filename');
         const image = await readFile(join(root, 'src/patch-previews/introduction', variant.file));
         if (createHash('sha256').update(image).digest('hex') + '.webp' !== variant.file) throw new Error('Introduction image content hash does not match');
     }
     // Match the hero's height-constrained rack, grid and padding.
     // Keep the full rack visible without downloading pixels for empty side margins.
-    const { attributes, ratio } = introductionImageSource(preview.variants);
+    const { attributes, ratio } = introductionImageSource(preview);
     const sizes = `(max-width: 680px) calc(100vw - 50px), (max-width: 980px) min(calc(92vw - 34px), ${Math.ceil(520 * ratio)}px), min(calc(46.1vw - 34px), ${(54 * ratio).toFixed(3)}svh, ${Math.ceil(560 * ratio)}px)`;
     const image = `<img ${attributes} sizes="${sizes}" fetchpriority="high" decoding="async" alt="The EurorackJS demo patch, with its modules and patch cables.">`;
     const replacements = {

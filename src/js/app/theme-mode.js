@@ -1,3 +1,5 @@
+import { syncPatchImageSources } from '../ui/patch-image-sources.js';
+
 const MODE_KEY = 'eurorack-theme-mode';
 
 export function initThemeMode(doc) {
@@ -6,9 +8,12 @@ export function initThemeMode(doc) {
 
     function apply(mode) {
         const dark = mode === 'dark';
+        const changed = doc.body.classList.contains('theme-dark') !== dark;
         doc.body.classList.toggle('theme-dark', dark);
         doc.body.classList.toggle('theme-light', !dark);
         for (const button of buttons) button.setAttribute('aria-pressed', String(dark));
+        syncPatchImageSources(doc);
+        if (changed) doc.dispatchEvent(new win.Event('theme-mode-change'));
     }
 
     function restore() {

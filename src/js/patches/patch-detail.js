@@ -1,4 +1,5 @@
-import { CloudClient, newRequestId, savedPatchUrl, rackPatchUrl } from './cloud-client.js';
+import { syncPatchImageSources } from '../ui/patch-image-sources.js';
+import { CloudClient, newRequestId, savedPatchUrl, rackPatchUrl, uploadThemedPreview } from './cloud-client.js';
 import { LocalPatchStore } from './local-patch-store.js';
 import { chooseSignIn, emailSentNotice } from '../ui/sign-in-dialog.js';
 
@@ -20,7 +21,13 @@ function render() {
         if (record.provenance.parentAvailable) { const link = node('a', 'Source patch'); link.href = `/patches/${record.provenance.parentId}`; main.append(link); }
     }
     if (record.description) main.append(node('p', record.description));
-    if (record.images?.full) { const img = node('img'); img.src = record.images.full; img.alt = `Rack for ${record.name}`; img.className = 'rack-preview'; main.append(img); }
+    if (record.images?.full) {
+        const img = node('img');
+        img.src = record.images.full;
+        if (record.images.dark) img.dataset.darkSrcset = record.images.dark.full;
+        img.alt = `Rack for ${record.name}`; img.className = 'rack-preview';
+        main.append(img); syncPatchImageSources(main);
+    }
     const actions = node('div'); actions.className = 'patch-actions';
     const open = node('a', 'Open in rack'); open.href = rackPatchUrl(id); actions.append(open);
     if (!user) actions.append(button('Sign in', 'sign-in'));
@@ -65,15 +72,29 @@ function copyDialog() {
         event.preventDefault(); submit.disabled = true; cancel.disabled = true;
         try {
             let saved;
+            let localPreviewFailed = false;
             if (target.value === 'cloud') {
                 if (!copyAttempt || copyAttempt.name !== input.value.trim()) copyAttempt = { name: input.value.trim(), requestId: await newRequestId(), expectedRevision: record.revision };
+                if (config.imagesEnabled && !record.images?.dark && !copyAttempt.previewId) {
+                    submit.textContent = 'Creating previews…';
+                    const preview = await import('./patch-preview.js');
+                    copyAttempt.previewId = (await uploadThemedPreview(cloud, record.state, preview)).id;
+                }
                 saved = await cloud.copy(id, copyAttempt);
-            } else saved = new LocalPatchStore().save({ name: input.value.trim(), state: record.state, id: await newRequestId(), provenance: { ...record.provenance, parentId: record.id, parentRevision: record.revision, parentCreatorName: record.authorName } }, { copy: true });
+            } else {
+                submit.textContent = 'Creating previews…';
+                const result = await new LocalPatchStore().saveWithPreviews({
+                    name: input.value.trim(), state: record.state, id: await newRequestId(),
+                    provenance: { ...record.provenance, parentId: record.id, parentRevision: record.revision, parentCreatorName: record.authorName }
+                }, { copy: true });
+                saved = result.patch;
+                localPreviewFailed = !result.previewsReady;
+            }
             dialog.close(); dialog.remove();
-            status('Copy saved.');
+            status(localPreviewFailed ? 'Copy saved. Preview unavailable.' : 'Copy saved.');
             const open = node('a', 'Open copy'); open.href = target.value === 'cloud' ? rackPatchUrl(saved.id) : `/#local=${saved.id}`; document.getElementById('patch-status').append(' ', open);
         } catch (error) { output.textContent = error.message; }
-        finally { submit.disabled = false; cancel.disabled = false; }
+        finally { submit.disabled = false; cancel.disabled = false; submit.textContent = 'Save copy'; }
     });
 }
 

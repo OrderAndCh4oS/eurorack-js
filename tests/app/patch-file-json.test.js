@@ -10,6 +10,8 @@ import { createPatchUrlHash, parsePatchUrlHash } from '../../src/js/app/patch-fo
 import { PATCH_STORAGE_KEY } from '../../src/js/config/constants.js';
 import { loadCorePlugin, pluginRegistry, registerPlugin } from '../../src/js/rack/registry.js';
 
+vi.mock('../../src/js/patches/patch-preview.js', () => ({ cacheLocalPatchPreviews: vi.fn() }));
+
 const testModule = {
     id: 'filetest',
     name: 'File Test',

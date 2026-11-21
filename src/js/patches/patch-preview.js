@@ -1,6 +1,7 @@
 import { createPersistentPreviewCache, hashPreviewKey } from './preview-cache.js';
 
-export const PATCH_PREVIEW_RENDERER_VERSION = 'rack-industrial-light-v2';
+export const PATCH_PREVIEW_RENDERER_VERSION = 'rack-industrial-v3';
+export const PATCH_PREVIEW_MODES = Object.freeze(['light', 'dark']);
 export const PATCH_THUMBNAIL_OPTIONS = Object.freeze({ maxWidth: 640, maxHeight: 480 });
 export const PATCH_PREVIEW_LIMITS = Object.freeze({
     maxWidth: 1600,
@@ -16,19 +17,19 @@ function aborted(signal) {
 }
 
 function previewKey(state, options) {
-    return JSON.stringify([PATCH_PREVIEW_RENDERER_VERSION, options.maxWidth, options.maxHeight, options.maxPixels, state]);
+    return JSON.stringify([PATCH_PREVIEW_RENDERER_VERSION, options.mode || 'light', options.maxWidth, options.maxHeight, options.maxPixels, state]);
 }
 
-export async function getTestPatchPreview(state, name) {
+export async function getTestPatchPreview(state, name, mode = 'light') {
     const { TEST_PATCH_PREVIEWS } = await import('../config/test-patch-previews.js');
-    const preview = TEST_PATCH_PREVIEWS[name];
+    const preview = TEST_PATCH_PREVIEWS[name]?.[mode];
     if (!preview || preview.rendererVersion !== PATCH_PREVIEW_RENDERER_VERSION) return null;
-    const key = await hashPreviewKey(previewKey(snapshotPatchPreview(state), PATCH_THUMBNAIL_OPTIONS));
+    const key = await getThumbnailCacheKey(state, mode);
     return key === preview.key ? { ...preview, url: new URL(`../../patch-previews/${preview.file}`, import.meta.url).href } : null;
 }
 
-export function getThumbnailCacheKey(state) {
-    return hashPreviewKey(previewKey(snapshotPatchPreview(state), PATCH_THUMBNAIL_OPTIONS));
+export function getThumbnailCacheKey(state, mode = 'light') {
+    return hashPreviewKey(previewKey(snapshotPatchPreview(state), { ...PATCH_THUMBNAIL_OPTIONS, mode }));
 }
 
 function waitForPreview(promise, signal) {
@@ -97,6 +98,7 @@ async function captureInFrame(state, options = {}, documentRef = document) {
                         throw new Error('Patch preview renderer is unavailable');
                     }
                     const blob = await renderer.capture(state, {
+                        mode: options.mode,
                         maxWidth: options.maxWidth,
                         maxHeight: options.maxHeight,
                         maxPixels: options.maxPixels
@@ -212,3 +214,8 @@ const previews = createPatchPreviewService();
 export const capturePatchPreview = previews.capturePatchPreview;
 export const getPatchPreviewObjectUrl = previews.getPatchPreviewObjectUrl;
 export const clearPatchPreviewCache = previews.clearPatchPreviewCache;
+
+export function cacheLocalPatchPreviews(state) {
+    return Promise.all(PATCH_PREVIEW_MODES.map(mode =>
+        getPatchPreviewObjectUrl(state, { ...PATCH_THUMBNAIL_OPTIONS, mode, persistent: true })));
+}

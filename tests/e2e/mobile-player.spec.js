@@ -15,6 +15,11 @@ test('tapping the Introduction artwork in the empty player opens the pictured pa
     const introSources = await page.evaluate(html => new DOMParser().parseFromString(html, 'text/html')
         .querySelector('.marketing-rack img').getAttribute('srcset'), await intro.text());
     await expect(image).toHaveAttribute('srcset', introSources);
+    const toggle = page.getByRole('button', { name: 'Dark mode', exact: true });
+    await toggle.tap();
+    await expect(image).toHaveAttribute('srcset', await image.getAttribute('data-dark-srcset'));
+    await toggle.tap();
+    await expect(image).toHaveAttribute('srcset', introSources);
     await expect(page.getByRole('button', { name: 'Browse public patches' })).toBeInViewport({ ratio: 1 });
 
     const app = await page.evaluateHandle(() => window.eurorackApp);

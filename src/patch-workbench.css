@@ -202,14 +202,20 @@ body.skin-factory .patch-workbench {
     --patch-border-soft: var(--factory-ink);
     --patch-text: var(--factory-ink);
     --patch-editor-text: var(--factory-ink);
-    --patch-muted: color-mix(in srgb, var(--factory-ink) 68%, transparent);
+    --patch-muted: var(--factory-muted);
     --patch-completion: var(--factory-paper);
     --patch-completion-selected: var(--factory-orange);
     --patch-accent: var(--factory-orange);
     --patch-accent-text: var(--factory-action-ink, var(--factory-ink));
-    --patch-success: #166534;
-    --patch-warning: #854d0e;
-    --patch-error: #b42318;
+    --patch-success: var(--factory-success);
+    --patch-warning: var(--factory-warning);
+    --patch-error: var(--factory-error);
+    border-top-width: 3px;
+    box-shadow: none;
+    font-family: inherit;
+}
+
+body.theme-light .patch-workbench {
     --syntax-keyword: #762a91;
     --syntax-literal: #a33b00;
     --syntax-string: #176b35;
@@ -218,9 +224,6 @@ body.skin-factory .patch-workbench {
     --syntax-method: #005f94;
     --syntax-function: #9c2d20;
     --syntax-property: #86520a;
-    border-top-width: 3px;
-    box-shadow: none;
-    font-family: inherit;
 }
 
 body.skin-factory .patch-workbench-toolbar button,
@@ -236,6 +239,16 @@ body.skin-factory .patch-workbench-toolbar a {
 
 body.skin-factory .patch-console-pane input {
     font-family: inherit;
+}
+
+body.theme-dark .patch-completions {
+    --patch-text: var(--factory-ink);
+    --patch-editor-text: var(--factory-overlay-ink);
+    --patch-muted: var(--factory-muted);
+    --patch-border: var(--factory-rule);
+    --patch-completion: var(--factory-paper-dim);
+    --patch-completion-selected: var(--factory-orange);
+    --patch-accent-text: var(--factory-action-ink);
 }
 
 body.skin-factory .patch-workbench-toolbar button:hover,

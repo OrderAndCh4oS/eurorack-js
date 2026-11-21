@@ -213,7 +213,6 @@ export class EurorackApp {
         this.lastCtrlClickJack = null;
         this.ctrlClickCycleIndex = 0;
         this.theme = 'industrial';
-        this.themeMode = 'light';
         this.cablesFullOpacity = true;
         this.patchWorkbench = null;
         this.rackDebugger = null;
@@ -226,7 +225,6 @@ export class EurorackApp {
     async init() {
         await this.host.init();
         this.cacheElements();
-        this.applySkin();
         this.applySavedCableOpacity();
         this.populateSidebar();
         this.host.subscribe(event => {
@@ -476,15 +474,8 @@ export class EurorackApp {
         this.connectMidiIfNeeded();
     }
 
-    applySkin() {
-        this.document.body.classList.remove('theme-classic', 'theme-dark');
-        this.document.body.classList.add('theme-industrial', 'theme-light', 'skin-factory');
-        try {
-            localStorage.removeItem('eurorack-theme');
-            localStorage.removeItem('eurorack-theme-mode');
-        } catch {
-            // Retired preferences never affect the fixed Industrial Light appearance.
-        }
+    get themeMode() {
+        return this.document.body.classList.contains('theme-dark') ? 'dark' : 'light';
     }
 
     applySavedCableOpacity() {

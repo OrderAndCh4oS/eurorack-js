@@ -1,4 +1,4 @@
-.docs-page { --docs-muted: #57564e; width: 100%; color: var(--site-ink); background: var(--site-paper); font: 15px/1.7 var(--site-font); }
+.docs-page { --docs-muted: var(--factory-muted); width: 100%; color: var(--site-ink); background: var(--site-paper); font: 15px/1.7 var(--site-font); }
 .docs-page :is(code, pre, kbd, samp) { font-family: inherit; }
 .docs-page :is(h1, h2, h3, h4, h5, h6) { font-family: var(--site-heading-font); font-weight: 700; font-synthesis: none; letter-spacing: 0; }
 .docs-page a { color: inherit; text-underline-offset: 4px; overflow-wrap: anywhere; }
@@ -14,16 +14,16 @@
 .docs-sidebar h2, .docs-sidebar h3, .docs-nav-group > p { margin: 22px 0 7px; color: var(--docs-muted); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; font-weight: 700; }
 .docs-sidebar ul, .docs-toc ol { padding: 0; margin: 0; list-style: none; }
 .docs-sidebar a { display: block; padding: 8px 10px; border-left: 3px solid transparent; text-decoration: none; line-height: 1.4; }
-.docs-sidebar a[aria-current="page"] { border-left-color: var(--site-ink); background: var(--site-accent); font-weight: 900; }
-.docs-sidebar a:hover { border-left-color: var(--site-ink); background: #e3dfd1; }
+.docs-sidebar a[aria-current="page"] { border-left-color: var(--site-ink); background: var(--site-accent); color: var(--factory-action-ink); font-weight: 900; }
+.docs-sidebar a:hover { color: var(--site-ink); border-left-color: var(--site-ink); background: var(--factory-inset); }
 .docs-toc a { display: block; text-decoration: none; padding: 7px 0; line-height: 1.4; }
 .docs-toc a:hover { text-decoration: underline; }
-.docs-toc li { border-bottom: 1px solid #d5d1c4; }
+.docs-toc li { border-bottom: 1px solid var(--site-rule); }
 .docs-toc nav { margin-top: 12px; }
 .docs-toc-level-3 a { padding-left: 10px; font-size: 11px; }
 .docs-article { min-width: 0; }
 .docs-header { padding: 0 0 28px; margin-bottom: 30px; border-bottom: 3px solid var(--site-ink); }
-.docs-eyebrow, .docs-header .eyebrow { display: inline-block; margin: 0 0 18px; padding: 3px 7px; background: var(--site-accent); font-size: 10px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+.docs-eyebrow, .docs-header .eyebrow { display: inline-block; margin: 0 0 18px; padding: 3px 7px; background: var(--site-accent); color: var(--factory-action-ink); font-size: 10px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
 .docs-header h1 { font-size: clamp(32px, 4.5vw, 54px); text-transform: uppercase; line-height: 1.1; margin: 0; }
 .docs-intro { margin: 20px 0 0; max-width: 62ch; color: var(--docs-muted); font-size: 16px; }
 .docs-prose > :first-child { margin-top: 0; }
@@ -37,11 +37,11 @@
 .docs-prose h4 { font-size: 16px; margin: 24px 0 12px; }
 .docs-page .docs-heading-link { display: inline-block; padding-inline: .3em .1em; font: inherit; vertical-align: baseline; text-decoration: none; color: var(--site-accent); }
 .docs-page .docs-heading-link:hover { text-decoration: underline; }
-.docs-intro code, .docs-prose code { font: inherit; background: #e4dfd1; padding: 2px 4px; overflow-wrap: anywhere; }
-.docs-code { margin: 24px 0; border: 2px solid var(--site-ink); background: #1c1d19; color: var(--site-paper); }
-.docs-code-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; background: #e3dfd1; color: var(--site-ink); border-bottom: 2px solid var(--site-ink); font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.docs-intro code, .docs-prose code { font: inherit; background: var(--factory-inset); padding: 2px 4px; overflow-wrap: anywhere; }
+.docs-code { margin: 24px 0; border: 2px solid var(--site-ink); background: #1c1d19; color: var(--factory-overlay-ink); }
+.docs-code-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; background: var(--factory-inset); color: var(--site-ink); border-bottom: 2px solid var(--site-ink); font-size: 10px; font-weight: 900; text-transform: uppercase; }
 .docs-code button { border: 1px solid var(--site-ink); background: var(--site-paper); color: inherit; padding: 4px 10px; font: inherit; cursor: pointer; }
-.docs-code button:hover { background: var(--site-accent); }
+.docs-code button:hover { background: var(--site-accent); color: var(--factory-action-ink); }
 .docs-code pre { max-width: 100%; margin: 0; padding: 18px; overflow-x: auto; tab-size: 2; font-size: 13px; line-height: 1.7; }
 .docs-code pre code { padding: 0; color: inherit; background: none; overflow-wrap: normal; font-size: inherit; }
 .docs-code .syntax-keyword, .docs-code .syntax-literal { color: #dcb7f5; }
@@ -50,13 +50,13 @@
 .docs-code .syntax-comment { color: #aaa99b; }
 .docs-code .syntax-function, .docs-code .syntax-method { color: #ffad7d; }
 .docs-code .syntax-property { color: #e9d8a5; }
-.docs-prose pre:not(.docs-code pre) { margin: 20px 0; padding: 18px; overflow-x: auto; background: #e3dfd1; font-size: 13px; }
-.docs-prose blockquote { margin: 24px 0; padding: 2px 20px; border-left: 8px solid var(--site-accent); background: #e8e4d7; }
+.docs-prose pre:not(.docs-code pre) { margin: 20px 0; padding: 18px; overflow-x: auto; background: var(--factory-inset); font-size: 13px; }
+.docs-prose blockquote { margin: 24px 0; padding: 2px 20px; border-left: 8px solid var(--site-accent); background: var(--factory-panel-light); }
 .docs-table { margin: 24px 0; max-width: 100%; overflow-x: auto; border: 2px solid var(--site-ink); font-size: 12px; }
 .docs-table table { border-collapse: collapse; width: 100%; text-align: left; }
 .docs-table table:has(th:nth-child(3)) { min-width: 620px; }
 .docs-table td:first-child code { white-space: nowrap; }
-.docs-table th { background: #e3dfd1; text-transform: uppercase; font-weight: 900; font-size: 11px; }
+.docs-table th { background: var(--factory-inset); text-transform: uppercase; font-weight: 900; font-size: 11px; }
 .docs-table th, .docs-table td { padding: 10px 12px; vertical-align: top; border-right: 1px solid var(--site-rule); border-bottom: 1px solid var(--site-rule); min-width: 130px; }
 .docs-table tr:last-child td { border-bottom: 0; }
 .docs-table th:last-child, .docs-table td:last-child { border-right: 0; }

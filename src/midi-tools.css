@@ -1,17 +1,16 @@
 :root {
-    color-scheme: light;
-    --tool-page: #f0eee2;
-    --tool-surface: #f0eee2;
-    --tool-surface-alt: #d8d5c6;
-    --tool-control: #ebe7da;
-    --tool-control-ink: #0b0b09;
-    --tool-ink: #0b0b09;
-    --tool-muted: #655f54;
-    --tool-border: #0b0b09;
-    --tool-accent: #ff4a0a;
-    --tool-accent-ink: #10110e;
-    --tool-success: #1f6d3b;
-    --tool-error: #a52f2f;
+    --tool-page: var(--factory-paper);
+    --tool-surface: var(--factory-paper);
+    --tool-surface-alt: var(--factory-paper-dim);
+    --tool-control: var(--factory-panel-light);
+    --tool-control-ink: var(--factory-ink);
+    --tool-ink: var(--factory-ink);
+    --tool-muted: var(--factory-muted);
+    --tool-border: var(--factory-ink);
+    --tool-accent: var(--factory-orange);
+    --tool-accent-ink: var(--factory-action-ink);
+    --tool-success: var(--factory-success);
+    --tool-error: var(--factory-error);
     --tool-radius: 0;
     --tool-border-width: 2px;
     --tool-font: 'Courier New', 'IBM Plex Mono', monospace;
@@ -442,6 +441,15 @@ input[type='number'] {
     border-width: 3px 2px 1px;
     font-size: 22px;
 }
+
+.tool-header {
+    max-width: 960px;
+    margin-inline: auto;
+    display: flex;
+    align-items: stretch;
+}
+.tool-header h1 { flex: 1; min-width: 0; margin-inline: 0; }
+.tool-header button { border-width: 3px 2px 1px 0; }
 
 :root.theme-industrial h1::after {
     content: 'CONTROL UNIT / ACTIVE';

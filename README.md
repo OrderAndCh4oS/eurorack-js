@@ -2,6 +2,8 @@
 
 Browser-based Eurorack modular synthesizer and patch-sharing community. Build a rack, make sounds, and share your patches for other people to play and remix.
 
+Use **Dark mode** in the top bar to switch the Industrial palette. Your browser remembers the setting across the rack, library, documentation, and MIDI tools.
+
 **[Try it live](https://eurorackjs.orderandchaos.xyz)**
 
 ![Evolving Drone Patch](screen-grab.png)

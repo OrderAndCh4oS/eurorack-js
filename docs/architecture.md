@@ -263,7 +263,7 @@ Modules marked `role: 'audio-output'` are worklet sinks. The processor routes th
 | Area | Responsibility |
 |---|---|
 | `src/js/app/app.js` | DOM orchestration, cable interaction, patch controls, MIDI setup, and audio start/stop UI |
-| `src/midi-*.html`, `src/midi-tools.css` | Standalone MIDI performance tools sharing the app's Industrial Light appearance |
+| `src/midi-*.html`, `src/midi-tools.css` | Standalone MIDI performance tools sharing the app's Industrial light/dark preference |
 | `src/js/app/rack-host.js` | Authoritative module, parameter, cable, patch, runtime-state, and audio lifecycle API |
 | `src/js/app/rack-state.js` | Serializable modules, rows, params, cables, and MIDI mappings |
 | `src/js/app/patch-format.js` | Strict patch v3, dependency, parameter, and endpoint validation |

@@ -7,11 +7,13 @@
     <meta name="referrer" content="no-referrer">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
     <title>Email sign-in · Eurorack JS</title>
+    <link rel="stylesheet" href="/industrial-theme.css">
+    <script type="module" blocking="render" src="/js/app/theme-mode.js"></script>
     <link rel="stylesheet" href="/legal.css">
     <script type="module" src="/js/patches/email-sign-in.js"></script>
 </head>
 <body>
-    <header class="site-header"><a class="wordmark" href="/">Eurorack JS</a></header>
+    <header class="site-header"><a class="wordmark" href="/">Eurorack JS</a><button type="button" data-theme-mode-toggle aria-pressed="false" hidden>Dark mode</button></header>
     <main><div class="document-header">
         <h1>Email sign-in</h1>
         <p id="status" role="status">Confirm to sign in to Eurorack JS in this browser.</p>

@@ -21,7 +21,7 @@
 
 body.rack-player #toolbar { top: 0; border-bottom-width: 2px; }
 .rack-player #toolbar .rack-transport { width: 100%; min-width: 0; gap: 8px; }
-.rack-player .rack-transport :is(#playerLibrary, #startButton),
+.rack-player .rack-transport :is(#playerLibrary, #startButton, [data-theme-mode-toggle]),
 #playerPatchChoices button,
 .rack-player .patch-library :is(button, a.patch-button),
 .rack-player :is(.patch-dialog, .patch-notice) button {
@@ -36,6 +36,7 @@ body.rack-player #toolbar { top: 0; border-bottom-width: 2px; }
     padding-block: 0;
 }
 .rack-player #toolbar #playerLibrary,
+.rack-player #toolbar [data-theme-mode-toggle],
 .rack-player #toolbar #startButton {
     display: inline-flex;
     align-items: center;
@@ -54,14 +55,15 @@ body.rack-player #toolbar { top: 0; border-bottom-width: 2px; }
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.rack-player #toolbar #startButton { background: var(--factory-orange); }
+.rack-player #toolbar #startButton,
+.rack-player #toolbar [data-theme-mode-toggle][aria-pressed="true"] { background: var(--factory-orange); color: var(--factory-action-ink); }
 .rack-player #startButton::before {
     content: '';
     border-block: 4px solid transparent;
     border-left: 6px solid currentColor;
 }
 .rack-player #startButton.active::before { border: 0; background: currentColor; width: 8px; height: 8px; }
-.rack-player #toolbar #startButton:disabled { background: transparent; opacity: .45; }
+.rack-player #toolbar #startButton:disabled { background: transparent; color: var(--factory-ink); opacity: .45; }
 body.rack-player #rackView { margin-top: var(--library-toolbar); height: calc(100dvh - var(--library-toolbar)); }
 body.rack-player #rack-container {
     padding: clamp(4px, 1vw, 12px) 0;
@@ -147,7 +149,7 @@ body.rack-player #rack-container {
     background: var(--factory-paper);
     cursor: pointer;
 }
-#playerPatchChoices #playerDemo { background: var(--factory-orange); }
+#playerPatchChoices #playerDemo { background: var(--factory-orange); color: var(--factory-action-ink); }
 .rack-player #playerFooter {
     display: block;
     flex: none;

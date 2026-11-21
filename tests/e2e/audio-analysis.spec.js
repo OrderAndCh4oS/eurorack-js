@@ -147,9 +147,12 @@ test('presents two playable stages and their live checks while the rack keeps ru
     await boot(page);
     await startTone(page);
     const before = await call(page, 'get_rack');
+    await page.getByRole('button', { name: 'Dark mode' }).click();
     const first = {caption: 'The triangle voice now feeds both speakers.', moduleId: 'osc', holdSeconds: 0.8};
     const presenting = call(page, 'present_step', first);
     await expect(page.locator('#agent-caption')).toContainText(first.caption);
+    await expect(page.locator('#agent-caption')).toHaveCSS('background-color', 'rgb(48, 50, 44)');
+    await expect(page.locator('#agent-caption p')).toHaveCSS('color', 'rgb(240, 238, 226)');
     await expect(page.locator('#module-osc')).toHaveClass(/agent-step-target/);
     expect(await presenting).toEqual({ok: true, ...first});
     await expect(page.locator('#agent-caption')).toBeHidden();

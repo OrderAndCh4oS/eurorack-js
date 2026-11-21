@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Eurorack JS by orderandchaos</title>
+    <link rel="stylesheet" href="/industrial-theme.css">
+    <script type="module" blocking="render" src="/js/app/theme-mode.js"></script>
     <link rel="stylesheet" href="/patch-workbench.css">
     <link rel="stylesheet" href="/control-value-tooltip.css">
     <script type="module" src="/js/ui/control-value-tooltip.js"></script>
@@ -1096,17 +1098,6 @@
 
         /* Factory skin - technical deployment sheet / terminal console */
         body.skin-factory {
-            --factory-black: #171813;
-            --factory-ink: #0b0b09;
-            --factory-paper: #f0eee2;
-            --factory-paper-dim: #d8d5c6;
-            --factory-panel-light: #ebe7da;
-            --factory-panel: #ded8ca;
-            --factory-panel-mid: #d0c8b7;
-            --factory-panel-dark: #bdb5a5;
-            --factory-panel-cool: #d9d9d2;
-            --factory-orange: #ff4a0a;
-            --factory-grid: rgba(11,11,9,0.16);
             --factory-rack-side-overlap: 5px;
             --factory-rack-left-overlap: 3px;
             --factory-rack-vertical-overlap: 2px;
@@ -1121,61 +1112,90 @@
         body.skin-factory .module-color-one {
             --factory-module-bg: #f0eee2;
             --factory-module-header: #f7f4e9;
+            --factory-module-dark-bg: #0d0e0d;
+            --factory-module-dark-header: #20211f;
         }
 
         body.skin-factory .module-color-two {
             --factory-module-bg: #ebe7da;
             --factory-module-header: #f3efe3;
+            --factory-module-dark-bg: #121312;
+            --factory-module-dark-header: #252622;
         }
 
         body.skin-factory .module-color-three {
             --factory-module-bg: #e3ded1;
             --factory-module-header: #ece7da;
+            --factory-module-dark-bg: #171817;
+            --factory-module-dark-header: #2b2c28;
         }
 
         body.skin-factory .module-color-four {
             --factory-module-bg: #d9d2c2;
             --factory-module-header: #e4ddcd;
+            --factory-module-dark-bg: #1c1d1b;
+            --factory-module-dark-header: #30312c;
         }
 
         body.skin-factory .module-color-five {
             --factory-module-bg: #cec6b6;
             --factory-module-header: #d9d2c2;
+            --factory-module-dark-bg: #22221f;
+            --factory-module-dark-header: #363630;
         }
 
         body.skin-factory .module-color-six {
             --factory-module-bg: #c3baaa;
             --factory-module-header: #d0c7b6;
+            --factory-module-dark-bg: #151615;
+            --factory-module-dark-header: #292a26;
         }
 
         body.skin-factory .module-color-seven {
             --factory-module-bg: #ddddd6;
             --factory-module-header: #e8e8df;
+            --factory-module-dark-bg: #1a1b1a;
+            --factory-module-dark-header: #2e2f2a;
         }
 
         body.skin-factory .module-color-eight {
             --factory-module-bg: #d2d1c8;
             --factory-module-header: #deddd3;
+            --factory-module-dark-bg: #242421;
+            --factory-module-dark-header: #383832;
         }
 
         body.skin-factory .module-color-nine {
             --factory-module-bg: #c8c7be;
             --factory-module-header: #d5d3c9;
+            --factory-module-dark-bg: #191a19;
+            --factory-module-dark-header: #2d2e29;
         }
 
         body.skin-factory .module-color-ten {
             --factory-module-bg: #e8e4d5;
             --factory-module-header: #f0ecde;
+            --factory-module-dark-bg: #20201e;
+            --factory-module-dark-header: #34342f;
         }
 
         body.skin-factory .module-color-eleven {
             --factory-module-bg: #d5cdbc;
             --factory-module-header: #e0d8c8;
+            --factory-module-dark-bg: #161817;
+            --factory-module-dark-header: #2a2c28;
         }
 
         body.skin-factory .module-color-twelve {
             --factory-module-bg: #bfbaae;
             --factory-module-header: #cbc6ba;
+            --factory-module-dark-bg: #262623;
+            --factory-module-dark-header: #3a3933;
+        }
+
+        body.theme-dark :is(.module, .sidebar-module-color) {
+            --factory-module-bg: var(--factory-module-dark-bg, var(--factory-panel));
+            --factory-module-header: var(--factory-module-dark-header, var(--factory-panel-light));
         }
 
         body.skin-factory::before {
@@ -1189,6 +1209,11 @@
             mix-blend-mode: screen;
         }
 
+        body.theme-dark::before {
+            opacity: 0.03;
+            mix-blend-mode: normal;
+        }
+
         body.skin-factory #toolbar {
             height: 52px;
             background: var(--factory-paper);
@@ -1196,6 +1221,15 @@
             box-shadow: none;
             color: var(--factory-ink);
             gap: 6px;
+        }
+
+        body.theme-dark #toolbar input[type="text"]::placeholder,
+        body.theme-dark :is(.rack-row.empty, .row-hp-indicator) {
+            color: var(--factory-muted);
+        }
+
+        body.theme-dark #toolbar input[type="text"]:focus::placeholder {
+            color: var(--factory-action-ink);
         }
 
         body.skin-factory .toolbar-section {
@@ -1223,6 +1257,7 @@
             background: var(--factory-paper);
             color: var(--factory-ink);
             box-shadow: none;
+            transition: none;
             font-family: inherit;
             font-weight: 900;
             text-transform: uppercase;
@@ -1271,7 +1306,7 @@
         }
 
         body.skin-factory .sidebar-module {
-            background: rgba(240,238,226,0.96);
+            background: color-mix(in srgb, var(--factory-paper) 96%, transparent);
             border-bottom: 1px solid var(--factory-ink);
             color: var(--factory-ink);
             padding: 8px 10px;
@@ -1292,6 +1327,10 @@
             border: 2px solid var(--factory-ink);
             background: var(--factory-module-bg) !important;
             filter: saturate(0.2) contrast(1.4);
+        }
+
+        body.theme-dark .sidebar-module-color {
+            filter: saturate(1.08) contrast(1.18);
         }
 
         body.skin-factory .sidebar-module-name,
@@ -1344,7 +1383,7 @@
             color: var(--factory-ink);
             background: var(--factory-module-bg, var(--factory-panel)) !important;
             box-shadow:
-                inset 0 0 0 1px rgba(11,11,9,0.18),
+                inset 0 0 0 1px color-mix(in srgb, var(--factory-ink) 18%, transparent),
                 inset 0 18px 0 var(--factory-module-header, var(--factory-panel-light));
         }
 
@@ -1606,7 +1645,7 @@
             border-radius: 0;
         }
 
-        /* Shared hardware controls: Industrial Light palette. */
+        /* Shared hardware controls use the Industrial panel palette. */
         body.theme-industrial.theme-light {
             --hw-face-top: #fbf8ec;
             --hw-face-bottom: #c9c3b3;
@@ -1624,6 +1663,25 @@
             --hw-display-bg: #151813;
             --hw-display-ink: #bcff9e;
             --hw-display-muted: #82a979;
+        }
+
+        body.theme-industrial.theme-dark {
+            --hw-face-top: #3a3c35;
+            --hw-face-bottom: #171813;
+            --hw-face-hover: #474a40;
+            --hw-edge: #b7b3a8;
+            --hw-ink: #f0eee2;
+            --hw-muted: #aaa69b;
+            --hw-accent: var(--factory-orange, #ff4a0a);
+            --hw-active-ink: #10110e;
+            --hw-highlight: rgba(255, 255, 255, 0.14);
+            --hw-shadow: rgba(0, 0, 0, 0.82);
+            --hw-well: #090a08;
+            --hw-track: #050605;
+            --hw-radius: 0px;
+            --hw-display-bg: #070a07;
+            --hw-display-ink: #b8ff9b;
+            --hw-display-muted: #78a46e;
         }
 
         body .module .hardware-button {
@@ -1700,7 +1758,7 @@
             cursor: pointer;
         }
 
-        /* Industrial controls stay flat and graphic; raised hardware belongs to Classic. */
+        /* Flat controls match the printed Industrial panels. */
         body.skin-factory .module .hardware-button {
             border-color: var(--factory-ink);
             border-radius: 0;
@@ -1859,6 +1917,7 @@
         </div>
     </div>
     <div class="patch-account-actions">
+        <button id="themeModeToggle" type="button" data-theme-mode-toggle aria-pressed="false" hidden>Dark mode</button>
         <button id="patchProfile" type="button" aria-haspopup="dialog" hidden>My profile</button>
         <button id="patchAccount" type="button">Sign in</button>
     </div>
@@ -1867,6 +1926,7 @@
     <div class="toolbar-section rack-transport">
         <button type="button" id="playerLibrary" class="player-only"><span aria-hidden="true">‹</span> Patches</button>
         <h1 id="playerPatchName" class="player-only"></h1>
+        <button type="button" class="player-only" data-theme-mode-toggle aria-pressed="false" hidden>Dark mode</button>
         <button id="startButton">▶ Start</button>
         <button id="analysisToggle" type="button" aria-controls="rack-analysis" aria-expanded="false" title="Audio measurements and agent activity">Analysis<span id="analysisIndicator" role="status"></span></button>
     </div>

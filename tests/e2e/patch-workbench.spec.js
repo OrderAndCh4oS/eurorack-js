@@ -17,9 +17,10 @@ test('patch workbench completes sockets, applies atomically, and preserves the r
         throw new Error(`App did not initialize: ${startupErrors.join(' | ') || error.message}`);
     }
     await expect(page.locator('body')).toHaveClass(/theme-industrial/);
-    await expect(page.locator('body')).toHaveClass(/theme-light/);
-    await expect(page.locator('body')).not.toHaveClass(/theme-classic|theme-dark/);
-    await expect(page.locator('#themeSelect, #themeModeToggle')).toHaveCount(0);
+    await expect(page.locator('body')).toHaveClass(/theme-dark/);
+    await expect(page.locator('body')).not.toHaveClass(/theme-classic|theme-light/);
+    await expect(page.locator('#themeSelect')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Dark mode', pressed: true })).toBeVisible();
     await page.locator('#patchWorkbenchToggle').click();
     const drawer = page.locator('#patch-workbench');
     const editor = drawer.locator('[data-role="editor"]');

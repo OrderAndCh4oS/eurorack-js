@@ -1,5 +1,11 @@
-body { --library-paper: #eceae2; --library-ink: #171813; --library-muted: #5e5d55; --library-accent: #e85b21; --library-line: #77786e; --library-toolbar: 38px; }
-body.skin-factory { --library-paper: var(--factory-paper); --library-ink: var(--factory-ink); --library-muted: var(--factory-ink); --library-accent: var(--factory-orange); --library-line: var(--factory-ink); }
+body {
+    --library-paper: var(--factory-paper);
+    --library-ink: var(--factory-ink);
+    --library-muted: var(--factory-muted);
+    --library-accent: var(--factory-orange);
+    --library-line: var(--factory-ink);
+    --library-toolbar: 38px;
+}
 [hidden] { display: none !important; }
 .patch-navigation, .patch-library, .patch-dialog, .patch-notice { color: var(--library-ink); background: var(--library-paper); font-size: 13px; line-height: 1.4; font-family: inherit; }
 .patch-navigation { position: fixed; top: 0; left: 0; right: 0; height: var(--library-toolbar); display: flex; align-items: center; gap: 6px; padding: 0 8px; border-bottom: 3px solid var(--library-line); z-index: 201; overflow: hidden; }
@@ -8,11 +14,11 @@ body.skin-factory { --library-paper: var(--factory-paper); --library-ink: var(--
 .patch-navigation button, .patch-view-tabs a, .patch-library button, .patch-library input, .patch-library select, .patch-library a.patch-button, .patch-dialog button, .patch-dialog input, .patch-dialog select, .patch-dialog textarea, .patch-notice button { color: inherit; background: var(--library-paper); font: inherit; border: 2px solid var(--library-line); border-radius: 0; padding: 8px 12px; box-shadow: none; }
 .patch-navigation button, .patch-view-tabs a, .patch-library button, .patch-library a.patch-button, .patch-dialog button, .patch-notice button { cursor: pointer; font-size: 12px; font-weight: 900; text-decoration: none; }
 .patch-navigation button, .patch-view-tabs a { padding: 5px 9px; font-size: 10px; line-height: normal; text-transform: uppercase; white-space: nowrap; }
-.patch-navigation button[aria-current="page"], .patch-view-tabs a[aria-current="page"], .patch-library .primary, .patch-dialog .primary { background: var(--library-accent); color: var(--factory-action-ink, #111); }
+.patch-navigation button[aria-current="page"], .patch-navigation button[aria-pressed="true"], .patch-view-tabs a[aria-current="page"], .patch-library .primary, .patch-dialog .primary { background: var(--library-accent); color: var(--factory-action-ink, #111); }
 .patch-navigation button:enabled:hover, .patch-view-tabs a:hover, .patch-library button:enabled:hover, .patch-library a.patch-button:hover, .patch-dialog button:enabled:hover, .patch-notice button:enabled:hover { background: var(--library-accent); color: var(--factory-action-ink, #111); }
 .patch-navigation button:focus-visible, .patch-view-tabs a:focus-visible, .patch-library :focus-visible, .patch-dialog :focus-visible { outline: 3px solid var(--library-accent); outline-offset: 2px; }
 .patch-navigation button:focus-visible, .patch-view-tabs a:focus-visible { outline-offset: -4px; }
-.patch-navigation button[aria-current="page"]:focus-visible, .patch-navigation button:hover:focus-visible, .patch-view-tabs a[aria-current="page"]:focus-visible, .patch-view-tabs a:hover:focus-visible { outline-color: var(--library-ink); }
+.patch-navigation button:is([aria-current="page"], [aria-pressed="true"], :hover):focus-visible, .patch-view-tabs a[aria-current="page"]:focus-visible, .patch-view-tabs a:hover:focus-visible { outline-color: var(--factory-action-ink); }
 .patch-library button:disabled, .patch-dialog button:disabled { opacity: .55; cursor: default; }
 #activePatchLabel { padding: 0 10px; flex: 1 0 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px; }
 .patch-account-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 4px; padding-left: 6px; border-left: 2px solid var(--library-line); }

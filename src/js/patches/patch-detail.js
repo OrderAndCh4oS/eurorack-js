@@ -46,7 +46,7 @@ async function signIn(intent) {
 }
 
 function copyDialog() {
-    const dialog = node('dialog'); dialog.style.cssText = 'margin:auto;padding:24px;max-width:calc(100vw - 32px);width:500px;background:#f0eee2;color:#0b0b09;border:3px solid #0b0b09;font:inherit';
+    const dialog = node('dialog'); dialog.className = 'patch-dialog';
     const form = node('form'); const title = node('h2', 'Save a copy');
     const label = node('label', 'Patch name '); const input = node('input'); input.name = 'name'; input.value = `${record.name} (copy)`.slice(0, 128); input.required = true; input.maxLength = 128; label.append(input);
     const targetLabel = node('label', 'Save to '); const target = node('select'); target.name = 'destination';

@@ -6,9 +6,9 @@
     max-width: calc(100vw - 12px);
     padding: 3px 7px;
     overflow: hidden;
-    border: 1px solid #f0eee2;
-    background: #161612;
-    color: #fffdf4;
+    border: 1px solid var(--factory-overlay-ink);
+    background: var(--factory-overlay);
+    color: var(--factory-overlay-ink);
     font: bold 12px/1.35 'Courier New', monospace;
     font-variant-numeric: tabular-nums;
     text-overflow: ellipsis;
@@ -17,4 +17,4 @@
 }
 
 .knob { touch-action: none; }
-.knob:focus-visible { outline: 2px solid #ff4a0a; outline-offset: 2px; }
+.knob:focus-visible { outline: 2px solid var(--factory-orange); outline-offset: 2px; }

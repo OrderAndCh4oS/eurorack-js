@@ -633,7 +633,7 @@ export class PatchLibrary {
                             try {
                             assertAccount();
                             const preview = await this.previewLoader(); assertAccount();
-                            const blob = await preview.capturePatchPreview(state, { theme: this.app.theme, mode: this.app.themeMode });
+                            const blob = await preview.capturePatchPreview(state);
                             assertAccount();
                             attempt.previewId = (await this.cloud.uploadPreview(state, blob, { theme: 'industrial-light', rendererVersion: preview.PATCH_PREVIEW_RENDERER_VERSION })).id;
                             assertAccount();

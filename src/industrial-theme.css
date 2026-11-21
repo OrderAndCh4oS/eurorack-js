@@ -1,0 +1,63 @@
+/* Industrial paper, panel and ink colors shared by the rack and standalone pages. */
+:root {
+    color-scheme: light;
+    --factory-black: #171813;
+    --factory-ink: #0b0b09;
+    --factory-action-ink: #0b0b09;
+    --factory-paper: #f0eee2;
+    --factory-paper-dim: #d8d5c6;
+    --factory-panel-light: #ebe7da;
+    --factory-panel: #ded8ca;
+    --factory-panel-mid: #d0c8b7;
+    --factory-panel-dark: #bdb5a5;
+    --factory-panel-cool: #d9d9d2;
+    --factory-orange: #ff4a0a;
+    --factory-grid: rgba(11, 11, 9, 0.16);
+    --factory-muted: #57564e;
+    --factory-rule: #bdb9ab;
+    --factory-inset: #e3dfd1;
+    --factory-overlay: #0b0b09;
+    --factory-overlay-ink: #f0eee2;
+    --factory-success: #166534;
+    --factory-warning: #854d0e;
+    --factory-error: #b42318;
+}
+
+:root:has(> body.theme-dark) {
+    color-scheme: dark;
+    --factory-black: #080907;
+    --factory-ink: #b7b3a8;
+    --factory-action-ink: #10110e;
+    --factory-paper: #171813;
+    --factory-paper-dim: #1f211d;
+    --factory-panel-light: #121713;
+    --factory-panel: #161b17;
+    --factory-panel-mid: #1b211d;
+    --factory-panel-dark: #232923;
+    --factory-panel-cool: #171d1c;
+    --factory-grid: rgba(183, 179, 168, 0.12);
+    --factory-muted: #a8a598;
+    --factory-rule: #68685e;
+    --factory-inset: #292c26;
+    --factory-overlay: #30322c;
+    --factory-success: #7bdc91;
+    --factory-warning: #f2c66d;
+    --factory-error: #ff7d7d;
+}
+
+button[data-theme-mode-toggle] {
+    color: var(--factory-ink);
+    background: var(--factory-paper);
+    border: 2px solid var(--factory-ink);
+    border-radius: 0;
+    padding: 5px 8px;
+    font: 900 10px/1 'Courier New', monospace;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+}
+button[data-theme-mode-toggle]:is(:hover, [aria-pressed="true"]) {
+    background: var(--factory-orange);
+    color: var(--factory-action-ink);
+}
+button[data-theme-mode-toggle]:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }

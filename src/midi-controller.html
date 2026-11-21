@@ -1,16 +1,20 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="theme-industrial">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MIDI Controller</title>
+    <link rel="stylesheet" href="/industrial-theme.css">
+    <script type="module" blocking="render" src="/js/app/theme-mode.js"></script>
     <link rel="stylesheet" href="midi-tools.css">
     <link rel="stylesheet" href="control-value-tooltip.css">
     <script type="module" src="js/ui/control-value-tooltip.js"></script>
-    <script type="module" src="js/app/midi-tool-theme.js"></script>
 </head>
 <body>
-    <h1>MIDI Controller</h1>
+    <header class="tool-header">
+        <h1>MIDI Controller</h1>
+        <button type="button" data-theme-mode-toggle aria-pressed="false" hidden>Dark mode</button>
+    </header>
 
     <div id="status" class="status">Initializing MIDI...</div>
 

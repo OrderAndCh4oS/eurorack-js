@@ -28,9 +28,15 @@ test('opens saved URLs directly in the rack, including reloads, while keeping de
         await expect(page).toHaveURL(canonical);
         await expect(page.locator('#module-osc')).toBeVisible();
 
+        await page.getByRole('button', { name: 'Dark mode', exact: true }).click();
         await page.getByRole('button', { name: 'Details', exact: true }).click();
         await expect(page).toHaveURL(`${canonical}?view=details`);
         await expect(page.getByRole('heading', { name: saved.name, exact: true })).toBeVisible();
+        await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(23, 24, 19)');
+        await page.getByRole('button', { name: 'Save a copy', exact: true }).click();
+        const dialog = page.getByRole('dialog');
+        await expect(dialog).toHaveCSS('background-color', 'rgb(23, 24, 19)');
+        await dialog.getByRole('button', { name: 'Cancel' }).click();
         const open = page.getByRole('link', { name: 'Open in rack', exact: true });
         await expect(open).toHaveAttribute('href', canonical);
         await open.click();

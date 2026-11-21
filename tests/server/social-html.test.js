@@ -62,7 +62,9 @@ describe('saved patch social HTML', () => {
         const document = render(patch({ name: '<img src=x onerror=bad()>', description, authorName }));
         expect(content(document, 'og:description')).toBe(`${description} — By ${authorName}.`);
         expect(document.querySelector('h1').textContent).toBe('<img src=x onerror=bad()>');
-        expect(document.querySelectorAll('script')).toHaveLength(1);
+        expect([...document.scripts].map(script => script.getAttribute('src'))).toEqual([
+            '/js/app/theme-mode.js', '/js/patches/patch-detail.js'
+        ]);
         expect(document.querySelector('[onload], [onerror]')).toBeNull();
     });
 

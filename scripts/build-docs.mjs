@@ -96,6 +96,7 @@ export function renderSiteNavigation(path) {
     <div class="patch-view-tabs">${links(patchLinks)}</div>
     <div class="patch-site-links">${links(siteLinks)}</div>
     <div class="patch-account-actions">
+        <button type="button" data-theme-mode-toggle aria-pressed="false" hidden>Dark mode</button>
         <button id="patchProfile" type="button" aria-haspopup="dialog" hidden>My profile</button>
         <button id="patchAccount" type="button">Sign in</button>
     </div>
@@ -137,6 +138,8 @@ export function renderSitePage({ title, description, path, content, socialCard, 
 <meta name="twitter:title" content="${escapeHtml(fullTitle)}"><meta name="twitter:description" content="${escapeHtml(description)}">
 ${renderSocialImageTags(socialCard)}
 <link rel="preload" href="/fonts/space-grotesk-bold-latin.24928473.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/industrial-theme.css">
+<script type="module" blocking="render" src="/js/app/theme-mode.js"></script>
 <link rel="stylesheet" href="/patch-library.css"><link rel="stylesheet" href="/site.css">${styles.map(style => `<link rel="stylesheet" href="${escapeHtml(style)}">`).join('')}
 </head><body class="site-page">
 <a class="site-skip-link" href="#main-content">Skip to content</a>

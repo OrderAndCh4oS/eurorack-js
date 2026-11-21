@@ -6,7 +6,7 @@ const tools = [
 ];
 
 for (const tool of tools) {
-    test(`${tool.title} shows CC values and fits the Industrial Light mobile layout`, async ({ page }) => {
+    test(`${tool.title} shows CC values and fits the Industrial Dark mobile layout`, async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });
         await page.addInitScript(() => {
             localStorage.setItem('eurorack-theme', 'classic');
@@ -15,8 +15,10 @@ for (const tool of tools) {
 
         await page.goto(tool.path);
 
-        await expect(page.locator('html')).toHaveClass('theme-industrial theme-light');
-        expect(await page.evaluate(() => [localStorage.getItem('eurorack-theme'), localStorage.getItem('eurorack-theme-mode')])).toEqual([null, null]);
+        await expect(page.locator('body')).toHaveClass(/theme-dark/);
+        await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(23, 24, 19)');
+        await expect(page.getByRole('button', { name: 'Dark mode', pressed: true })).toBeVisible();
+        expect(await page.evaluate(() => [localStorage.getItem('eurorack-theme'), localStorage.getItem('eurorack-theme-mode')])).toEqual([null, 'dark']);
         await expect(page.getByRole('heading', { level: 1, name: tool.title })).toBeVisible();
         await expect(page.locator('.controller-grid')).toBeVisible();
         const knob = page.getByRole('slider', { name: 'Knob 1', exact: true });

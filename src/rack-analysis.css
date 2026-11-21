@@ -23,7 +23,7 @@
 .analysis-tabs button { flex: 1; padding: 7px; border: 0; border-bottom: 3px solid transparent; }
 .analysis-tabs [aria-selected="true"] { border-color: var(--library-accent); }
 .analysis-tabs button:focus-visible { outline-offset: -3px; }
-.analysis-status { padding: 7px 12px; background: var(--library-ink); color: var(--library-paper); }
+.analysis-status { padding: 7px 12px; background: var(--factory-overlay); color: var(--factory-overlay-ink); }
 .rack-analysis [role="tabpanel"] { padding: 12px; overflow: auto; min-height: 0; overscroll-behavior: contain; }
 .analysis-controls { flex-wrap: wrap; align-items: end; }
 .analysis-controls label { display: grid; gap: 3px; font-size: 11px; }
@@ -78,8 +78,8 @@
     max-width: min(560px, calc(100vw - 32px));
     padding: 10px 16px;
     border-left: 6px solid var(--library-accent);
-    background: var(--library-ink);
-    color: var(--library-paper);
+    background: var(--factory-overlay);
+    color: var(--factory-overlay-ink);
     pointer-events: none;
 }
 .agent-caption strong { font: 700 11px/1.4 var(--site-font); text-transform: uppercase; letter-spacing: .06em; }

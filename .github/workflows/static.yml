@@ -43,11 +43,7 @@ jobs:
       - name: Browser tests
         run: npm run test:e2e
 
-  deploy:
-    needs: [test, laws]
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -62,9 +58,17 @@ jobs:
       - name: Build browser application
         run: npm ci && npm run build
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: 'dist'
+
+  deploy:
+    needs: [build, test, laws]
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

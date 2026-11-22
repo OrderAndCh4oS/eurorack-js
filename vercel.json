@@ -16,7 +16,7 @@
     { "source": "/api/:path*", "destination": "/api?__path=/api/:path*" },
     { "source": "/patches/:id/images/:previewId/:variant", "destination": "/api?__path=/patches/:id/images/:previewId/:variant" },
     { "source": "/patches/:id", "destination": "/api?__path=/patches/:id" },
-    { "source": "/patches", "destination": "/index.html" },
+    { "source": "/patches", "destination": "/patches.html" },
     { "source": "/docs", "destination": "/docs/index.html" },
     { "source": "/docs/:page", "destination": "/docs/:page.html" },
     { "source": "/introduction", "destination": "/introduction.html" },

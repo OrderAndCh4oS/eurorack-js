@@ -1296,6 +1296,24 @@ export const TEST_PATCH_PREVIEWS = {
       "bytes": 16872
     }
   },
+  "Test - MIDI In and Out": {
+    "light": {
+      "key": "18ffcfdcb3be64208020c29eab7a342e02b5e6476820ff5ba9797f429e48a237",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "08ef16bf4eef044511ab2b8264b12bdbabaa2a8403a10ebb0d0c514932aff0b2.webp",
+      "width": 278,
+      "height": 480,
+      "bytes": 23018
+    },
+    "dark": {
+      "key": "1f8d8949a09802c5d49be6ed91cba3397f5243fffa851f2dfd945814cac0b15a",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "dc90fcc80aeb050a7cf795f205bc3a68df25371f76442e151cbb13ce41745530.webp",
+      "width": 278,
+      "height": 480,
+      "bytes": 22576
+    }
+  },
   "Test - Snare Only": {
     "light": {
       "key": "d2718ffc5f8fa3ead727c036922c48dd2a458d11fd935c33cf9ab9d911532e09",

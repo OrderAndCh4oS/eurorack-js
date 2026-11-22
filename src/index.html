@@ -1946,6 +1946,7 @@
     </div>
     <div class="toolbar-spacer"></div>
     <div class="toolbar-section">
+        <button id="midiSetupBtn" type="button" aria-haspopup="dialog" aria-controls="midiSetup">MIDI Setup</button>
         <button id="midiLearnBtn" title="Click to enter learn mode, then click a knob">MIDI Learn</button>
         <button id="midiControllerBtn" title="Open MIDI CC controller in a new tab">MIDI CC</button>
         <button id="midiDrumControllerBtn" title="Open MIDI drum controller in a new tab">MIDI Drum</button>
@@ -1970,6 +1971,34 @@
         <button id="rackDebuggerToggle" type="button" title="Check rack connections" aria-controls="rack-debugger" aria-expanded="false" aria-pressed="false">Debug</button>
     </div>
 </div>
+
+<dialog id="midiSetup" class="patch-dialog" aria-labelledby="midiSetupTitle">
+    <div class="midi-setup-heading">
+        <h2 id="midiSetupTitle">MIDI Setup</h2>
+        <form method="dialog"><button>Close</button></form>
+    </div>
+    <p>Choose the device or app that plays the rack and the destination for notes from <strong>MIDI OUT</strong>. <a href="/docs/midi" target="_blank" rel="noopener">MIDI input and output guide</a></p>
+    <div class="midi-ports">
+        <label>MIDI input<select id="midiInputPort"></select></label>
+        <label>MIDI output<select id="midiOutputPort"></select></label>
+    </div>
+    <p id="midiConnectionStatus" role="status"></p>
+    <button id="midiAccessRetry" type="button" hidden>Retry MIDI access</button>
+    <p id="midiInputActivity" hidden><span data-note>Waiting for notes</span> · <span data-clock>Waiting for clock</span></p>
+    <details id="midiConnectionHelp">
+        <summary>Connect hardware or another app</summary>
+        <p>For a keyboard, synth or drum machine, choose its USB MIDI port or the port on your MIDI interface.</p>
+        <p>For two apps on one computer, create a virtual bus named <strong>To Rack</strong> for the rack input. Add <strong>From Rack</strong> for the rack output. On Mac, use IAC Driver in Audio MIDI Setup. On Windows, a utility such as loopMIDI can create the ports. <a href="/docs/midi#set-up-a-virtual-midi-bus" target="_blank" rel="noopener">Virtual bus setup</a></p>
+        <p><a href="/docs/midi#connect-a-daw" target="_blank" rel="noopener">DAW routing</a> · <a href="/docs/midi#connect-ableton-live" target="_blank" rel="noopener">Ableton Live example</a> · <a href="/docs/midi#connect-reaper" target="_blank" rel="noopener">REAPER example</a></p>
+    </details>
+    <h3>Try MIDI in and out</h3>
+    <p>Open the starter, click <strong>Start</strong>, then play the top row on channel 1. Send MIDI clock and start playback on your sequencer. The bottom row sends four repeating notes on channel 2 to your synth or recording track.</p>
+    <button id="midiStarter" class="primary" type="button">Open MIDI starter</button>
+    <details>
+        <summary>Record rack audio</summary>
+        <p>With the rack running, press the starter’s <strong>REC</strong> button before and after a take. Import the downloaded WAV into your audio software. For real-time recording, route the browser’s stereo output to an audio track through loopback. <a href="/docs/midi#record-rack-audio" target="_blank" rel="noopener">Stereo audio routing</a></p>
+    </details>
+</dialog>
 
 <div id="patchNotice" class="patch-notice" role="status" aria-live="polite" hidden></div>
 <section id="patchLibrary" class="patch-library" aria-label="Patch library" hidden></section>

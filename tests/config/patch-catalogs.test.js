@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { TEST_PATCHES } from '../../src/js/config/test-patches.js';
 import { ARCHIVED_DEMO_PATCHES, FACTORY_PATCHES } from '../../src/js/config/factory-patches.js';
 import { parseImportedPatchJson } from '../../src/js/app/app.js';
+import { paginateLocalPatches } from '../../src/js/patches/catalogue-state.js';
 
 describe('patch catalogues', () => {
     it('keeps test patches and archived examples disjoint while preserving the full regression catalogue', () => {
@@ -28,6 +29,18 @@ describe('patch catalogues', () => {
         expect(imports.sort()).toEqual(testFiles.sort());
         expect(imports).toHaveLength(Object.keys(TEST_PATCHES).length);
         expect(source).not.toMatch(/from ['"].*(?:factory-patches|patches\/index|demo-|drums-|sfx-)/);
+    });
+
+    it('keeps MIDI starter search links and page cursors valid after the rename', () => {
+        const previousName = 'Test - Ableton Live';
+        const starter = TEST_PATCHES['Test - MIDI In and Out'];
+        const next = TEST_PATCHES['Test - Snare Only'];
+        const options = { kind: 'tests', limit: 1 };
+        const { nextCursor } = paginateLocalPatches([{ name: previousName }, next], options);
+        for (const query of [previousName, starter.name]) {
+            expect(paginateLocalPatches(Object.values(TEST_PATCHES), { ...options, query }).patches).toEqual([starter]);
+        }
+        expect(paginateLocalPatches([starter, next], { ...options, cursor: nextCursor }).patches).toEqual([next]);
     });
 
     it('archives the colon-named Trip-Hop example and every SFX and drum composition', () => {

@@ -526,6 +526,8 @@ export class PatchWorkbench {
     }
 
     handleHostEvent(event) {
+        // Keep performance MIDI out of the text console, which redraws its history for every entry.
+        if (event.type === 'module-event' && event.event?.type === 'midi-notes') return;
         if (['module-event', 'module-error', 'audio-error', 'audio-started', 'audio-stopped'].includes(event.type)) {
             this.log(event.type.includes('error') ? 'error' : 'event', `${event.type}: ${stringify(event.diagnostic || event.error || event.event || '')}`);
         }

@@ -34,7 +34,8 @@ createServer(async (incoming, outgoing) => {
         if (!['GET', 'HEAD'].includes(incoming.method)) { outgoing.writeHead(405); outgoing.end(); return; }
         const legalAlias = { '/privacy': '/privacy-policy', '/terms': '/terms-of-service' }[url.pathname];
         if (legalAlias) { outgoing.writeHead(308, { Location: legalAlias }); outgoing.end(); return; }
-        const pathname = ['/', '/patches'].includes(url.pathname) ? '/index.html'
+        const pathname = url.pathname === '/' ? '/index.html'
+            : url.pathname === '/patches' ? '/patches.html'
             : /^\/docs\/?$/.test(url.pathname) ? '/docs/index.html'
             : /^\/docs\/[a-z0-9-]+\/?$/.test(url.pathname) ? `${url.pathname.replace(/\/$/, '')}.html`
             : /^\/introduction\/?$/.test(url.pathname) ? '/introduction.html'

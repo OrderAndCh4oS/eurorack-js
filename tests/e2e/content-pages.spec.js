@@ -243,6 +243,9 @@ test('social crawlers receive public cached cards from the initial HTML', async 
         expect(image.headers()['cache-control']).toBe('public, max-age=31536000, immutable');
         expect((await image.body()).length).toBe(card.bytes);
     }
+    const catalogue = await request.get('/patches');
+    expect(catalogue.status()).toBe(200);
+    expect(await catalogue.text()).not.toContain(manifest.cards['/'].file);
 });
 
 test('rack hints and page headings load their own cached Space Grotesk weights on demand', async ({ page }) => {

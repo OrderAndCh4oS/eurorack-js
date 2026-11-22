@@ -73,11 +73,14 @@ export function paginateLocalPatches(records, { query = '', cursor = null, kind,
     const boundary = cursor === null || cursor === undefined ? null : decodeCursor(cursor, kind, normalizedQuery);
     const order = new Map();
     const rows = records.map((record, index) => {
-        const key = String(record.key ?? record.id ?? record.name);
+        const key = String((kind === 'tests' && record.catalogueKey) || (record.key ?? record.id ?? record.name));
         if (!key || key.length > 512 || order.has(key)) throw new Error('Could not read the patch catalogue.');
         order.set(key, index);
         return { record, key, created: Date.parse(record.created || record.createdAt) || 0 };
-    }).filter(({ record }) => `${record.name || ''} ${record.description || ''} ${record.authorName || ''}`.toLowerCase().includes(normalizedQuery));
+    }).filter(({ record, key }) => {
+        const text = `${record.name || ''} ${record.description || ''} ${record.authorName || ''}`;
+        return text.toLowerCase().includes(normalizedQuery) || (kind === 'tests' && key.toLowerCase().includes(normalizedQuery));
+    });
     if (boundary && kind === 'tests' && !order.has(boundary.key)) throw invalidCursor();
     // Test catalogues have an authored order, but cursors anchor on the patch key
     // rather than a numeric offset so inserting earlier tests cannot skip racks.

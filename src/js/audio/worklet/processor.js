@@ -1,5 +1,5 @@
 // Keep this revision aligned with worklet-engine.js and core-plugin.js.
-import './core-plugin.js?core=20261118-1-c993e926';
+import './core-plugin.js?core=20261122-1-5cb380a1';
 import { compileGraph } from '../graph.js';
 import { applyControlEdit, assertModuleParam, getModulePort, getModulePorts } from '../../rack/module-contract.js';
 import { getNestedValue, setNestedValue } from '../../utils/nested-access.js';
@@ -261,7 +261,9 @@ class EurorackProcessor extends AudioWorkletProcessor {
             module?.instance.onInputDisconnected?.(cable.toPort);
         });
         Object.entries(this.modules).forEach(([id, module]) => {
-            if (!nextModules[id] || nextModules[id].instance !== module.instance) module.instance.dispose?.();
+            if (nextModules[id]?.instance === module.instance) return;
+            module.instance.dispose?.();
+            this.postModuleEvents(id, module);
         });
         this.modules = nextModules;
         this.graph = nextGraph;
@@ -368,6 +370,12 @@ class EurorackProcessor extends AudioWorkletProcessor {
         }
     }
 
+    postModuleEvents(id, module) {
+        for (const event of module.instance.drainEvents?.() || []) {
+            this.port.postMessage({ type: 'module-event', moduleId: id, event }, collectTransferables(event));
+        }
+    }
+
     process(_inputs, outputs) {
         const blockStarted = this.profiling.enabled ? profileNow() : 0;
         const output = outputs[0];
@@ -404,12 +412,7 @@ class EurorackProcessor extends AudioWorkletProcessor {
                     if (!this.profiling.modules.has(id)) this.profiling.modules.set(id, []);
                     recordTiming(this.profiling.modules.get(id), profileNow() - moduleStarted);
                 }
-                const events = module.instance.drainEvents?.() || [];
-                events.forEach(event => this.port.postMessage({
-                    type: 'module-event',
-                    moduleId: id,
-                    event
-                }, collectTransferables(event)));
+                this.postModuleEvents(id, module);
             } catch (error) {
                 this.disabled.add(id);
                 getModulePorts(module.def, 'output').forEach(port => getNestedValue(module.instance.outputs, port.port).fill(0));

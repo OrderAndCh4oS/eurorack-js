@@ -285,9 +285,10 @@ export class RackHost {
                 registry: this.registry,
                 onTelemetry: telemetry => this.applyTelemetry(telemetry),
                 onModuleEvent: ({ moduleId, event }) => {
+                    if (this.audioCtx !== audioCtx) return;
                     const moduleState = this.state.getModule(moduleId);
                     const definition = moduleState ? this.registry.get(moduleState.type) : null;
-                    definition?.handleWorkletEvent?.(event, { moduleId, instance: moduleState?.instance });
+                    definition?.handleWorkletEvent?.(event, { moduleId, instance: moduleState?.instance, services: this.services, audioCtx });
                     this.emit({ type: 'module-event', moduleId, event });
                 },
                 onModuleError: diagnostic => {

@@ -35,6 +35,10 @@ npm run audit:dsp -- --module vcf --json
 
 ## Remediation Completed
 
+### CV and gate to external MIDI (2026-11-22)
+
+MIDI OUT samples pitch and velocity at the gate rise and releases the original note and channel at the fall. The focused tests cover multiple edges within a block and edits during held notes. The strict matrix completed 18 scenarios across six sample-rate/block-size combinations with stable buffers and zero voltage flags. The converter produces MIDI events, so the focused edge and browser tests measure its output. [MIDI OUT design and references](modules/midi-out.md)
+
 ### Rack control verification (2026-11-18)
 
 - The panel-to-worklet test operates 370 declared controls across 75 modules.

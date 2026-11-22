@@ -25,11 +25,17 @@ Saved account patches have a stable URL at `/patches/<ULID>`. **Copy URL** share
 
 Public saved patches include Open Graph and Twitter/X cards with the patch title, description, and a rack-only image. Saving a patch generates light and dark previews from the same rack. The gallery and patch details follow the top-bar **Dark mode** toggle. Opening Public patches or My patches automatically fills in missing preview images for the patches on that page.
 
-**Copy snapshot link** shares the current rack, including unsaved edits, inside the URL fragment (`#patch=…`). It is a fixed snapshot and does not follow later saves. Snapshot links do not have patch-specific social cards; use a public saved patch's **Copy URL** for those.
+**Copy snapshot link** shares the current rack, including unsaved edits, inside the URL fragment (`#patch=…`). It is a fixed snapshot. Social previews of snapshot links show the homepage card. To share a card with the patch’s own title and image, use **Copy URL** on a public saved patch.
 
 ## Test and Learning Patches
 
 Open **Test patches** to browse built-in module and integration patches with rack previews. [Synth Voice Basics](docs/synth-voice-demos.md) walks through current oscillator, envelope, filter, modulation and sequencer examples. MIDI patches need a MIDI source.
+
+## MIDI input and output
+
+Open **MIDI Setup** in the desktop rack toolbar to choose ports for a controller, a hardware synth or a DAW. **MIDI-CV** turns incoming notes into pitch and gate, **M‑CLK** follows incoming clock and transport, and **MIDI OUT** sends a rack sequencer’s notes to the selected output. [MIDI input and output guide](docs/midi.md)
+
+**Open MIDI starter** gives you a voice to play on channel 1, a clocked sequence to record on channel 2 and a stereo recorder. The guide includes a two-track setup for a DAW and worked examples for Ableton Live and REAPER. [Connect a DAW](docs/midi.md#connect-a-daw) · [Record rack audio](docs/midi.md#record-rack-audio)
 
 ## Code and connection checks
 
@@ -45,13 +51,13 @@ A compatible browser agent can inspect module contracts, validate JavaScript and
 
 ## Introduction and documentation
 
-**Introduction** (`/introduction`) introduces the instrument, community patch sharing, code editor and WebMCP. **Docs** (`/docs`) contains synth voice basics, the patch scripting guide, API reference, WebMCP guide, architecture and module-authoring documentation. Both are available from the app navigation. Reading them from the rack preserves the open patch and editor work; direct links serve readable HTML without starting the instrument.
+**Introduction** (`/introduction`) introduces the instrument, community patch sharing, code editor and WebMCP. **Docs** (`/docs`) contains synth voice basics, MIDI routing for hardware and DAWs, the patch scripting guide, API reference, WebMCP guide, architecture and module-authoring documentation. Both are available from the app navigation. Reading them from the rack preserves the open patch and editor work. Direct links serve readable HTML without starting the instrument.
 
 The documentation source stays in [`docs/`](docs/index.md). `npm run build` converts the pages listed in [`scripts/docs-manifest.mjs`](scripts/docs-manifest.mjs) to static HTML using Marked. Links between published Markdown files become local documentation URLs; other repository references point to GitHub. Update the original Markdown to change a page, or add an entry to the manifest to publish another guide. Code examples, section links, contents menus and page metadata are generated at build time.
 
 The Introduction demo lives in [`demo-introduction.js`](src/js/config/patches/demo-introduction.js). Its banner image and **Open in rack** button use that same built-in patch; opening it leaves the rack at `/` without a snapshot hash. After editing the patch, start `npm run dev:previews`; this serves the instrument without checking the still-outdated images. In another terminal, run `npm run build:introduction-preview -- http://127.0.0.1:4176`, then `npm run build:social-cards`, then `npm run build`. Commit the generated files in `src/patch-previews/introduction/` and `src/social-cards/` with the patch. Normal builds check that the images match their source; browsers select a cached static WebP by screen size and pixel density.
 
-Introduction and every docs page have their own 1200×630 Twitter/Open Graph card: text on the left and the demo rack on the right. `npm run build:social-cards` renders them locally using the bundled font and rack image; run it after changing docs titles/descriptions or the demo image. Optimized PNGs in `src/social-cards/` are copied into the public build and served directly by Vercel. Their content-hashed filenames receive a one-year immutable cache. The HTML contains absolute image URLs, dimensions and alt text, so social crawlers need no JavaScript or login. Cards are not downloaded by normal page views. Each page includes a canonical URL and unique title and description; the generated sitemap and `robots.txt` expose the public routes. No image transformations or server functions run when these images are requested.
+The rack homepage (`/`), Introduction and every docs page have their own 1200×630 Open Graph and X/Twitter cards. Each card pairs the page title and description with the demo rack. Run `npm run build:social-cards` after changing that metadata or the demo image. The build copies the optimized PNGs from `src/social-cards/`, and Vercel serves their content-hashed filenames with a one-year immutable cache. The initial HTML includes the canonical URL, title, description, absolute image URL, dimensions and alt text for social crawlers. The sitemap and `robots.txt` expose the public routes.
 
 ## Modules
 
@@ -65,6 +71,7 @@ Built-in modules are registered in the order listed by `src/js/rack/module-manif
 | `midi-cc` | MIDI-CC | Four assignable MIDI CC to CV outputs |
 | `midi-clk` | M-CLK | MIDI clock, reset, and run outputs |
 | `midi-drum` | MIDI-DRUM | MIDI drum pads to trigger outputs plus velocity CV |
+| `midi-out` | MIDI OUT | Converts pitch, gate and optional velocity to notes on a chosen MIDI output |
 
 ### Clock
 | ID | Module | Description |

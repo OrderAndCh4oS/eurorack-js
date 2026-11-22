@@ -16,6 +16,7 @@ import { createMidiManager } from '../midi/midi-manager.js';
 import { cleanupRenderedModule, renderModule, syncParamToModuleUI, updateModuleLEDs } from '../ui/renderer.js';
 import { setSwitchValue, updateKnobRotation } from '../ui/toolkit/components.js';
 import { RackPlayer } from '../ui/rack-player.js';
+import { initMidiSetup } from '../ui/midi-setup.js';
 import { RackSelection } from '../ui/rack-selection.js';
 import { controlRange, getControlDomain, snapControlValue } from '../rack/control-domain.js';
 import { RackState } from './rack-state.js';
@@ -201,7 +202,6 @@ export class EurorackApp {
         this.engine = null;
         this.audioTransitionPending = false;
         this.midiManager = null;
-        this.midiAccessRequested = false;
         this.visualCables = [];
         this.colorIndex = 0;
         this.dragState = null;
@@ -1351,11 +1351,26 @@ export class EurorackApp {
     }
 
     initMidi() {
-        this.midiManager = createMidiManager();
+        // The worklet consumes the raw stream. Retaining a second event queue here would grow on every clock tick.
+        this.midiManager = createMidiManager({ bufferEvents: false });
         this.host.setService('midiManager', this.midiManager);
-        this.midiManager.setOnRawMidiMessage((data, receivedTime) => (
-            this.host.engine?.sendMidi?.(data, receivedTime)
-        ));
+        this.midiSetup = initMidiSetup(this);
+        this.midiManager.setOnRawMidiMessage((data, receivedTime, portName) => {
+            this.host.engine?.sendMidi?.(data, receivedTime);
+            this.midiSetup?.observe(data, portName);
+        });
+        const releaseOnSuspend = event => {
+            if (event.target === this.host.audioCtx && event.target.state !== 'running') this.midiManager.releaseNotes();
+        };
+        this.host.subscribe(({ type, moduleId, diagnostic }) => {
+            if (type === 'audio-started') this.host.audioCtx.addEventListener?.('statechange', releaseOnSuspend);
+            if (type === 'audio-stopped' || type === 'patch-loaded' || (type === 'audio-error' && !this.host.engine?.running)) {
+                this.midiManager.releaseNotes();
+            }
+            if (type === 'module-removed') this.midiManager.releaseNotes(moduleId);
+            if (type === 'module-error') this.midiManager.releaseNotes(diagnostic.moduleId);
+        });
+        this.document.defaultView.addEventListener('pagehide', () => this.midiManager.setOutput(''));
         const btn = this.document.getElementById('midiLearnBtn');
         this.midiManager.setOnMidiLearnComplete((key, knobInfo) => {
             knobInfo.element.classList.remove('midi-learning');
@@ -1367,20 +1382,24 @@ export class EurorackApp {
             btn.title = connected
                 ? `MIDI Learn - Connected: ${devices.join(', ')}`
                 : 'MIDI Learn - No devices connected';
+            this.midiSetup?.refresh();
         });
         this.connectMidiIfNeeded();
     }
 
-    connectMidiIfNeeded() {
-        if (!this.midiManager || this.midiAccessRequested) return;
+    connectMidiIfNeeded({ retry = false } = {}) {
+        if (!this.midiManager) return;
+        const state = this.midiManager.accessState;
+        if (state !== 'idle' && !(retry && state === 'unavailable')) return;
         // Trusted plugin modules may use the MIDI service in any category.
         if (this.inPlayerView && [...this.state.modules.values()].every(({ type }) =>
                 pluginRegistry.getPluginForModule(type) === 'core' && pluginRegistry.get(type)?.category !== 'midi')) return;
-        this.midiAccessRequested = true;
         // A hardware permission prompt must never delay rack startup or playback.
         void this.midiManager.init().then(available => {
-            if (!available) this.document.getElementById('midiLearnBtn').style.display = 'none';
+            this.document.getElementById('midiLearnBtn').hidden = !available;
+            this.midiSetup?.refresh();
         }).catch(error => console.error('Failed to initialize MIDI:', error));
+        this.midiSetup?.refresh();
     }
 
     toggleMidiLearnMode() {

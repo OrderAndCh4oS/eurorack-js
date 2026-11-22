@@ -47,20 +47,16 @@
     <div class="drum-section">
         <h2>Drum Pads</h2>
         <div class="drum-grid" id="drumPads"></div>
-        <div class="drum-hint">Click pads or use keyboard: 1-8 for top row, Q-I for bottom row</div>
+        <div class="drum-hint">Click a pad or press its key (1, 2, 3, 4, Q, W, E or R).</div>
     </div>
 
     <div class="controller-grid" id="knobs"></div>
 
     <div class="instructions">
-        <h3>How to Use</h3>
-        <p>1. Open <strong>Audio MIDI Setup</strong> (in /Applications/Utilities/)</p>
-        <p>2. Go to <strong>Window → Show MIDI Studio</strong></p>
-        <p>3. Double-click <strong>IAC Driver</strong> and check <strong>"Device is online"</strong></p>
-        <p>4. Refresh this page - you should see "IAC Driver" in the connected devices</p>
-        <p>5. Click pads or use keyboard shortcuts to trigger drums</p>
-        <p>6. In the Eurorack app: Add a <strong>MIDI-DRUM</strong> module and connect triggers to drum modules</p>
-        <p><br>Default GM drum notes: Kick (C1), Snare (D1), Closed Hat (F#1), Open Hat (A#1), etc.</p>
+        <h3>Play the rack’s drums</h3>
+        <p>Connect the two tabs with a virtual MIDI bus. In the rack, set <strong>MIDI Setup → MIDI input</strong> to the bus shown beside <strong>Connected to</strong> above. <a href="/docs/midi#set-up-a-virtual-midi-bus" target="_blank" rel="noopener">Set up a virtual MIDI bus</a></p>
+        <p>Open <strong>Test - MIDI-DRUM</strong> in the rack and click <strong>Start</strong>. The first four pads play its kick, snare, closed hat and open hat.</p>
+        <p>The pads default to channel 10. For your own patch, set <strong>MIDI-DRUM → Chan</strong> to 10 or leave it at 0 to receive all channels. <a href="/docs/midi#play-the-rack" target="_blank" rel="noopener">MIDI input modules and channels</a></p>
     </div>
 
     <script type="module">
@@ -100,7 +96,7 @@
                 const outputs = Array.from(midiAccess.outputs.values());
 
                 if (outputs.length === 0) {
-                    statusEl.textContent = 'No MIDI outputs found. Enable IAC Driver in Audio MIDI Setup.';
+                    statusEl.textContent = 'No MIDI outputs found. Connect a MIDI device or enable a virtual MIDI bus.';
                     statusEl.classList.add('error');
                     return;
                 }

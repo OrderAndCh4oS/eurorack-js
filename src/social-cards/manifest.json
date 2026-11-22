@@ -1,9 +1,18 @@
 {
   "version": 1,
-  "sourceFingerprint": "2679d02b59e36a3b354602ed50417b4a97033ad9575db8bd0bd68858386914b3",
+  "sourceFingerprint": "76c34f4f2ac2d58f72bbf666d59bb4e1a51f7eeac360d1e845a908c44d383d50",
   "width": 1200,
   "height": 630,
   "cards": {
+    "/": {
+      "file": "aa9cbdf0e958759e2fa35e92ff8a1725fc2257c7ca064a4a29854a26e7021ca6.png",
+      "url": "/social-cards/aa9cbdf0e958759e2fa35e92ff8a1725fc2257c7ca064a4a29854a26e7021ca6.png",
+      "width": 1200,
+      "height": 630,
+      "bytes": 263597,
+      "mimeType": "image/png",
+      "alt": "EurorackJS — Modular Synth Rack. A rack of modules connected with coloured patch cables."
+    },
     "/introduction": {
       "file": "8362825d662af8f42d729ae3009c1936a1e52bf975472fd3cd214461817b39c8.png",
       "url": "/social-cards/8362825d662af8f42d729ae3009c1936a1e52bf975472fd3cd214461817b39c8.png",
@@ -21,6 +30,15 @@
       "bytes": 254341,
       "mimeType": "image/png",
       "alt": "EurorackJS — Documentation. A rack of modules connected with coloured patch cables."
+    },
+    "/docs/midi": {
+      "file": "5dfb41ddbdefc790eb16705d90812e4926688da315f7e59ba8cc5905a6a80ba8.png",
+      "url": "/social-cards/5dfb41ddbdefc790eb16705d90812e4926688da315f7e59ba8cc5905a6a80ba8.png",
+      "width": 1200,
+      "height": 630,
+      "bytes": 263820,
+      "mimeType": "image/png",
+      "alt": "EurorackJS — MIDI input and output. A rack of modules connected with coloured patch cables."
     },
     "/docs/patch-workbench-guide": {
       "file": "f2a4835248e977af4eebdc0f6be3203e35fc89136c2b3f80e3525f3270896014.png",

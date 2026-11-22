@@ -61,14 +61,10 @@
     </div>
 
     <div class="instructions">
-        <h3>How to Use</h3>
-        <p>1. Open <strong>Audio MIDI Setup</strong> (in /Applications/Utilities/)</p>
-        <p>2. Go to <strong>Window → Show MIDI Studio</strong></p>
-        <p>3. Double-click <strong>IAC Driver</strong> and check <strong>"Device is online"</strong></p>
-        <p>4. Refresh this page - you should see "IAC Driver" in the connected devices</p>
-        <p>5. Drag knobs up/down to send MIDI CC messages</p>
-        <p>6. In the Eurorack app: Click <strong>MIDI Learn</strong>, click a knob, then move a knob here</p>
-        <p><br>Each knob sends a different CC number (1-12). The value is shown below each knob.</p>
+        <h3>Play the rack</h3>
+        <p>Connect the two tabs with a virtual MIDI bus. In the rack, set <strong>MIDI Setup → MIDI input</strong> to the bus shown beside <strong>Connected to</strong> above. <a href="/docs/midi#set-up-a-virtual-midi-bus" target="_blank" rel="noopener">Set up a virtual MIDI bus</a></p>
+        <p>Open <strong>Test - MIDI-CV</strong> in the rack, click <strong>Start</strong> and play the keys here on channel 1.</p>
+        <p>The knobs send CC 1–12. To assign one, click <strong>MIDI Learn</strong> in the rack, click a rack knob, then move a knob here. <a href="/docs/midi#control-knobs-with-midi-cc" target="_blank" rel="noopener">MIDI Learn and CC routing</a></p>
     </div>
 
     <script type="module">
@@ -93,7 +89,7 @@
                 const outputs = Array.from(midiAccess.outputs.values());
 
                 if (outputs.length === 0) {
-                    statusEl.textContent = 'No MIDI outputs found. Enable IAC Driver in Audio MIDI Setup.';
+                    statusEl.textContent = 'No MIDI outputs found. Connect a MIDI device or enable a virtual MIDI bus.';
                     statusEl.classList.add('error');
                     return;
                 }

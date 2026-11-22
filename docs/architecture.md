@@ -184,7 +184,7 @@ Custom controls must call `onParamChange()`. Writing directly to `instance.dsp` 
 DSP code cannot access DOM APIs. A DSP can expose `drainEvents()` to return infrequent, structured-cloneable events. The processor forwards them as `module-event` messages and transfers included typed-array buffers. A definition may handle them on the main thread:
 
 ```javascript
-handleWorkletEvent(event, { moduleId, instance }) {
+handleWorkletEvent(event, { moduleId, instance, services, audioCtx }) {
     // Browser-only work such as file export.
 }
 ```
@@ -194,6 +194,8 @@ This path is for command-boundary data such as completed recordings, not continu
 The core recorder stores one-second stereo chunks and emits `recording-complete` with `buffersL`, `buffersR`, `sampleRate`, and the exact valid `sampleCount`. The final chunk may be padded; main-thread WAV encoding must stop at `sampleCount`.
 
 ### MIDI Timing
+
+MIDI OUT returns timestamped note edges in one module event per active block. The browser MIDI service maps their times to the output clock, tracks held notes by module and sends them to the tab’s selected MIDI output. MIDI port selections belong to the local session. [MIDI input and output guide](midi.md)
 
 The main thread maps each raw MIDI message to an AudioContext timestamp before forwarding it. At the start of each render quantum, the worklet MIDI service maps due timestamps to `sampleOffset` and exposes non-destructive note and clock/transport event arrays. Every MIDI module sees the same block events; late events use offset zero and future events remain queued. CC, mod wheel, and pitch bend are block-rate state. DSP modules receive this service through `createDSP({ services })` and must not read browser globals.
 

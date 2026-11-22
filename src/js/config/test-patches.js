@@ -80,6 +80,7 @@ import testMidi4 from './patches/test-midi-4.js';
 import testMidiCc from './patches/test-midi-cc.js';
 import testMidiClk from './patches/test-midi-clk.js';
 import testMidiDrum from './patches/test-midi-drum.js';
+import testMidiInOut from './patches/test-midi-in-out.js';
 
 // Test patches - Drums
 import testSnareOnly from './patches/test-snare-only.js';
@@ -162,6 +163,7 @@ export const TEST_PATCHES = {
     [testMidiCc.name]: testMidiCc,
     [testMidiClk.name]: testMidiClk,
     [testMidiDrum.name]: testMidiDrum,
+    [testMidiInOut.name]: testMidiInOut,
 
     // Test patches - Drums
     [testSnareOnly.name]: testSnareOnly,

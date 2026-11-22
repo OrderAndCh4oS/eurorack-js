@@ -3,11 +3,11 @@ import { dirname, join, posix } from 'node:path';
 import { createHash } from 'node:crypto';
 import { Marked } from 'marked';
 import { highlightPatchScript } from '../src/js/patch-script/syntax-highlighter.js';
-import { DOCS_PAGES } from './docs-manifest.mjs';
+import { DOCS_PAGES, RACK_HOME } from './docs-manifest.mjs';
 import introductionDemo from '../src/js/config/patches/demo-introduction.js';
 import { PATCH_PREVIEW_RENDERER_VERSION } from '../src/js/patches/patch-preview.js';
 import { getSocialCardSourceFingerprint } from './build-social-cards.mjs';
-import { introductionImageSource } from '../server/rack-page.js';
+import { introductionImageSource, withRackHead } from '../server/rack-page.js';
 
 export { DOCS_PAGES } from './docs-manifest.mjs';
 const ORIGIN = 'https://eurorackjs.orderandchaos.xyz';
@@ -116,7 +116,7 @@ export async function readSocialCards(root) {
     if (manifest.sourceFingerprint !== await getSocialCardSourceFingerprint(root)) {
         throw new Error('Social cards are stale. Run npm run build:social-cards, then rebuild.');
     }
-    for (const path of ['/introduction', ...DOCS_PAGES.map(page => page.path)]) {
+    for (const path of [RACK_HOME.path, '/introduction', ...DOCS_PAGES.map(page => page.path)]) {
         const card = manifest.cards[path];
         if (!card || !/^[a-f0-9]{64}\.png$/.test(card.file) || card.width !== 1200 || card.height !== 630 || card.mimeType !== 'image/png' || !card.alt) {
             throw new Error(`Missing or invalid social card: ${path}`);
@@ -127,18 +127,26 @@ export async function readSocialCards(root) {
     return manifest.cards;
 }
 
-export function renderSitePage({ title, description, path, content, socialCard, styles = [] }) {
+function publicPageHead({ title, description, path }, socialCard) {
     const fullTitle = `${title} · Eurorack`;
-    return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
-<title>${escapeHtml(fullTitle)}</title><meta name="description" content="${escapeHtml(description)}">
+    return `<title>${escapeHtml(fullTitle)}</title><meta name="description" content="${escapeHtml(description)}">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="${ORIGIN}${escapeHtml(path)}">
 <meta property="og:type" content="website"><meta property="og:site_name" content="EurorackJS"><meta property="og:locale" content="en_GB"><meta property="og:title" content="${escapeHtml(fullTitle)}"><meta property="og:description" content="${escapeHtml(description)}"><meta property="og:url" content="${ORIGIN}${escapeHtml(path)}">
 <meta name="twitter:title" content="${escapeHtml(fullTitle)}"><meta name="twitter:description" content="${escapeHtml(description)}">
-${renderSocialImageTags(socialCard)}
+${renderSocialImageTags(socialCard)}`;
+}
+
+export function renderRackHome(shell, socialCard) {
+    return withRackHead(shell, publicPageHead(RACK_HOME, socialCard));
+}
+
+export function renderSitePage({ title, description, path, content, socialCard, styles = [] }) {
+    return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
+${publicPageHead({ title, description, path }, socialCard)}
 <link rel="preload" href="/fonts/space-grotesk-bold-latin.24928473.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/industrial-theme.css">
 <script type="module" blocking="render" src="/js/app/theme-mode.js"></script>
@@ -211,4 +219,5 @@ export async function buildDocs({ root, out }) {
     await writeFile(join(out, 'introduction.html'), await renderIntroduction(root, socialCards['/introduction']));
     const paths = ['/', '/introduction', ...DOCS_PAGES.map(page => page.path), '/patches', '/privacy-policy', '/terms-of-service'];
     await writeFile(join(out, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${paths.map(path => `  <url><loc>${ORIGIN}${path}</loc></url>`).join('\n')}\n</urlset>\n`);
+    return socialCards;
 }

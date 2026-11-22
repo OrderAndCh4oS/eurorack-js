@@ -77,6 +77,15 @@ body .app-footer .footer-legal-row a, body.skin-factory .app-footer .footer-lega
 .patch-dialog-actions { display: flex; justify-content: end; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
 .patch-dialog-error { border-left: 4px solid var(--library-accent); padding-left: 10px; }
 .patch-dialog [data-save-help] { font-size: 12px; }
+#midiSetup .midi-setup-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+#midiSetup h2 { margin: 0; }
+#midiSetup h3 { margin-top: 16px; font-size: 15px; }
+#midiSetup details { border-top: 1px solid var(--library-line); padding-top: 10px; }
+#midiSetup summary { cursor: pointer; font-weight: 700; }
+#midiSetup a { color: inherit; }
+#midiSetup .midi-ports { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+#midiSetup .midi-ports label { margin-bottom: 0; }
+#midiSetup details:last-child { margin-top: 16px; }
 @media (max-width: 1500px) { .patch-navigation { padding-inline: 4px; } .patch-navigation button, .patch-view-tabs a { padding-inline: 6px; } }
 @media (max-width: 760px) {
     .patch-library { padding: 0 12px 24px; }

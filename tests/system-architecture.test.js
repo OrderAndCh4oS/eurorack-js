@@ -61,14 +61,17 @@ describe('visual system architecture guide', () => {
         });
     });
 
-    it('tracks the current factory patch and focused DSP suite totals', () => {
+    it('tracks the factory patch total and verifies focused DSP coverage for every built-in module', () => {
         const fileMap = document.querySelector('#files').textContent;
         const qualitySection = document.querySelector('#quality').textContent;
-        const dspSuiteCount = readdirSync(resolve('tests/dsp'))
-            .filter(filename => filename.endsWith('.test.js')).length;
+        const suites = readdirSync(resolve('tests/dsp'));
+        const suiteNames = { out: 'output', quant: 'simple-quantizer' };
+        for (const { id } of definitions) {
+            expect(suites).toContain(`${suiteNames[id] || id}.test.js`);
+        }
 
         expect(fileMap).toContain(`${Object.keys(FACTORY_PATCHES).length} factory`);
-        expect(qualitySection).toContain(`${dspSuiteCount} focused DSP suites`);
+        expect(qualitySection).toContain(`Focused DSP suites for ${definitions.length} built-in modules`);
     });
 
     it('documents current runtime-state, output, URL, and graph-revision behavior', () => {

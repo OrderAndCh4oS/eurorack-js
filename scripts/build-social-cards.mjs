@@ -2,9 +2,9 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DOCS_PAGES } from './docs-manifest.mjs';
+import { DOCS_PAGES, RACK_HOME } from './docs-manifest.mjs';
 
-// Run deliberately after updating the Introduction rack preview or docs metadata:
+// Run deliberately after updating the Introduction rack preview or public page metadata:
 // node scripts/build-social-cards.mjs
 // Cards are committed static PNGs. Rendering needs neither a local HTTP server
 // nor a runtime image service; all browser assets are embedded from source files.
@@ -80,6 +80,7 @@ export async function buildSocialCards(root = PROJECT_ROOT) {
     const sources = await readSources(root);
     const target = join(sources.root, 'src/social-cards');
     const cards = [
+        RACK_HOME,
         { path: '/introduction', title: 'Modular synthesis', description: sources.description, section: '' },
         ...DOCS_PAGES.map(page => ({ path: page.path, title: page.path === '/docs' ? 'Documentation' : page.navTitle,
             description: page.description, section: page.path === '/docs' ? '' : 'DOCUMENTATION' }))

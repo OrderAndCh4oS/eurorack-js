@@ -7,11 +7,16 @@
  * Mappings are stored as: { "channel:cc": { moduleId, paramId, min, max } }
  */
 
-export function createMidiManager() {
+import { MidiNoteOutput } from './note-output.js';
+
+export function createMidiManager({ bufferEvents = true } = {}) {
     // State
     let midiAccess = null;
-    let isSupported = false;
+    let accessState = 'idle';
     let isConnected = false;
+    let inputId = '';
+    const listeners = new Map();
+    const noteOutput = new MidiNoteOutput();
     let mappings = {};  // { "0:74": { moduleId: "vco1", paramId: "coarse", min: 0, max: 1 } }
     let learnMode = false;
     let learningKnob = null;  // { element, moduleId, paramId, min, max }
@@ -34,16 +39,17 @@ export function createMidiManager() {
     async function init() {
         if (!navigator.requestMIDIAccess) {
             console.warn('Web MIDI API not supported in this browser');
-            isSupported = false;
+            accessState = 'unsupported';
             return false;
         }
 
         try {
+            accessState = 'requesting';
             midiAccess = await navigator.requestMIDIAccess();
-            isSupported = true;
+            accessState = 'ready';
 
             // Set up device listeners
-            midiAccess.onstatechange = handleStateChange;
+            midiAccess.onstatechange = connectToDevices;
 
             // Connect to existing devices
             connectToDevices();
@@ -51,30 +57,52 @@ export function createMidiManager() {
             return true;
         } catch (err) {
             console.error('MIDI access denied:', err);
-            isSupported = false;
+            accessState = 'unavailable';
             return false;
         }
     }
 
     /**
-     * Connect input listeners to all MIDI devices
+     * Reconcile routes on permission, selection and hot-plug changes.
      */
     function connectToDevices() {
         if (!midiAccess) return;
 
-        midiAccess.inputs.forEach(input => {
-            input.onmidimessage = handleMidiMessage;
-        });
-
-        isConnected = midiAccess.inputs.size > 0;
+        const output = noteOutput.port;
+        if (output && (output.state === 'disconnected' || midiAccess.outputs?.get(output.id) !== output)) {
+            noteOutput.setPort(null);
+        }
+        const inputs = new Set();
+        for (const [id, input] of midiAccess.inputs) {
+            if (input.state === 'disconnected' || (inputId && id !== inputId)) continue;
+            // Virtual bus input and output IDs can differ. All-input mode excludes the selected return bus.
+            const dest = noteOutput.port;
+            if (!inputId && dest && (id === dest.id || (input.name && input.name === dest.name && input.manufacturer === dest.manufacturer))) continue;
+            inputs.add(input);
+        }
+        for (const [input, state] of listeners) {
+            if (inputs.has(input)) continue;
+            input.onmidimessage = null;
+            listeners.delete(input);
+            for (const [key, count] of state.notes) {
+                const data = [0x80 | (key >> 7), key & 127, 0];
+                for (let i = 0; i < count; i++) handleMidiMessage({ data });
+            }
+            if (state.running) handleMidiMessage({ data: [0xfc] });
+        }
+        for (const input of inputs) {
+            if (listeners.has(input)) continue;
+            const state = { notes: new Map(), running: false };
+            listeners.set(input, state);
+            input.onmidimessage = event => handleMidiMessage(event, state, input.name);
+        }
+        isConnected = listeners.size > 0;
         onConnectionChange?.(isConnected, getDeviceNames());
     }
 
-    /**
-     * Handle MIDI device state changes
-     */
-    function handleStateChange(event) {
-        connectToDevices();
+    function ports(collection) {
+        return Array.from(collection || []).filter(([, port]) => port.state !== 'disconnected')
+            .map(([id, port]) => ({ id, name: port.name || id }));
     }
 
     /**
@@ -82,23 +110,28 @@ export function createMidiManager() {
      * @returns {string[]} Device names
      */
     function getDeviceNames() {
-        if (!midiAccess) return [];
-        return Array.from(midiAccess.inputs.values()).map(input => input.name);
+        return Array.from(listeners.keys(), input => input.name || input.id || 'Unnamed input');
     }
 
     /**
      * Handle incoming MIDI messages
      * @param {MIDIMessageEvent} event
      */
-    function handleMidiMessage(event) {
-        onRawMidiMessage?.(event.data, event.receivedTime);
+    function handleMidiMessage(event, inputState, inputName) {
+        onRawMidiMessage?.(event.data, event.timeStamp ?? event.receivedTime, inputName);
         const [status, data1, data2] = event.data;
         const messageType = status & 0xF0;
         const channel = status & 0x0F;
 
         // Note Off (0x80) or Note On with velocity 0
         if (messageType === 0x80 || (messageType === 0x90 && data2 === 0)) {
-            noteEvents.push({
+            if (inputState) {
+                const key = channel * 128 + data1;
+                const count = inputState.notes.get(key) || 0;
+                if (count > 1) inputState.notes.set(key, count - 1);
+                else inputState.notes.delete(key);
+            }
+            if (bufferEvents) noteEvents.push({
                 type: 'noteOff',
                 channel,
                 note: data1,
@@ -107,7 +140,11 @@ export function createMidiManager() {
         }
         // Note On (0x90)
         else if (messageType === 0x90) {
-            noteEvents.push({
+            if (inputState) {
+                const key = channel * 128 + data1;
+                inputState.notes.set(key, (inputState.notes.get(key) || 0) + 1);
+            }
+            if (bufferEvents) noteEvents.push({
                 type: 'noteOn',
                 channel,
                 note: data1,
@@ -146,19 +183,22 @@ export function createMidiManager() {
         // System Real-Time messages (no channel)
         else if (status === 0xF8) {
             // MIDI Clock tick (24 per quarter note)
-            clockEvents.push({ type: 'clock' });
+            if (bufferEvents) clockEvents.push({ type: 'clock' });
         }
         else if (status === 0xFA) {
             // Start
-            clockEvents.push({ type: 'start' });
+            if (inputState) inputState.running = true;
+            if (bufferEvents) clockEvents.push({ type: 'start' });
         }
         else if (status === 0xFB) {
             // Continue
-            clockEvents.push({ type: 'continue' });
+            if (inputState) inputState.running = true;
+            if (bufferEvents) clockEvents.push({ type: 'continue' });
         }
         else if (status === 0xFC) {
             // Stop
-            clockEvents.push({ type: 'stop' });
+            if (inputState) inputState.running = false;
+            if (bufferEvents) clockEvents.push({ type: 'stop' });
         }
     }
 
@@ -218,7 +258,22 @@ export function createMidiManager() {
         init,
 
         // State getters
-        get isSupported() { return isSupported; },
+        get isSupported() { return accessState === 'ready'; },
+        get accessState() { return accessState; },
+        get inputId() { return inputId; },
+        get outputId() { return noteOutput.port?.id || ''; },
+        getInputs: () => ports(midiAccess?.inputs),
+        getOutputs: () => ports(midiAccess?.outputs),
+        setInput(id) {
+            inputId = id;
+            connectToDevices();
+        },
+        setOutput(id) {
+            noteOutput.setPort(midiAccess?.outputs?.get(id) || null);
+            connectToDevices();
+        },
+        sendNotes: (owner, messages, context) => noteOutput.sendNotes(owner, messages, context),
+        releaseNotes: owner => owner === undefined ? noteOutput.releaseAll() : noteOutput.release(owner),
         get isConnected() { return isConnected; },
         get isLearnMode() { return learnMode; },
         get isLearning() { return learningKnob !== null; },

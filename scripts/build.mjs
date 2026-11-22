@@ -1,7 +1,7 @@
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
-import { buildDocs } from './build-docs.mjs';
+import { buildDocs, renderRackHome } from './build-docs.mjs';
 import { rackShell } from '../server/rack-page.js';
 import { validateAudioAnalysisAssets } from './audio-analysis-assets.mjs';
 
@@ -15,9 +15,13 @@ await mkdir(out, { recursive: true });
 await cp(new URL('../src/', import.meta.url), out, { recursive: true });
 // Preview regeneration must work when the demo source has changed but its
 // committed image manifest is stale. Normal builds keep that validation strict.
-if (!process.argv.includes('--instrument-only')) {
-    await buildDocs({ root, out });
-    await writeFile(`${out}/index.html`, await rackShell());
+if (process.argv.includes('--instrument-only')) {
+    await cp(`${out}/index.html`, `${out}/patches.html`);
+} else {
+    const socialCards = await buildDocs({ root, out });
+    const shell = await rackShell();
+    await writeFile(`${out}/index.html`, renderRackHome(shell, socialCards['/']));
+    await writeFile(`${out}/patches.html`, shell);
 }
 await build({
     stdin: {

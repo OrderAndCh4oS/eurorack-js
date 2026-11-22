@@ -27,8 +27,12 @@ export function rackShell() {
     return shell;
 }
 
+export function withRackHead(html, head) {
+    return html.replace(/<title>[^<]*<\/title>/, () => head);
+}
+
 export async function rackPage(patch, baseUrl, patchId) {
     // Only anonymous public metadata reaches HTML; the editor loads the saved
     // state separately through the authenticated API, including for owners.
-    return (await rackShell()).replace(/<title>[^<]*<\/title>/, () => patchHead(patch, baseUrl, patchId));
+    return withRackHead(await rackShell(), patchHead(patch, baseUrl, patchId));
 }

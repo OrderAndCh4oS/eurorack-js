@@ -508,10 +508,12 @@ drainEvents() {
 }
 
 // Definition, main thread
-handleWorkletEvent(event, { moduleId, instance }) {
+handleWorkletEvent(event, { moduleId, instance, services, audioCtx }) {
     // Export a completed recording or perform browser-only work.
 }
 ~~~
+
+MIDI OUT batches gate transitions per render block. Its browser handler uses the injected MIDI service and audio context to timestamp the notes for the selected port. When a live instance is replaced, the worklet drains its final events after disposal so it can release a held note.
 
 Do not use module events as continuous telemetry.
 

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { DOCS_PAGES, readSocialCards, renderDocPage, renderIntroduction, renderMarkdown, resolveDocumentLink } from '../scripts/build-docs.mjs';
+import { DOCS_PAGES, readSocialCards, renderDocPage, renderIntroduction, renderMarkdown, renderRackHome, resolveDocumentLink } from '../scripts/build-docs.mjs';
 import sharp from 'sharp';
 
 let socialCards;
@@ -47,6 +47,23 @@ describe('published Markdown documentation', () => {
             expect(page.querySelector('a[href$=".md"]')?.href).toMatch(/^https:\/\/github.com\//);
         });
     }
+    it('includes the rack and its own share metadata in the homepage HTML', async () => {
+        const html = renderRackHome(await readFile('src/index.html', 'utf8'), socialCards['/']);
+        const page = new DOMParser().parseFromString(html, 'text/html');
+        expect(page.getElementById('rack-container')).not.toBeNull();
+        expectSocialCard(page, socialCards['/']);
+        const canonical = 'https://eurorackjs.orderandchaos.xyz/';
+        expect(page.querySelector('link[rel="canonical"]').href).toBe(canonical);
+        expect(page.querySelector('meta[property="og:url"]').content).toBe(canonical);
+        const description = page.querySelector('meta[name="description"]').content;
+        expect(description.length).toBeGreaterThan(0);
+        for (const selector of ['meta[property="og:title"]', 'meta[name="twitter:title"]']) {
+            expect(page.querySelector(selector).content).toBe(page.title);
+        }
+        for (const selector of ['meta[property="og:description"]', 'meta[name="twitter:description"]']) {
+            expect(page.querySelector(selector).content).toBe(description);
+        }
+    });
     it('gives Introduction a composed social card distinct from its rack thumbnail', async () => {
         const html = await renderIntroduction(process.cwd(), socialCards['/introduction']);
         const page = new DOMParser().parseFromString(html, 'text/html');
@@ -55,7 +72,7 @@ describe('published Markdown documentation', () => {
     });
     it('ships distinct, optimized 1200×630 PNGs for every public content page', async () => {
         const cards = Object.values(socialCards);
-        expect(new Set(cards.map(card => card.file)).size).toBe(DOCS_PAGES.length + 1);
+        expect(new Set(cards.map(card => card.file)).size).toBe(DOCS_PAGES.length + 2);
         for (const card of cards) {
             const image = await readFile(`src/social-cards/${card.file}`);
             const metadata = await sharp(image).metadata();

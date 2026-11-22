@@ -166,11 +166,13 @@ For string endpoints, completion lists outputs in the first argument and inputs 
 
 ### `.midi(key, mapping)`
 
-Adds a MIDI CC mapping. Keys use `channel:cc`; channels are zero-based. Completion offers valid instances and parameters.
+Maps an incoming MIDI Control Change to a rack parameter. Keys use `channel:cc` with a zero-based channel number. This example maps CC 74 on MIDI channel 1 to the cutoff of the `filter` instance. Completion offers valid instances and parameters.
 
 ```javascript
 p.midi('0:74', { moduleId: 'filter', paramId: 'cutoff', min: 0, max: 1 })
 ```
+
+To send notes out of a patch, add a `midi-out` module and connect pitch CV to its `pitch` input and a gate to `gate`. Select the destination port under **MIDI Setup → MIDI output**. [Send notes from the rack](midi.md#send-notes-from-the-rack)
 
 ## JavaScript and Dynamic Patches
 

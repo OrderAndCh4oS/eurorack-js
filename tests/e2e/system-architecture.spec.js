@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { MODULE_MANIFEST } from '../../src/js/rack/module-manifest.js';
 
 test.describe('visual system architecture guide', () => {
     test('renders the current architecture and catalog without requiring Mermaid', async ({ page }) => {
@@ -6,7 +7,8 @@ test.describe('visual system architecture guide', () => {
 
         await expect(page).toHaveTitle(/System Architecture/);
         await expect(page.getByRole('heading', { level: 1 })).toContainText('Voltages in.');
-        await expect(page.locator('.fact').filter({ hasText: 'built-in modules' })).toContainText('75');
+        const moduleCount = page.locator('.fact').filter({ hasText: 'built-in modules' }).locator('b');
+        await expect(moduleCount).toHaveText(String(MODULE_MANIFEST.length));
         await expect(page.locator('#catalog')).toContainText('cascade');
         await expect(page.locator('#catalog')).toContainText('pitch-track');
         await expect(page.locator('#patches')).toContainText('CV Recorder lane buffers');

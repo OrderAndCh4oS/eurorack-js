@@ -17,6 +17,24 @@ const invoke = (page, name, input = {}) => page.evaluate(async ({name,input}) =>
 const source = `patch().module('vco','osc',{coarse:Math.random()}).module('out','main').connect('osc.triangle','main.L')`;
 const validate = async page => invoke(page, 'validate_script', {source, expectedRevision:(await invoke(page,'get_rack')).revision});
 
+test('validates and applies 256 modules from exactly 128 KiB of UTF-8 source', async ({page}) => {
+    await bootWithTools(page);
+    const byteLimit = 128 * 1024;
+    const {revision} = await invoke(page, 'get_rack');
+    const script = "const p = patch(); for (let i = 0; i < 256; i++) p.module('mult');\n//é";
+    const source = script + ' '.repeat(byteLimit - Buffer.byteLength(script));
+    expect(await page.evaluate(() => window.rackTools.validate_script.inputSchema.properties.source.maxLength)).toBe(byteLimit);
+
+    const draft = await invoke(page, 'validate_script', {source, expectedRevision: revision});
+    expect(draft.ok).toBe(true);
+    expect(draft.patch.modules).toHaveLength(256);
+    const oversized = await invoke(page, 'validate_script', {source: source + '!', expectedRevision: revision});
+    expect(oversized).toMatchObject({ok: false, error: {code: 'source-limit'}});
+
+    expect(await invoke(page, 'apply_draft', {draftId: draft.draftId})).toEqual({ok: true, applied: true});
+    expect((await invoke(page, 'get_rack')).patch).toEqual(draft.patch);
+});
+
 test('a desktop draft stays available when the rack switches to the phone player and back', async ({page}) => {
     await bootWithTools(page);
     const before = await invoke(page, 'get_rack');

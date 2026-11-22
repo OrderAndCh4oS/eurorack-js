@@ -1,6 +1,7 @@
 import { compileGraph } from '../audio/graph.js';
 import { normalizePatch } from '../app/patch-format.js';
 import { RackState } from '../app/rack-state.js';
+import { PATCH_LIMITS } from '../patches/limits.js';
 import { getControlDomain } from '../rack/control-domain.js';
 import { analyseRackConnections } from '../rack/diagnostics.js';
 import { setNestedValue } from '../utils/nested-access.js';
@@ -73,10 +74,13 @@ export function compilePatchDescription(description, {
         if (placement.row) state.ensureRowCount(placement.row);
         const definition = registry.get(declaration.type);
         if (!definition) throw new Error(`Module type "${declaration.type}" not found`);
-        if (!placement.row && !state.findFirstFittingRow(definition, registry)) state.addRow();
+        const row = placement.row ?? state.findFirstFittingRow(definition, registry) ?? state.addRow();
+        if (row > PATCH_LIMITS.rows) {
+            throw Object.assign(new Error(`The patch must fit within ${PATCH_LIMITS.rows} rows.`), {code: 'patch-limit'});
+        }
         state.addModule(declaration.type, registry, {
             id: declaration.id,
-            row: placement.row || null,
+            row,
             index: placement.index ?? null,
             params: declaration.params || {}
         });

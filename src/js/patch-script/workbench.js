@@ -1,5 +1,6 @@
 import { getPatchScriptCompletions } from './completion.js';
 import { PatchDraftService, draftError } from './draft-service.js';
+import { assertScriptSource } from './evaluator-limits.js';
 import { formatPatchScript } from './formatter.js';
 import { PatchScriptStore } from './storage.js';
 import { highlightPatchScript } from './syntax-highlighter.js';
@@ -432,7 +433,7 @@ export class PatchWorkbench {
     stageAgentScript(source) {
         this.drafts.requireEditor();
         if (this.operationPending) throw draftError('busy', 'A patch operation is still running.');
-        if (typeof source !== 'string' || source.length > 65536) throw draftError('source-limit', 'Use a script of at most 64 KiB.');
+        assertScriptSource(source);
         // A new local script preserves the user's current code and makes agent edits reviewable.
         clearTimeout(this.autosaveTimer);
         if (![CURRENT_RACK_SCRIPT_ID, STARTER_SCRIPT_ID].includes(this.scriptSelect.value)) {

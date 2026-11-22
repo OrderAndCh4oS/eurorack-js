@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { CORE_MODULE_DEFINITIONS } from '../src/js/rack/core-definitions.js';
 import { normalizePatch } from '../src/js/app/patch-format.js';
+import { PATCH_LIMITS } from '../src/js/patches/limits.js';
 import { controlRange, getControlDomain, legalControlValue } from '../src/js/rack/control-domain.js';
 
-export const LIMITS = Object.freeze({ stateBytes: 262144, modules: 256, cables: 2048, rows: 32,
+export const LIMITS = Object.freeze({ ...PATCH_LIMITS, stateBytes: 262144,
     patches: 100, accountStateBytes: 10 * 1024 * 1024, accountImageBytes: 50 * 1024 * 1024,
     uploadBytes: 2 * 1024 * 1024, imagePixels: 8000000, imageBytes: 1024 * 1024, pageSize: 24 });
 export class HttpError extends Error {

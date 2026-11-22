@@ -1,6 +1,7 @@
 import { getModulePorts } from '../rack/module-contract.js';
+import { PATCH_LIMITS } from '../patches/limits.js';
 import { draftError } from '../patch-script/draft-service.js';
-import { preparePatchEvaluator } from '../patch-script/evaluator.js';
+import { MAX_SCRIPT_BYTES, preparePatchEvaluator } from '../patch-script/evaluator.js';
 import { RackActivity } from './rack-activity.js';
 
 const objectSchema = (properties = {}, required = []) => ({type: 'object', properties, required, additionalProperties: false});
@@ -64,8 +65,8 @@ export function createRackTools({workbench, registry, analysis, activity = new R
                     return describeDefinition(definition);
                 })};
             }),
-        wrap('validate_script', 'Validate JavaScript and retain the exact compiled draft without changing the rack. Source is shown in a new local Code script. Use the revision from get_rack. Call patch() once; use .module(type, name, params, {row,index}), .set(name, param, value), .connect("name.port", "name.port"). Ordinary synchronous JS is supported, with a 2-second limit and no network/storage. At most 64 KiB source, 128 modules, 32 rows. Return diagnostics and a draftId for apply_draft. Random values are evaluated once. Drafts expire after 15 minutes; the newest four are retained.',
-            objectSchema({source: {type: 'string', maxLength: 65536}, expectedRevision: {type: 'integer', minimum: 1}}, ['source', 'expectedRevision']), false,
+        wrap('validate_script', `Validate JavaScript and retain the exact compiled draft without changing the rack. Source is shown in a new local Code script. Use the revision from get_rack. Call patch() once. Use .module(type, name, params, {row,index}), .set(name, param, value), .connect("name.port", "name.port"). Ordinary synchronous JS is supported, with a 2-second limit and no network/storage. At most ${MAX_SCRIPT_BYTES / 1024} KiB of UTF-8 source, ${PATCH_LIMITS.modules} modules, ${PATCH_LIMITS.rows} rows. Return diagnostics and a draftId for apply_draft. Random values are evaluated once. Drafts expire after 15 minutes. The newest four are retained.`,
+            objectSchema({source: {type: 'string', maxLength: MAX_SCRIPT_BYTES}, expectedRevision: {type: 'integer', minimum: 1}}, ['source', 'expectedRevision']), false,
             async ({source, expectedRevision}, signal) => {
                 if (typeof source !== 'string' || !Number.isInteger(expectedRevision) || expectedRevision < 1) {
                     throw draftError('invalid-input', 'Provide source and the expectedRevision from get_rack.');

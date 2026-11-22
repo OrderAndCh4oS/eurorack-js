@@ -54,7 +54,8 @@ test('native Chrome discovers all tools, catches wiring issues and applies the e
         expect(loose.diagnostics.issues).toContainEqual(expect.objectContaining({code:'module-unconnected',moduleIds:['motion']}));
         expect((await invoke('get_rack')).patch).toEqual(before.patch);
         await expect(page.getByRole('textbox',{name:'Patch script editor',exact:true})).toHaveValue(source);
-        const fixedSource = `${source}.connect('motion.primary','osc.fm')`;
+        // Send a full-sized script through Chrome's native tool transport.
+        const fixedSource = `${source}.connect('motion.primary','osc.fm')`.padEnd(128 * 1024);
         const fixed = await invoke('validate_script',{source:fixedSource,expectedRevision:before.revision});
         expect(fixed.ok).toBe(true);
         expect(fixed.diagnostics.issues).toEqual([]);

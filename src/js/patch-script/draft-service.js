@@ -1,6 +1,8 @@
 import { newRequestId } from '../patches/cloud-client.js';
+import { PATCH_LIMITS } from '../patches/limits.js';
 import { analyseRackConnections } from '../rack/diagnostics.js';
 import { compilePatchDescription } from './compiler.js';
+import { assertScriptSource, MAX_RESULT_BYTES } from './evaluator-limits.js';
 import { evaluatePatchScript } from './evaluator.js';
 import { formatPatchScript } from './formatter.js';
 
@@ -41,14 +43,16 @@ function checkDescription(description) {
     if (!Array.isArray(description?.modules) || !Array.isArray(description?.connections)) {
         throw draftError('invalid-patch', 'Script must describe modules and connections.');
     }
-    if (description.modules.length > 128 || description.connections.length > 2048 || JSON.stringify(description).length > 1024 * 1024) {
-        throw draftError('patch-limit', 'Use at most 128 modules and 2048 cables.');
+    if (description.modules.length > PATCH_LIMITS.modules ||
+        description.connections.length > PATCH_LIMITS.cables ||
+        JSON.stringify(description).length > MAX_RESULT_BYTES) {
+        throw draftError('patch-limit', `Use at most ${PATCH_LIMITS.modules} modules and ${PATCH_LIMITS.cables} cables.`);
     }
     for (const module of description.modules) {
         const {row, index} = module.placement || {};
-        if (row !== undefined && (!Number.isInteger(row) || row < 1 || row > 32) ||
-            index !== undefined && (!Number.isInteger(index) || index < 0 || index > 127)) {
-            throw draftError('patch-limit', 'Use rows 1–32 and positions 0–127.');
+        if (row !== undefined && (!Number.isInteger(row) || row < 1 || row > PATCH_LIMITS.rows) ||
+            index !== undefined && (!Number.isInteger(index) || index < 0 || index >= PATCH_LIMITS.modules)) {
+            throw draftError('patch-limit', `Use rows 1–${PATCH_LIMITS.rows} and positions 0–${PATCH_LIMITS.modules - 1}.`);
         }
     }
 }
@@ -95,7 +99,7 @@ export class PatchDraftService {
     async validate(source, {signal, expectedRevision} = {}) {
         return this.exclusive(async () => {
             signal?.throwIfAborted();
-            if (typeof source !== 'string' || source.length > 65536) throw draftError('source-limit', 'Use a script of at most 64 KiB.');
+            assertScriptSource(source);
             const base = this.observe();
             if (expectedRevision !== undefined && expectedRevision !== base.revision) {
                 throw draftError('rack-changed', 'The rack changed. Read it again before validating.');

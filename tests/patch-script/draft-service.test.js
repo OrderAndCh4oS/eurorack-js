@@ -109,10 +109,20 @@ describe('retained patch drafts', () => {
         expect(app.host.serializePatch()).toEqual(empty());
     });
 
-    it('rejects excessive rack sizes before constructing DSP instances', async () => {
+    it('accepts public rack placement indices and rejects declarations beyond the rack limits', async () => {
         const {service} = fixture();
-        await expect(service.validate(`patch().module('out', {}, {row: 1000000000})`)).rejects.toMatchObject({code:'patch-limit'});
-        await expect(service.validate(`const p=patch(); for(let i=0;i<129;i++)p.module('out')`)).rejects.toMatchObject({code:'patch-limit'});
+        await expect(service.validate("patch().module('out', {}, {row: 32, index: 255})")).resolves.toHaveProperty('draftId');
+        await expect(service.validate("patch().module('out', {}, {row: 33})")).rejects.toMatchObject({code: 'patch-limit'});
+        await expect(service.validate("patch().module('out', {}, {index: 256})")).rejects.toMatchObject({code: 'patch-limit'});
+        await expect(service.validate("const p = patch(); for (let i = 0; i < 257; i++) p.module('out')"))
+            .rejects.toMatchObject({code: 'patch-limit'});
+    });
+
+    it('rejects a rack that needs a 33rd row during automatic placement', async () => {
+        const {service} = fixture();
+        // Five 16 HP scopes fit in each 84 HP row.
+        await expect(service.validate("const p = patch(); for (let i = 0; i < 161; i++) p.module('scope')"))
+            .rejects.toMatchObject({code: 'patch-limit', message: expect.stringContaining('32 rows')});
     });
 
     it('serializes mutations and frees its lock after an evaluation failure', async () => {

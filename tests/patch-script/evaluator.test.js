@@ -110,8 +110,8 @@ describe('isolated patch evaluator transport', () => {
     });
 
     it('rejects oversized UTF-8 input and malformed results', async () => {
-        await expect(evaluatePatchScript('a'.repeat(MAX_SCRIPT_BYTES + 1))).rejects.toThrow('64 KiB');
-        await expect(evaluatePatchScript('😀'.repeat(MAX_SCRIPT_BYTES / 3))).rejects.toThrow('64 KiB');
+        await expect(evaluatePatchScript('a'.repeat(MAX_SCRIPT_BYTES + 1))).rejects.toThrow('128 KiB');
+        await expect(evaluatePatchScript('😀'.repeat(MAX_SCRIPT_BYTES / 3))).rejects.toThrow('128 KiB');
         expect(channels).toHaveLength(0);
         const promise = evaluatePatchScript('patch()');
         await ready();

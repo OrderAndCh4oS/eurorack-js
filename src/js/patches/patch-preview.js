@@ -1,4 +1,5 @@
 import { createPersistentPreviewCache, hashPreviewKey } from './preview-cache.js';
+import { PATCH_LIMITS } from './limits.js';
 
 export const PATCH_PREVIEW_RENDERER_VERSION = 'rack-industrial-v3';
 export const PATCH_PREVIEW_MODES = Object.freeze(['light', 'dark']);
@@ -63,9 +64,9 @@ export function snapshotPatchPreview(value) {
     if (!state || state.version !== 3 || !Array.isArray(state.modules) || !Array.isArray(state.cables)) {
         throw new Error('A version 3 patch is required for a preview');
     }
-    if (state.modules.length > 256 || state.cables.length > 2048) throw new Error('Patch exceeds preview limits');
+    if (state.modules.length > PATCH_LIMITS.modules || state.cables.length > PATCH_LIMITS.cables) throw new Error('Patch exceeds preview limits');
     for (const module of state.modules) {
-        if (!Number.isInteger(module.row) || module.row < 1 || module.row > 32) throw new Error('Invalid preview rack row');
+        if (!Number.isInteger(module.row) || module.row < 1 || module.row > PATCH_LIMITS.rows) throw new Error('Invalid preview rack row');
     }
     return state;
 }

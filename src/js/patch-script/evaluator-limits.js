@@ -1,4 +1,4 @@
-export const MAX_SCRIPT_BYTES = 64 * 1024;
+export const MAX_SCRIPT_BYTES = 128 * 1024;
 export const MAX_RESULT_BYTES = 1024 * 1024;
 
 function byteLength(value) {
@@ -6,9 +6,9 @@ function byteLength(value) {
 }
 
 export function assertScriptSource(source) {
-    if (typeof source !== 'string') throw new Error('Patch script source must be a string');
-    if (source.length > MAX_SCRIPT_BYTES || byteLength(source) > MAX_SCRIPT_BYTES) {
-        throw new Error('Patch script is too large (64 KiB maximum)');
+    if (typeof source !== 'string' || source.length > MAX_SCRIPT_BYTES || byteLength(source) > MAX_SCRIPT_BYTES) {
+        const message = `Patch script source must be a string of at most ${MAX_SCRIPT_BYTES / 1024} KiB of UTF-8 text.`;
+        throw Object.assign(new Error(message), {code: 'source-limit'});
     }
 }
 

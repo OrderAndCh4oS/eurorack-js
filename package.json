@@ -44,6 +44,7 @@
     "better-auth": "1.7.18",
     "html-to-image": "1.11.13",
     "jose": "6.2.15",
+    "js-tokens": "10.0.0",
     "pg": "8.23.1",
     "playwright-core": "1.61.1",
     "sharp": "0.35.5",

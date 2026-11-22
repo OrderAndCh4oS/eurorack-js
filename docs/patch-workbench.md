@@ -26,6 +26,8 @@ The drawer can be resized from its top edge. It switches to a stacked layout on 
 
 The first time it opens after loading the app, **Current Rack** contains a source snapshot of the live graphical patch. It lasts until the page is reloaded. Typing or saving creates a named local script; reopening the drawer does not replace work in progress.
 
+Snapshots use a single `patch()` chain for up to 256 module, connection and MIDI mapping calls combined. Larger snapshots declare `const rack = patch()` and put each call on its own statement. An older standalone `patch()` chain that exceeds the JavaScript compiler’s stack can still be validated and applied. Your saved source keeps its original formatting.
+
 | Shortcut | Action |
 |---|---|
 | Ctrl/Command+S | Save source locally, then apply the validated patch |
@@ -266,6 +268,7 @@ Scripts and patches remain separate:
 
 - Applying a script creates an ordinary in-memory v3 patch.
 - Rack **Save** and **Save a copy** store compiled patch state. **Copy snapshot link** captures the current rack; **Copy URL**, when available, links to a saved patch.
+- Light and dark previews fit all rows of a large built-in rack into each image. If preview capture times out during a private account save, the rack still saves. When publishing, you can retry or choose **Save privately without preview**.
 - Workbench Load reads JavaScript source into a new local script but never evaluates it automatically.
 - Workbench Save (or Ctrl/Command+S) saves source locally, then applies the validated patch, validating first if needed.
 - Neither snapshot links nor saved patch URLs include the JavaScript source.

@@ -11,6 +11,9 @@ import { PATCH_PREVIEW_RENDERER_VERSION, getPreviewDimensions, snapshotPatchPrev
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const PREVIEW_GUTTER = 8;
 const MIN_PREVIEW_ROW_HP = 8;
+// Copying computed styles and pseudo-elements for each node dominates capture
+// time on dense racks. Their disposable frame already owns all the rack CSS.
+const MAX_INLINE_STYLE_NODES = 2500;
 const PREVIEW_STYLE = `
     html, body { margin: 0; padding: 0; width: max-content; height: auto; overflow: visible; }
     body.skin-factory { background: var(--factory-paper); }
@@ -78,16 +81,21 @@ export function drawPreviewCables(root, state, documentRef = document) {
     const origin = root.getBoundingClientRect();
     let bottom = root.scrollHeight || origin.height;
     let right = root.scrollWidth || origin.width;
-    root.appendChild(svg);
-    const jacks = [...root.querySelectorAll('.jack')];
+    const inputs = new Map();
+    const outputs = new Map();
+    for (const jack of root.querySelectorAll('.jack')) {
+        const ports = jack.classList.contains('output') ? outputs : inputs;
+        ports.set(JSON.stringify([jack.dataset.module, jack.dataset.port]), jack);
+    }
+    const centers = new Map();
+    const center = jack => {
+        if (!jack) throw new Error('A patch cable could not be rendered');
+        if (!centers.has(jack)) centers.set(jack, getJackCenter(jack));
+        return centers.get(jack);
+    };
     state.cables.forEach((cable, index) => {
-        const from = jacks.find(jack => jack.classList.contains('output') &&
-            jack.dataset.module === cable.fromModule && jack.dataset.port === cable.fromPort);
-        const to = jacks.find(jack => jack.classList.contains('input') &&
-            jack.dataset.module === cable.toModule && jack.dataset.port === cable.toPort);
-        if (!from || !to) throw new Error('A patch cable could not be rendered');
-        const source = getJackCenter(from);
-        const destination = getJackCenter(to);
+        const source = center(outputs.get(JSON.stringify([cable.fromModule, cable.fromPort])));
+        const destination = center(inputs.get(JSON.stringify([cable.toModule, cable.toPort])));
         const x1 = source.x - origin.left;
         const y1 = source.y - origin.top;
         const x2 = destination.x - origin.left;
@@ -102,8 +110,6 @@ export function drawPreviewCables(root, state, documentRef = document) {
         path.setAttribute('stroke', CABLE_COLORS[index % CABLE_COLORS.length]);
         path.setAttribute('d', createCablePath(x1, y1, x2, y2));
         svg.appendChild(path);
-        from.classList.add('connected');
-        to.classList.add('connected');
         // Include the cable's control points so a hanging cable on the final
         // row cannot be clipped by a rack-only image crop.
         bottom = Math.max(bottom, Math.max(y1, y2) + Math.min(100, Math.abs(x2 - x1) * 0.3 + 30) + 8);
@@ -118,6 +124,10 @@ export function drawPreviewCables(root, state, documentRef = document) {
     svg.setAttribute('width', String(width));
     svg.setAttribute('height', String(height));
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    // Measure every endpoint before writing to the live DOM. Fan-out shares a
+    // single layout read even when a clock drives hundreds of destinations.
+    for (const jack of centers.keys()) jack.classList.add('connected');
+    root.appendChild(svg);
     return svg;
 }
 
@@ -202,29 +212,82 @@ let activePreview;
 let generation = 0;
 let capturing = false;
 
+async function rasterizeLargeRack(node, width, height, output) {
+    const doc = node.ownerDocument;
+    const svg = doc.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('width', String(output.width));
+    svg.setAttribute('height', String(output.height));
+    const styles = doc.createElementNS(SVG_NS, 'style');
+    styles.textContent = [...doc.styleSheets].flatMap(sheet => [...sheet.cssRules].map(rule => rule.cssText)).join('\n');
+    const foreign = doc.createElementNS(SVG_NS, 'foreignObject');
+    foreign.setAttribute('width', String(output.width));
+    foreign.setAttribute('height', String(output.height));
+    svg.append(styles, foreign);
+
+    const body = doc.body.cloneNode(false);
+    // :root is the SVG now. Preserve the cascade at the body, including the
+    // dark palette inherited from html and the skin's own module height.
+    const bodyStyle = getComputedStyle(doc.body);
+    for (const name of bodyStyle) {
+        if (name.startsWith('--')) body.style.setProperty(name, bodyStyle.getPropertyValue(name));
+    }
+    body.style.colorScheme = bodyStyle.colorScheme;
+    const rack = node.cloneNode(true);
+    // Scale the HTML itself. WebKit can clip foreignObject content to the
+    // SVG viewport before applying a viewBox scale, dropping entire rack rows.
+    rack.style.transformOrigin = 'top left';
+    rack.style.transform = `scale(${output.width / width}, ${output.height / height})`;
+    const originals = node.querySelectorAll('canvas, select');
+    rack.querySelectorAll('canvas, select').forEach((copy, i) => {
+        const original = originals[i];
+        if (copy.tagName === 'SELECT') {
+            [...copy.options].forEach((option, j) => option.toggleAttribute('selected', original.options[j].selected));
+        } else if (original.width && original.height) {
+            // A cloned canvas has an empty bitmap. Keep the actual element so
+            // panel CSS, dimensions and borders still apply to its display.
+            copy.style.backgroundImage = `url("${original.toDataURL()}")`;
+            copy.style.backgroundSize = '100% 100%';
+        }
+    });
+    body.append(rack);
+    foreign.append(body);
+    const image = new Image();
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+    await image.decode();
+    const canvas = doc.createElement('canvas');
+    canvas.width = output.width;
+    canvas.height = output.height;
+    const context = canvas.getContext('2d');
+    context.fillStyle = getComputedStyle(node).backgroundColor;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0);
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+}
+
 async function capture(state, options = {}) {
     if (capturing) throw new Error('A patch preview is already being rendered');
     capturing = true;
     const startedAt = generation;
     try {
-        const vendorUrl = new URL('../../vendor/cloud.js', import.meta.url).href;
-        const { toBlob } = await import(/* @vite-ignore */ vendorUrl);
-        if (startedAt !== generation) throw new Error('Patch preview cancelled');
         activePreview = await renderPatchPreview(state, { mode: options.mode });
         if (startedAt !== generation) throw new Error('Patch preview cancelled');
         const node = activePreview.element;
         const width = Math.ceil(node.getBoundingClientRect().width);
         const height = Math.ceil(node.getBoundingClientRect().height);
         const output = getPreviewDimensions(width, height, options);
-        const blob = await toBlob(node, {
-            width,
-            height,
-            canvasWidth: output.width,
-            canvasHeight: output.height,
-            pixelRatio: 1,
-            skipFonts: true,
-            backgroundColor: getComputedStyle(node).backgroundColor
-        });
+        let blob;
+        const builtIn = Object.keys((state.state || state).plugins || {}).every(id => id === 'core');
+        if (builtIn && node.getElementsByTagName('*').length > MAX_INLINE_STYLE_NODES) {
+            blob = await rasterizeLargeRack(node, width, height, output);
+        } else {
+            const vendorUrl = new URL('../../vendor/cloud.js', import.meta.url).href;
+            const { toBlob } = await import(/* @vite-ignore */ vendorUrl);
+            if (startedAt !== generation) throw new Error('Patch preview cancelled');
+            blob = await toBlob(node, {
+                width, height, canvasWidth: output.width, canvasHeight: output.height,
+                pixelRatio: 1, skipFonts: true, backgroundColor: getComputedStyle(node).backgroundColor
+            });
+        }
         if (!blob) throw new Error('Unable to rasterize the patch preview');
         return blob;
     } finally {

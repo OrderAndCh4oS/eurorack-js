@@ -1,5 +1,9 @@
 import { createDefaultParams } from '../app/rack-state.js';
 
+// Each fluent call adds a level to the JS parser's expression tree. Worker
+// stacks vary by engine. Count operations, including cables and MIDI mappings.
+const MAX_SNAPSHOT_CHAIN = 256;
+
 function equal(a, b) {
     return JSON.stringify(a) === JSON.stringify(b);
 }
@@ -38,16 +42,20 @@ function endpoint(moduleId, port) {
 }
 
 export function formatPatchScript(patch, registry) {
-    const lines = ['patch()'];
+    const cables = patch.cables || [];
+    const mappings = Object.entries(patch.midiMappings || {});
+    const chained = patch.modules.length + cables.length + mappings.length <= MAX_SNAPSHOT_CHAIN;
+    const lines = [chained ? 'patch()' : 'const rack = patch()'];
+    const receiver = chained ? '  ' : 'rack';
     patch.modules.forEach(module => {
         const params = nonDefaultParams(module, patch.params?.[module.id], registry);
-        lines.push(`  .module(${quote(module.type)}, ${quote(module.id)}, ${formatInline(params)}, ${formatPlacement(module)})`);
+        lines.push(`${receiver}.module(${quote(module.type)}, ${quote(module.id)}, ${formatInline(params)}, ${formatPlacement(module)})`);
     });
-    (patch.cables || []).forEach(cable => {
-        lines.push(`  .connect(${endpoint(cable.fromModule, cable.fromPort)}, ${endpoint(cable.toModule, cable.toPort)})`);
+    cables.forEach(cable => {
+        lines.push(`${receiver}.connect(${endpoint(cable.fromModule, cable.fromPort)}, ${endpoint(cable.toModule, cable.toPort)})`);
     });
-    Object.entries(patch.midiMappings || {}).forEach(([key, mapping]) => {
-        lines.push(`  .midi(${quote(key)}, ${formatInline(mapping)})`);
+    mappings.forEach(([key, mapping]) => {
+        lines.push(`${receiver}.midi(${quote(key)}, ${formatInline(mapping)})`);
     });
     return `${lines.join('\n')}\n`;
 }

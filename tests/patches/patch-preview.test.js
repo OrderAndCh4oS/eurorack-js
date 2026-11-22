@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
     createPatchPreviewService,
     getPreviewDimensions,
+    PATCH_PREVIEW_LIMITS,
+    PATCH_PREVIEW_RENDERER_VERSION,
     snapshotPatchPreview
 } from '../../src/js/patches/patch-preview.js';
 
@@ -23,6 +25,34 @@ function deferred() {
 }
 
 describe('patch preview capture service', () => {
+    it('identifies a stalled frame as a preview timeout and removes it', async () => {
+        vi.useFakeTimers();
+        try {
+            const service = createPatchPreviewService();
+            const failed = expect(service.capturePatchPreview(patch())).rejects.toMatchObject({ code: 'preview-timeout' });
+            await Promise.resolve();
+            expect(document.querySelector('[data-patch-preview-frame]')).not.toBeNull();
+            await vi.advanceTimersByTimeAsync(PATCH_PREVIEW_LIMITS.timeoutMs);
+            await failed;
+            expect(document.querySelector('[data-patch-preview-frame]')).toBeNull();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('reports an image decoder failure even when the browser rejects with a DOM event', async () => {
+        const service = createPatchPreviewService();
+        const failed = expect(service.capturePatchPreview(patch())).rejects.toThrow('Unable to render the patch preview');
+        await Promise.resolve();
+        const frame = document.querySelector('[data-patch-preview-frame]');
+        frame.contentWindow.eurorackPatchPreview = {
+            version: PATCH_PREVIEW_RENDERER_VERSION,
+            capture: async () => { throw new Event('error'); }
+        };
+        frame.dispatchEvent(new Event('load'));
+        await failed;
+    });
+
     it('captures the immutable requested state and serializes rendering jobs', async () => {
         const first = deferred();
         const blob = new Blob(['png'], { type: 'image/png' });

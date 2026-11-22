@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import { executePatchScript } from '../../src/js/patch-script/builder.js';
 import { compilePatchDescription } from '../../src/js/patch-script/compiler.js';
 import { formatPatchScript } from '../../src/js/patch-script/formatter.js';
@@ -117,5 +118,33 @@ describe('patch script builder and compiler', () => {
 
         expect(source).toContain(`"coarse": 0.31416`);
         expect(roundTrip.patch.params.osc.coarse).toBe(0.31416);
+    });
+
+    it('keeps a 256-call snapshot chained and switches to statements when a MIDI mapping takes it over', () => {
+        const { patch } = compile(`const rack = patch()
+            for (let i = 0; i < 128; i++) rack.module('mix', 'mix' + i)
+            for (let i = 0; i < 128; i++) rack.connect('mix0.out', 'mix' + i + '.in1')`);
+        const compact = formatPatchScript(patch, pluginRegistry);
+        expect(compact).toMatch(/^patch\(\)\n  \.module/);
+        patch.midiMappings['0:74'] = { moduleId: 'mix0', paramId: 'lvl1', min: 0, max: 1 };
+        const source = formatPatchScript(patch, pluginRegistry);
+        expect(source.split('\n')[0]).toBe('const rack = patch()');
+        expect(source.match(/^rack\.module\(/gm)).toHaveLength(128);
+        expect(source.match(/^rack\.connect\(/gm)).toHaveLength(128);
+        expect(source).toContain('\nrack.midi(');
+        expect(compile(source).patch).toEqual(patch);
+    });
+
+    it('executes older fluent snapshots on a small JS stack and preserves argument expressions', () => {
+        const source = '// older snapshot\npatch().module("mix", "m")' +
+            '\n/* ).set( */ .set("m", "lvl1", /[()]/.test("(") ? Math.abs(-1) : 0)'.repeat(1200) +
+            '\n.midi("0:4", { label: `).connect(${String(4)})` });';
+        const result = execFileSync(process.execPath, ['--stack-size=192', '--input-type=module', '-e', `
+            import { readFileSync } from 'node:fs';
+            import { executePatchScript } from './src/js/patch-script/builder.js';
+            const result = executePatchScript(readFileSync(0, 'utf8'));
+            process.stdout.write(JSON.stringify([result.modules[0].params.lvl1, result.midiMappings['0:4'].label]));
+        `], { input: source, encoding: 'utf8' });
+        expect(JSON.parse(result)).toEqual([1, ').connect(4)']);
     });
 });

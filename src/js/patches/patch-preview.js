@@ -87,7 +87,7 @@ async function captureInFrame(state, options = {}, documentRef = document) {
             const fail = error => reject(error);
             onAbort = () => fail(options.signal.reason || new DOMException('Preview cancelled', 'AbortError'));
             options.signal?.addEventListener('abort', onAbort, { once: true });
-            timer = setTimeout(() => fail(new Error('Patch preview timed out')), PATCH_PREVIEW_LIMITS.timeoutMs);
+            timer = setTimeout(() => fail(Object.assign(new Error('Patch preview timed out'), { code: 'preview-timeout' })), PATCH_PREVIEW_LIMITS.timeoutMs);
             frame.addEventListener('error', () => fail(new Error('Unable to load patch preview renderer')), { once: true });
             frame.addEventListener('load', async () => {
                 try {
@@ -108,7 +108,8 @@ async function captureInFrame(state, options = {}, documentRef = document) {
                     if (!blob || blob.type !== 'image/png' || blob.size === 0) throw new Error('Patch preview was empty');
                     resolve(blob);
                 } catch (error) {
-                    fail(error);
+                    // Some image decoders reject with an Event that has no message.
+                    fail(error?.message ? error : new Error('Unable to render the patch preview', { cause: error }));
                 }
             }, { once: true });
             documentRef.body.appendChild(frame);

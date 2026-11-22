@@ -680,12 +680,13 @@ export class PatchLibrary {
             const cancel = this.button('Cancel', () => finish(false)); const submit = element(this.document, 'button', publish ? 'Save and publish' : copy ? 'Save copy' : 'Save', 'primary'); submit.type = 'submit'; actions.append(cancel, submit); form.append(actions); dialog.append(form);
             dialog.addEventListener('cancel', event => { event.preventDefault(); finish(false); });
             let attempt;
+            let saveWithoutPreview = false;
             form.addEventListener('submit', async event => {
                 event.preventDefault(); if (saving) return; saving = true; submit.disabled = true; cancel.disabled = true; error.hidden = true;
                 const fields = { name: name.value.trim(), description: description.value.trim(), visibility: copy ? 'private' : visibility.value };
                 try {
                     let saved;
-                    let localPreviewFailed = false;
+                    let previewUnavailable = false;
                     if (target.value === 'local') {
                         submit.textContent = 'Creating previews…';
                         const updateLocal = !copy && record?.source === 'local';
@@ -698,7 +699,7 @@ export class PatchLibrary {
                             ...fields, state, provenance, id: updateLocal && record.id || await this.createId()
                         }, { key: updateLocal ? record.key : undefined, copy: !updateLocal }, this.previewLoader);
                         saved = result.patch;
-                        localPreviewFailed = !result.previewsReady;
+                        previewUnavailable = !result.previewsReady;
                     } else {
                         assertAccount();
                         if (!this.user) throw new Error('Sign in to save to your account.');
@@ -716,7 +717,7 @@ export class PatchLibrary {
                         const isFork = !!forkSource;
                         const body = { ...fields, state, requestId: attempt.requestId, copy };
                         const reuseForkPreview = forkSource?.images?.dark && snapshot(forkSource.state) === snapshot(state);
-                        const skipPrivatePreview = attempt.skipPreview && fields.visibility === 'private';
+                        const skipPrivatePreview = saveWithoutPreview && fields.visibility === 'private';
                         if (this.config.imagesEnabled && !skipPrivatePreview && !attempt.previewId && !reuseForkPreview) {
                             submit.textContent = 'Creating previews…';
                             try {
@@ -724,8 +725,14 @@ export class PatchLibrary {
                                 assertAccount();
                                 attempt.previewId = (await uploadThemedPreview(this.cloud, state, preview, assertAccount)).id;
                                 assertAccount();
-                            } catch (previewError) { attempt.previewFailed = true; throw previewError; }
+                            } catch (previewError) {
+                                assertAccount();
+                                attempt.previewFailed = true;
+                                if (previewError.code !== 'preview-timeout' || fields.visibility !== 'private') throw previewError;
+                                saveWithoutPreview = true;
+                            }
                         }
+                        previewUnavailable = saveWithoutPreview && fields.visibility === 'private';
                         if (attempt.previewId) body.previewId = attempt.previewId;
                         submit.textContent = 'Saving…';
                         assertAccount();
@@ -737,15 +744,17 @@ export class PatchLibrary {
                     }
                     if (fromEditor && loadGeneration === this.loadGeneration) { this.setActive(saved, snapshot(state)); this.setLocation(saved.source === 'cloud' ? saved.id : null); }
                     if (this.view !== 'rack') this.show(this.view);
-                    const notice = saved.source === 'cloud'
-                        ? (saved.visibility === 'public' ? 'Published.' : 'Saved privately.')
-                        : (localPreviewFailed ? 'Saved in this browser. Preview unavailable.' : 'Saved in this browser.');
+                    let notice = saved.source === 'cloud'
+                        ? (saved.visibility === 'public' ? 'Published.' : 'Saved privately.') : 'Saved in this browser.';
+                    if (previewUnavailable && !saved.previewId) notice += ' Preview unavailable.';
                     this.notice(notice, fromEditor ? [] : [['Open copy', () => this.open(saved)]]);
                     saving = false; finish(true);
                 } catch (failure) {
                     error.textContent = failure.message; error.hidden = false;
-                    if (attempt?.previewFailed && fields.visibility === 'private' && !form.querySelector('[data-preview-fallback]')) {
-                        const fallback = this.button('Save privately without preview', () => { attempt.skipPreview = true; form.requestSubmit(); }); fallback.dataset.previewFallback = ''; form.append(fallback);
+                    if (attempt?.previewFailed && !form.querySelector('[data-preview-fallback]')) {
+                        const fallback = this.button('Save privately without preview', () => {
+                            visibility.value = 'private'; updateFields(); saveWithoutPreview = true; form.requestSubmit();
+                        }); fallback.dataset.previewFallback = ''; form.append(fallback);
                     }
                     if (failure.status === 409 && !form.querySelector('[data-conflict]')) {
                         const conflict = element(this.document, 'div'); conflict.dataset.conflict = '';

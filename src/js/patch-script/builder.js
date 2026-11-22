@@ -1,3 +1,5 @@
+import { compilePatchSource } from './compile-source.js';
+
 function isPlainObject(value) {
     return !!value && typeof value === 'object' && !Array.isArray(value);
 }
@@ -137,7 +139,7 @@ export function executePatchScript(source) {
         return builder;
     };
 
-    const evaluate = new Function('patch', `"use strict";\n${source}\n//# sourceURL=eurorack-patch-script.js`);
+    const evaluate = compilePatchSource(source);
     evaluate(patch);
     if (builders.length === 0) throw new Error('A patch script must call patch() exactly once');
     return builders[0].describe();

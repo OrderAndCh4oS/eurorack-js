@@ -405,6 +405,27 @@ describe('patch library coordination', () => {
         expect(cloud.create).not.toHaveBeenCalled(); document.querySelector('[data-preview-fallback]').click();
         expect(await saved).toBe(true); expect(cloud.create.mock.calls[0][0]).toMatchObject({ visibility: 'private' }); expect(cloud.create.mock.calls[0][0]).not.toHaveProperty('previewId');
     });
+    it.each(['private', 'public'])('recovers a preview timeout on a %s save without publishing an imageless patch', async visibility => {
+        const { cloud, library } = setup();
+        library.config = { enabled: true, imagesEnabled: true }; library.user = { id: 'me', name: 'Maker' };
+        const capture = vi.fn().mockRejectedValue(Object.assign(new Error('Patch preview timed out'), { code: 'preview-timeout' }));
+        library.previewLoader = async () => ({ capturePatchPreview: capture });
+        cloud.create.mockResolvedValue({ id, name: 'My rack', state: state(), visibility: 'private', canEdit: true });
+        const saved = library.openSave({ destination: 'cloud', publish: visibility === 'public' });
+        const form = document.querySelector('dialog form');
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        if (visibility === 'public') {
+            await vi.waitFor(() => expect(form.querySelector('[data-preview-fallback]')).not.toBeNull());
+            expect(cloud.create).not.toHaveBeenCalled();
+            expect(form.elements.visibility.value).toBe('public');
+            form.querySelector('[data-preview-fallback]').click();
+        }
+        expect(await saved).toBe(true);
+        expect(capture).toHaveBeenCalledTimes(1);
+        expect(cloud.create).toHaveBeenCalledTimes(1);
+        expect(cloud.create.mock.calls[0][0]).toMatchObject({ visibility: 'private', state: state() });
+        expect(cloud.create.mock.calls[0][0]).not.toHaveProperty('previewId');
+    });
     it('refreshes the source revision for conflict copies without replacing captured edits', async () => {
         const { cloud, library } = setup(); library.user = { id: 'me', name: 'Maker' }; library.config.enabled = true;
         const source = { source: 'cloud', id, revision: 2, canEdit: true, name: 'Source', visibility: 'private', state: state() }; library.setActive(source);

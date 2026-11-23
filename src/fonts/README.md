@@ -10,3 +10,5 @@
 The file is unmodified from Google's Latin subset, covering English text, common punctuation and Latin-1 characters. Other characters use the CSS fallback font. The filename includes the first eight SHA-256 characters so revised files can receive a new URL and be cached immutably.
 
 The rack footer uses `space-grotesk-regular-latin.29d733b0.woff2`, the unmodified 13,428-byte static Regular (400) Latin subset, under the same SIL Open Font License. Its SHA-256 is `29d733b05dea490d56b9d5f2cf688fd3ed0c5758c0e007319db11a669dbacf4f`. [Google Fonts CSS](https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400&display=swap) · [Original Regular WOFF2](https://fonts.gstatic.com/s/spacegrotesk/v22/V8mQoQDjQSkFtoMM3T6r8E7mF71Q-gOoraIAEj7oUXskPMBBSSJLm2E.woff2)
+
+The module share-card build draws its lettering from a TrueType copy of the Bold font. We used FontTools to decompress the bundled WOFF2 so Linux can read the same outlines on a build host with no installed fonts. [TrueType file](../../scripts/fonts/space-grotesk-bold-latin.ttf) · [SIL Open Font License](space-grotesk-OFL.txt)

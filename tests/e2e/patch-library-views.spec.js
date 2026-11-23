@@ -22,7 +22,7 @@ test('browses illustrated test racks and saves an independent local copy', async
     await expect(page).toHaveTitle('Untitled · Eurorack');
     await expect(page.locator('#patchSelect')).toHaveCount(0);
     await page.locator('[data-patch-view="tests"]').click();
-    await expect(page).toHaveTitle('Test patches · Eurorack');
+    await expect(page).toHaveTitle('Module demos · Eurorack');
     await expect(page).toHaveURL(/\/patches\?view=tests$/);
     await expect(page.locator('.patch-entry')).toHaveCount(24);
     // Wait for each first-row image, rather than whichever asynchronous capture

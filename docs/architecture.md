@@ -288,7 +288,7 @@ Modules marked `role: 'audio-output'` are worklet sinks. The processor routes th
 | `src/js/utils/color.js` | Internal theme-token and fallback color handling |
 | `src/js/utils/nested-access.js` | Internal validated parameter/port path access with stable-buffer copying |
 | `src/js/config/patches/` | Retained test and musical example source files |
-| `src/js/config/test-patches.js` | Standalone catalogue for the Test patches view; imports no archived examples |
+| `src/js/config/test-patches.js` | Standalone catalogue for the Module demos directory; imports no archived examples |
 | `src/js/config/patches/index.js` | Archived musical examples and complete factory regression aggregate |
 | `src/js/config/factory-patches.js` | Re-exports test and archive catalogues for regression checks and archive tooling |
 | `archive/demo-patches/` | JSON collection and source index for musical examples retained outside the app catalogue |
@@ -306,6 +306,6 @@ Modules marked `role: 'audio-output'` are worklet sinks. The processor routes th
 - **Change the patch schema or persistence**: edit `app/patch-format.js`, app import/export handling, and patch tests together.
 - **Change module panels**: edit the module's `ui`/`render` definition and shared renderer/toolkit only when the behavior is reusable.
 - **Add a DSP primitive**: add a focused utility with boundary tests, migrate only behaviorally equivalent call sites, export module-facing APIs from `src/js/index.js`, and update the module creation guide.
-- **Add a test patch**: add one file under `config/patches/` and register it in `config/test-patches.js` for the Test patches view and complete regression catalogue.
+- **Add a test patch**: add one file under `config/patches/` and register it in `config/test-patches.js` for the Module demos directory and complete regression catalogue.
 - **Update an archived example**: edit its retained source under `config/patches/` and update `archive/demo-patches/patches.json`; keep the archive round-trip tests passing.
 - **Change the public API**: edit `src/js/index.js` and update the architecture/module-authoring documentation.

@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { Marked } from 'marked';
 import { highlightPatchScript } from '../src/js/patch-script/syntax-highlighter.js';
 import { DOCS_PAGES, RACK_HOME } from './docs-manifest.mjs';
+import { MODULE_GUIDES, writeModuleSocialCard } from './module-guides.mjs';
 import introductionDemo from '../src/js/config/patches/demo-introduction.js';
 import { PATCH_PREVIEW_RENDERER_VERSION } from '../src/js/patches/patch-preview.js';
 import { getSocialCardSourceFingerprint } from './build-social-cards.mjs';
@@ -12,7 +13,7 @@ import { introductionImageSource, withRackHead } from '../server/rack-page.js';
 export { DOCS_PAGES } from './docs-manifest.mjs';
 const ORIGIN = 'https://eurorackjs.orderandchaos.xyz';
 const REPOSITORY = 'https://github.com/OrderAndCh4oS/eurorack-js/blob/main/';
-const published = new Map(DOCS_PAGES.map(page => [page.source, page.path]));
+const published = new Map([...DOCS_PAGES, ...MODULE_GUIDES].map(page => [page.source, page.path]));
 export const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 
 /** Resolve against the Markdown source, not the generated HTML directory. */
@@ -39,10 +40,15 @@ export function resolveDocumentLink(href, source) {
 const plainText = tokens => tokens.map(token => token.tokens ? plainText(token.tokens) : token.text || '').join('');
 const headingSlug = text => text.toLowerCase().trim().replace(/[^\p{L}\p{N}\s_-]/gu, '').replace(/\s/g, '-') || 'section';
 
-export function renderMarkdown(markdown, source, { extractHeader = false } = {}) {
+export function renderMarkdown(markdown, source, { extractHeader = false, demo } = {}) {
     const headings = [], usedIds = new Set();
     let codeCount = 0, tableCount = 0;
     const renderer = {
+        paragraph({ tokens }) {
+            const [link] = tokens;
+            if (demo && tokens.length === 1 && link.type === 'link' && link.href === demo.href) return demo.html;
+            return `<p>${this.parser.parseInline(tokens)}</p>\n`;
+        },
         heading({ tokens, depth }) {
             const title = plainText(tokens), base = headingSlug(title);
             let id = base, suffix = 0;
@@ -89,7 +95,7 @@ export function renderMarkdown(markdown, source, { extractHeader = false } = {})
 
 export function renderSiteNavigation(path) {
     const active = path.startsWith('/docs') ? '/docs' : path;
-    const patchLinks = [['/', 'Rack'], ['/?new=1', 'New patch'], ['/patches?view=mine', 'My patches'], ['/patches', 'Public patches'], ['/patches?view=tests', 'Test patches']];
+    const patchLinks = [['/', 'Rack'], ['/?new=1', 'New patch'], ['/patches?view=mine', 'My patches'], ['/patches', 'Public patches'], ['/patches?view=tests', 'Module demos']];
     const siteLinks = [['/introduction', 'Introduction'], ['/docs', 'Docs']];
     const links = entries => entries.map(([href, label]) => `<a href="${escapeHtml(href)}"${href === active ? ' aria-current="page"' : ''}>${label}</a>`).join('');
     return `<nav class="patch-navigation" aria-label="Patch views">
@@ -162,15 +168,28 @@ ${content}
 
 function sidebar(current) {
     const groups = [...new Set(DOCS_PAGES.map(page => page.group))];
-    return `<aside class="docs-sidebar"><details class="docs-menu" open><summary>Contents</summary><nav aria-label="Documentation">${groups.map(group => `<div class="docs-nav-group"><p>${escapeHtml(group)}</p><ul>${DOCS_PAGES.filter(page => page.group === group).map(page => `<li><a href="${page.path}"${page.path === current.path ? ' aria-current="page"' : ''}>${escapeHtml(page.navTitle)}</a></li>`).join('')}</ul></div>`).join('')}</nav></details></aside>`;
+    return `<aside class="docs-sidebar"><details class="docs-menu" open><summary>Contents</summary><nav aria-label="Documentation"><a class="docs-directory-link" href="/patches?view=tests">Module demos</a>${groups.map(group => `<div class="docs-nav-group"><p>${escapeHtml(group)}</p><ul>${DOCS_PAGES.filter(page => page.group === group).map(page => `<li><a href="${page.path}"${page.path === current.path ? ' aria-current="page"' : ''}>${escapeHtml(page.navTitle)}</a></li>`).join('')}</ul></div>`).join('')}</nav></details></aside>`;
+}
+
+function moduleDemoFigure(page) {
+    const { light, dark } = page.preview;
+    const name = escapeHtml(page.patch.replace(/^Test - /, ''));
+    const url = '/?' + new URLSearchParams({ test: page.patch });
+    const html = `<figure class="docs-demo${light.width <= light.height ? ' docs-demo-portrait' : ''}">
+        <figcaption><span>${name}</span><a class="docs-demo-open" href="${escapeHtml(url)}">Open in rack <span aria-hidden="true">↗</span></a></figcaption>
+        <div class="docs-demo-stage"><img src="/patch-previews/${light.file}" data-dark-srcset="/patch-previews/${dark.file}" width="${light.width}" height="${light.height}" alt="The ${name} patch with the ${escapeHtml(page.panel)} panel and its cables."></div>
+    </figure>`;
+    return { href: ORIGIN + url, html };
 }
 
 export function renderDocPage(page, markdown, { socialCard } = {}) {
-    const { html, headings, intro } = renderMarkdown(markdown, page.source, { extractHeader: true });
-    const index = DOCS_PAGES.findIndex(entry => entry.path === page.path), previous = DOCS_PAGES[index - 1], next = DOCS_PAGES[index + 1];
+    const { html, headings, intro } = renderMarkdown(markdown, page.source, { extractHeader: true, demo: page.patch && moduleDemoFigure(page) });
+    const collection = page.patch ? MODULE_GUIDES : DOCS_PAGES;
+    const index = collection.findIndex(entry => entry.path === page.path), previous = collection[index - 1], next = collection[index + 1];
     const pagination = `<nav class="docs-pagination" aria-label="More documentation">${previous ? `<a rel="prev" href="${previous.path}"><span>← Previous</span><strong>${escapeHtml(previous.navTitle)}</strong></a>` : '<span></span>'}${next ? `<a rel="next" href="${next.path}"><span>Next →</span><strong>${escapeHtml(next.navTitle)}</strong></a>` : ''}</nav>`;
     const toc = `<aside class="docs-toc"><details open><summary>On this page</summary><nav aria-label="On this page"><ol>${headings.map(heading => `<li class="docs-toc-level-${heading.depth}"><a href="#${escapeHtml(heading.id)}">${escapeHtml(heading.title)}</a></li>`).join('')}</ol></nav></details></aside>`;
-    const content = `<main id="main-content" data-content-page data-page-title="${escapeHtml(page.title)} · Eurorack" class="docs-page${page.path === '/docs' ? ' docs-index' : ''}" tabindex="-1"><div class="docs-layout">${sidebar(page)}<article class="docs-article"><header class="docs-header"><p class="docs-eyebrow">Documentation / ${escapeHtml(page.group)}</p><h1>${escapeHtml(page.title)}</h1><div class="docs-intro">${intro}</div></header><div class="docs-prose">${html}</div>${pagination}<p class="docs-source"><a href="${REPOSITORY}${page.source}">View Markdown on GitHub <span aria-hidden="true">↗</span></a></p></article>${toc}</div></main>`;
+    const section = page.patch ? '<a href="/patches?view=tests">Module demos</a>' : 'Documentation';
+    const content = `<main id="main-content" data-content-page data-page-title="${escapeHtml(page.title)} · Eurorack" class="docs-page${page.path === '/docs' ? ' docs-index' : ''}" tabindex="-1"><div class="docs-layout">${sidebar(page)}<article class="docs-article"><header class="docs-header"><p class="docs-eyebrow">${section} / ${escapeHtml(page.group)}</p><h1>${escapeHtml(page.title)}</h1><div class="docs-intro">${intro || `<p>${escapeHtml(page.description)}</p>`}</div></header><div class="docs-prose">${html}</div>${pagination}<p class="docs-source"><a href="${REPOSITORY}${page.source}">View Markdown on GitHub <span aria-hidden="true">↗</span></a></p></article>${toc}</div></main>`;
     return renderSitePage({ ...page, content, socialCard, styles: ['/docs.css'] });
 }
 
@@ -210,14 +229,15 @@ export async function renderIntroduction(root, socialCard) {
 export async function buildDocs({ root, out }) {
     const socialCards = await readSocialCards(root);
     await mkdir(join(out, 'docs'), { recursive: true });
-    for (const page of DOCS_PAGES) {
+    for (const page of [...DOCS_PAGES, ...MODULE_GUIDES]) {
         const markdown = await readFile(join(root, page.source), 'utf8');
         const destination = join(out, page.path === '/docs' ? 'docs/index.html' : `${page.path.slice(1)}.html`);
         await mkdir(dirname(destination), { recursive: true });
-        await writeFile(destination, renderDocPage(page, markdown, { socialCard: socialCards[page.path] }));
+        const socialCard = page.patch ? await writeModuleSocialCard(page, root, out) : socialCards[page.path];
+        await writeFile(destination, renderDocPage(page, markdown, { socialCard }));
     }
     await writeFile(join(out, 'introduction.html'), await renderIntroduction(root, socialCards['/introduction']));
-    const paths = ['/', '/introduction', ...DOCS_PAGES.map(page => page.path), '/patches', '/privacy-policy', '/terms-of-service'];
+    const paths = ['/', '/introduction', ...published.values(), '/patches', '/privacy-policy', '/terms-of-service'];
     await writeFile(join(out, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${paths.map(path => `  <url><loc>${ORIGIN}${path}</loc></url>`).join('\n')}\n</urlset>\n`);
     return socialCards;
 }

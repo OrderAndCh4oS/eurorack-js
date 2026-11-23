@@ -29,7 +29,7 @@ Public saved patches include Open Graph and Twitter/X cards with the patch title
 
 ## Test and Learning Patches
 
-Open **Test patches** to browse built-in module and integration patches with rack previews. [Synth Voice Basics](docs/synth-voice-demos.md) walks through current oscillator, envelope, filter, modulation and sequencer examples. MIDI patches need a MIDI source.
+Open **Module demos** to browse the built-in instruments by family, read a listening guide or play its wired demo. The directory also includes integration patches. [Synth Voice Basics](docs/synth-voice-demos.md) walks through current oscillator, envelope, filter, modulation and sequencer examples. MIDI patches need a MIDI source.
 
 ## MIDI input and output
 
@@ -54,6 +54,8 @@ A compatible browser agent can inspect module contracts, validate JavaScript and
 **Introduction** (`/introduction`) introduces the instrument, community patch sharing, code editor and WebMCP. **Docs** (`/docs`) contains synth voice basics, MIDI routing for hardware and DAWs, the patch scripting guide, API reference, WebMCP guide, architecture and module-authoring documentation. Both are available from the app navigation. Reading them from the rack preserves the open patch and editor work. Direct links serve readable HTML without starting the instrument.
 
 The documentation source stays in [`docs/`](docs/index.md). `npm run build` converts the pages listed in [`scripts/docs-manifest.mjs`](scripts/docs-manifest.mjs) to static HTML using Marked. Links between published Markdown files become local documentation URLs; other repository references point to GitHub. Update the original Markdown to change a page, or add an entry to the manifest to publish another guide. Code examples, section links, contents menus and page metadata are generated at build time.
+
+Each built-in module has a musician’s guide in [docs/modules](docs/modules). Its entry in [the demo directory](src/js/config/module-demos.js) supplies the introduction and names a real patch from the test catalogue. The docs build uses that patch’s light and dark rack previews. When changing a panel or its demo, update the guide and run the module guide contract tests.
 
 The Introduction demo lives in [`demo-introduction.js`](src/js/config/patches/demo-introduction.js). Its banner image and **Open in rack** button use that same built-in patch; opening it leaves the rack at `/` without a snapshot hash. After editing the patch, start `npm run dev:previews`; this serves the instrument without checking the still-outdated images. In another terminal, run `npm run build:introduction-preview -- http://127.0.0.1:4176`, then `npm run build:social-cards`, then `npm run build`. Commit the generated files in `src/patch-previews/introduction/` and `src/social-cards/` with the patch. Normal builds check that the images match their source; browsers select a cached static WebP by screen size and pixel density.
 
@@ -382,7 +384,7 @@ npm run dev      # Build browser dependencies and start the app/API
 
 Open `http://127.0.0.1:4176`. AudioWorklet requires a supported browser and secure context; localhost qualifies for local development.
 
-The rack, browser saves, snapshot links, and Test patches work without cloud credentials. To enable accounts and community features locally, follow [cloud setup](docs/cloud-setup.md) using [`.env.example`](.env.example).
+The rack, browser saves, snapshot links, and module demos work without cloud credentials. To enable accounts and community features locally, follow [cloud setup](docs/cloud-setup.md) using [`.env.example`](.env.example).
 
 Use `npm run audit:dsp -- --matrix --strict-voltage` to cover 44.1, 48, and 96 kHz at 128- and 512-sample block sizes and fail on contract violations. See [the sound engineering audit](research/sound-engineering-review.md) for scope, limitations, and current priorities.
 

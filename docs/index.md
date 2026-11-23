@@ -4,11 +4,17 @@ Guides to patching, the code editor, browser agents and module development.
 
 ## Start with the rack
 
-Open [Test patches](/patches?view=tests) to explore modules in working setups. Start with [Synth Voice Basics](synth-voice-demos.md) for examples you can play straight away. Select **Start** to turn on audio. Turn a knob to change a sound or drag from an output socket to an input to connect modules. Sound reaches your speakers through an **OUT** module.
+Select **Start** to turn on audio. Turn a knob to change a sound or drag from an output socket to an input to connect modules. Sound reaches your speakers through an **OUT** module. [Synth Voice Basics](synth-voice-demos.md)
 
 Use **Save** to keep a patch in this browser, or sign in to save it to your account. Account patches can be private or public. Account copies made with **Save a copy** start private. Copies of public patches preserve the original creator's credit.
 
 Browse [public patches](/patches) to find something to play, change, or copy. An account patch has its own URL; make it public so others can open it. **Copy snapshot link** captures the rack's modules, settings, cables and MIDI mappings, including unsaved edits. It does not include recorded audio.
+
+## Module demos
+
+Each built-in module has a guide with a wired demo, a first listening exercise and a reference for its controls and jacks. Choose a module by name or by what you want it to do. [Browse module demos](/patches?view=tests)
+
+To build your first voice, start with an [oscillator](modules/vco.md), give each note a shape with an [envelope](modules/adsr.md), then hear how a [filter](modules/vcf.md) changes its colour. To begin with rhythm, try the [clock divider](modules/div.md) or [Euclidean rhythm generator](modules/euclid.md).
 
 ## Connect MIDI hardware or a DAW
 

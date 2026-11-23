@@ -1,4 +1,6 @@
 import { TEST_PATCHES } from '../config/test-patches.js';
+import { MODULE_DEMOS } from '../config/module-demos.js';
+import { CATEGORY_LABELS, CATEGORY_ORDER } from '../rack/module-manifest.js';
 import { RackState } from '../app/rack-state.js';
 import { CloudClient, newRequestId, parsePatchLocation, savedPatchUrl, rackPatchUrl, uploadThemedPreview } from '../patches/cloud-client.js';
 import { LocalPatchStore } from '../patches/local-patch-store.js';
@@ -9,10 +11,25 @@ import { chooseSignIn, emailSentNotice } from './sign-in-dialog.js';
 
 export const DRAFT_KEY = 'eurorack-login-draft-v1';
 export const isIntroductionDemoLocation = location => location.pathname === '/' && !location.hash && new URLSearchParams(location.search).get('demo') === 'introduction';
+export function testPatchAt(location) {
+    if (location.pathname !== '/' || location.hash) return null;
+    const name = new URLSearchParams(location.search).get('test');
+    return Object.hasOwn(TEST_PATCHES, name) ? TEST_PATCHES[name] : null;
+}
+
+// Keep the original test keys as cursor anchors and demo identities. A shared
+// patch can now teach more than one module, each with its own directory entry.
+const demoEntries = Object.values(TEST_PATCHES).flatMap(patch => {
+    const guides = MODULE_DEMOS.filter(guide => guide.patch === patch.name);
+    const record = { ...patch, source: 'test', key: patch.name };
+    return guides.length ? guides.map((guide, index) => ({
+        ...record, guide, catalogueKey: index ? guide.id : patch.catalogueKey || patch.name
+    })) : [record];
+});
 const LIBRARY_VIEWS = {
     mine: ['My patches', 'Saved in this browser or your account.'],
     public: ['Public patches', 'Shared patches to play and copy.'],
-    tests: ['Test patches', 'Patches for trying each module.']
+    tests: ['Module demos', 'Explore the built-in modules with a listening guide, a panel reference and a patch you can play.']
 };
 const snapshot = state => JSON.stringify(state);
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -65,6 +82,12 @@ export class PatchLibrary {
                 // preserving the live rack until unsaved changes are resolved.
                 event.preventDefault();
                 void this.run(() => this.openIntroductionDemo());
+            } else {
+                const patch = testPatchAt(url);
+                if (patch) {
+                    event.preventDefault();
+                    void this.run(() => this.open({ ...patch, source: 'test', key: patch.name }));
+                }
             }
         });
         this.document.getElementById('savePatch')?.addEventListener('click', () => { void this.openSave(); });
@@ -210,7 +233,7 @@ export class PatchLibrary {
         button.addEventListener('click', handler); return button;
     }
     catalogueState() {
-        return { view: this.view, query: this.query, sort: this.sort, period: this.period, cursor: this.cursor, localCursor: this.localCursor };
+        return { view: this.view, query: this.query, category: this.category, sort: this.sort, period: this.period, cursor: this.cursor, localCursor: this.localCursor };
     }
     writeLocation(url, mode = 'push') {
         if (this.window.location.href !== url) this.window.history[mode === 'replace' ? 'replaceState' : 'pushState'](null, '', url);
@@ -240,7 +263,7 @@ export class PatchLibrary {
         return true;
     }
     navigateCatalogue(changes) {
-        const filtersChanged = ['query', 'sort', 'period'].some(key => Object.hasOwn(changes, key));
+        const filtersChanged = ['query', 'category', 'sort', 'period'].some(key => Object.hasOwn(changes, key));
         const state = { ...this.catalogueState(), ...(filtersChanged ? { cursor: null, localCursor: null } : {}), ...changes };
         if (state.sort !== 'popular') state.period = 'all';
         this.writeLocation(catalogueUrl(state, this.window.location.origin));
@@ -251,6 +274,7 @@ export class PatchLibrary {
         if (!state) return false;
         this.loadGeneration++;
         Object.assign(this, state);
+        this.category = state.category || '';
         this.searchDraft = state.query;
         const url = catalogueUrl(state, this.window.location.origin);
         this.writeLocation(url, 'replace'); this.catalogueLocations[state.view] = url;
@@ -286,7 +310,7 @@ export class PatchLibrary {
     render({ preserveFocus = true, previewImages } = {}) {
         if (!this.surface || !LIBRARY_VIEWS[this.view]) return;
         const focused = preserveFocus && this.surface.contains(this.document.activeElement) ? this.document.activeElement : null;
-        const focusName = ['q', 'sort', 'period'].includes(focused?.name) ? focused.name : null;
+        const focusName = ['q', 'category', 'sort', 'period'].includes(focused?.name) ? focused.name : null;
         const searchDraft = focusName === 'q' ? { value: focused.value, start: focused.selectionStart, end: focused.selectionEnd } : null;
         this.observer?.disconnect(); this.previewAbort?.abort(); this.previewAbort = new AbortController(); this.surface.replaceChildren();
         const [title, intro] = LIBRARY_VIEWS[this.view];
@@ -297,7 +321,7 @@ export class PatchLibrary {
         input.addEventListener('input', () => { this.searchDraft = input.value; });
         const button = element(this.document, 'button', 'Search'); button.type = 'submit'; form.append(input, button);
         form.addEventListener('submit', event => { event.preventDefault(); this.navigateCatalogue({ query: input.value.trim().slice(0, 100) }); }); controls.append(form);
-        if (this.view === 'public') {
+        if (this.view === 'public' || this.view === 'tests') {
             const filters = element(this.document, 'div', undefined, 'patch-library-filters');
             const select = (labelText, name, options, value) => {
                 const label = element(this.document, 'label', labelText); const field = element(this.document, 'select'); field.name = name;
@@ -305,13 +329,22 @@ export class PatchLibrary {
                 field.value = value; label.append(field); filters.append(label);
                 field.addEventListener('change', () => this.navigateCatalogue({ [name]: field.value }));
             };
-            select('Sort by', 'sort', [['newest', 'Newest'], ['popular', 'Most popular']], this.sort);
-            if (this.sort === 'popular') select('Time period', 'period', [['all', 'All time'], ['day', 'Past day'], ['week', 'Past week'], ['month', 'Past month'], ['year', 'Past year']], this.period);
+            if (this.view === 'tests') {
+                const available = new Set(MODULE_DEMOS.map(guide => this.app.host.registry?.get(guide.id)?.category));
+                const options = CATEGORY_ORDER.filter(key => available.has(key)).map(key => [key, CATEGORY_LABELS[key]]);
+                select('Module family', 'category', [['', 'All families'], ...options], this.category || '');
+            } else {
+                select('Sort by', 'sort', [['newest', 'Newest'], ['popular', 'Most popular']], this.sort);
+                if (this.sort === 'popular') select('Time period', 'period', [['all', 'All time'], ['day', 'Past day'], ['week', 'Past week'], ['month', 'Past month'], ['year', 'Past year']], this.period);
+            }
             controls.append(filters);
         }
         header.append(controls);
         this.surface.append(header);
-        if (this.view === 'tests') this.localSection('Module tests', Object.entries(TEST_PATCHES).map(([name, patch]) => ({ ...patch, source: 'test', key: name })), 'tests', 'cursor');
+        if (this.view === 'tests') {
+            const records = this.category ? demoEntries.filter(record => record.guide && this.app.host.registry?.get(record.guide.id)?.category === this.category) : demoEntries;
+            this.localSection('Guides and demo patches', records, 'tests', 'cursor');
+        }
         if (this.view === 'mine') {
             try { this.localSection('This browser', this.local.list(), 'local', 'localCursor'); }
             catch (error) { this.section('This browser', [], error.message); }
@@ -389,17 +422,31 @@ export class PatchLibrary {
     }
     entry(record, previewImages) {
         const card = element(this.document, 'article', undefined, 'patch-entry'); card.dataset.patchName = record.name; card.dataset.patchSource = record.source; if (record.id) card.dataset.patchId = record.id;
+        if (record.guide) card.dataset.moduleGuide = record.guide.id;
         if (record.visibility) card.dataset.patchVisibility = record.visibility;
-        const frame = element(this.document, 'div', undefined, 'patch-preview-frame');
+        const frame = element(this.document, record.guide ? 'a' : 'div', undefined, 'patch-preview-frame');
+        if (record.guide) {
+            frame.href = `/docs/modules/${record.guide.id}`;
+            frame.setAttribute('aria-label', `Read the ${record.guide.title} guide`);
+            frame.tabIndex = -1; // The title below is the keyboard link to the same guide.
+        }
         frame.append(element(this.document, 'span', 'Rack preview', 'patch-preview-placeholder'));
         if (record.images?.thumbnail) this.showCloudPreview(frame, record, previewImages?.get(record.id));
         else if (record.state) this.observePreview(frame, record);
         card.append(frame);
         const caption = element(this.document, 'div', undefined, 'patch-entry-caption'); const meta = element(this.document, 'div', undefined, 'patch-entry-meta');
-        meta.append(element(this.document, 'span', record.source === 'cloud' ? record.visibility : record.source === 'test' ? 'Test patch' : 'This browser'), element(this.document, 'span', `${record.moduleCount ?? record.state?.modules?.length ?? 0} modules`));
-        caption.append(meta, element(this.document, 'h3', record.name));
+        const category = record.guide && this.app.host.registry?.get(record.guide.id)?.category;
+        meta.append(element(this.document, 'span', CATEGORY_LABELS[category] || sourceLabel(record)), element(this.document, 'span', `${record.moduleCount ?? record.state?.modules?.length ?? 0} modules`));
+        const title = element(this.document, 'h3');
+        if (record.guide) {
+            const guideLink = element(this.document, 'a', record.guide.title);
+            guideLink.href = frame.href;
+            title.append(guideLink);
+        } else title.textContent = record.name;
+        caption.append(meta, title);
         if (record.authorName) caption.append(element(this.document, 'p', `${record.canEdit ? 'By you' : `By ${record.authorName}`}`));
-        if (record.description) caption.append(element(this.document, 'p', record.description));
+        const description = record.guide?.intro || record.description;
+        if (description) caption.append(element(this.document, 'p', description));
         if (this.view === 'public' && this.sort === 'popular' && this.period !== 'all' && Number.isInteger(record.popularityCount)) {
             caption.append(element(this.document, 'p', `${record.popularityCount} thumbs-ups in the past ${this.period}.`, 'patch-popularity'));
         }
@@ -611,6 +658,8 @@ export class PatchLibrary {
         if (this.applyCatalogueLocation()) return true;
         const href = this.window.location.href;
         if (isIntroductionDemoLocation(this.window.location)) return this.openIntroductionDemo({ history: 'replace' });
+        const testPatch = testPatchAt(this.window.location);
+        if (testPatch) return this.open({ ...testPatch, source: 'test', key: testPatch.name }, { history: 'replace' });
         if (href === this.rackLocation && this.view !== 'rack') { this.loadGeneration++; this.show('rack'); return true; }
         const location = parsePatchLocation(this.window.location.hash, this.window.location.pathname);
         if (location?.source === 'cloud') {

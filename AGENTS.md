@@ -58,7 +58,7 @@ src/js/
 │   ├── worklet-engine.js  # Main-thread worklet controller
 │   └── worklet/           # Audio-thread processor/plugin registry
 ├── config/
-│   ├── test-patches.js    # Dedicated Test patches view catalogue
+│   ├── test-patches.js    # Demo and integration patch catalogue
 │   ├── factory-patches.js # Complete regression/archive exports
 │   └── patches/           # Retained test and example definitions
 └── patches/               # Patch serialization
@@ -296,10 +296,10 @@ Port names are source-defined in each module's `ui.inputs[]` and `ui.outputs[]`.
 
 1. Create file: `src/js/config/patches/{name}.js`
 2. For a module or integration test, import in `src/js/config/test-patches.js`
-3. Add to `TEST_PATCHES` for the dedicated Test patches view; the complete `FACTORY_PATCHES` regression aggregate includes it automatically
+3. Add to `TEST_PATCHES` for the Module demos directory; the complete `FACTORY_PATCHES` regression aggregate includes it automatically
 4. Run focused tests: `npm test -- tests/config/patch-catalogs.test.js tests/config/factory-patches.test.js tests/app/patch-format.test.js`
 
-The app imports `TEST_PATCHES` directly. Retained musical demos, SFX, and drum compositions are exported separately as `ARCHIVED_DEMO_PATCHES` from `src/js/config/patches/index.js`, with an importable collection and source index in `archive/demo-patches/`. Keep them outside the main and Test patches views. Update the archive JSON whenever an archived source changes.
+The app imports `TEST_PATCHES` directly. Retained musical demos, SFX, and drum compositions are exported separately as `ARCHIVED_DEMO_PATCHES` from `src/js/config/patches/index.js`, with an importable collection and source index in `archive/demo-patches/`. Keep them outside the main and Module demos views. Update the archive JSON whenever an archived source changes.
 
 ## Live patch walkthroughs
 

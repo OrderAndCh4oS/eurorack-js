@@ -49,6 +49,8 @@ body .app-container, body.skin-factory .app-container { margin-top: calc(var(--l
 .patch-entry h3 { font-size: 17px; line-height: 1.2; margin: 5px 0 8px; overflow-wrap: anywhere; }
 .patch-entry p { font-size: 12px; margin-top: 6px; overflow-wrap: anywhere; }
 .patch-entry a { color: inherit; text-underline-offset: 3px; }
+.patch-entry[data-module-guide] h3 { font: 700 21px/1.2 var(--site-heading-font); }
+.patch-entry[data-module-guide] h3 a:hover { text-decoration-thickness: 2px; }
 .patch-entry-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 10px; text-transform: uppercase; font-weight: 900; }
 .patch-entry-actions { display: flex; flex-wrap: wrap; border-top: 1px solid var(--library-line); }
 .patch-entry-actions button, .patch-entry-actions a.patch-button { flex: 1 0 auto; border: 0; border-right: 1px solid var(--library-line); border-bottom: 1px solid var(--library-line); padding: 10px; font-size: 11px; }

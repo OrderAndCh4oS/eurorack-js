@@ -1,5 +1,5 @@
 /**
- * Built-in test patches for the dedicated Test patches view.
+ * Built-in test patches for the Module demos directory.
  *
  * Keep this import graph independent of the archived musical examples. The
  * complete FACTORY_PATCHES catalogue is reserved for regression/archive tools.

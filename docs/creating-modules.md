@@ -617,7 +617,9 @@ export default {
 };
 ~~~
 
-For a module or integration test, import the file in **src/js/config/test-patches.js** and add it to `TEST_PATCHES`. It appears in the dedicated **Test patches** view and is automatically included in the complete `FACTORY_PATCHES` regression catalogue. The app imports this test catalogue directly so archived examples are not loaded with the test view.
+For a module or integration test, import the file in **src/js/config/test-patches.js** and add it to `TEST_PATCHES`. It appears in the **Module demos** directory and is automatically included in the complete `FACTORY_PATCHES` regression catalogue. The app imports this test catalogue directly so archived examples are not loaded with the test view.
+
+For a built-in module, add its title, introduction and test patch name to [the module directory](../src/js/config/module-demos.js). Write its guide in **docs/modules/{moduleId}.md**. Follow the [VCO guide](modules/vco.md) for the listening exercise, composition example, panel reference and research link. The docs build turns the **Open in rack** link into a themed preview of that patch.
 
 Retained musical examples are exported as `ARCHIVED_DEMO_PATCHES` from **src/js/config/patches/index.js** and are available in the [importable archive](../archive/demo-patches/README.md). Update that archive's JSON alongside source changes. New user/community compositions belong in the patch library rather than the built-in test catalogue.
 
@@ -630,7 +632,7 @@ Patch rules:
 - Plugin patches declare every owning plugin contract they use.
 - test-{module} patches isolate one target with only necessary support modules.
 - Test entries can cover multiple modules when their purpose is an integration check.
-- Retained musical demos, sound effects, and drum compositions stay in the archive, outside the Test patches view.
+- Retained musical demos, sound effects, and drum compositions stay in the archive, outside the Module demos directory.
 
 Update README.md, AGENTS.md, research, and queue status for a built-in module. Update this guide only for a reusable authoring pattern.
 

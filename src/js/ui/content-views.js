@@ -11,7 +11,8 @@ function readMetadata(document) {
 }
 
 export function contentView(location) {
-    if (/^\/docs(?:\/[a-z0-9-]+)?\/?$/.test(location.pathname)) return 'docs';
+    if (/^\/docs\/modules\/?$/.test(location.pathname)) return null;
+    if (/^\/docs(?:\/(?:modules\/)?[a-z0-9-]+)?\/?$/.test(location.pathname)) return 'docs';
     if (/^\/introduction\/?$/.test(location.pathname)) return 'introduction';
     return null;
 }

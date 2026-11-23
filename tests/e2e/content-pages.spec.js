@@ -87,7 +87,7 @@ test('direct pages share rack navigation and support profile changes without loa
     for (const path of ['/docs/webmcp', '/introduction']) {
         await page.goto(path);
         const navigation = page.getByRole('navigation', { name: 'Patch views', exact: true });
-        await expect(navigation.locator('a')).toHaveText(['Rack', 'New patch', 'My patches', 'Public patches', 'Test patches', 'Introduction', 'Docs']);
+        await expect(navigation.locator('a')).toHaveText(['Rack', 'New patch', 'My patches', 'Public patches', 'Module demos', 'Introduction', 'Docs']);
         await expect(navigation.getByRole('link', { name: 'New patch', exact: true })).toHaveAttribute('href', '/?new=1');
         await expect(navigation.locator('.patch-site-links [aria-current="page"]')).toHaveText(path.startsWith('/docs') ? 'Docs' : 'Introduction');
         await expect(navigation).toHaveCSS('height', '38px');

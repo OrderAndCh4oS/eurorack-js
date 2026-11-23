@@ -1,6 +1,6 @@
 # Synth Voice Basics
 
-Learn how pitch, tone and volume fit together using patches from the **Test patches** view. Each link below finds a working example in the catalogue. Select **Open in rack**, then **Start** to hear it.
+Learn how pitch, tone and volume fit together using patches from the **Module demos** directory. Each link below finds a working example in the catalogue. Select **Open in rack**, then **Start** to hear it.
 
 ## Follow the sound
 

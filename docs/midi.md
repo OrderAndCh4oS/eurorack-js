@@ -65,7 +65,7 @@ Create two virtual buses and enable them in your DAW’s MIDI settings. Each bus
 | DAW → rack | Send notes to the **To Rack** output. Enable outgoing MIDI clock and transport there to drive the rack sequencer. | **MIDI input → To Rack** |
 | Rack → DAW | Receive notes on the **From Rack** input. | **MIDI output → From Rack** |
 
-1. In **MIDI Setup**, select **Open MIDI starter**, then click **Start** in the rack. You can also open the same patch from the test catalogue. [Test - MIDI In and Out](/patches?view=tests&q=Test%20-%20MIDI%20In%20and%20Out)
+1. In **MIDI Setup**, select **Open MIDI starter**, then click **Start** in the rack. You can also open the same patch from the Module demos directory. [Test - MIDI In and Out](/patches?view=tests&q=Test%20-%20MIDI%20In%20and%20Out)
 2. **Play the top row.** Set a MIDI track’s output to **To Rack, channel 1** and play a clip or pattern. For live playing, choose your keyboard as that track’s input. Keep the return bus on its own track so recorded notes cannot feed back into the rack.
 3. **Record the bottom row.** Create a second track with an instrument and select **From Rack, channel 2** as its MIDI input. Arm it, enable input monitoring and start recording in the DAW. Its clock advances the rack sequencer every eighth note. The track should capture MIDI notes **60, 64, 67, 70** in a loop.
 

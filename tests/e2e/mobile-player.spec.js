@@ -49,7 +49,7 @@ test('the phone player and patch library use compact rack buttons', async ({ pag
     await checkButton(page.getByRole('button', { name: 'Search', exact: true }));
     await expect(page.getByRole('searchbox')).toHaveCSS('height', '28px');
     await expect(page.getByRole('combobox', { name: 'Sort by' })).toHaveCSS('height', '28px');
-    await nav.getByRole('button', { name: 'Test patches' }).tap();
+    await nav.getByRole('button', { name: 'Module demos' }).tap();
     await checkButton(page.getByRole('button', { name: 'Open in rack' }).first());
     await checkButton(page.locator('.patch-pagination a[rel="next"]').first());
 });

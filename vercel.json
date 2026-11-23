@@ -18,6 +18,7 @@
     { "source": "/patches/:id", "destination": "/api?__path=/patches/:id" },
     { "source": "/patches", "destination": "/patches.html" },
     { "source": "/docs", "destination": "/docs/index.html" },
+    { "source": "/docs/modules/:id", "destination": "/docs/modules/:id.html" },
     { "source": "/docs/:page", "destination": "/docs/:page.html" },
     { "source": "/introduction", "destination": "/introduction.html" },
     { "source": "/privacy-policy", "destination": "/privacy-policy.html" },
@@ -26,6 +27,7 @@
   "redirects": [
     { "source": "/:path((?!api/internal/cleanup-previews(?:/|$)).*)", "has": [{ "type": "host", "value": "eurorack-js.vercel.app" }], "destination": "https://eurorackjs.orderandchaos.xyz/:path*", "permanent": true },
     { "source": "/patches/", "destination": "/patches", "permanent": true },
+    { "source": "/docs/modules", "destination": "/patches?view=tests", "permanent": true },
     { "source": "/privacy", "destination": "/privacy-policy", "permanent": true },
     { "source": "/terms", "destination": "/terms-of-service", "permanent": true }
   ]

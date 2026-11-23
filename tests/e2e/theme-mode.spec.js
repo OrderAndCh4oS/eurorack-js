@@ -32,7 +32,7 @@ test('the top bar switches the live rack, drawers, catalogue and reading views',
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     expect(await page.evaluate(() => window.eurorackApp.host.serializePatch())).toEqual(patch);
 
-    await navigation.getByRole('button', { name: 'Test patches' }).click();
+    await navigation.getByRole('button', { name: 'Module demos' }).click();
     await expect(page.locator('#patchLibrary')).toHaveCSS('background-color', darkPaper);
     await expect(page.locator('.patch-entry-caption h3').first()).toHaveCSS('color', darkInk);
     await navigation.getByRole('link', { name: 'Introduction' }).click();

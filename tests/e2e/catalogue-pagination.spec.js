@@ -11,7 +11,7 @@ test('restores a test catalogue page through links, reload and browser history',
     await page.goto('/patches?view=tests');
     await expect(page.locator('.patch-entry')).toHaveCount(24);
     const first = await names(page);
-    const navigation = page.getByRole('navigation', { name: 'Module tests pages', exact: true });
+    const navigation = page.getByRole('navigation', { name: 'Guides and demo patches pages', exact: true });
     await navigation.getByRole('link', { name: 'Next', exact: true }).click();
     await expect(page).toHaveURL(/cursor=/);
     await expect.poll(() => names(page)).not.toEqual(first);
@@ -38,7 +38,7 @@ test('restores a test catalogue page through links, reload and browser history',
     expect(new URL(page.url()).searchParams.has('cursor')).toBe(false);
     await page.reload();
     await expect(page.getByRole('searchbox')).toHaveValue('Test - Chorus');
-    await expect.poll(() => names(page)).toEqual(['Test - Chorus']);
+    await expect.poll(() => names(page)).toEqual(['Stereo chorus']);
 });
 
 test('keeps public sorting, time filters and search in shareable paginated URLs', async ({ page }, testInfo) => {
@@ -131,12 +131,12 @@ test('phone navigation keeps the current view and account controls visible', asy
                 expect(box.x + box.width).toBeLessThanOrEqual(320);
             }
         };
-        await checkNavigation('Test patches');
+        await checkNavigation('Module demos');
         await page.locator('.patch-entry').first().getByRole('button', { name: 'Open in rack', exact: true }).click();
         await expect(page.getByRole('button', { name: 'Patches', exact: true })).toBeVisible();
         await expect(page.locator('#startButton')).toBeVisible();
         await page.goBack();
-        await checkNavigation('Test patches');
+        await checkNavigation('Module demos');
         await expect(page.locator('#toolbar')).toBeHidden();
         const library = await page.locator('#patchLibrary').evaluate(node => ({ width: node.clientWidth, contentWidth: node.scrollWidth }));
         expect(library.contentWidth).toBe(library.width);

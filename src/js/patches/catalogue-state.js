@@ -1,3 +1,5 @@
+import { CATEGORY_ORDER } from '../rack/module-manifest.js';
+
 export const CATALOGUE_PAGE_SIZE = 24;
 
 const VIEWS = new Set(['public', 'mine', 'tests']);
@@ -13,6 +15,7 @@ function catalogueState(state = {}) {
     return {
         view,
         query: searchText(state.query),
+        ...(view === 'tests' && CATEGORY_ORDER.includes(state.category) ? { category: state.category } : {}),
         sort,
         period: sort === 'popular' && PERIODS.has(state.period) ? state.period : 'all',
         cursor: boundedCursor(state.cursor),
@@ -22,9 +25,10 @@ function catalogueState(state = {}) {
 
 export function parseCatalogueLocation(location) {
     const url = typeof location === 'string' ? new URL(location, 'https://catalogue.invalid') : location;
+    if (url && /^\/docs\/modules\/?$/.test(url.pathname)) return catalogueState({ view: 'tests' });
     if (!url || !/^\/patches\/?$/.test(url.pathname)) return null;
     const params = new URLSearchParams(url.search);
-    return catalogueState({ view: params.get('view'), query: params.get('q'), sort: params.get('sort'), period: params.get('period'), cursor: params.get('cursor'), localCursor: params.get('localCursor') });
+    return catalogueState({ view: params.get('view'), category: params.get('category'), query: params.get('q'), sort: params.get('sort'), period: params.get('period'), cursor: params.get('cursor'), localCursor: params.get('localCursor') });
 }
 
 export function catalogueUrl(state, base = globalThis.location?.origin) {
@@ -32,6 +36,7 @@ export function catalogueUrl(state, base = globalThis.location?.origin) {
     const url = new URL('/patches', base);
     if (normalized.view !== 'public') url.searchParams.set('view', normalized.view);
     if (normalized.query) url.searchParams.set('q', normalized.query);
+    if (normalized.category) url.searchParams.set('category', normalized.category);
     if (normalized.sort !== 'newest') url.searchParams.set('sort', normalized.sort);
     if (normalized.period !== 'all') url.searchParams.set('period', normalized.period);
     if (normalized.cursor) url.searchParams.set('cursor', normalized.cursor);
@@ -78,7 +83,8 @@ export function paginateLocalPatches(records, { query = '', cursor = null, kind,
         order.set(key, index);
         return { record, key, created: Date.parse(record.created || record.createdAt) || 0 };
     }).filter(({ record, key }) => {
-        const text = `${record.name || ''} ${record.description || ''} ${record.authorName || ''}`;
+        const guide = record.guide;
+        const text = `${record.name || ''} ${record.description || ''} ${record.authorName || ''}${guide ? ` ${guide.id} ${guide.title} ${guide.intro}` : ''}`;
         return text.toLowerCase().includes(normalizedQuery) || (kind === 'tests' && key.toLowerCase().includes(normalizedQuery));
     });
     if (boundary && kind === 'tests' && !order.has(boundary.key)) throw invalidCursor();

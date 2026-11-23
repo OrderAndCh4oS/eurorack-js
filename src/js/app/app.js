@@ -6,7 +6,7 @@ import {
 } from '../index.js';
 import { CABLE_COLORS } from '../config/constants.js';
 import { TEST_PATCHES } from '../config/test-patches.js';
-import { PatchLibrary, isIntroductionDemoLocation } from '../ui/patch-library.js';
+import { PatchLibrary, isIntroductionDemoLocation, testPatchAt } from '../ui/patch-library.js';
 import { LocalPatchStore } from '../patches/local-patch-store.js';
 import { LocalModuleStore } from '../local-modules/store.js';
 import { LocalModuleRuntime } from '../local-modules/runtime.js';
@@ -241,7 +241,7 @@ export class EurorackApp {
             if (!this.inPlayerView) await this.patchLibrary.run(() => this.patchLibrary.newPatch());
         } else if (!recovered) {
             if (this.patchLibrary) await this.patchLibrary.run(() => {
-                if (isIntroductionDemoLocation(window.location)) return this.patchLibrary.loadLocation();
+                if (isIntroductionDemoLocation(window.location) || testPatchAt(window.location)) return this.patchLibrary.loadLocation();
                 const location = parsePatchLocation(window.location.hash, window.location.pathname);
                 if (location?.source === 'cloud' || location?.source === 'local') { void this.patchLibrary.run(() => this.patchLibrary.loadLocation()); return; }
                 return this.loadPatchFromUrlHash();

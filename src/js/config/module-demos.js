@@ -101,6 +101,14 @@ export const MODULE_DEMOS = [
         intro: "A multiple sends copies of one signal to several destinations. It is especially handy when you want to see all the branches of a patch in one place."
     },
     {
+        id: "octo-send", title: "Octo Send", patch: "Test - Octo Cable Snake",
+        intro: "Gather up to eight signals on one rack row and run a single cable to Octo Receive. Each signal has its own numbered jack at both ends."
+    },
+    {
+        id: "octo-receive", title: "Octo Receive", patch: "Test - Octo Cable Snake",
+        intro: "Pick up eight signals from Octo Send next to the modules that need them. One LINK cable reconnects all eight paths."
+    },
+    {
         id: "matrix", title: "Matrix mixer", patch: "Test - Matrix Mixer",
         intro: "Build four different blends from the same four inputs. Each knob sits at the crossing of one source and one destination."
     },

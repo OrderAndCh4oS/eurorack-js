@@ -97,6 +97,8 @@ Cancellation stops evaluation or prevents an application that has not started lo
 
 Connection issues are advisory and do not block an otherwise valid patch. The checks follow audio, CV, gate and trigger routes at module level. Spare individual jacks are normal. Monitors and recorders need a cable into a declared signal input; a PLOT trigger alone does not count. These checks cannot prove a patch is audible or identify every unused internal channel.
 
+For an OCTO cable snake, also trace the jack number at both ends. A cable into Send 1 feeds Receive 1. A cable from Receive 2 can be silent even when the debugger sees a path through both panels. Use `measure_audio` to check the playing result.
+
 These wiring checks are separate from the audio measurements below. Listening still happens through the rack; tools do not return recordings or images.
 
 ## Measure the audio

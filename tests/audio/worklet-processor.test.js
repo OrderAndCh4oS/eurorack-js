@@ -218,6 +218,61 @@ describe('Eurorack AudioWorkletProcessor', () => {
         expect(sink.leds.R).toBe(0.5);
     });
 
+    it('rewires Octo trunks atomically and switches normals only when the local lead changes', () => {
+        const processor = new Processor();
+        const modules = [
+            ['dc', 'atten', { offset1: 1, offset2: 0 }], ['A', 'octo-send'], ['B', 'octo-send'],
+            ['far', 'octo-receive'], ['target', 'mult'], ['vca', 'vca']
+        ].map(([id, type, params = {}], order) => ({ id, type, params, order, rackOrder: order, pluginId: 'core' }));
+        const wire = (fromModule, fromPort, toModule, toPort) => ({ fromModule, fromPort, toModule, toPort });
+        const inputs = [
+            wire('dc', 'out1', 'target', 'in1'), wire('dc', 'out1', 'A', 'in8'), wire('dc', 'out2', 'B', 'in8')
+        ];
+        const local = [wire('far', 'out8', 'target', 'in2'), wire('far', 'out8', 'vca', 'ch1CV')];
+        const trunk = send => wire(send, 'link', 'far', 'link');
+        const topology = (revision, cables, replace = false) => processor.handleMessage({
+            type: 'topology', replace, topology: { revision, plugins: { core: 1 }, modules, cables }
+        });
+        const outputs = [[new Float32Array(128), new Float32Array(128)]];
+        function render(voltage, cv = voltage) {
+            processor.process([], outputs);
+            expect(new Set(processor.modules.target.instance.outputs.out2a)).toEqual(new Set([voltage]));
+            expect(new Set(processor.modules.vca.instance.inputs.ch1CV)).toEqual(new Set([cv]));
+        }
+        topology(1, inputs);
+        const target = processor.modules.target.instance;
+        const connected = vi.spyOn(target, 'onInputConnected');
+        const disconnected = vi.spyOn(target, 'onInputDisconnected');
+        const lane = processor.modules.far.instance.outputs.out8;
+        const targetBuffer = target.inputs.in2;
+        render(5);
+        topology(2, [...inputs, ...local]);
+        render(0);
+        topology(3, [...inputs, ...local, trunk('A')]);
+        render(5);
+        topology(4, [...inputs, ...local, trunk('B')]);
+        render(-5);
+        const active = processor.graph;
+        topology(5, [...inputs, ...local, wire('dc', 'out2', 'far', 'link')]);
+        expect(processor.port.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'host-error', revision: 5 }));
+        expect(processor.graph).toBe(active);
+        expect(processor.lastTopology.revision).toBe(4);
+        render(-5);
+        topology(6, [...inputs, ...local]);
+        render(0);
+        expect(lane).toBe(processor.modules.far.instance.outputs.out8);
+        expect(target.inputs.in2).toBe(targetBuffer);
+        expect(connected.mock.calls).toEqual([['in2']]);
+        expect(disconnected).not.toHaveBeenCalled();
+        topology(7, inputs);
+        render(5);
+        expect(disconnected.mock.calls).toEqual([['in2']]);
+        // Opening a saved patch creates new DSP instances already physically occupied.
+        topology(8, [...inputs, ...local], true);
+        expect(processor.modules.target.instance).not.toBe(target);
+        render(0);
+    });
+
     it('restores declared normals when a cable is removed', () => {
         const processor = new Processor();
         const modules = [

@@ -146,7 +146,7 @@ range, step or enumerated choices on both sides of the worklet boundary.
 The compiled ARP sequence and the range checks share their implementation
 with the [Bend specifications](../laws/README.md).
 
-`signal` is one of `audio`, `cv`, `gate`, `trigger`, or `any`. It is semantic metadata for validation, rendering, and tooling; Eurorack remains DC-coupled, so differing signal labels do not prohibit a cable.
+Ordinary jacks carry one DC-coupled voltage. Their `signal` labels (`audio`, `cv`, `gate`, `trigger`, and `any`) are freely patchable between types. The built-in OCTO pair also has a dedicated `octo-link` connector for eight lanes. Send's LINK output mates with Receive's LINK input.
 
 Default voltage contracts are:
 
@@ -211,6 +211,7 @@ Routing rules:
 
 - One source per input. Creating or moving a cable to an occupied input is rejected and leaves the existing connections intact.
 - One output may fan out to any number of inputs.
+- OCTO LINK cables are saved and drawn as ordinary endpoint pairs. Before ordering DSP modules, the compiler traces each numbered lane back to its source. Sending a clock or a feedback path through a snake preserves direct-cable timing. A physically patched Receive output supplies 0 V when its LINK or upstream lane is open.
 - Imported patches with duplicate destinations are rejected rather than silently rewritten.
 - Sources process before destinations outside feedback components, using a topological ordering.
 - Manifest order, rack order, then instance ID provide deterministic tie breaks.

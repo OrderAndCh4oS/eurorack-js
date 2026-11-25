@@ -1,14 +1,15 @@
 import { getNestedValue, setNestedValue } from '../utils/nested-access.js';
 import { getControlDomain, inRange, legalControlValue } from './control-domain.js';
 
-export const SIGNAL_TYPES = Object.freeze(['audio', 'cv', 'gate', 'trigger', 'any']);
+export const SIGNAL_TYPES = Object.freeze(['audio', 'cv', 'gate', 'trigger', 'any', 'octo-link']);
 
 const DEFAULT_VOLTAGE = Object.freeze({
     audio: Object.freeze({ min: -5, max: 5, normal: 0 }),
     cv: Object.freeze({ min: -5, max: 5, normal: 0 }),
     gate: Object.freeze({ min: 0, max: 10, normal: 0 }),
     trigger: Object.freeze({ min: 0, max: 10, normal: 0 }),
-    any: Object.freeze({ min: -10, max: 10, normal: 0 })
+    any: Object.freeze({ min: -10, max: 10, normal: 0 }),
+    'octo-link': Object.freeze({ min: 0, max: 0, normal: 0 })
 });
 
 function assert(condition, message) {
@@ -51,6 +52,34 @@ export function getModulePorts(definition, direction) {
 
 export function getModulePort(definition, direction, portName) {
     return getModulePorts(definition, direction).find(port => port.port === portName) || null;
+}
+
+function octoLinkDirection(type, port) {
+    if (port === 'link') {
+        if (type === 'octo-send') return 'output';
+        if (type === 'octo-receive') return 'input';
+    }
+    return null;
+}
+
+// Local saves can be decoded before their registry is loaded. The two built-in
+// LINK jacks have reserved identities even at that stage.
+export function assertOctoConnection(cable, sourceType, destinationType, taggedLink = false) {
+    const from = octoLinkDirection(sourceType, cable.fromPort);
+    const to = octoLinkDirection(destinationType, cable.toPort);
+    if ((from || to || taggedLink) && !(from === 'output' && to === 'input')) {
+        throw new Error(`Cable "${cable.fromModule}.${cable.fromPort} -> ${cable.toModule}.${cable.toPort}": LINK requires OCTO SEND LINK to OCTO RECEIVE LINK`);
+    }
+}
+
+export function validateCablePorts(cable, sourceDefinition, destinationDefinition) {
+    const output = getModulePort(sourceDefinition, 'output', cable.fromPort);
+    const input = getModulePort(destinationDefinition, 'input', cable.toPort);
+    if (!output) throw new Error(`Module "${cable.fromModule}" has no output port "${cable.fromPort}"`);
+    if (!input) throw new Error(`Module "${cable.toModule}" has no input port "${cable.toPort}"`);
+    assertOctoConnection(cable, sourceDefinition.id, destinationDefinition.id,
+        output.signal === 'octo-link' || input.signal === 'octo-link');
+    return input;
 }
 
 export function getModuleParamPaths(definition) {
@@ -165,6 +194,10 @@ export function validateModuleDefinition(definition, {
         assert(port.id, `Module "${moduleId}" port "${port.port || 'unknown'}" is missing id`);
         assert(port.port, `Module "${moduleId}" port "${port.id}" is missing port`);
         assert(SIGNAL_TYPES.includes(port.signal), `Module "${moduleId}" port "${port.port}" has invalid signal: ${port.signal}`);
+        if (port.signal === 'octo-link') {
+            const direction = 'normal' in port.voltage ? 'input' : 'output';
+            assert(octoLinkDirection(moduleId, port.port) === direction, 'LINK is reserved for the OCTO SEND and OCTO RECEIVE trunk jacks');
+        }
         assert(Number.isFinite(port.voltage.min) && Number.isFinite(port.voltage.max), `Module "${moduleId}" port "${port.port}" has invalid voltage range`);
         assert(port.voltage.min <= port.voltage.max, `Module "${moduleId}" port "${port.port}" has reversed voltage range`);
         if ('normal' in port.voltage) {

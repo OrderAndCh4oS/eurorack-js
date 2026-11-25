@@ -186,6 +186,31 @@ describe('RackHost', () => {
         await host.destroy();
     });
 
+    it('keeps the physical Octo connection and revision when a live connect or move is incompatible', async () => {
+        const host = new RackHost();
+        await host.init();
+        host.addModule('octo-send', { id: 'A' });
+        host.addModule('octo-receive', { id: 'B' });
+        host.addModule('octo-receive', { id: 'C' });
+        const trunk = { fromModule: 'A', fromPort: 'link', toModule: 'B', toPort: 'link' };
+        const fanout = { ...trunk, toModule: 'C' };
+        const scalar = { fromModule: 'B', fromPort: 'out2', toModule: 'A', toPort: 'in2' };
+        const sync = vi.spyOn(host, 'syncTopology');
+        host.connect(trunk);
+        host.connect(fanout);
+        host.connect(scalar);
+        sync.mockClear();
+        expect(host.connect(trunk)).toBeNull();
+        expect(host.moveCable(fanout, trunk)).toBeNull();
+        for (const connection of [{ ...trunk, toModule: 'A', toPort: 'in1' }, { ...scalar, toModule: 'C', toPort: 'link' }]) {
+            expect(() => host.connect(connection)).toThrow(/LINK/);
+            expect(() => host.moveCable(trunk, connection)).toThrow(/LINK/);
+        }
+        expect(sync).not.toHaveBeenCalled();
+        expect(host.serializePatch().cables).toEqual([trunk, fanout, scalar]);
+        await host.destroy();
+    });
+
     it('moves a cable with one topology synchronization', async () => {
         const { host } = await createHost();
         host.addModule('source', { id: 'source_1' });

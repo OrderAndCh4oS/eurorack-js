@@ -73,6 +73,24 @@ describe('cable endpoint dragging', () => {
         expect(cable.pathEl.classList.contains('cable-detached')).toBe(false);
     });
 
+    it.each([true, false])('cleans up a rejected LINK drop with shift-drag %s', shiftKey => {
+        const { app, cable, toEl, fromEl } = setupCable();
+        const link = createJack({ direction: 'input', module: 'B', port: 'link', left: 220 });
+        const reject = () => { throw new Error('Incompatible LINK cable'); };
+        vi.spyOn(app.host, 'connect').mockImplementation(reject);
+        vi.spyOn(app.host, 'moveCable').mockImplementation(reject);
+        const start = shiftKey ? fromEl : toEl;
+        app.startCableDrag(start, { clientX: 130, clientY: 30, shiftKey });
+        app.updateCablePreview({ clientX: 230, clientY: 30 });
+        app.endCableDrag(link);
+        expect(app.visualCables).toEqual([cable]);
+        expect(cable.pathEl.isConnected).toBe(true);
+        expect(cable.pathEl.classList.contains('cable-detached')).toBe(false);
+        expect(app.dragState).toBeNull();
+        expect(app.previewPath).toBeNull();
+        expect(document.body.classList.contains('cable-drag-active')).toBe(false);
+    });
+
     it('adds another cable when a connected output is shift-dragged', () => {
         const { app, cable, fromEl } = setupCable();
         const nextInput = createJack({ direction: 'input', module: 'vca', port: 'ch1In', left: 220 });

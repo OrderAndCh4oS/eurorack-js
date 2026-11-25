@@ -1,5 +1,5 @@
 import { getNestedValue, setNestedValue } from '../utils/nested-access.js';
-import { assertModuleParam, getModulePort } from '../rack/module-contract.js';
+import { assertModuleParam, assertOctoConnection, validateCablePorts } from '../rack/module-contract.js';
 import { switchValues } from '../rack/control-domain.js';
 
 export const MAX_HP_PER_ROW = 84;
@@ -299,22 +299,15 @@ export class RackState {
         ));
     }
 
-    validateConnection({ fromModule, fromPort, toModule, toPort }, registry = null) {
-        if (!this.modules.has(fromModule) || !this.modules.has(toModule)) {
-            return false;
-        }
-
+    validateConnection(connection, registry = null) {
+        const source = this.modules.get(connection.fromModule);
+        const destination = this.modules.get(connection.toModule);
+        if (!source || !destination) return false;
         if (registry) {
-            const sourceType = this.modules.get(fromModule).type;
-            const destinationType = this.modules.get(toModule).type;
-            if (!getModulePort(registry.get(sourceType), 'output', fromPort)) {
-                throw new Error(`Module "${fromModule}" has no output port "${fromPort}"`);
-            }
-            if (!getModulePort(registry.get(destinationType), 'input', toPort)) {
-                throw new Error(`Module "${toModule}" has no input port "${toPort}"`);
-            }
+            validateCablePorts(connection, registry.get(source.type), registry.get(destination.type));
+        } else {
+            assertOctoConnection(connection, source.type, destination.type);
         }
-
         return true;
     }
 

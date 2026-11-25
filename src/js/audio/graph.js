@@ -1,5 +1,6 @@
 import { getNestedValue } from '../utils/nested-access.js';
-import { getModulePort } from '../rack/module-contract.js';
+import { validateCablePorts } from '../rack/module-contract.js';
+import { resolveOctoRoutes } from './octo-routing.js';
 
 function compareModuleIds(modules, a, b) {
     const aOrder = modules[a]?.order ?? Number.MAX_SAFE_INTEGER;
@@ -57,16 +58,13 @@ export function compileGraph({ modules, cables, blockSize }) {
     const adjacency = new Map(moduleIds.map(id => [id, new Set()]));
     const destinations = new Set();
 
-    const routes = cables.map((cable, index) => {
+    const physicalRoutes = cables.map((cable, index) => {
         const source = modules[cable.fromModule];
         const destination = modules[cable.toModule];
         if (!source) throw new Error(`Cable ${index} references missing source module "${cable.fromModule}"`);
         if (!destination) throw new Error(`Cable ${index} references missing destination module "${cable.toModule}"`);
 
-        const sourcePort = getModulePort(source.def, 'output', cable.fromPort);
-        const destinationPort = getModulePort(destination.def, 'input', cable.toPort);
-        if (!sourcePort) throw new Error(`Module "${cable.fromModule}" has no output port "${cable.fromPort}"`);
-        if (!destinationPort) throw new Error(`Module "${cable.toModule}" has no input port "${cable.toPort}"`);
+        const destinationPort = validateCablePorts(cable, source.def, destination.def);
 
         const destinationKey = `${cable.toModule}\u0000${cable.toPort}`;
         if (destinations.has(destinationKey)) {
@@ -83,7 +81,6 @@ export function compileGraph({ modules, cables, blockSize }) {
             throw new Error(`Input "${cable.toModule}.${cable.toPort}" must be a ${blockSize}-sample Float32Array`);
         }
 
-        adjacency.get(cable.fromModule).add(cable.toModule);
         return {
             ...cable,
             sourceBuffer,
@@ -93,6 +90,13 @@ export function compileGraph({ modules, cables, blockSize }) {
         };
     });
 
+    const blockEndCopies = [];
+    const routes = moduleIds.some(id => modules[id].def.id === 'octo-receive')
+        ? resolveOctoRoutes(modules, physicalRoutes, blockSize, blockEndCopies)
+        : physicalRoutes;
+    for (const route of routes) {
+        if (route.fromModule !== null) adjacency.get(route.fromModule).add(route.toModule);
+    }
     const components = findStronglyConnectedComponents(moduleIds, adjacency);
     const componentByModule = new Map();
     components.forEach((component, componentIndex) => {
@@ -101,12 +105,14 @@ export function compileGraph({ modules, cables, blockSize }) {
     routes.forEach(route => {
         if (componentByModule.get(route.fromModule) === componentByModule.get(route.toModule)) {
             route.delayedBuffer = new Float32Array(blockSize);
+            blockEndCopies.push({ sourceBuffer: route.sourceBuffer, destinationBuffer: route.delayedBuffer });
         }
     });
 
     const componentGraph = new Map(components.map((_, index) => [index, new Set()]));
     const inDegree = new Map(components.map((_, index) => [index, 0]));
     routes.forEach(route => {
+        if (route.fromModule === null) return;
         const from = componentByModule.get(route.fromModule);
         const to = componentByModule.get(route.toModule);
         if (from !== to && !componentGraph.get(from).has(to)) {
@@ -143,7 +149,7 @@ export function compileGraph({ modules, cables, blockSize }) {
             }
         },
         commitFeedback() {
-            routes.forEach(route => route.delayedBuffer?.set(route.sourceBuffer));
+            for (const copy of blockEndCopies) copy.destinationBuffer.set(copy.sourceBuffer);
         }
     };
 }

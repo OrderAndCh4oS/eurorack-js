@@ -29,6 +29,7 @@ import testQuadLfo from './patches/test-quad-lfo.js';
 import testLpg from './patches/test-lpg.js';
 import testLogic from './patches/test-logic.js';
 import testMult from './patches/test-mult.js';
+import testOcto from './patches/test-octo.js';
 import testMatrix from './patches/test-matrix.js';
 import testJoystick from './patches/test-joystick.js';
 import testCvRec from './patches/test-cv-rec.js';
@@ -112,6 +113,7 @@ export const TEST_PATCHES = {
     [testLpg.name]: testLpg,
     [testLogic.name]: testLogic,
     [testMult.name]: testMult,
+    [testOcto.name]: testOcto,
     [testMatrix.name]: testMatrix,
     [testJoystick.name]: testJoystick,
     [testCvRec.name]: testCvRec,

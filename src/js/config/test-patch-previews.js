@@ -414,6 +414,24 @@ export const TEST_PATCH_PREVIEWS = {
       "bytes": 26346
     }
   },
+  "Test - Octo Cable Snake": {
+    "light": {
+      "key": "22569cc1b6e23c48e584689e3ede9b12495482873f88cf33d1c2cc943d2c4a86",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "df9381d3afe3714e0041f73869a8cbab4bf7fdcef97d9c1b64a71b330a8846ac.webp",
+      "width": 149,
+      "height": 480,
+      "bytes": 13928
+    },
+    "dark": {
+      "key": "8dd4c10006e4bb0586a8aee8f38ff5d24d0b756723bc2b5fd220857bf7936c0d",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "c906d64707b74f841a8f4e48dc5d91d554220142cc8fe28b1cbf89bc70d0f0bc.webp",
+      "width": 149,
+      "height": 480,
+      "bytes": 13726
+    }
+  },
   "Test - Matrix Mixer": {
     "light": {
       "key": "6d01d3e41f4c4fa23db0f92104b6e94ee30a5fa1288bfa9b67b847b6a88540e2",

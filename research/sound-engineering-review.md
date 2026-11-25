@@ -35,6 +35,10 @@ npm run audit:dsp -- --module vcf --json
 
 ## Remediation Completed
 
+### Octo Send and Receive (2026-11-25)
+
+The eight-lane snake resolves each numbered path to its original source before the worklet computes feedback delays. A direct-wired oscillator and clocked kick matched the same mix routed through Octo across all 96,000 frames in a 48 kHz Chromium capture. Each endpoint passed the six-configuration strict-voltage audit. The graph tests also cover crossed lanes, parallel receivers, silent jacks overriding a normal, and feedback sharing a trunk with an independent signal. [Send research](modules/octo-send.md) · [Receive research](modules/octo-receive.md) · [Routing tests](../tests/audio/octo-graph.test.js)
+
 ### LOGIC and MULT input normals (2026-11-25)
 
 The worklet delivered cable changes through two hooks. LOGIC and MULT listened
@@ -179,7 +183,7 @@ All listed modules pass the finite/stable-buffer baseline and strict voltage mat
 | Sources/voices | `nse`, `vco`, `wavetable`, `pluck`, `kick`, `snare`, `hat` baseline |
 | Sequencing/pitch | `sh`, `quant`, `arp`, `seq`, `seq-switch`, `euclid`, `turing` baseline |
 | Filters/nonlinear | `vcf`, `lpg`, `formant`, `fold`, `ring` baseline |
-| Utilities | `logic`, `mult`, `matrix`, `mix`, `joystick`, `vca`, `atten`, `db`, `pwm`, `cmp2`, `comp` baseline |
+| Utilities | `logic`, `mult`, `octo-send`, `octo-receive`, `matrix`, `mix`, `joystick`, `vca`, `atten`, `db`, `pwm`, `cmp2`, `comp` baseline |
 | Effects | `dly`, `phaser`, `flanger`, `tape`, `verb`, `chorus`, `crush`, `loop`, `granulita` baseline |
 | Analysis/recording | `scope`, `spectrum`, `plot`, `spectrogram`, `rec` baseline |
 | Output | `out` baseline |

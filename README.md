@@ -178,6 +178,8 @@ reconstructed base.
 | `sh` | S+H | Dual sample and hold |
 | `logic` | LOGIC | Boolean gate operator with AND and OR outputs |
 | `mult` | MULT | Two-input, six-output signal splitter |
+| `octo-send` | OCTO SEND | Carries eight independent audio, pitch, gate or clock signals across rows on one LINK cable |
+| `octo-receive` | OCTO RECEIVE | Breaks out a LINK cable on eight matching numbered outputs |
 | `matrix` | MATRIX | 4x4 DC-coupled matrix mixer with unipolar and bipolar output modes |
 | `joystick` | JOY | X/Y performance CV controller with gate, trigger, CV modes, and runtime gesture recording |
 | `envf` | ENVF | Envelope follower with normal and inverted CV outputs |

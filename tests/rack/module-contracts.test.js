@@ -180,6 +180,16 @@ describe('module contracts', () => {
         });
     });
 
+    it('reserves the octo-link signal for the two dedicated trunk jacks', () => {
+        const base = CORE_MODULE_DEFINITIONS.find(def => def.id === 'vca');
+        const check = (id, direction, port) => validateModuleDefinition({
+            ...base, id, ui: { [direction]: [{ id: port, port, signal: 'octo-link' }] }
+        }, { instantiate: false });
+        for (const [type, direction, port] of [
+            ['custom', 'outputs', 'link'], ['octo-send', 'inputs', 'link'], ['octo-receive', 'outputs', 'out1']
+        ]) expect(() => check(type, direction, port)).toThrow(/LINK/);
+    });
+
     it('requires a finite normal inside each input range, including either rail', () => {
         const module = CORE_MODULE_DEFINITIONS.find(def => def.id === 'vca');
         const check = normal => validateModuleDefinition({

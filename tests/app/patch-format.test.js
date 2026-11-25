@@ -132,6 +132,21 @@ describe('patch-format', () => {
         }
     });
 
+    it('round-trips physical Octo cords and rejects mixed LINK/scalar patches during import', async () => {
+        const wire = (fromModule, fromPort, toModule, toPort) => ({ fromModule, fromPort, toModule, toPort });
+        const cables = [wire('A', 'link', 'B', 'link'), wire('B', 'out3', 'A', 'in7')];
+        const state = { version: 3, plugins: { core: 1 }, params: {}, midiMappings: {}, cables,
+            modules: [{ id: 'A', type: 'octo-send' }, { id: 'B', type: 'octo-receive' }] };
+        const options = urlOptions();
+        const hash = await createPatchUrlHash({ name: 'Octo', state }, options);
+        expect((await parsePatchUrlHash(hash, options)).state.cables).toEqual(cables);
+        for (const invalid of [wire('A', 'link', 'A', 'in7'), wire('B', 'out3', 'B', 'link')]) {
+            for (const registry of [pluginRegistry, undefined]) {
+                expect(() => normalizePatch({ ...state, cables: [invalid] }, { registry })).toThrow(/LINK/);
+            }
+        }
+    });
+
     it('rejects patch state without a supported version', () => {
         expect(() => normalizePatch({
             modules: [],

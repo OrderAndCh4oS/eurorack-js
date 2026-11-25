@@ -74,7 +74,9 @@ export const MODULE_MANIFEST = [
     { id: 'cv-rec', load: () => import('../modules/cv-rec/index.js') },
     { id: 'pitch-track', load: () => import('../modules/pitch-track/index.js') },
     { id: 'midi-out', load: () => import('../modules/midi-out/index.js') },
-    { id: 'out', load: () => import('../modules/out/index.js') }
+    { id: 'out', load: () => import('../modules/out/index.js') },
+    { id: 'octo-send', load: () => import('../modules/octo-send/index.js') },
+    { id: 'octo-receive', load: () => import('../modules/octo-receive/index.js') }
 ];
 
 export const MODULE_ORDER = MODULE_MANIFEST.map(mod => mod.id);

@@ -66,6 +66,16 @@ describe('patch script builder and compiler', () => {
         ).toThrow('more than one source');
     });
 
+    it('compiles Octo trunks, preserves scalar cross-patching, and reports the effective feedback edge', () => {
+        const base = "patch().module('octo-send','A').module('octo-receive','B').module('loop','loop').module('clk','clk')";
+        const result = compile(base + ".connect('A.link','B.link').connect('loop.out','A.in5')" +
+            ".connect('B.out5','loop.in').connect('clk.clock','A.in3')");
+        expect(result.patch.cables).toHaveLength(4);
+        expect(result.diagnostics.feedbackRoutes).toEqual(['loop.out -> loop.in']);
+        expect(() => compile(base + ".connect('A.link','loop.in')")).toThrow(/LINK/);
+        expect(() => compile(base + ".connect('clk.clock','B.link')")).toThrow(/LINK/);
+    });
+
     it('reports feedback delays and transient action warnings', () => {
         const result = compile(`patch()
             .module('loop', 'loop1', { clear: 1 })

@@ -436,7 +436,7 @@ Each port uses id, label, port, signal, and optional voltage.
 
 Override hardware behavior with voltage containing min, max, and, for inputs, normal. The normal must fall inside the inclusive range. Initialize the DSP input buffer to that voltage.
 
-Signal labels are semantic rather than a cable barrier. Eurorack is DC-coupled, but direction, endpoint existence, one-source-per-input, and buffer sizes are strict.
+All five scalar signal labels in the table can connect to each other. The rack enforces jack direction, endpoint existence, one source per input, and stable block-sized buffers. The built-in OCTO pair reserves `octo-link` for the eight-lane cable from Send LINK to Receive LINK. Other modules use their usual scalar ports to patch into the numbered jacks. [Compiled signal graph](architecture.md#compiled-signal-graph)
 
 ## Declarative and Custom UI
 

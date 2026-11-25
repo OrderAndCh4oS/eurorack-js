@@ -1,5 +1,5 @@
 import { createDefaultParams } from './rack-state.js';
-import { assertModuleParam, getModulePort } from '../rack/module-contract.js';
+import { assertModuleParam, assertOctoConnection, validateCablePorts } from '../rack/module-contract.js';
 import { controlRange, getControlDomain, inRange, legalControlValue, snapControlValue } from '../rack/control-domain.js';
 import { PATCH_URL_V2_CORE_TOKENS } from './patch-url-tokens.js';
 
@@ -301,12 +301,9 @@ function normalizeCables(cables, modules, registry) {
             const destinationDefinition = registry.get(destination.type);
             if (!sourceDefinition) throw new Error(`Patch references unregistered module type "${source.type}"`);
             if (!destinationDefinition) throw new Error(`Patch references unregistered module type "${destination.type}"`);
-            if (!getModulePort(sourceDefinition, 'output', cable.fromPort)) {
-                throw new Error(`Module "${cable.fromModule}" has no output port "${cable.fromPort}"`);
-            }
-            if (!getModulePort(destinationDefinition, 'input', cable.toPort)) {
-                throw new Error(`Module "${cable.toModule}" has no input port "${cable.toPort}"`);
-            }
+            validateCablePorts(cable, sourceDefinition, destinationDefinition);
+        } else {
+            assertOctoConnection(cable, source.type, destination.type);
         }
         return {
             fromModule: cable.fromModule,

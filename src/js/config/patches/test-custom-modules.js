@@ -137,9 +137,14 @@ export default {
                 "type": "cv-rec",
                 "row": 3,
                 "index": 5
-            }
+            },
+            { "id": "gateSeq", "type": "gate-seq", "row": 4, "index": 0 },
+            { "id": "sampler", "type": "slice-sampler", "row": 4, "index": 1 },
+            { "id": "sampleOut", "type": "out", "row": 4, "index": 2 }
         ],
         "params": {
+            "gateSeq": { "pattern": [{}, { "length": 4, "cells": [1, -1, 2, -1] }] },
+            "sampleOut": { "volume": 0.2 },
             "clock": {
                 "rate": 0.32,
                 "pause": 0
@@ -318,6 +323,11 @@ export default {
             }
         },
         "cables": [
+            { "fromModule": "clock", "fromPort": "clock", "toModule": "gateSeq", "toPort": "clock" },
+            { "fromModule": "clock", "fromPort": "clock", "toModule": "sampler", "toPort": "trigA" },
+            { "fromModule": "gateSeq", "fromPort": "b", "toModule": "sampler", "toPort": "trigB" },
+            { "fromModule": "sampler", "fromPort": "outA", "toModule": "sampleOut", "toPort": "L" },
+            { "fromModule": "sampler", "fromPort": "outB", "toModule": "sampleOut", "toPort": "R" },
             {
                 "fromModule": "clock",
                 "fromPort": "clock",

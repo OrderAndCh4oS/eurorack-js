@@ -251,6 +251,7 @@ export function renderModule(definition, moduleId, context) {
             instance: renderInstance,
             toolkit,
             onParamChange: handleParamChange,
+            onRuntimeCommand: context.onRuntimeCommand,
             onCleanup
         });
 

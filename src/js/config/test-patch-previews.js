@@ -216,6 +216,96 @@ export const TEST_PATCH_PREVIEWS = {
       "bytes": 25722
     }
   },
+  "Test - Four Track Gate Sequencer": {
+    "light": {
+      "key": "2ea378a23ad2e54e69218e3fd2f391b6ac83204bbd6f155e6b9f42f9e4f35476",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "0805ec3e5283ac965143a36a517003ddac1ce73dd335d4bc9e7e35b9986fc09a.webp",
+      "width": 640,
+      "height": 446,
+      "bytes": 38084
+    },
+    "dark": {
+      "key": "484b2396929fbc87a672e1d9256fafdf769f5fb81ed5d4cd4b124b7c7545a154",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "28720b50f02b71333d067ad8147b60dcff24a789c7110b07e43fd6d1a7c64a99.webp",
+      "width": 640,
+      "height": 446,
+      "bytes": 36986
+    }
+  },
+  "Test - Fold Percussion": {
+    "light": {
+      "key": "ff92433d84bcf0fc6a85ec104fb6bb3e4a935b5192e60ec39402b18791e79514",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "0e84562f3f0790374d5ea595a7395eb999e9954364d91cab6e45ecedacd90061.webp",
+      "width": 499,
+      "height": 455,
+      "bytes": 25024
+    },
+    "dark": {
+      "key": "8ab605049b0dbd1f5a27afbc9a203e76f4ebd7ec8d5ce5670e789e8da8bac146",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "14eff561e94a73262fde311926782861d99606d0efa2aeb0bd26fa94f1e44426.webp",
+      "width": 499,
+      "height": 455,
+      "bytes": 24212
+    }
+  },
+  "Test - Stereo DJ Filter": {
+    "light": {
+      "key": "86e93681c83396bb237e04cb413598fb01c9b0ac3d81b4e80cd0f6752e76ce9b",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "08b2fb267df15c7c45417afbcd0a7ee16525e3c42044af722e42080a83d46f8c.webp",
+      "width": 640,
+      "height": 433,
+      "bytes": 36938
+    },
+    "dark": {
+      "key": "16d005668ec12f538995941e05f4c45cb4cb3b2a5a58f2f2805aae6c7c44f1a3",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "2092f7d324299022353a038185c17fed2207f06fc413c928628f112520aeb69c.webp",
+      "width": 640,
+      "height": 433,
+      "bytes": 35150
+    }
+  },
+  "Test - Slice Sampler": {
+    "light": {
+      "key": "7b4f96f69237b8484ee0fedf07084cbdd1cd6bc355321345dfe45c87a793603f",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "975525ef61c3d8156745c8eebf55e8fbe9d823e2b9ad72dc9418150c2a28f763.webp",
+      "width": 463,
+      "height": 418,
+      "bytes": 25634
+    },
+    "dark": {
+      "key": "3eb2999317dcbfa9214f2a5c58f8d9377b1f0eb2f502541ddc51e2152c07c026",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "fe6b5a87f09a2fc2ad848ea8878ac066475edb76a5a0b3ce9694ea0658c410fe.webp",
+      "width": 463,
+      "height": 418,
+      "bytes": 25006
+    }
+  },
+  "Test - Performance Mutes": {
+    "light": {
+      "key": "5d7721aa3144b9bdf054d72783b7b905be2ade0d1459ff501b836a4f433b36c3",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "5755034f068131de702817a62b772faefa28cf01dd71530902e21b86b35af3e5.webp",
+      "width": 625,
+      "height": 448,
+      "bytes": 37478
+    },
+    "dark": {
+      "key": "54163e35dd19ce80defca5d6502170259fd809d91e714d8a94f6e74b825997dc",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "2ef0275f3f907f9473b03a14b7842b707f69997bf45ac915501f4ad459cea0e2.webp",
+      "width": 625,
+      "height": 448,
+      "bytes": 36416
+    }
+  },
   "Test - Sequential Switch": {
     "light": {
       "key": "e313f7d014a5e31442eded5c73b72b9f213ec12cdf5b3b962aa46cf18c57d282",
@@ -1208,20 +1298,20 @@ export const TEST_PATCH_PREVIEWS = {
   },
   "Test - Custom Modules": {
     "light": {
-      "key": "2b0d14f7346e106e82f99886e61502a1a7e65f8cbc565193e2f1821be33a310f",
+      "key": "a804c3f5f021db67b83d00b0bfd2f3e3499fe56c5011e7850005af6dbc44ec3d",
       "rendererVersion": "rack-industrial-v3",
-      "file": "f038a9a2b75853ac3af792ca06a41d481d7c77265d0e763fa4766f234d25df46.webp",
-      "width": 506,
+      "file": "203f9906745e23f5ffcd890b1214fdb760c55b194ed80fc3466b34b9f31a45be.webp",
+      "width": 382,
       "height": 480,
-      "bytes": 49110
+      "bytes": 39244
     },
     "dark": {
-      "key": "281c33852cad5f57a3b8ee1a6e88b299395a269ba7b60e1536210df3d82fb58e",
+      "key": "c533b5e4cd3a502c4f9681eccaec503efb3c278b4f6ff0301e4f0bd9c9f991ba",
       "rendererVersion": "rack-industrial-v3",
-      "file": "78cba8b9b785cdc9b0bd37d310aecdfc452be81c4f7707013faf40522f5127fa.webp",
-      "width": 506,
+      "file": "b0887d98a054e07ed36de84258b16f89fce31bc17df4f14614bb628e3208afb2.webp",
+      "width": 382,
       "height": 480,
-      "bytes": 49364
+      "bytes": 39120
     }
   },
   "Test - MIDI-CV": {

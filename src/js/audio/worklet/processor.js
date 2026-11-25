@@ -1,5 +1,5 @@
 // Keep this revision aligned with worklet-engine.js and core-plugin.js.
-import './core-plugin.js?core=20261125-1-a200ee0c';
+import './core-plugin.js?core=20261125-2-5dcf505c';
 import { compileGraph } from '../graph.js';
 import { applyControlEdit, assertModuleParam, getModulePort, getModulePorts } from '../../rack/module-contract.js';
 import { getNestedValue, setNestedValue } from '../../utils/nested-access.js';
@@ -94,7 +94,11 @@ function collectUiState(instance, definition) {
             }
         }
     });
-    return { params: { ...(instance.params || {}) }, leds: { ...(instance.leds || {}) }, fields, methods };
+    const paths = definition.telemetry?.params;
+    const params = paths === undefined
+        ? { ...instance.params }
+        : Object.fromEntries(paths.map(path => [path, getNestedValue(instance.params, path)]));
+    return { params, leds: { ...instance.leds }, fields, methods };
 }
 
 function collectTransferables(value, transferables = new Set()) {
@@ -164,6 +168,7 @@ class EurorackProcessor extends AudioWorkletProcessor {
         this.disabled = new Set();
         this.midi = createMidiService();
         this.telemetryFrames = 0;
+        this.paramSerial = 0;
         this.lastHistorySnapshots = new Map();
         this.profiling = { enabled: false, blocks: [], modules: new Map() };
         this.outputCapture = null;
@@ -238,7 +243,12 @@ class EurorackProcessor extends AudioWorkletProcessor {
         }
         topology.modules.forEach(specification => {
             const module = nextModules[specification.id];
-            Object.entries(specification.params || {}).forEach(([param, value]) => setNestedValue(module.instance.params, param, value));
+            const retained = module.instance === this.modules[specification.id]?.instance;
+            Object.entries(specification.params || {}).forEach(([param, value]) => {
+                // These paths can change on the audio thread between telemetry ticks.
+                // Retained instances already received live panel edits via setWorkletParam.
+                if (!retained || !module.def.telemetry?.params?.includes(param)) setNestedValue(module.instance.params, param, value);
+            });
         });
         const nextInputs = new Set(topology.cables.map(cable => `${cable.toModule}\u0000${cable.toPort}`));
         const previousInputs = new Set((this.lastTopology?.cables || [])
@@ -280,6 +290,15 @@ class EurorackProcessor extends AudioWorkletProcessor {
         try {
             if (message.type === 'topology') this.activateTopology(message.topology, { replace: message.replace });
             else if (message.type === 'capture-output') this.beginOutputCapture(message);
+            else if (message.type === 'module-command') {
+                const module = this.modules[message.moduleId];
+                if (message.revision !== this.lastTopology?.revision || module?.type !== message.moduleType ||
+                    typeof module?.def.applyRuntimeCommand !== 'function') {
+                    throw new Error('The runtime command targets an unavailable module instance.');
+                }
+                module.def.applyRuntimeCommand(module.instance, message.command);
+                this.port.postMessage({ type: 'module-command-result', requestId: message.requestId });
+            }
             else if (message.type === 'cancel-output-capture') {
                 if (this.outputCapture?.requestId === message.requestId) this.outputCapture = null;
             }
@@ -288,6 +307,7 @@ class EurorackProcessor extends AudioWorkletProcessor {
                 if (!module) throw new Error(`Module instance "${message.moduleId}" not found`);
                 assertModuleParam(module.def, message.param, message.value);
                 setWorkletParam(module, message.param, message.value);
+                if (message.serial !== undefined) this.paramSerial = message.serial;
             } else if (message.type === 'midi') this.midi.push(message.data, message.audioTime);
             else if (message.type === 'retry') this.disabled.delete(message.moduleId);
             else if (message.type === 'profiling') {
@@ -313,15 +333,25 @@ class EurorackProcessor extends AudioWorkletProcessor {
             }
             else if (message.type === 'capture-runtime') {
                 const states = {};
+                const updates = {};
                 Object.entries(this.modules).forEach(([id, module]) => {
                     if (module.def.captureRuntimeState) {
                         states[id] = module.def.captureRuntimeState(module.instance);
                     }
+                    if (module.def.telemetry?.params?.length) {
+                        updates[id] = { params: Object.fromEntries(module.def.telemetry.params.map(path =>
+                            [path, getNestedValue(module.instance.params, path)])) };
+                    }
                 });
+                if (Object.keys(updates).length) this.postTelemetry(updates);
                 this.port.postMessage({ type: 'runtime-state', requestId: message.requestId, states });
             }
         } catch (error) {
-            this.port.postMessage({ type: 'host-error', message: error.message, revision: message.topology?.revision });
+            if (message.type === 'module-command') {
+                this.port.postMessage({ type: 'module-command-result', requestId: message.requestId, error: error.message });
+            } else {
+                this.port.postMessage({ type: 'host-error', message: error.message, revision: message.topology?.revision });
+            }
         }
     }
 
@@ -384,7 +414,12 @@ class EurorackProcessor extends AudioWorkletProcessor {
         if (!left) return true;
         if (left.length !== this.blockSize && this.lastTopology) {
             this.blockSize = left.length;
-            this.activateTopology(this.lastTopology, { replace: true });
+            const modules = this.lastTopology.modules.map(spec => {
+                const module = this.modules[spec.id];
+                if (!module.def.applyRuntimeCommand) return spec;
+                return { ...spec, params: module.instance.params, runtimeState: module.def.captureRuntimeState(module.instance) };
+            });
+            this.activateTopology({ ...this.lastTopology, modules }, { replace: true });
         }
         left.fill(0);
         right.fill(0);
@@ -473,13 +508,14 @@ class EurorackProcessor extends AudioWorkletProcessor {
                 }
                 modules[id] = state;
             });
-            this.port.postMessage({
-                type: 'telemetry',
-                modules
-            });
+            this.postTelemetry(modules);
         }
         if (this.profiling.enabled) recordTiming(this.profiling.blocks, profileNow() - blockStarted);
         return true;
+    }
+
+    postTelemetry(modules) {
+        this.port.postMessage({ type: 'telemetry', modules, revision: this.lastTopology?.revision, paramSerial: this.paramSerial });
     }
 }
 

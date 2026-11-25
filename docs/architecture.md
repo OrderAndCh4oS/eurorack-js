@@ -172,7 +172,8 @@ telemetry: {
 }
 ```
 
-- `params` and `leds` are always synchronized.
+- LEDs synchronize on every snapshot. By default, snapshots include all DSP params. An optional `telemetry.params` array limits that return traffic to the listed control or state paths. Use `params: []` when the host owns all parameter edits. Gate Seq uses this for its working pattern and eight preset memories.
+- Host edits still update the rack state, UI mirror and worklet immediately. Select every DSP-modified parameter the UI or saved patch needs to observe.
 - `fields` are structured-cloned snapshots and must stay bounded.
 - `methods` are evaluated in the worklet; the mirror exposes a zero-argument function returning the latest result.
 - `history` sends the latest entry when its identity changes and maintains a bounded mirror-side history. Entries produced between telemetry updates can be skipped; this is a display feed, not a complete recording.
@@ -192,6 +193,12 @@ handleWorkletEvent(event, { moduleId, instance, services, audioCtx }) {
 This path is for command-boundary data such as completed recordings, not continuous telemetry.
 
 The core recorder stores one-second stereo chunks and emits `recording-complete` with `buffersL`, `buffersR`, `sampleRate`, and the exact valid `sampleCount`. The final chunk may be padded; main-thread WAV encoding must stop at `sampleCount`.
+
+### Local sampler media
+
+Slice Sampler decodes a selected WAV on the main thread. Its panel sends the decoded PCM through its instance-bound `onRuntimeCommand(command, transfer)` callback. In a stopped rack the host applies the command to the UI instance and saves a runtime snapshot. During playback the worklet checks the active graph revision, module ID and type before the module validates the command and replaces one slot. Successful delivery is acknowledged. A cable edit retains both running voices. Stopping audio captures local takes and restores the stopped panel from that snapshot.
+
+Patch v3 stores the source choice and slice markers. Sample bytes and filenames stay in runtime memory for the current rack. The player's Factory choice reconstructs its original phrase on a fresh load. Control snapshots carry a graph revision and the serial of the latest applied panel edit so a delayed worklet message cannot undo a newer edit.
 
 ### MIDI Timing
 

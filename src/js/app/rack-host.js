@@ -23,6 +23,8 @@ export class RackHost {
         this.sampleRate = sampleRate;
         this.audioCtx = null;
         this.engine = null;
+        this.topologyActivation = null;
+        this.stoppingAudio = null;
         this.listeners = new Set();
         this.onLedUpdate = onLedUpdate;
         this.onModuleError = onModuleError;
@@ -235,13 +237,31 @@ export class RackHost {
     }
 
     syncTopology({ throwOnError = false, replace = false } = {}) {
+        if (this.stoppingAudio) return this.stoppingAudio.then(() => this.syncTopology({ throwOnError, replace }));
         if (!this.engine) return Promise.resolve();
-        const activation = this.engine.setPatchState(this.createRuntimePatchState(), {
+        const activation = this.engine.setPatchState(this.createRuntimePatchState({ includeMedia: replace }), {
             registry: this.registry,
             replace
         });
+        this.topologyActivation = activation;
         if (throwOnError) return activation;
         return activation.catch(error => this.emit({ type: 'audio-error', error }));
+    }
+
+    async applyRuntimeCommand(moduleId, command, transfer = [], expected = this.state.getModule(moduleId)) {
+        if (this.topologyActivation && this.engine) await this.topologyActivation;
+        if (this.stoppingAudio) await this.stoppingAudio;
+        if (!expected || this.state.getModule(moduleId) !== expected) throw new Error('Module instance has changed.');
+        const def = this.registry.get(expected.type);
+        if (!def?.applyRuntimeCommand) throw new Error('This module does not accept runtime commands.');
+        if (this.engine) {
+            await this.engine.sendModuleCommand(moduleId, expected.type, command, transfer);
+            if (this.state.getModule(moduleId) !== expected) throw new Error('Module instance has changed.');
+        } else {
+            // A stopped rack owns its local media. Starting audio restores this snapshot.
+            def.applyRuntimeCommand(expected.instance, structuredClone(command, { transfer }));
+            expected.runtimeState = def.captureRuntimeState(expected.instance);
+        }
     }
 
     applyTelemetry(telemetry) {
@@ -249,8 +269,17 @@ export class RackHost {
             const moduleState = this.state.getModule(moduleId);
             const instance = moduleState?.instance;
             if (!instance) return;
-            Object.assign(moduleState.params, state.params || {});
-            Object.assign(instance.params || {}, state.params || {});
+            const paths = this.registry.get(moduleState.type)?.telemetry?.params;
+            if (paths === undefined) {
+                Object.assign(moduleState.params, state.params || {});
+                Object.assign(instance.params || {}, state.params || {});
+            } else if (state.params) {
+                for (const path of paths) {
+                    if (!Object.hasOwn(state.params, path)) continue;
+                    setNestedValue(moduleState.params, path, state.params[path]);
+                    setNestedValue(instance.params, path, state.params[path]);
+                }
+            }
             Object.assign(instance.leds || {}, state.leds || {});
             Object.entries(state.fields || {}).forEach(([name, value]) => {
                 instance[name] = value;
@@ -276,6 +305,7 @@ export class RackHost {
     }
 
     async startAudio(audioCtx) {
+        if (this.stoppingAudio) await this.stoppingAudio;
         if (this.engine) return this.engine;
         this.audioCtx = audioCtx;
         this.sampleRate = audioCtx.sampleRate;
@@ -298,7 +328,7 @@ export class RackHost {
                 onHostError: error => this.emit({ type: 'audio-error', error }),
                 requestTimeoutMs: this.requestTimeoutMs
             });
-            await this.engine.setPatchState(this.createRuntimePatchState(), { registry: this.registry, replace: true });
+            await this.syncTopology({ throwOnError: true, replace: true });
         } catch (error) {
             this.engine?.stop();
             this.engine = null;
@@ -310,7 +340,16 @@ export class RackHost {
         return this.engine;
     }
 
-    async stopAudio() {
+    stopAudio() {
+        this.stoppingAudio ??= this.finishStoppingAudio().finally(() => { this.stoppingAudio = null; });
+        return this.stoppingAudio;
+    }
+
+    async finishStoppingAudio() {
+        // Snapshot the rack after an in-flight replacement has settled. Capturing
+        // its predecessor's media under the new module IDs can corrupt both racks.
+        try { await this.topologyActivation; } catch { /* Capture the last active graph. */ }
+        const activeModules = new Map(this.state.modules);
         let runtimeStates = {};
         try {
             runtimeStates = await this.engine?.captureRuntimeStates?.() || {};
@@ -319,10 +358,17 @@ export class RackHost {
         }
         Object.entries(runtimeStates).forEach(([moduleId, state]) => {
             const moduleState = this.state.getModule(moduleId);
-            if (moduleState) moduleState.runtimeState = state;
+            if (!moduleState || activeModules.get(moduleId) !== moduleState) return;
+            moduleState.runtimeState = state;
+            const def = this.registry.get(moduleState.type);
+            if (def?.applyRuntimeCommand) {
+                try { def.restoreRuntimeState(moduleState.instance, state); }
+                catch (error) { this.emit({ type: 'audio-error', error }); }
+            }
         });
         this.engine?.stop();
         this.engine = null;
+        this.topologyActivation = null;
         const context = this.audioCtx;
         this.audioCtx = null;
         this.emit({ type: 'audio-stopped' });
@@ -330,6 +376,7 @@ export class RackHost {
     }
 
     async loadPatch(rawPatch) {
+        if (this.stoppingAudio) await this.stoppingAudio;
         const normalized = normalizePatch(rawPatch, { registry: this.registry });
         const previous = this.state.serializePatch(this.registry);
         const previousRuntime = new Map([...this.state.modules].map(([id, moduleState]) => [id, moduleState.runtimeState]));
@@ -360,9 +407,12 @@ export class RackHost {
         return this.state.serializePatch(this.registry);
     }
 
-    createRuntimePatchState() {
+    createRuntimePatchState({ includeMedia = true } = {}) {
         const patch = this.serializePatch();
         patch.modules = patch.modules.map(module => {
+            // Cable edits reuse the playing sampler. Sending its saved PCM with
+            // every topology would clone megabytes without changing that instance.
+            if (!includeMedia && this.registry.get(module.type)?.applyRuntimeCommand) return module;
             const runtimeState = this.state.getModule(module.id)?.runtimeState;
             return runtimeState === undefined ? module : { ...module, runtimeState };
         });

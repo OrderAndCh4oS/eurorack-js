@@ -202,6 +202,12 @@ function controlScenarios(definition) {
             params: { [control.param]: 1 }
         }))
     ];
+    // The sequencer's initial pattern is blank. Exercise every output with
+    // different ratchets on step one, including when clock and reset coincide.
+    if (definition.id === 'gate-seq') {
+        const pattern = [1, 3, 6, 12].map(hits => ({ length: 1, cells: [hits] }));
+        controls.push({ name: 'programmed tracks', params: { pattern } });
+    }
     return [{ name: 'default', params: {} }, ...controls];
 }
 

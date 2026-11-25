@@ -1,4 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { RackHost } from '../../src/js/app/rack-host.js';
+import { PluginRegistry } from '../../src/js/rack/registry.js';
+import gateSeq from '../../src/js/modules/gate-seq/index.js';
 import customModulesPatch from '../../src/js/config/patches/test-custom-modules.js';
 import { FACTORY_PATCHES } from '../../src/js/config/factory-patches.js';
 
@@ -35,6 +38,43 @@ describe('Eurorack AudioWorkletProcessor', () => {
         processor.handleMessage(message);
         return message;
     }
+
+    it('sends only requested parameters, keeping pending gate edits safe from an older display snapshot', async () => {
+        const processor = new Processor();
+        const gated = { ...gateSeq, id: 'test-telemetry-gates' };
+        const plugin = { id: 'test-telemetry', name: 'Test', apiVersion: 1, patchVersion: 1,
+            version: '1.0.0', workletUrl: 'test://telemetry' };
+        globalThis.registerEurorackWorkletPlugin({ ...plugin, modules: new Map([[gated.id, gated]]) });
+        const registry = new PluginRegistry();
+        await registry.registerPlugin({ ...plugin, modules: [{ definition: gated }] });
+        const host = await new RackHost({ registry }).init();
+        const module = host.addModule(gated.id, { id: 'gate' });
+        processor.handleMessage({ type: 'topology', topology: {
+            revision: 1, plugins: { core: 1, [plugin.id]: 1 }, cables: [], modules: [
+                { id: 'gate', type: gated.id, pluginId: plugin.id, params: module.params, order: 0, rackOrder: 0 },
+                { id: 'one', type: 'vca', pluginId: 'core', params: {}, order: 1, rackOrder: 1 },
+                { id: 'all', type: 'vca', pluginId: 'core', params: {}, order: 2, rackOrder: 2 }
+            ]
+        } });
+        const one = processor.modules.one;
+        one.def = { ...one.def, telemetry: { params: ['ch1Gain'] } };
+        processor.telemetryFrames = 48000;
+        processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+        const packet = structuredClone(processor.port.postMessage.mock.calls.at(-1)[0].modules);
+        expect(packet.one.params).toEqual({ ch1Gain: one.instance.params.ch1Gain });
+        expect(packet.all.params).toEqual(processor.modules.all.instance.params);
+        expect(packet.gate.params).toEqual({});
+        expect(packet.gate.fields.positions).toHaveLength(4);
+        expect(Object.keys(packet.gate.leds)).toHaveLength(6);
+        const pattern = structuredClone(module.params.pattern);
+        pattern[0].cells[0] = 3;
+        host.setParam('gate', 'pattern', pattern);
+        host.setParam('gate', 'presets', [pattern, ...Array(7).fill(null)]);
+        host.applyTelemetry(packet);
+        expect(host.serializePatch().params.gate.pattern).toEqual(pattern);
+        expect(module.instance.params.presets[0]).toEqual(pattern);
+        await host.destroy();
+    });
 
     it('delivers both edges of rapid Record presses in consecutive audio blocks', () => {
         const processor = new Processor();

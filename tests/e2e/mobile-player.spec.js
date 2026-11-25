@@ -298,6 +298,7 @@ test.describe('desktop editor', () => {
 
     test('the active navigation tab stays visible when a desktop reading view narrows', async ({ page }) => {
         await page.goto('/');
+        await page.waitForFunction(() => window.eurorackApp?.patchLibrary);
         const docs = page.locator('.patch-site-links [data-content-view="docs"]');
         await docs.click();
         await expect(docs).toHaveAttribute('aria-current', 'page');

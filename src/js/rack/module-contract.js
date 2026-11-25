@@ -133,6 +133,10 @@ export function validateModuleDefinition(definition, {
     assert(typeof definition.name === 'string' && definition.name.trim(), `Module "${moduleId}" has an invalid name`);
     assert(typeof definition.createDSP === 'function', `Module "${moduleId}" createDSP must be a function`);
     assert(definition.ui && typeof definition.ui === 'object', `Module "${moduleId}" must declare a ui contract`);
+    if (definition.applyRuntimeCommand !== undefined) {
+        assert(typeof definition.applyRuntimeCommand === 'function' && typeof definition.captureRuntimeState === 'function' &&
+            typeof definition.restoreRuntimeState === 'function', `Module "${moduleId}" runtime commands require capture and restore hooks`);
+    }
     if (definition.render) {
         assert(definition.telemetry && typeof definition.telemetry === 'object',
             `Custom-rendered module "${moduleId}" must declare a telemetry contract`);
@@ -142,6 +146,13 @@ export function validateModuleDefinition(definition, {
         assert(definition.telemetry && typeof definition.telemetry === 'object', `Module "${moduleId}" has an invalid telemetry contract`);
         assert(Array.isArray(definition.telemetry.fields || []), `Module "${moduleId}" telemetry.fields must be an array`);
         assert(Array.isArray(definition.telemetry.methods || []), `Module "${moduleId}" telemetry.methods must be an array`);
+        if (definition.telemetry.params !== undefined) {
+            const paths = definition.telemetry.params;
+            const declared = getModuleParamPaths(definition);
+            assert(Array.isArray(paths) && paths.every(path => typeof path === 'string' && declared.has(path)) &&
+                new Set(paths).size === paths.length,
+                `Module "${moduleId}" telemetry.params must list unique declared parameter paths`);
+        }
         if (definition.telemetry.history) {
             assert(typeof definition.telemetry.history.field === 'string', `Module "${moduleId}" telemetry history is missing a field`);
             assert(Number.isInteger(definition.telemetry.history.maxEntries) && definition.telemetry.history.maxEntries > 0,

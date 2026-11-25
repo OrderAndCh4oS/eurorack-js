@@ -76,7 +76,12 @@ export const MODULE_MANIFEST = [
     { id: 'midi-out', load: () => import('../modules/midi-out/index.js') },
     { id: 'out', load: () => import('../modules/out/index.js') },
     { id: 'octo-send', load: () => import('../modules/octo-send/index.js') },
-    { id: 'octo-receive', load: () => import('../modules/octo-receive/index.js') }
+    { id: 'octo-receive', load: () => import('../modules/octo-receive/index.js') },
+    { id: 'gate-seq', load: () => import('../modules/gate-seq/index.js') },
+    { id: 'fold-perc', load: () => import('../modules/fold-perc/index.js') },
+    { id: 'dj-filter', load: () => import('../modules/dj-filter/index.js') },
+    { id: 'slice-sampler', load: () => import('../modules/slice-sampler/index.js') },
+    { id: 'mutes', load: () => import('../modules/mutes/index.js') }
 ];
 
 export const MODULE_ORDER = MODULE_MANIFEST.map(mod => mod.id);

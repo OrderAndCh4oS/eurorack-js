@@ -11,8 +11,10 @@ import {
     measureSignal
 } from '../../scripts/lib/dsp-audit.js';
 
-// This exhaustive matrix competes with other Vitest workers in the full CI suite.
+// Give each rate and block-size pair its own timeout under concurrent CI load.
 const CONTROL_SCENARIO_AUDIT_TIMEOUT_MS = 15_000;
+const configurations = AUDIT_SAMPLE_RATES.flatMap(sampleRate =>
+    AUDIT_BLOCK_SIZES.map(blockSize => ({ sampleRate, blockSize })));
 
 describe('DSP audit measurements', () => {
     it('uses reproducible seeded noise', () => {
@@ -107,23 +109,18 @@ describe('DSP audit measurements', () => {
         });
     });
 
-    it('keeps every control scenario inside its declared voltage contract', async () => {
+    it.each(configurations)('keeps every control scenario inside its voltage contract at $sampleRate Hz / $blockSize frames', async ({ sampleRate, blockSize }) => {
         const definitions = await Promise.all(MODULE_MANIFEST.map(async entry => (await entry.load()).default));
         for (const definition of definitions) {
-            for (const sampleRate of AUDIT_SAMPLE_RATES) {
-                for (const blockSize of AUDIT_BLOCK_SIZES) {
-                    const result = auditDefinition(definition, {
-                        sampleRate, blockSize, blocks: 4
-                    });
-                    result.scenarios.forEach(scenario => {
-                        Object.entries(scenario.outputs).forEach(([port, output]) => {
-                            expect(
-                                output.voltageCompliant,
-                                `${definition.id}.${port} in ${scenario.name} at ${sampleRate}/${blockSize}`
-                            ).toBe(true);
-                        });
-                    });
+            const result = auditDefinition(definition, { sampleRate, blockSize, blocks: 4 });
+            for (const scenario of result.scenarios) {
+                for (const [port, output] of Object.entries(scenario.outputs)) {
+                    expect(output.voltageCompliant, `${definition.id}.${port} in ${scenario.name}`).toBe(true);
                 }
+            }
+            if (definition.id === 'gate-seq') {
+                const active = result.scenarios.find(scenario => scenario.name === 'programmed tracks');
+                for (const port of ['a', 'b', 'c', 'd']) expect(active.outputs[port].peak).toBe(10);
             }
         }
     }, CONTROL_SCENARIO_AUDIT_TIMEOUT_MS);

@@ -88,6 +88,12 @@ import testSnareOnly from './patches/test-snare-only.js';
 import testKickOnly from './patches/test-kick-only.js';
 import testHatOnly from './patches/test-hat-only.js';
 
+import testGateSeq from './patches/test-gate-seq.js';
+import testFoldPerc from './patches/test-fold-perc.js';
+import testDjFilter from './patches/test-dj-filter.js';
+import testSliceSampler from './patches/test-slice-sampler.js';
+import testMutes from './patches/test-mutes.js';
+
 export const TEST_PATCHES = {
     // Test patches - Modules
     [testVcoOnly.name]: testVcoOnly,
@@ -102,6 +108,11 @@ export const TEST_PATCHES = {
     [testScopeSinewave.name]: testScopeSinewave,
     [testSequencer.name]: testSequencer,
     [testProbSeq.name]: testProbSeq,
+    [testGateSeq.name]: testGateSeq,
+    [testFoldPerc.name]: testFoldPerc,
+    [testDjFilter.name]: testDjFilter,
+    [testSliceSampler.name]: testSliceSampler,
+    [testMutes.name]: testMutes,
     [testSeqSwitch.name]: testSeqSwitch,
     [testEuclid.name]: testEuclid,
     [testChangesCascade.name]: testChangesCascade,

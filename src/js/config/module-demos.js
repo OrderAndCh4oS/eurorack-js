@@ -312,4 +312,24 @@ export const MODULE_DEMOS = [
         id: "out", title: "Stereo output (OUT)", patch: "Test - VCO Only",
         intro: "OUT is the final connection to your speakers or headphones. Its two sockets let you hear the left and right sides of the rack independently."
     },
+    {
+        id: "gate-seq", title: "Four Track Gate Sequencer", patch: "Test - Four Track Gate Sequencer",
+        intro: "Write four drum patterns up to 64 steps long. Mute a track or hold a loop fill while the underlying groove keeps time."
+    },
+    {
+        id: "fold-perc", title: "Fold percussion voice", patch: "Test - Fold Percussion",
+        intro: "Shape six oscillators into kicks, rims and metallic hits. A step sequencer can give each hit a different amount of fold."
+    },
+    {
+        id: "dj-filter", title: "Stereo DJ Filter", patch: "Test - Stereo DJ Filter",
+        intro: "Sweep from a muffled stereo mix through the dry center to a thin high-pass build. Use bypass to bring the bass back on the downbeat."
+    },
+    {
+        id: "slice-sampler", title: "Slice sampler", patch: "Test - Slice Sampler",
+        intro: "Cut two sounds into regions and trigger them independently. Play the factory phrases, open a local WAV or record audio from another module."
+    },
+    {
+        id: "mutes", title: "Performance Mutes", patch: "Test - Performance Mutes",
+        intro: "Bring four stems in and out by hand or from four mute gates. Each channel smooths the cut so you can punch in between beats."
+    },
 ];

@@ -97,6 +97,8 @@ Built-in modules are registered in the order listed by `src/js/rack/module-manif
 ### Voices
 | ID | Module | Description |
 |----|--------|-------------|
+| `fold-perc` | FOLD PERC | Six-operator additive and FM percussion with noise, wavefolding and 1 V/oct pitch |
+| `slice-sampler` | SLICE SAMPLER | Two independent WAV or live-recorded voices with up to 32 slices, reverse and six assignable CV inputs |
 | `pluck` | PLUCK | Four-voice Karplus-Strong plucked string voice |
 | `kick` | KICK | Analog-style kick drum synthesizer |
 | `snare` | SNARE | Analog-style snare drum synthesizer |
@@ -122,6 +124,7 @@ Built-in modules are registered in the order listed by `src/js/rack/module-manif
 | `refrain` | REFRAIN | Seed-CV-addressable phrase-form sequencer with selective exact mutation, triggerable Recall, Hold, and four macro CV lanes |
 | `seq` | SEQ | 8-step CV/gate sequencer with direction and range controls |
 | `prob-seq` | PROB SEQ | 8-step probability trigger sequencer with ratchets, skips, conditional gates, and deterministic seeds |
+| `gate-seq` | GATE SEQ | Four programmable 1–64-step gate tracks with ratchets, loop fills, live mutes and eight preset slots |
 | `seq-switch` | SEQ-SW | Clocked sequential switch for 4-to-1 and 1-to-4 signal routing |
 | `euclid` | EUCLID | Euclidean rhythm generator with length, hits, and rotation controls |
 | `turing` | TURING | Random looping sequencer based on Music Thing Turing Machine |
@@ -150,6 +153,7 @@ reconstructed base.
 ### Filters
 | ID | Module | Description |
 |----|--------|-------------|
+| `dj-filter` | DJ FILTER | Stereo LP/dry/HP sweep with cutoff tilt, resonance, range limits and performance bypass |
 | `vcf` | VCF | State-variable filter with low-pass, band-pass, and high-pass outputs |
 | `lpg` | LPG | Vactrol-style low pass gate with VCA, combo, and low-pass modes |
 | `formant` | FORMANT | Morphable vowel/formant filter with drive, shift, resonance, and CV control |
@@ -177,6 +181,7 @@ reconstructed base.
 |----|--------|-------------|
 | `sh` | S+H | Dual sample and hold |
 | `logic` | LOGIC | Boolean gate operator with AND and OR outputs |
+| `mutes` | MUTES | Four clickless audio/CV stems with independent latches, momentary passes, gate mutes and cascading inputs |
 | `mult` | MULT | Two-input, six-output signal splitter |
 | `octo-send` | OCTO SEND | Carries eight independent audio, pitch, gate or clock signals across rows on one LINK cable |
 | `octo-receive` | OCTO RECEIVE | Breaks out a LINK cable on eight matching numbered outputs |

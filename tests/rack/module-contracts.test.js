@@ -190,6 +190,15 @@ describe('module contracts', () => {
         ]) expect(() => check(type, direction, port)).toThrow(/LINK/);
     });
 
+    it('restricts telemetry parameter names to distinct declared controls and state', () => {
+        const base = CORE_MODULE_DEFINITIONS.find(def => def.id === 'prob-seq');
+        const validate = params => validateModuleDefinition({ ...base, telemetry: { ...base.telemetry, params } });
+        for (const params of [[], ['seed', 'steps']]) expect(() => validate(params)).not.toThrow();
+        for (const params of ['steps', null, ['missing'], ['steps', 'steps'], [1]]) {
+            expect(() => validate(params)).toThrow(/telemetry.params/);
+        }
+    });
+
     it('requires a finite normal inside each input range, including either rail', () => {
         const module = CORE_MODULE_DEFINITIONS.find(def => def.id === 'vca');
         const check = normal => validateModuleDefinition({

@@ -1,4 +1,4 @@
-const CORE_WORKLET_GRAPH_REVISION = '20261125-1-a200ee0c';
+const CORE_WORKLET_GRAPH_REVISION = '20261125-2-5dcf505c';
 const MAX_CAPTURE_SECONDS = 10;
 const MAX_CAPTURE_SAMPLE_RATE = 192000;
 const CAPTURE_TIMEOUT_GRACE_MS = 2000;
@@ -24,6 +24,9 @@ export class AudioWorkletEngine {
         this.node = null;
         this.revision = 0;
         this.activeRevision = 0;
+        this.preparingTopologies = 0;
+        this.paramSerial = 0;
+        this.pendingParamEdits = new Map();
         this.running = false;
         this.nextRequestId = 1;
         this.pendingRuntimeRequests = new Map();
@@ -67,7 +70,23 @@ export class AudioWorkletEngine {
     }
 
     handleMessage(message) {
-        if (message.type === 'telemetry') this.onTelemetry?.(message.modules);
+        if (message.type === 'telemetry') {
+            if (message.revision != null && (this.preparingTopologies || message.revision !== this.revision)) return;
+            // A UI edit can cross a snapshot already in flight from the audio thread.
+            // Keep that edit until a snapshot includes the corresponding param message.
+            for (const [moduleId, edits] of this.pendingParamEdits) {
+                const params = message.modules[moduleId]?.params;
+                for (const [param, serial] of edits) {
+                    if (serial <= message.paramSerial) edits.delete(param);
+                    else if (params) {
+                        const key = Object.hasOwn(params, param) ? param : param.split(/[.\[]/, 1)[0];
+                        delete params[key];
+                    }
+                }
+                if (!edits.size) this.pendingParamEdits.delete(moduleId);
+            }
+            this.onTelemetry?.(message.modules);
+        }
         else if (message.type === 'module-event') this.onModuleEvent?.({ moduleId: message.moduleId, event: message.event });
         else if (message.type === 'module-error') this.onModuleError?.({ moduleId: message.moduleId, error: new Error(message.message) });
         else if (message.type === 'topology-active') {
@@ -87,11 +106,12 @@ export class AudioWorkletEngine {
             }
             this.onHostError?.(error);
         }
-        else if (message.type === 'runtime-state') {
+        else if (message.type === 'runtime-state' || message.type === 'module-command-result') {
             const pending = this.pendingRuntimeRequests.get(message.requestId);
             this.pendingRuntimeRequests.delete(message.requestId);
             clearTimeout(pending?.timer);
-            pending?.resolve(message.states);
+            if (message.error) pending?.reject(new Error(message.error));
+            else pending?.resolve(message.states);
         } else if (message.type === 'profiling-report') {
             const pending = this.pendingProfilingRequests.get(message.requestId);
             this.pendingProfilingRequests.delete(message.requestId);
@@ -125,7 +145,12 @@ export class AudioWorkletEngine {
     async setPatchState(state, { registry = this.registry, replace = false } = {}) {
         if (!this.node) throw new Error('AudioWorklet engine is not initialized');
         this.cancelOutputCapture(captureError('rack-changed', 'The rack changed during audio capture.'));
-        await Promise.all(Object.keys(state.plugins || {}).map(pluginId => this.ensurePluginLoaded(pluginId)));
+        this.preparingTopologies++;
+        try {
+            await Promise.all(Object.keys(state.plugins || {}).map(pluginId => this.ensurePluginLoaded(pluginId)));
+        } finally {
+            this.preparingTopologies--;
+        }
         const orderByType = type => registry.getModuleOrder(type);
         let rackOrder = 0;
         const params = state.params || {};
@@ -153,7 +178,15 @@ export class AudioWorkletEngine {
     }
 
     setParam(moduleId, param, value) {
-        this.node?.port.postMessage({ type: 'param', moduleId, param, value });
+        if (!this.node) return;
+        let edits = this.pendingParamEdits.get(moduleId);
+        if (!edits) {
+            edits = new Map();
+            this.pendingParamEdits.set(moduleId, edits);
+        }
+        const serial = ++this.paramSerial;
+        edits.set(param, serial);
+        this.node.port.postMessage({ type: 'param', moduleId, param, value, serial });
     }
 
     sendMidi(data, receivedTime = globalThis.performance?.now?.() ?? 0) {
@@ -165,6 +198,18 @@ export class AudioWorkletEngine {
 
     captureRuntimeStates() {
         if (!this.node) return Promise.resolve({});
+        return this.requestRuntime({ type: 'capture-runtime' });
+    }
+
+    sendModuleCommand(moduleId, moduleType, command, transfer = []) {
+        if (!this.node || !this.activeRevision || this.activeRevision !== this.revision) {
+            return Promise.reject(new Error('The audio rack is changing. Retry when it is ready.'));
+        }
+        this.cancelOutputCapture(captureError('rack-changed', 'Module media changed during audio capture.'));
+        return this.requestRuntime({ type: 'module-command', moduleId, moduleType, command, revision: this.activeRevision }, transfer);
+    }
+
+    requestRuntime(message, transfer = []) {
         const requestId = this.nextRequestId++;
         return new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
@@ -172,7 +217,13 @@ export class AudioWorkletEngine {
                 reject(new Error(`Timed out waiting for AudioWorklet runtime state request ${requestId}`));
             }, this.requestTimeoutMs);
             this.pendingRuntimeRequests.set(requestId, { resolve, reject, timer });
-            this.node.port.postMessage({ type: 'capture-runtime', requestId });
+            try {
+                this.node.port.postMessage({ ...message, requestId }, transfer);
+            } catch (error) {
+                clearTimeout(timer);
+                this.pendingRuntimeRequests.delete(requestId);
+                reject(error);
+            }
         });
     }
 
@@ -258,6 +309,7 @@ export class AudioWorkletEngine {
 
     stop() {
         this.running = false;
+        this.pendingParamEdits.clear();
         this.rejectPendingRequests(captureError('audio-not-running', 'AudioWorklet engine stopped before request completion'));
         this.node?.disconnect();
         this.node = null;

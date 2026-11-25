@@ -1,8 +1,8 @@
 # DSP And Sound Engineering Audit
 
-Last audited: 2026-07-11
+Last audited 2026-11-25.
 
-This is the central index for the 62 registered core modules. Detailed hardware context, algorithm notes, sources, and the current measured audit record live in `research/modules/{moduleId}.md`.
+The rack now has 83 core modules. The July baseline below covered the first 62. Each registered module has a dated measurement record alongside its hardware references and DSP decisions in [module research](modules/).
 
 ## Scope And Method
 
@@ -34,6 +34,12 @@ npm run audit:dsp -- --module vcf --json
 - The Node timing column is diagnostic only. It includes stimulus/capture overhead and is not a real-time AudioWorklet benchmark.
 
 ## Remediation Completed
+
+### Composition and arrangement modules (2026-11-25)
+
+All five factory demos produced stereo output at 48 kHz in Chromium. The programmed Gate Seq matrix reached 10 V on all four outputs. Fold Percussion's control-extreme renders peaked below 5 V. DJ Filter passed dry samples exactly at center and when starting in bypass. Performance Mutes started closed channels at zero and reached silence on both sides of the running demo. The rack-wide strict voltage audit covered 83 modules at three rates and two block sizes. [Gate Sequencer](modules/gate-seq.md) · [Fold Percussion](modules/fold-perc.md) · [Stereo DJ Filter](modules/dj-filter.md) · [Performance Mutes](modules/mutes.md)
+
+The Slice Sampler browser test imported a 320 Hz WAV, recorded it to the other player, stopped audio, and imported a 640 Hz replacement into the first player. After restart the measured outputs were 640 Hz left and 320 Hz right. The host tests also exercise patch replacement and a final recording commit between display updates. [Slice Sampler](modules/slice-sampler.md) · [Chromium tests](../tests/e2e/composition-modules.spec.js) · [Runtime lifecycle tests](../tests/app/sampler-runtime.test.js)
 
 ### Octo Send and Receive (2026-11-25)
 
@@ -180,10 +186,10 @@ All listed modules pass the finite/stable-buffer baseline and strict voltage mat
 | MIDI | `midi-cv`, `midi-4`, `midi-cc`, `midi-clk`, `midi-drum` baseline |
 | Clock | `clk`, `div`, `swing`, `burst` baseline |
 | Modulation | `lfo`, `quad-lfo`, `adsr`, `slew`, `ochd`, `rnd`, `func`, `envf` baseline |
-| Sources/voices | `nse`, `vco`, `wavetable`, `pluck`, `kick`, `snare`, `hat` baseline |
-| Sequencing/pitch | `sh`, `quant`, `arp`, `seq`, `seq-switch`, `euclid`, `turing` baseline |
-| Filters/nonlinear | `vcf`, `lpg`, `formant`, `fold`, `ring` baseline |
-| Utilities | `logic`, `mult`, `octo-send`, `octo-receive`, `matrix`, `mix`, `joystick`, `vca`, `atten`, `db`, `pwm`, `cmp2`, `comp` baseline |
+| Sources/voices | `nse`, `vco`, `wavetable`, `pluck`, `kick`, `snare`, `hat`, `fold-perc`, `slice-sampler` baseline |
+| Sequencing/pitch | `sh`, `quant`, `arp`, `seq`, `seq-switch`, `euclid`, `turing`, `gate-seq` baseline |
+| Filters/nonlinear | `vcf`, `lpg`, `formant`, `fold`, `ring`, `dj-filter` baseline |
+| Utilities | `logic`, `mult`, `octo-send`, `octo-receive`, `matrix`, `mix`, `joystick`, `vca`, `atten`, `db`, `pwm`, `cmp2`, `comp`, `mutes` baseline |
 | Effects | `dly`, `phaser`, `flanger`, `tape`, `verb`, `chorus`, `crush`, `loop`, `granulita` baseline |
 | Analysis/recording | `scope`, `spectrum`, `plot`, `spectrogram`, `rec` baseline |
 | Output | `out` baseline |

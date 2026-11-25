@@ -323,6 +323,7 @@ Optional fields:
 | diagnostics | Static rack connection checks; may declare terminalInputs. |
 | role | Infrastructure role such as audio-output; ordinary modules omit it. |
 | handleWorkletEvent() | Handles infrequent DSP events on the main thread. |
+| applyRuntimeCommand(dsp, command) | Installs local runtime media on the owning instance. This hook requires both runtime-state hooks. |
 | captureRuntimeState(dsp) | Captures non-patch state such as loop buffers. |
 | restoreRuntimeState(dsp, state) | Restores captured state into a new DSP instance. |
 
@@ -495,7 +496,9 @@ telemetry: {
 }
 ~~~
 
-Params and LEDs always synchronize. Fields are structured-cloned and zero-argument methods become snapshot functions on the mirror. History sends the latest entry when its identity changes at a telemetry update; intermediate entries can be skipped. Use it for bounded display history, not lossless capture.
+LEDs synchronize on every snapshot. By default the worklet includes every DSP parameter. To limit snapshot traffic, supply `telemetry.params` with the declared parameter paths changed by your DSP. Use `params: []` when all edits originate in the host. The host still delivers every control and state change to the DSP. Gate Seq uses this setting to keep its pattern and preset memories out of display snapshots.
+
+Fields are structured-cloned and zero-argument methods become snapshot functions on the mirror. History sends the latest entry when its identity changes at a telemetry update; intermediate entries can be skipped. Use it for bounded display history, not lossless capture.
 
 For infrequent transferable results:
 
@@ -516,6 +519,8 @@ handleWorkletEvent(event, { moduleId, instance, services, audioCtx }) {
 MIDI OUT batches gate transitions per render block. Its browser handler uses the injected MIDI service and audio context to timestamp the notes for the selected port. When a live instance is replaced, the worklet drains its final events after disposal so it can release a held note.
 
 Do not use module events as continuous telemetry.
+
+For a user-selected file, a custom renderer can call `await onRuntimeCommand(command, [pcm.buffer])`. Decode and bound the file before sending it. The module's synchronous `applyRuntimeCommand(dsp, command)` validates the command in either runtime and replaces only the requested media. Transfer the disposable decoded buffer and handle a rejected request on the panel. Preview renderers omit the callback. The Slice Sampler demonstrates this pattern and keeps both its PCM and filename out of the patch.
 
 Large bounded results should use coarse chunks rather than allocating one typed array per render quantum. Include an exact valid sample count when the final transferable chunk can contain padding.
 

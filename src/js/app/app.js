@@ -1164,8 +1164,8 @@ export class EurorackApp {
         } catch (error) { alert(`Failed to save patch: ${error.message}`); return false; }
     }
 
-    async loadPatchState(patchState, { managed = false, beforeApply = null, edit = false, signal } = {}) {
-        if (this.patchLibrary && !managed) return this.patchLibrary.replaceState(patchState, null, { beforeApply, edit, signal });
+    async loadPatchState(patchState, { managed = false, beforeApply = null, edit = false, signal, skipPrompt = false } = {}) {
+        if (this.patchLibrary && !managed) return this.patchLibrary.replaceState(patchState, null, { beforeApply, edit, signal, skipPrompt });
         signal?.throwIfAborted();
         await this.localModuleRuntime.preparePatch(patchState);
         signal?.throwIfAborted();

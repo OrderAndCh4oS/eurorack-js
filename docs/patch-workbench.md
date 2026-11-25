@@ -4,7 +4,7 @@ The Patch Workbench has **Patch** and **Modules** tabs. The Patch tab builds rac
 
 Patch-script evaluation happens in a disposable worker inside an opaque-origin sandbox with a two-second timeout. Network requests, app storage and page access are blocked. There is no main-thread evaluation fallback. A script can contain up to 128 KiB of UTF-8 source and create a rack of up to 256 modules and 2048 cables across 32 rows. Explicit placement uses rows 1–32 and indexes 0–255. Evaluation results are limited to 1 MiB. This boundary has no hard memory quota. Loaded patch script files are never run automatically. When activated, module definitions run separately as trusted JavaScript outside the patch-script sandbox.
 
-Applying changes keeps the open patch's identity, credits and saved baseline. The result remains an unsaved edit; it is not automatically published or saved to your account. Retained drafts expire after 15 minutes, and applying one still uses the existing unsaved-changes confirmation and atomic rack load.
+Applying a validated draft keeps the open patch's identity, credits and saved baseline. Saving or publishing the result requires a separate action. Drafts expire after 15 minutes. If the rack has unsaved edits, the manual **Apply** button offers Save, Discard and Cancel. WebMCP keeps those edits by default and lets the caller explicitly apply the draft over them. [WebMCP draft application](webmcp.md#how-drafts-work)
 
 For a guided first patch, read the [Patch Workbench Guide](patch-workbench-guide.md).
 

@@ -127,10 +127,7 @@ try {
         else if (variant !== 'stereo') throw new Error('Unknown patch variant.');
         const before = await invoke('get_rack');
         const draft = await invoke('validate_script', {source,expectedRevision:before.revision});
-        const confirm = page.getByRole('button', {name:'Discard changes',exact:true});
-        const confirmation = confirm.waitFor({timeout:1500}).then(() => confirm.click()).catch(() => {});
-        const applied = await invoke('apply_draft', {draftId:draft.draftId});
-        await confirmation;
+        const applied = await invoke('apply_draft', {draftId:draft.draftId, discardUnsavedChanges:before.hasUnsavedChanges});
         if (!applied.applied) throw new Error('Draft was not applied.');
         state.variant = variant;
         await writeFile(stateFile, JSON.stringify(state));

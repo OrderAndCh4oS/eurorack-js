@@ -490,11 +490,11 @@ export class PatchWorkbench {
         } catch { return false; }
     }
 
-    async applyDraft(draftId, {signal} = {}) {
+    async applyDraft(draftId, {signal, onUnsavedChanges} = {}) {
         if (this.operationPending) throw draftError('busy', 'A patch operation is still running.');
         this.operationPending = true;
         try {
-            const result = await this.drafts.apply(draftId, {signal, isCurrent: () =>
+            const result = await this.drafts.apply(draftId, {signal, onUnsavedChanges, isCurrent: () =>
                 this.lastCompiled?.draftId === draftId && this.lastDraftSource === this.editor.value &&
                 this.lastDraftScriptId === this.scriptSelect.value});
             if (!result.applied) return result;

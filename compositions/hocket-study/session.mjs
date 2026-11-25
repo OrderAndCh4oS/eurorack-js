@@ -100,10 +100,7 @@ try {
     } else if (command === 'apply') {
         // This client owns a new demo tab. Replace only the just-created local
         // prototype/previous demo in that tab, never another user's rack tab.
-        const confirm = page.getByRole('button', {name: 'Discard changes', exact: true});
-        const confirmation = confirm.waitFor({timeout: 5000}).then(() => confirm.click()).catch(() => {});
-        console.log(JSON.stringify(await invoke('apply_draft', {draftId: session.draftId})));
-        await confirmation;
+        console.log(JSON.stringify(await invoke('apply_draft', {draftId: session.draftId, discardUnsavedChanges: true})));
         console.log(JSON.stringify(await invoke('debug_rack')));
         await writeFile(new URL('patch.json', directory), JSON.stringify((await invoke('get_rack')).patch, null, 2));
     } else if (command === 'play') {

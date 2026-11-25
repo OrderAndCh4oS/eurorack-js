@@ -23,7 +23,7 @@ This integration runs in the browser tab. It does not provide an HTTP MCP server
 2. **Check the modules.** Call `describe_modules` to find the exact parameter and port names. Do not guess sockets from their panel labels.
 3. **Write the code.** Use the [Patch Workbench API](patch-workbench.md). Ordinary synchronous JavaScript loops and functions are supported.
 4. **Validate.** Call `validate_script` with the source and the revision from step 1. The code opens as a separate local **Agent patch** script. Your existing editor work is preserved and the live rack is unchanged.
-5. **Check and apply.** Inspect the code, compiled patch and wiring warnings. Call `apply_draft` with the returned `draftId` to load that exact result. Eurorack only prompts if the rack has unsaved changes.
+5. **Check and apply.** Inspect the code, compiled patch and wiring warnings. Call `apply_draft` with the returned `draftId`. If `get_rack` reported `hasUnsavedChanges` and the requested edit should replace that working state, include `discardUnsavedChanges: true`.
 6. **Play and save.** Select **Start** to hear the patch if audio is stopped, and use the rack's **Save** button to keep it. The tools do not start stopped audio, save a patch to your account, or publish it. Applying while audio is running changes the playing rack.
 
 A useful first request is:
@@ -48,11 +48,11 @@ All seven tools take a JSON object. Use `{}` for tools with no arguments. Extra 
 
 | Tool | Input | Success result, alongside `ok: true` |
 | --- | --- | --- |
-| `get_rack` | `{}` | Current v3 `patch`, equivalent JavaScript `source`, `revision`, and `diagnostics` |
+| `get_rack` | `{}` | Current v3 `patch`, equivalent JavaScript `source`, `revision`, `hasUnsavedChanges`, and `diagnostics` |
 | `describe_modules` | `{}` | `modules`: the catalogue of IDs, names, categories and widths in HP; `documentation`: development guide links |
 | `describe_modules` | `{ "types": ["vco", "out"] }` | `modules` with exact input/output ports and parameter contracts for 1–12 distinct known types; `documentation`: development guide links |
 | `validate_script` | `{ "source": "patch()…", "expectedRevision": 1 }` | `draftId`, compiled `patch`, `diagnostics`, `revision`, and `expiresAt` |
-| `apply_draft` | `{ "draftId": "…" }` | `applied: true`, or `applied: false` if you cancel the confirmation |
+| `apply_draft` | `{ "draftId": "…" }` with optional boolean `discardUnsavedChanges` (default `false`) | `applied: true` on success. A rack with unsaved edits returns the `unsaved-changes` error unless the flag is true. |
 | `debug_rack` | `{}` | Current `revision`, `moduleCount`, `cableCount`, and structured `issues` |
 | `measure_audio` | `{ "expectedRevision": 1, "durationSeconds": 5 }` | `revision`, `implementationVersion`, `capture` details and a JSON `report` of the running stereo output |
 | `present_step` | `{ "caption": "The filter now follows the envelope.", "moduleId": "filter", "holdSeconds": 6 }` | The caption, optional module instance ID and hold duration, returned when the viewing time has elapsed |
@@ -77,7 +77,7 @@ Failures return an error object, for example:
 
 Validation evaluates the code once and retains the compiled patch. Applying uses that exact patch, including any random values chosen during validation; it does not run the script again. Evaluation or compilation errors leave the live rack unchanged and the submitted code in the editor to correct.
 
-Applying edits the open patch and keeps its saved identity and creator credits. Changes remain unsaved. If the rack has unsaved edits, the usual confirmation appears. Cancelling leaves the rack untouched.
+Applying edits the open patch and keeps its saved identity and creator credits. If there are unsaved edits, the tool returns `unsaved-changes` immediately and retains the draft. To apply over those edits, retry with the same `draftId` and `discardUnsavedChanges: true`. To keep the current rack, stop after the first response. The workbench's manual **Apply** button still offers Save, Discard and Cancel.
 
 Drafts belong to the current tab, expire after 15 minutes, and are consumed after a successful apply. Up to four are retained, but only the editor's latest validated draft can be applied. Loading another script clears that selection, even if you later return to the same source. Changes to the rack, selected patch, account, or source require a fresh read and validation.
 
@@ -129,7 +129,7 @@ Open the rack, press **Start**, and start recording the browser window and its a
 
 > Build a patch slowly for an OBS recording. Start with a playable voice. Add one layer at a time and test it. After each change, use present_step to highlight the module, caption what changed or what you measured, and wait eight seconds before continuing.
 
-For each stage, the agent reads the current rack, extends its source, validates it, and applies the retained draft. Each applied stage becomes visible and audible as it is built. The usual unsaved-changes prompt appears when needed. The agent can then check the wiring or measure the output using the new revision and put the finding in a caption.
+For each stage, the agent reads the current rack, extends its source, validates it, and applies the retained draft. After the first stage, the rack will usually have unsaved edits. When the next draft includes that work, pass `discardUnsavedChanges: true` on the first apply call for the new stage. The agent can then check the wiring or measure the output using the new revision and put the finding in a caption.
 
 `present_step` accepts a plain-text caption of up to 240 characters and an optional instance ID from `get_rack.patch.modules`. A targeted step scrolls that module into view and highlights it. The hold defaults to 5 seconds and accepts 0.5–30 seconds. The agent should await the call before continuing. Playback continues during the hold. Completion or cancellation clears the caption and highlight.
 
@@ -138,6 +138,7 @@ For each stage, the agent reads the current rack, extends its source, validates 
 | Problem or error | What to do |
 | --- | --- |
 | No tools appear | Check Chrome support, enable the testing flag, reopen the rack, and check that your agent is connected to that tab. |
+| `unsaved-changes` | The current rack and validated draft are available. To replace the rack's unsaved edits, call `apply_draft` with the same `draftId` and `discardUnsavedChanges: true`. |
 | `rack-changed` | Read the rack again and validate against its new revision. |
 | `source-changed` | Validate the selected Code script again. |
 | `draft-not-found` | The draft expired, was replaced, or was already applied. Validate again. |

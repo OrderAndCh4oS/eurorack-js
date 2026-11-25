@@ -303,7 +303,7 @@ The app imports `TEST_PATCHES` directly. Retained musical demos, SFX, and drum c
 
 ## Live patch walkthroughs
 
-For a requested **live walkthrough or OBS recording** in the running app, build one playable stage at a time. Read `get_rack`, extend the current source, validate, and apply each stage individually. Check the wiring or measure the playing output at the new revision. Call `present_step` with a concise caption about the change or a measured result, the relevant module instance ID when useful, and the requested viewing time. Await the hold before continuing. The user can follow the calls and full measurement reports in **Analysis**. See [Record a live walkthrough](docs/webmcp.md#record-a-live-walkthrough).
+For a requested **live walkthrough or OBS recording** in the running app, build one playable stage at a time. Read `get_rack`, extend the current source, validate, and apply each stage individually. When `hasUnsavedChanges` is true and the draft carries the current work into the requested next stage, pass `discardUnsavedChanges: true` to `apply_draft`. Check the wiring or measure the playing output at the new revision. Call `present_step` with a concise caption about the change or a measured result, the relevant module instance ID when useful, and the requested viewing time. Await the hold before continuing. The user can follow the calls and full measurement reports in **Analysis**. See [Record a live walkthrough](docs/webmcp.md#record-a-live-walkthrough).
 
 ## Updating Patches
 

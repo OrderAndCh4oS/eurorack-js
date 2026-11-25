@@ -62,6 +62,31 @@ describe('retained patch drafts', () => {
         expect(await service.apply(fresh.draftId)).toEqual({applied:true});
     });
 
+    it('keeps unsaved edits and the exact draft for a noninteractive retry', async () => {
+        const {service, app, evaluate} = fixture();
+        app.patchLibrary = {isDirty: () => true};
+        expect(service.getRack().hasUnsavedChanges).toBe(true);
+        const draft = await service.validate(source);
+        await expect(service.apply(draft.draftId, {onUnsavedChanges:'keep'}))
+            .rejects.toMatchObject({code:'unsaved-changes'});
+        expect(app.loadPatchState).not.toHaveBeenCalled();
+        await expect(service.apply(draft.draftId, {onUnsavedChanges:'discard'})).resolves.toEqual({applied:true});
+        expect(app.loadPatchState).toHaveBeenCalledWith(draft.patch, expect.objectContaining({edit:true, skipPrompt:true}));
+        expect(evaluate).toHaveBeenCalledOnce();
+    });
+
+    it('rechecks the saved patch identity before a confirmed noninteractive load', async () => {
+        const {service, app} = fixture();
+        app.patchLibrary = {active:{source:'local', id:'first'}, accountGeneration:0, isDirty: () => true};
+        const draft = await service.validate(source);
+        app.loadPatchState.mockImplementationOnce(async (_patch, {beforeApply}) => {
+            app.patchLibrary.active.id = 'second';
+            beforeApply();
+        });
+        await expect(service.apply(draft.draftId, {onUnsavedChanges:'discard'})).rejects.toMatchObject({code:'rack-changed'});
+        expect(app.host.serializePatch()).toEqual(empty());
+    });
+
     it('does not apply when cancelled or when the editor changed during confirmation', async () => {
         const {service, app} = fixture();
         const draft = await service.validate(source);

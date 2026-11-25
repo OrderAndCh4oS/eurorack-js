@@ -82,7 +82,8 @@ export class PatchDraftService {
 
     getRack() {
         const {patch, revision} = this.observe();
-        return {patch: copy(patch), revision, source: formatPatchScript(patch, this.registry),
+        return {patch: copy(patch), revision, hasUnsavedChanges: this.app.patchLibrary?.isDirty(patch) ?? false,
+            source: formatPatchScript(patch, this.registry),
             diagnostics: analyseRackConnections(patch, this.registry)};
     }
 
@@ -130,26 +131,31 @@ export class PatchDraftService {
         if (this.app.inPlayerView) throw draftError('player-read-only', 'Open the desktop editor to edit patches.');
     }
 
-    async apply(draftId, {signal, isCurrent = () => true} = {}) {
+    async apply(draftId, {signal, isCurrent = () => true, onUnsavedChanges = 'prompt'} = {}) {
         return this.exclusive(async () => {
             this.prune();
             const draft = this.#drafts.get(draftId);
             if (!draft) throw draftError('draft-not-found', 'This draft expired or was already applied. Validate again.');
             if (draft.baseContext !== this.observe().context) throw draftError('rack-changed', 'A different patch or account is open. Read it and validate again.');
             const account = this.app.patchLibrary?.accountGeneration;
+            const skipPrompt = onUnsavedChanges === 'keep' || onUnsavedChanges === 'discard';
             const beforeApply = () => {
                 signal?.throwIfAborted();
                 this.requireEditor();
                 if (draft.expiresAt <= this.now()) throw draftError('draft-not-found', 'This draft expired. Validate again.');
                 if (account !== this.app.patchLibrary?.accountGeneration) throw draftError('rack-changed', 'Your account changed. Validate again.');
                 if (!isCurrent()) throw draftError('source-changed', 'The code changed. Validate again.');
-                if (draft.baseFingerprint !== this.observe().fingerprint) {
+                const current = this.observe();
+                // The editor dialog can save the rack under a new identity. Tool decisions belong to one revision.
+                if (draft.baseFingerprint !== current.fingerprint || (skipPrompt && draft.revision !== current.revision)) {
                     throw draftError('rack-changed', 'The rack changed. Read it and validate again.');
+                }
+                if (onUnsavedChanges === 'keep' && this.app.patchLibrary?.isDirty(current.patch)) {
+                    throw draftError('unsaved-changes', 'The rack has unsaved edits. To replace them with this draft, retry apply_draft with the same draftId and discardUnsavedChanges set to true.');
                 }
             };
             beforeApply();
-            // The app checks again after its unsaved-changes dialog and before starting atomic load.
-            const applied = await this.app.loadPatchState(copy(draft.patch), {beforeApply, edit: true, signal});
+            const applied = await this.app.loadPatchState(copy(draft.patch), {beforeApply, edit: true, signal, skipPrompt});
             if (applied === false) { signal?.throwIfAborted(); return {applied: false}; }
             this.#drafts.delete(draftId);
             this.observe();

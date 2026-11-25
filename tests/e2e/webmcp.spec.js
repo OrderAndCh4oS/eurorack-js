@@ -54,6 +54,7 @@ test('a desktop draft stays available when the rack switches to the phone player
 test('registered tools validate isolated code, apply the exact draft and preserve unsaved patch identity', async ({page}) => {
     await bootWithTools(page);
     const before = await invoke(page,'get_rack');
+    expect(before.hasUnsavedChanges).toBe(false);
     const draft = await validate(page);
     expect(draft.ok).toBe(true);
     expect(draft.draftId).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
@@ -71,40 +72,42 @@ test('registered tools validate isolated code, apply the exact draft and preserv
     await page.evaluate(() => {
         const app = window.eurorackApp;
         app.patchLibrary.setActive({source:'local',id:'fixture-local',key:'Fixture',name:'Fixture',state:app.host.serializePatch(),canEdit:true});
+        app.setParam('osc', 'coarse', 0.12);
     });
+    const dirty = await invoke(page,'get_rack');
+    expect(dirty.hasUnsavedChanges).toBe(true);
     const next = await validate(page);
-    expect(await invoke(page,'apply_draft',{draftId:next.draftId})).toEqual({ok:true,applied:true});
+    expect(await invoke(page,'apply_draft',{draftId:next.draftId})).toMatchObject({ok:false,error:{code:'unsaved-changes'}});
+    await expect(page.getByRole('dialog',{name:'Unsaved rack changes'})).toHaveCount(0);
+    expect(await invoke(page,'get_rack')).toEqual(dirty);
+    expect(await invoke(page,'apply_draft',{draftId:next.draftId,discardUnsavedChanges:true})).toEqual({ok:true,applied:true});
+    expect((await invoke(page,'get_rack')).patch).toEqual(next.patch);
     expect(await page.evaluate(() => ({id:window.eurorackApp.patchLibrary.active.id,dirty:window.eurorackApp.patchLibrary.isDirty()})))
         .toEqual({id:'fixture-local',dirty:true});
     await expect(page.locator('#activePatchLabel')).toContainText('Fixture');
     await expect(page.locator('#activePatchLabel')).toContainText('Edited');
 });
 
-test('stale drafts and cancelled or changed-rack confirmations do not replace the rack', async ({page}) => {
+test('stale tool retries and cancelled or stale manual applies preserve the rack', async ({page}) => {
     await bootWithTools(page);
     const first = await validate(page);
     await invoke(page,'apply_draft',{draftId:first.draftId});
     const stale = await validate(page);
+    expect(await invoke(page,'apply_draft',{draftId:stale.draftId})).toMatchObject({ok:false,error:{code:'unsaved-changes'}});
     await page.evaluate(() => window.eurorackApp.setParam('osc','coarse',0.12));
-    expect(await invoke(page,'apply_draft',{draftId:stale.draftId})).toMatchObject({ok:false,error:{code:'rack-changed'}});
-    const draft = await validate(page);
-    await page.evaluate(draftId => { window.pendingApply = window.rackTools.apply_draft.execute({draftId}); }, draft.draftId);
+    expect(await invoke(page,'apply_draft',{draftId:stale.draftId,discardUnsavedChanges:true})).toMatchObject({ok:false,error:{code:'rack-changed'}});
+    await validate(page);
+    const apply = page.locator('#patch-workbench [data-action="apply"]');
+    await apply.click();
     const dialog = page.getByRole('dialog',{name:'Unsaved rack changes',exact:true});
     await expect(dialog).toBeVisible();
     await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
-    expect(await page.evaluate(() => window.pendingApply)).toEqual({ok:true,applied:false});
-    await page.evaluate(draftId => {
-        window.toolAbort = new AbortController();
-        window.pendingApply = window.rackTools.apply_draft.execute({draftId},{signal:window.toolAbort.signal});
-    }, draft.draftId);
-    await expect(dialog).toBeVisible();
-    await page.evaluate(() => window.toolAbort.abort());
     await expect(dialog).toHaveCount(0);
-    expect(await page.evaluate(() => window.pendingApply)).toMatchObject({ok:false,error:{code:'cancelled'}});
-    await page.evaluate(draftId => { window.pendingApply = window.rackTools.apply_draft.execute({draftId}); }, draft.draftId);
+    expect((await invoke(page,'get_rack')).patch.params.osc.coarse).toBe(0.12);
+    await apply.click();
     await expect(dialog).toBeVisible();
     await page.evaluate(() => window.eurorackApp.setParam('osc','coarse',0.27));
     await dialog.getByRole('button',{name:'Discard changes',exact:true}).click();
-    expect(await page.evaluate(() => window.pendingApply)).toMatchObject({ok:false,error:{code:'rack-changed'}});
+    await expect(page.locator('#patch-workbench [data-role="status"]')).toContainText('rack changed');
     expect((await invoke(page,'get_rack')).patch.params.osc.coarse).toBe(0.27);
 });

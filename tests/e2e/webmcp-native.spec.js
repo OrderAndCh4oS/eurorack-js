@@ -76,30 +76,28 @@ test('native Chrome discovers all tools, catches wiring issues and applies the e
     } finally {await cdp.detach();}
 });
 
-test('native cancellation closes confirmation, and stale edits are preserved', async ({page}) => {
-    const {cdp,invoke,start} = await connectTools(page);
+test('native tools resolve unsaved rack choices and reject stale retries', async ({page}) => {
+    const {cdp,invoke} = await connectTools(page);
     const validate = async () => invoke('validate_script',{source,expectedRevision:(await invoke('get_rack')).revision});
     try {
         const first = await validate();
         expect(first.ok).toBe(true);
         await invoke('apply_draft',{draftId:first.draftId});
         const next = await validate();
-        const pending = await start('apply_draft',{draftId:next.draftId});
-        const dialog = page.getByRole('dialog',{name:'Unsaved rack changes',exact:true});
-        await expect(dialog).toBeVisible();
-        await cdp.send('WebMCP.cancelInvocation',{invocationId:pending.invocationId});
-        expect((await pending.response).status).toBe('Canceled');
-        await expect(dialog).toHaveCount(0);
-        await expect.poll(()=>page.evaluate(()=>window.eurorackApp.patchWorkbench.operationPending)).toBe(false);
-        expect((await invoke('get_rack')).patch).toEqual(first.patch);
+        expect(await invoke('apply_draft',{draftId:next.draftId})).toMatchObject({ok:false,error:{code:'unsaved-changes'}});
+        await expect(page.getByRole('dialog',{name:'Unsaved rack changes',exact:true})).toHaveCount(0);
+        expect(await invoke('get_rack')).toMatchObject({patch:first.patch,hasUnsavedChanges:true});
         await page.evaluate(()=>window.eurorackApp.setParam('osc','coarse',0.48));
-        expect(await invoke('apply_draft',{draftId:next.draftId})).toMatchObject({ok:false,error:{code:'rack-changed'}});
+        expect(await invoke('apply_draft',{draftId:next.draftId,discardUnsavedChanges:true})).toMatchObject({ok:false,error:{code:'rack-changed'}});
         expect((await invoke('get_rack')).patch.params.osc.coarse).toBe(0.48);
         const bad = await invoke('validate_script',{source:'while(true) {}',expectedRevision:(await invoke('get_rack')).revision});
         expect(bad).toMatchObject({ok:false});
         expect(bad.error.message).toContain('evaluation limit');
         const recovered = await validate();
         expect(recovered.ok).toBe(true);
+        expect(await invoke('apply_draft',{draftId:recovered.draftId})).toMatchObject({ok:false,error:{code:'unsaved-changes'}});
+        expect(await invoke('apply_draft',{draftId:recovered.draftId,discardUnsavedChanges:true})).toEqual({ok:true,applied:true});
+        expect((await invoke('get_rack')).patch).toEqual(recovered.patch);
     } finally {await cdp.detach();}
 });
 

@@ -43,10 +43,21 @@ describe('Eurorack WebMCP tools', () => {
         expect(workbench.stageAgentScript).toHaveBeenCalledWith('patch()');
         expect(workbench.validateDraft).toHaveBeenCalledWith({signal:controller.signal, expectedRevision:3});
         expect(await tools.apply_draft.execute({draftId:id}, {signal:controller.signal})).toEqual({ok:true, applied:true});
-        expect(workbench.applyDraft).toHaveBeenCalledWith(id, {signal:controller.signal});
+        expect(workbench.applyDraft).toHaveBeenCalledWith(id, {signal:controller.signal, onUnsavedChanges:'keep'});
         controller.abort();
         expect(await tools.apply_draft.execute({draftId:id}, {signal:controller.signal})).toMatchObject({ok:false,error:{code:'cancelled'}});
         expect(workbench.applyDraft).toHaveBeenCalledOnce();
+    });
+
+    it('requires a boolean to explicitly replace unsaved edits', async () => {
+        const {tools, workbench} = fixture();
+        for (const value of ['true', 1, null]) {
+            expect(await tools.apply_draft.execute({draftId:id, discardUnsavedChanges:value}))
+                .toMatchObject({ok:false, error:{code:'invalid-input'}});
+        }
+        expect(workbench.applyDraft).not.toHaveBeenCalled();
+        expect(await tools.apply_draft.execute({draftId:id, discardUnsavedChanges:true})).toEqual({ok:true, applied:true});
+        expect(workbench.applyDraft).toHaveBeenCalledWith(id, {signal:undefined, onUnsavedChanges:'discard'});
     });
 
     it('includes module development guides in catalogue and contract responses', async () => {

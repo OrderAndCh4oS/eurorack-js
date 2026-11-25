@@ -160,9 +160,7 @@ test('presents two playable stages and their live checks while the rack keeps ru
     const draft = await call(page, 'validate_script', {expectedRevision: before.revision,
         source: before.source + ".module('lfo','motion',{rateKnob:0.1}).connect('motion.primary','osc.fm')"});
     expect(draft.ok).toBe(true);
-    const applying = call(page, 'apply_draft', {draftId: draft.draftId});
-    await page.getByRole('dialog', {name: 'Unsaved rack changes'}).getByRole('button', {name: 'Discard changes'}).click();
-    expect(await applying).toEqual({ok: true, applied: true});
+    expect(await call(page, 'apply_draft', {draftId: draft.draftId, discardUnsavedChanges: true})).toEqual({ok: true, applied: true});
     await expect(page.locator('#module-motion')).toBeVisible();
     const wiring = await call(page, 'debug_rack');
     expect(wiring.moduleCount).toBe(before.patch.modules.length + 1);

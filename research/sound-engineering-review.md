@@ -35,6 +35,21 @@ npm run audit:dsp -- --module vcf --json
 
 ## Remediation Completed
 
+### LOGIC and MULT input normals (2026-11-25)
+
+The worklet delivered cable changes through two hooks. LOGIC and MULT listened
+for a different hook, so their patched OR and IN 2 jacks always followed their
+normals. Both modules now use the worklet hooks. Render tests cover initial
+connections, a 0 V override, unplugging and reconnecting. The same tests
+confirmed the existing behavior of all three right-side CMP2 inputs.
+[Worklet routing tests](../tests/audio/worklet-processor.test.js)
+
+A 32-second stereo Chromium render of a score using only LOGIC's AND inputs
+matched the previous build sample for sample. Moving its ten OR operators to
+the OR jacks produced the same render with the fix. For older patches that
+relied on a cable being ignored, unplugging the affected jack selects its
+normal again.
+
 ### CV and gate to external MIDI (2026-11-22)
 
 MIDI OUT samples pitch and velocity at the gate rise and releases the original note and channel at the fall. The focused tests cover multiple edges within a block and edits during held notes. The strict matrix completed 18 scenarios across six sample-rate/block-size combinations with stable buffers and zero voltage flags. The converter produces MIDI events, so the focused edge and browser tests measure its output. [MIDI OUT design and references](modules/midi-out.md)

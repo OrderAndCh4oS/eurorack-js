@@ -278,6 +278,37 @@ describe('Eurorack AudioWorkletProcessor', () => {
         expect(disconnected).toHaveBeenCalledWith('audioR');
     });
 
+    it.each([
+        // Module, normal source, switched jack, output, response to 5 V and 0 V.
+        ['logic', 'andA', 'orA', 'or', 5, 0],
+        ['logic', 'andB', 'orB', 'or', 5, 0],
+        ['mult', 'in1', 'in2', 'out2a', 5, 0],
+        ['cmp2', 'in1', 'in2', 'out2', 0, 10],
+        ['cmp2', 'shiftCV1', 'shiftCV2', 'out2', 0, 10],
+        ['cmp2', 'sizeCV1', 'sizeCV2', 'out2', 10, 0, { size2: 0 }]
+    ])('%s switches from its %s normal to a cable on %s', (type, normal, jack, output, outputAt5V, outputAt0V, params = {}) => {
+        const processor = new Processor();
+        const modules = [
+            { id: 'dc', type: 'atten', pluginId: 'core', params: { offset1: 1, offset2: 0.5 }, order: 0, rackOrder: 0 },
+            { id: 'target', type, pluginId: 'core', params, order: 1, rackOrder: 1 }
+        ];
+        const cable = (fromPort, toPort) => ({ fromModule: 'dc', fromPort, toModule: 'target', toPort });
+        const normalHigh = cable('out1', normal);
+        const patchedZero = cable('out2', jack);
+        const outputs = [[new Float32Array(128), new Float32Array(128)]];
+        function checkBlock(revision, cables, expectedVoltage) {
+            processor.handleMessage({ type: 'topology', topology: { revision, plugins: { core: 1 }, modules, cables } });
+            expect(processor.port.postMessage).toHaveBeenCalledWith({ type: 'topology-active', revision });
+            processor.process([], outputs);
+            expect(new Set(processor.modules.target.instance.outputs[output])).toEqual(new Set([expectedVoltage]));
+        }
+
+        checkBlock(1, [cable('out1', jack)], outputAt5V);
+        checkBlock(2, [normalHigh, patchedZero], outputAt0V);
+        checkBlock(3, [normalHigh], outputAt5V);
+        checkBlock(4, [normalHigh, patchedZero], outputAt0V);
+    });
+
     it('transfers completed recorder data to the main thread as a module event', () => {
         const processor = new Processor();
         processor.handleMessage({

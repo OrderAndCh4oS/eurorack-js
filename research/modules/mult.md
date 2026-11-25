@@ -34,6 +34,10 @@ Passive 2-input, 6-output signal splitter. Duplicates CV or audio signals to mul
 - When IN 2 has no cable, it receives IN 1's signal
 - This allows a single input to be split 6 ways
 - With both inputs patched, operates as two independent 1-to-3 mults
+- The worklet reports IN 2 jack state through `onInputConnected(port)` and
+  `onInputDisconnected(port)`. Tests check channel 2 with a cable at startup,
+  a patched 0 V signal while IN 1 is high, and after removing the IN 2 cable.
+  [Worklet routing tests](../../tests/audio/worklet-processor.test.js)
 
 ## Implementation Notes
 

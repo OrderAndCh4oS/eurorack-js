@@ -37,6 +37,11 @@ Logic provides separate two-input AND and OR gate operators.
 ### Normalling
 - AND IN A/B normal respectively to OR IN A/B while the corresponding OR input
   is unpatched. Cable state, not instantaneous voltage, controls the normal.
+- The worklet reports jack state through `onInputConnected(port)` and
+  `onInputDisconnected(port)`. Tests render a 5 V source on each OR jack,
+  override a high AND input with a 0 V cable, and recover the AND input when
+  that cable is removed. AND-only patches use this same normal.
+  [Worklet routing tests](../../tests/audio/worklet-processor.test.js)
 
 ## Voltage Thresholds
 The manufacturer manual specifies strictly above 2.5V as HIGH.

@@ -51,8 +51,8 @@ describe('Logic module', () => {
         [5, 5, 5]
     ])('computes OR(%sV, %sV) as %sV', (a, b, expected) => {
         const dsp = createLogic();
-        dsp.onInputConnectionChange('orA', true);
-        dsp.onInputConnectionChange('orB', true);
+        dsp.onInputConnected('orA');
+        dsp.onInputConnected('orB');
         dsp.inputs.orA.fill(a);
         dsp.inputs.orB.fill(b);
         dsp.process();
@@ -62,8 +62,8 @@ describe('Logic module', () => {
 
     it('uses the manual’s strictly-above-2.5V threshold', () => {
         const dsp = createLogic({ bufferSize: 4 });
-        dsp.onInputConnectionChange('orA', true);
-        dsp.onInputConnectionChange('orB', true);
+        dsp.onInputConnected('orA');
+        dsp.onInputConnected('orB');
         dsp.inputs.andA.set([2.499, 2.5, 2.501, 10]);
         dsp.inputs.andB.fill(10);
         dsp.inputs.orA.set([2.499, 2.5, 2.501, 10]);
@@ -76,8 +76,8 @@ describe('Logic module', () => {
 
     it('processes both truth tables independently for every sample', () => {
         const dsp = createLogic({ bufferSize: 8 });
-        dsp.onInputConnectionChange('orA', true);
-        dsp.onInputConnectionChange('orB', true);
+        dsp.onInputConnected('orA');
+        dsp.onInputConnected('orB');
         for (let i = 0; i < 8; i++) {
             dsp.inputs.andA[i] = i % 2 ? 5 : 0;
             dsp.inputs.andB[i] = i % 4 < 2 ? 5 : 0;
@@ -97,22 +97,23 @@ describe('Logic module', () => {
     });
 
     it('normals AND A/B to unpatched OR A/B by cable state', () => {
-        const dsp = createLogic();
-        dsp.inputs.andA.fill(5);
-        dsp.inputs.andB.fill(0);
+        const dsp = createLogic({ bufferSize: 4 });
+        dsp.inputs.andA.set([0, 5, 0, 5]);
+        dsp.inputs.andB.set([0, 0, 5, 5]);
         dsp.process();
-        expect(dsp.outputs.or.every(value => value === 5)).toBe(true);
+        expect(Array.from(dsp.outputs.or)).toEqual([0, 5, 5, 5]);
 
-        dsp.onInputConnectionChange('orA', true);
-        dsp.onInputConnectionChange('orB', true);
-        dsp.inputs.orA.fill(0);
-        dsp.inputs.orB.fill(0);
+        dsp.onInputConnected('orA');
         dsp.process();
-        expect(dsp.outputs.or.every(value => value === 0)).toBe(true);
+        expect(Array.from(dsp.outputs.or)).toEqual([0, 0, 5, 5]);
 
-        dsp.onInputConnectionChange('orA', false);
+        dsp.onInputConnected('orB');
         dsp.process();
-        expect(dsp.outputs.or.every(value => value === 5)).toBe(true);
+        expect(Array.from(dsp.outputs.or)).toEqual([0, 0, 0, 0]);
+
+        dsp.onInputDisconnected('orA');
+        dsp.process();
+        expect(Array.from(dsp.outputs.or)).toEqual([0, 5, 0, 5]);
     });
 
     it('reports whether each output was active during the block', () => {

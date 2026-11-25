@@ -73,7 +73,7 @@ describe('Mult Module', () => {
 
     describe('Channel 2 Signal Copying', () => {
         it('should copy IN 2 to all three channel 2 outputs', () => {
-            dsp.onInputConnectionChange('in2', true);
+            dsp.onInputConnected('in2');
             for (let i = 0; i < bufferSize; i++) {
                 dsp.inputs.in2[i] = Math.cos(i * 0.1) * 5;
             }
@@ -89,7 +89,7 @@ describe('Mult Module', () => {
 
     describe('Independent Channels', () => {
         it('should keep channels independent when both patched', () => {
-            dsp.onInputConnectionChange('in2', true);
+            dsp.onInputConnected('in2');
             dsp.inputs.in1.fill(5);
             dsp.inputs.in2.fill(-3);
             dsp.process();
@@ -110,12 +110,12 @@ describe('Mult Module', () => {
             dsp.process();
             expect(dsp.outputs.out2a.every(value => value === 4)).toBe(true);
 
-            dsp.onInputConnectionChange('in2', true);
+            dsp.onInputConnected('in2');
             dsp.inputs.in2.fill(0);
             dsp.process();
             expect(dsp.outputs.out2a.every(value => value === 0)).toBe(true);
 
-            dsp.onInputConnectionChange('in2', false);
+            dsp.onInputDisconnected('in2');
             dsp.process();
             expect(dsp.outputs.out2a.every(value => value === 4)).toBe(true);
         });

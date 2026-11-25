@@ -58,8 +58,12 @@ export default {
 
             leds: {},
 
-            onInputConnectionChange(port, connected) {
-                if (port === 'in2') in2Connected = Boolean(connected);
+            onInputConnected(port) {
+                if (port === 'in2') in2Connected = true;
+            },
+
+            onInputDisconnected(port) {
+                if (port === 'in2') in2Connected = false;
             },
 
             process() {

@@ -61,9 +61,14 @@ export default {
                 or: 0
             },
 
-            onInputConnectionChange(port, connected) {
-                if (port === 'orA') orAConnected = Boolean(connected);
-                if (port === 'orB') orBConnected = Boolean(connected);
+            onInputConnected(port) {
+                if (port === 'orA') orAConnected = true;
+                else if (port === 'orB') orBConnected = true;
+            },
+
+            onInputDisconnected(port) {
+                if (port === 'orA') orAConnected = false;
+                else if (port === 'orB') orBConnected = false;
             },
 
             process() {

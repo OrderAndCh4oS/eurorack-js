@@ -31,6 +31,22 @@ describe('Performance Mutes', () => {
         expect(dsp.outputs.out3).toEqual(dsp.inputs.in1);
     });
 
+    it('reads the routed mute CV on the first sample after reset on all four stems', () => {
+        const dsp = mutes.createDSP({ sampleRate: 48000, bufferSize: 128 });
+        dsp.inputs.in1.fill(5);
+        dsp.process();
+        expect(dsp.outputs.out1[0]).toBe(5);
+        dsp.reset();
+        dsp.inputs.in1.fill(5);
+        for (const n of [1, 2, 3, 4]) dsp.inputs['mute' + n].fill(n === 1 ? 10 : 1);
+        dsp.process();
+        for (const n of [1, 2, 3, 4]) {
+            expect(dsp.outputs['out' + n][0]).toBe(0);
+            expect(dsp.outputs['out' + n].every(v => v === 0)).toBe(true);
+            expect(dsp.leds['level' + n]).toBe(0);
+        }
+    });
+
     it.each([1, 2, 3, 4])('independently latches, punches in and gate-mutes stem %i', n => {
         const dsp = mutes.createDSP({ sampleRate: 1000, bufferSize: 256 });
         dsp.inputs.in1.fill(-5);

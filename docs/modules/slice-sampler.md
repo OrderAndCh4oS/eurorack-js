@@ -4,7 +4,7 @@
 
 [Open in rack](https://eurorackjs.orderandchaos.xyz/?test=Test+-+Slice+Sampler)
 
-1. Start audio. The clock triggers a four-hit drum phrase on the left. On the right, Euclid picks three of every eight clock pulses to play a bell phrase backward. Move Hits on Euclid to bring the bells closer together.
+1. Start audio. The clock triggers a four-hit drum phrase on the left. On the right, Euclid picks three of every eight clock pulses to play a bell phrase backward. Move Hits on Euclid to bring the bells closer together. The factory bells use slightly detuned pitches and an inharmonic partial for a metallic attack.
 2. Select Player B and change Playback from Reverse to Forward. The bell attacks return to the beginning of each hit. Change Order to Forward as well and hear the four pitches walk in the opposite order.
 3. Choose Address on Player A and turn Slice to 3. Each clock now repeats the closed hat. Connect a stepped 0–5 V signal to CV 2 A to choose a different hit on the next trigger. Stop the clock to audition single hits with the Audition button.
 

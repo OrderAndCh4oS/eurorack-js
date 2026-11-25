@@ -43,9 +43,10 @@ export default {
                 let source = lanes[0].input;
                 for (const lane of lanes) {
                     if (lane.connected) source = lane.input;
-                    const held = params[lane.hold] >= 0.5;
-                    const open = params[lane.on] >= 0.5 || held;
-                    if (firstBlock) lane.gain = open && !(lane.mute[0] >= 1) ? 1 : 0;
+                    const latched = params[lane.on] >= 0.5;
+                    const open = latched || params[lane.hold] >= 0.5;
+                    // Start at the routed latch/CV level. A new Hold still ramps in.
+                    if (firstBlock) lane.gain = latched && !(lane.mute[0] >= 1) ? 1 : 0;
                     let peak = 0;
                     for (let i = 0; i < bufferSize; i++) {
                         const target = open && !(lane.mute[i] >= 1) ? 1 : 0;
@@ -60,13 +61,12 @@ export default {
                 firstBlock = false;
             },
             reset() {
-                firstBlock = false;
+                firstBlock = true;
                 for (const lane of lanes) {
                     lane.input.fill(0);
                     lane.mute.fill(0);
                     lane.out.fill(0);
                     params[lane.hold] = 0;
-                    lane.gain = params[lane.on] >= 0.5 ? 1 : 0;
                     leds[lane.led] = 0;
                 }
             }

@@ -36,7 +36,7 @@ To play several drum sounds from one voice, use a stepped CV on the mode jack to
 | Jack | Signal | What it does |
 | --- | --- | --- |
 | Trig (`trigger`) | Trigger | Play a strike by crossing +3 V. A held gate lets the strike ring out. |
-| V/Oct (`pitchCV`) | Pitch CV | Add pitch at one octave per volt, from 0 to +8 V, up to the audio-band limit. |
+| V/Oct (`pitchCV`) | Pitch CV | Add pitch at one octave per volt, from 0 to +8 V, up to the audio-band limit. Negative CV plays the pitch set by the panel. |
 | Attack (`attackCV`) | CV | Move the onset from noise towards a clean pop and then a soft strike. |
 | Decay (`decayCV`) | CV | Lengthen the ringing body. |
 | Morph (`morphCV`) | CV | Change the oscillator shapes. |

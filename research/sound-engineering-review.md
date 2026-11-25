@@ -35,6 +35,10 @@ npm run audit:dsp -- --module vcf --json
 
 ## Remediation Completed
 
+### Gate Seq driving Performance Mutes (2026-11-25)
+
+Two consecutive 100% gates at ÷32 with a 100 ms clock now hold 10 V for the full 6.4 s section. At ×1, clock edges at 0, 100 and 210 ms keep the tie high until the rest at 210 ms. Short gates and ratchets still use timed pulse widths. A separate Mutes regression routes +5 V into a latched channel with its mute gate already high after reset. Its first sample is now 0 V, down from 4.9913 V at 48 kHz. A new manual Hold still opens with the 3 ms attack. [Gate Seq timing tests](../tests/dsp/gate-seq.test.js) · [Mutes reset tests](../tests/dsp/mutes.test.js) · [Stereo browser regression](../tests/e2e/composition-modules.spec.js)
+
 ### Composition and arrangement modules (2026-11-25)
 
 All five factory demos produced stereo output at 48 kHz in Chromium. The programmed Gate Seq matrix reached 10 V on all four outputs. Fold Percussion's control-extreme renders peaked below 5 V. DJ Filter passed dry samples exactly at center and when starting in bypass. Performance Mutes started closed channels at zero and reached silence on both sides of the running demo. The rack-wide strict voltage audit covered 83 modules at three rates and two block sizes. [Gate Sequencer](modules/gate-seq.md) · [Fold Percussion](modules/fold-perc.md) · [Stereo DJ Filter](modules/dj-filter.md) · [Performance Mutes](modules/mutes.md)

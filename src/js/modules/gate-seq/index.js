@@ -93,7 +93,9 @@ function scheduleGate(track, frame, period, delay, hits, gateLength) {
     for (let i = 0; i < track.startCount; i++) {
         const next = i + 1 < track.startCount ? track.starts[i + 1] : frame + period;
         const start = track.starts[i];
-        track.ends[i] = Math.min(start + Math.max(1, width), Math.max(start + 1, next - (canTie ? 0 : 1)));
+        // A tie follows the next actual step. An external clock can slow down or pause.
+        track.ends[i] = canTie ? Infinity
+            : Math.min(start + Math.max(1, width), Math.max(start + 1, next - 1));
     }
 }
 
@@ -218,7 +220,7 @@ function createDSP({ sampleRate = 44100, bufferSize = 512 } = {}) {
                             } while (track.prediction <= frame && track.subdivision < ratio);
                             if (track.subdivision >= ratio || track.prediction >= lastClock + measuredPeriod) track.prediction = Infinity;
                         }
-                        let period = fallback;
+                        let period = ratio < 0 ? fallback * -ratio : fallback;
                         if (measuredPeriod > 0) {
                             // Adjacent rounded subdivision boundaries can differ by one sample.
                             const nextBoundary = Math.min(track.prediction, lastClock + measuredPeriod);

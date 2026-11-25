@@ -102,7 +102,7 @@ describe('four-track gate sequencer', () => {
         expect(out.d.slice(120, 151)).toEqual([...Array(30).fill(10), 0]);
     });
 
-    it('ties adjacent full gates, ends ties on rests or stop, and immediately cancels muted bursts', () => {
+    it('ties adjacent full gates, ends ties on rests, and immediately cancels muted bursts', () => {
         const dsp = sequencer([{ cells: [1, 1, -1, 1], gateLength: 100 }, { cells: all(3) }, { cells: all(1), gateLength: 100 }]);
         const out = render(dsp, 510, [0, 120, 240, 360], [], frame => {
             if (frame === 150 || frame === 220) {
@@ -113,19 +113,47 @@ describe('four-track gate sequencer', () => {
         expect(rises(out.a)).toEqual([0, 360]);
         expect(out.a[239]).toBe(10);
         expect(out.a[240]).toBe(0);
-        expect(out.a[480]).toBe(0);
+        expect(out.a.at(-1)).toBe(10);
         expect(rises(out.b).filter(n => n >= 120 && n < 360)).toEqual([120, 240, 280, 320]);
         expect(out.c.slice(150, 240)).toEqual(Array(90).fill(0));
     });
 
-    it('keeps multiplied ties continuous across rounded subdivisions and expires at the predicted boundary', () => {
+    it('keeps multiplied ties continuous across rounded subdivisions and a paused clock', () => {
         const dsp = sequencer([{ cells: all(1), gateLength: 100, ratio: 3 }]);
         const out = render(dsp, 315, [0, 100, 200]);
-        expect(out.a.slice(100, 300)).toEqual(Array(200).fill(10));
-        expect(out.a[300]).toBe(0);
-        const startup = render(sequencer([{ cells: all(1), ratio: -64, gateLength: 100 }]), 300, [0]);
-        expect(rises(startup.a)).toEqual([0]);
-        expect(startup.a[125]).toBe(0);
+        expect(out.a.every(v => v === 10)).toBe(true);
+        expect(dsp.positions[0]).toBe(6);
+    });
+
+    it('keeps a ÷32 section high through two complete steps and scales the first finite gate', () => {
+        const dsp = sequencer([
+            { ratio: -32, cells: [1, 1, -1], gateLength: 100 },
+            { ratio: -32, cells: [1], gateLength: 25 }
+        ], 128);
+        const out = render(dsp, 6528, edges(66, 100));
+        // At 1 kHz, 64 clock intervals of 100 ms span 6,400 frames.
+        expect(out.a.slice(0, 6400).every(v => v === 10)).toBe(true);
+        expect(out.a.slice(6400).every(v => v === 0)).toBe(true);
+        // Before tempo lock, the 125 ms estimate is per incoming clock.
+        expect(out.b.indexOf(0)).toBe(1000);
+    });
+
+    it('holds past an expected clock edge until a late edge visits a rest', () => {
+        const out = render(sequencer([{ cells: [1, 1, -1], gateLength: 100 }], 13),
+            250, [0, 100, 210]);
+        expect(out.a.indexOf(0)).toBe(210);
+        expect(out.a.slice(210).every(v => v === 0)).toBe(true);
+    });
+
+    it('releases a paused tie on a track mute or reset, and waits for a clock to reopen', () => {
+        const dsp = sequencer([{ cells: [1], gateLength: 100 }, { cells: [1], gateLength: 100 }]);
+        const out = render(dsp, 570, [0, 550], [500], frame => {
+            if (frame === 300 || frame === 320) changeTrack(dsp, 0, { mute: Number(frame === 300) });
+        });
+        expect(out.a.indexOf(0)).toBe(300);
+        expect(out.b.indexOf(0)).toBe(500);
+        expect(rises(out.a)).toEqual([0, 550]);
+        expect(rises(out.b)).toEqual([0, 550]);
     });
 
     it('plays Loopy at each track rate, reads extended cells and resumes the underlying cycle', () => {

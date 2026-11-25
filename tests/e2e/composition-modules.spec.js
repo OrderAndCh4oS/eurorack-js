@@ -120,6 +120,38 @@ test('muting the two patched stems silences both channels of the performance dem
     }).toBe(0);
 });
 
+test('a divided gate keeps a stem silent through a clock pause until reset', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.patchLibrary);
+    await page.evaluate(() => window.eurorackApp.loadPatchState({
+        version: 3, plugins: { core: 1 }, midiMappings: {},
+        modules: ['atten', 'gate-seq', 'vco', 'mutes', 'out'].map((type, index) => ({ id: type, type, row: 1, index })),
+        params: {
+            // DC supplies one clock edge on frame zero, then stays high throughout the capture.
+            atten: { offset1: 1, offset2: 0.5 },
+            'gate-seq': { pattern: [{ ratio: -32, cells: [1, 1, -1], gateLength: 100 }] },
+            out: { volume: 0.5 }
+        },
+        cables: [
+            { fromModule: 'atten', fromPort: 'out1', toModule: 'gate-seq', toPort: 'clock' },
+            { fromModule: 'atten', fromPort: 'out2', toModule: 'gate-seq', toPort: 'reset' },
+            { fromModule: 'gate-seq', fromPort: 'a', toModule: 'mutes', toPort: 'mute1' },
+            { fromModule: 'vco', fromPort: 'triangle', toModule: 'mutes', toPort: 'in1' },
+            { fromModule: 'mutes', fromPort: 'out1', toModule: 'out', toPort: 'L' },
+            { fromModule: 'vco', fromPort: 'triangle', toModule: 'out', toPort: 'R' }
+        ]
+    }, { managed: true }));
+    await page.locator('#startButton').click();
+    const tied = await capture(page, 'Held section and dry reference', 0.5);
+    expect(tied.left.peak).toBe(0);
+    expect(tied.right.rms).toBeGreaterThan(0.1);
+
+    await page.evaluate(() => window.eurorackApp.host.setParam('atten', 'offset2', 1));
+    const released = await capture(page, 'Reset opens the stem', 0.35);
+    expect(released.left.rms).toBeGreaterThan(0.9 * released.right.rms);
+    expect(released.right.rms).toBeGreaterThan(0.1);
+});
+
 function wavTone(frequency) {
     const rate = 16000;
     const pcmBytes = rate * 2;

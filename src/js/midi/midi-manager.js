@@ -9,6 +9,10 @@
 
 import { MidiNoteOutput } from './note-output.js';
 
+export function mappedControlValue({ min, max }, ccValue) {
+    return ccValue === 127 ? max : min + (ccValue / 127) * (max - min);
+}
+
 export function createMidiManager({ bufferEvents = true } = {}) {
     // State
     let midiAccess = null;
@@ -155,15 +159,7 @@ export function createMidiManager({ bufferEvents = true } = {}) {
         else if (messageType === 0xB0) {
             const cc = data1;
             const value = data2;
-            const normalizedValue = value / 127;
-
-            // Store CC value for modules
-            ccValues[`${channel}:${cc}`] = value;
-
-            // Special CC: Mod wheel (CC 1)
-            if (cc === 1) {
-                modWheel[channel] = value;
-            }
+            rememberCC(channel, cc, value);
 
             // If in learn mode and waiting for CC
             if (learnMode && learningKnob) {
@@ -172,7 +168,9 @@ export function createMidiManager({ bufferEvents = true } = {}) {
             }
 
             // Apply to mapped knobs
-            applyMidiValue(channel, cc, normalizedValue);
+            const mapping = mappings[`${channel}:${cc}`];
+            if (mapping) onMidiMessage?.({ moduleId: mapping.moduleId, paramId: mapping.paramId,
+                value: mappedControlValue(mapping, value), rawValue: value / 127 });
         }
         // Pitch Bend (0xE0)
         else if (messageType === 0xE0) {
@@ -202,55 +200,25 @@ export function createMidiManager({ bufferEvents = true } = {}) {
         }
     }
 
-    /**
-     * Capture a CC mapping during learn mode
-     */
-    function captureMapping(channel, cc) {
-        const key = `${channel}:${cc}`;
-
-        // Remove any existing mapping for this CC
-        // (one CC can only control one knob)
-
-        // Also remove any existing mapping for this knob
-        // (one knob can only be controlled by one CC)
-        const existingKey = Object.entries(mappings).find(
-            ([k, m]) => m.moduleId === learningKnob.moduleId && m.paramId === learningKnob.paramId
-        )?.[0];
-        if (existingKey) {
-            delete mappings[existingKey];
-        }
-
-        mappings[key] = {
-            moduleId: learningKnob.moduleId,
-            paramId: learningKnob.paramId,
-            min: learningKnob.min,
-            max: learningKnob.max
-        };
-
-        const capturedKnob = learningKnob;
-        learningKnob = null;
-
-        onMidiLearnComplete?.(key, capturedKnob);
+    function rememberCC(channel, cc, value) {
+        ccValues[`${channel}:${cc}`] = value;
+        if (cc === 1) modWheel[channel] = value;
     }
 
-    /**
-     * Apply MIDI CC value to mapped knob
-     */
-    function applyMidiValue(channel, cc, normalizedValue) {
-        const key = `${channel}:${cc}`;
-        const mapping = mappings[key];
-
-        if (mapping) {
-            const { moduleId, paramId, min, max } = mapping;
-            const scaledValue = min + normalizedValue * (max - min);
-
-            onMidiMessage?.({
-                moduleId,
-                paramId,
-                value: scaledValue,
-                rawValue: normalizedValue
-            });
+    function assignMapping(channel, cc, { moduleId, paramId, min, max }) {
+        for (const [key, mapping] of Object.entries(mappings)) {
+            if (mapping?.moduleId === moduleId && mapping.paramId === paramId) delete mappings[key];
         }
+        const key = `${channel}:${cc}`;
+        mappings[key] = { moduleId, paramId, min, max };
+        return key;
+    }
+
+    function captureMapping(channel, cc) {
+        const key = assignMapping(channel, cc, learningKnob);
+        const capturedKnob = learningKnob;
+        learningKnob = null;
+        onMidiLearnComplete?.(key, capturedKnob);
     }
 
     return {
@@ -295,6 +263,7 @@ export function createMidiManager({ bufferEvents = true } = {}) {
         },
 
         // Mapping management
+        assignMapping,
         getMappings() {
             return { ...mappings };
         },
@@ -324,6 +293,13 @@ export function createMidiManager({ bufferEvents = true } = {}) {
         setOnConnectionChange(callback) { onConnectionChange = callback; },
 
         // === MIDI Module API ===
+
+        // Performance gestures move mapped panel controls at native precision.
+        // Deliver their corresponding 7-bit input to MIDI modules, keeping hardware Learn independent.
+        receivePerformanceCC(channel, cc, value) {
+            rememberCC(channel, cc, value);
+            onRawMidiMessage?.([0xb0 | channel, cc, value], performance.now(), 'Agent');
+        },
 
         /**
          * Get and clear all note events (for MIDI-CV modules)

@@ -82,7 +82,8 @@ export class PatchDraftService {
 
     getRack() {
         const {patch, revision} = this.observe();
-        return {patch: copy(patch), revision, hasUnsavedChanges: this.app.patchLibrary?.isDirty(patch) ?? false,
+        return {patch: copy(patch), revision, audioRunning: !!this.app.host.engine?.running && this.app.host.audioCtx?.state === 'running',
+            hasUnsavedChanges: this.app.patchLibrary?.isDirty(patch) ?? false,
             source: formatPatchScript(patch, this.registry),
             diagnostics: analyseRackConnections(patch, this.registry)};
     }

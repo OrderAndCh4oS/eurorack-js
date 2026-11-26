@@ -40,6 +40,8 @@ For a browser controller, open **MIDI CC** (keys and knobs) or **MIDI Drum** (pa
 
 To control a rack knob directly, select **MIDI Learn**, click the rack knob, then move a knob or fader that sends a MIDI Control Change (CC). Press **Escape** to finish. The mapping remembers both the MIDI channel and the CC number. Save the patch to reuse it.
 
+A connected browser agent can assign those same controls and perform timed fades or sweeps while the rack plays. Each move has a target value, duration and easing curve. The agent can also send virtual CCs directly to a MIDI-CC module. [Perform a playing rack](webmcp.md#perform-a-playing-rack)
+
 To patch a CC into a modulation input, add **MIDI-CC**. Set one of its four CC numbers and connect the corresponding **CV1–CV4** output. Values 0–127 produce 0–10 V. In the example, CC 1 on channel 1 moves the filter cutoff while you hold a note. [Try the MIDI-CC patch](/patches?view=tests&q=Test%20-%20MIDI-CC)
 
 ## Follow MIDI clock

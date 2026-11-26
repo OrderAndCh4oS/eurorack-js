@@ -49,6 +49,8 @@ The **Modules** tab lists **Your modules** first and lets you search the built-i
 
 A compatible browser agent can inspect module contracts, validate JavaScript and apply a retained draft through WebMCP. **Analysis → Activity** shows each tool call, its timing, request and response. For an OBS walkthrough, ask the agent to build the patch one playable layer at a time, test each layer, and hold a caption on the relevant module between edits. See the [WebMCP walkthrough](docs/webmcp.md#record-a-live-walkthrough).
 
+While the rack plays, an agent can sweep a filter, fade a mix or move several controls together. Give each move a target value, duration and easing curve. The agent can address knobs directly or use MIDI CC mappings shared with hardware controllers. [Perform a playing rack](docs/webmcp.md#perform-a-playing-rack)
+
 ## Introduction and documentation
 
 **Introduction** (`/introduction`) introduces the instrument, community patch sharing, code editor and WebMCP. **Docs** (`/docs`) contains synth voice basics, MIDI routing for hardware and DAWs, the patch scripting guide, API reference, WebMCP guide, architecture and module-authoring documentation. Both are available from the app navigation. Reading them from the rack preserves the open patch and editor work. Direct links serve readable HTML without starting the instrument.

@@ -295,7 +295,8 @@ describe('panel to audio worklet', () => {
 
     it('maps MIDI to actual octave values and snaps a stepped knob before posting it', async () => {
         const rack = await mount(CORE_MODULE_DEFINITIONS.find(d => d.id === 'arp'));
-        const app = { host: rack.host, state: rack.host.state, setParam: rack.host.setParam.bind(rack.host), applyParamsToDOM() {} };
+        const app = { host: rack.host, state: rack.host.state, setParam: rack.host.setParam.bind(rack.host),
+            setPanelControl: EurorackApp.prototype.setPanelControl, applyParamsToDOM() {} };
         const send = (paramId, value) => EurorackApp.prototype.applyMidiControl.call(app, { moduleId: rack.module.id, paramId, value });
         try {
             expect(EurorackApp.prototype.getMidiControlRange.call(app, rack.panel.querySelector('.switch'))).toEqual({ min: 1, max: 2 });

@@ -1353,10 +1353,9 @@ export class EurorackApp {
         });
         this.document.defaultView.addEventListener('pagehide', () => this.midiManager.setOutput(''));
         const btn = this.document.getElementById('midiLearnBtn');
-        this.midiManager.setOnMidiLearnComplete((key, knobInfo) => {
+        this.midiManager.setOnMidiLearnComplete((_key, knobInfo) => {
             knobInfo.element.classList.remove('midi-learning');
-            knobInfo.element.classList.add('midi-mapped');
-            this.state.midiMappings = this.midiManager.getMappings();
+            this.syncMidiMappings();
         });
         this.midiManager.setOnMidiMessage(message => this.applyMidiControl(message));
         this.midiManager.setOnConnectionChange((connected, devices) => {
@@ -1399,12 +1398,22 @@ export class EurorackApp {
     }
 
     applyMidiControl({ moduleId, paramId, value }) {
-        if (this.inPlayerView) return;
         const module = this.state.getModule(moduleId);
         const domain = getControlDomain(this.host.registry.get(module?.type), paramId);
         if (!domain || !Number.isFinite(value)) return;
-        this.setParam(moduleId, paramId, snapControlValue(domain, value));
-        this.applyParamsToDOM(moduleId);
+        this.setPanelControl(moduleId, paramId, snapControlValue(domain, value));
+    }
+
+    setPanelControl(moduleId, paramId, value) {
+        if (this.inPlayerView) return;
+        const module = this.state.getModule(moduleId);
+        const definition = this.host.registry.get(module.type);
+        this.setParam(moduleId, paramId, value);
+        if (definition.ui.actions?.some(action => action.param === paramId && action.editState)) {
+            this.applyParamsToDOM(moduleId);
+        } else {
+            syncParamToModuleUI(module.element || this.document, moduleId, paramId, value);
+        }
     }
 
     getMidiControlRange(control) {
@@ -1429,11 +1438,20 @@ export class EurorackApp {
         });
     }
 
+    syncMidiMappings() {
+        this.state.midiMappings = this.midiManager.getMappings();
+        this.updateMidiMappedIndicators();
+        this.host.emit({ type: 'midi-mappings-changed' });
+        this.patchLibrary?.updateActiveLabel();
+    }
+
     updateMidiMappedIndicators() {
         this.document.querySelectorAll('.midi-mapped').forEach(control => control.classList.remove('midi-mapped'));
         if (!this.midiManager) return;
         Object.values(this.state.midiMappings || {}).forEach(mapping => {
-            const control = this.document.querySelector(`[data-module="${mapping.moduleId}"][data-param="${mapping.paramId}"]`);
+            const panel = this.state.getModule(mapping?.moduleId)?.element;
+            if (!panel) return;
+            const control = Array.from(panel.querySelectorAll('[data-module][data-param]')).find(item => item.dataset.param === mapping.paramId);
             control?.classList.add('midi-mapped');
         });
         this.midiManager.setMappings(this.state.midiMappings || {});

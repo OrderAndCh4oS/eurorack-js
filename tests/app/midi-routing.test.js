@@ -57,3 +57,24 @@ it('filters the return bus, releases input voices on route changes, and follows 
     access.outputs.delete(dest.id); access.onstatechange();
     expect(midi.outputId).toBe('');
 });
+
+it('shares live bindings with hardware and leaves a pending MIDI Learn target for the physical controller', async () => {
+    const { midi, input } = await routing();
+    const filter = { moduleId: 'filter', paramId: 'cutoff', min: 0.2, max: 0.9 };
+    const change = vi.fn(), learned = vi.fn();
+    midi.setOnMidiMessage(change);
+    midi.setOnMidiLearnComplete(learned);
+    midi.assignMapping(0, 74, filter);
+    input.onmidimessage({ data: [0xb0, 74, 127] });
+    expect(change).toHaveBeenLastCalledWith({ moduleId: 'filter', paramId: 'cutoff', value: 0.9, rawValue: 1 });
+    midi.setLearnMode(true);
+    midi.startLearning(filter);
+    midi.receivePerformanceCC(2, 9, 32);
+    expect(midi.getCCValue(2, 9)).toBe(32);
+    expect(learned).not.toHaveBeenCalled();
+    input.onmidimessage({ data: [0xb1, 7, 32] });
+    expect(learned).toHaveBeenCalledWith('1:7', filter);
+    expect(midi.getMappings()).toEqual({ '1:7': filter });
+    input.onmidimessage({ data: [0xb1, 7, 0] });
+    expect(change).toHaveBeenLastCalledWith({ moduleId: 'filter', paramId: 'cutoff', value: 0.2, rawValue: 0 });
+});

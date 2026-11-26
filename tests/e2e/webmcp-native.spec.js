@@ -19,7 +19,7 @@ async function connectTools(page) {
         waiting.get(event.invocationId)?.(event);
     });
     await cdp.send('WebMCP.enable');
-    await expect.poll(() => tools.size).toBe(7);
+    await expect.poll(() => tools.size).toBe(9);
     const start = async (name,input = {}) => {
         const tool = tools.get(name);
         const {invocationId} = await cdp.send('WebMCP.invokeTool',{frameId:tool.frameId,toolName:name,input});
@@ -42,7 +42,7 @@ test('native Chrome discovers all tools, catches wiring issues and applies the e
     testInfo.annotations.push({type:'browser',description:browser.version()});
     const {tools,cdp,invoke,start} = await connectTools(page);
     try {
-        expect([...tools.keys()].sort()).toEqual(['apply_draft','debug_rack','describe_modules','get_rack','measure_audio','present_step','validate_script']);
+        expect([...tools.keys()].sort()).toEqual(['apply_draft','debug_rack','describe_modules','get_rack','map_midi_cc','measure_audio','perform_controls','present_step','validate_script']);
         const navigations = [];
         page.on('framenavigated',frame => navigations.push(frame.url()));
         const before = await invoke('get_rack');
@@ -123,4 +123,29 @@ test('native WebMCP measures running audio through WASM and cancels a capture', 
         expect(await invoke('measure_audio',{expectedRevision:revision,durationSeconds:0.5})).toMatchObject({ok:true});
         expect(await page.evaluate(() => window.eurorackApp.audioCtx.state)).toBe('running');
     } finally {await cdp.detach();}
+});
+
+test('native WebMCP maps a running knob and cancels a timed gesture at its current position', async ({page}) => {
+    const {cdp, invoke, start} = await connectTools(page);
+    try {
+        const rack = await invoke('get_rack');
+        const draft = await invoke('validate_script', {source, expectedRevision: rack.revision});
+        expect(await invoke('apply_draft', {draftId: draft.draftId})).toMatchObject({ok: true, applied: true});
+        await page.getByRole('button', {name: 'Close Code', exact: true}).click();
+        await page.locator('#startButton').click();
+        await page.waitForFunction(() => window.eurorackApp.host.engine?.running);
+        const mapped = await invoke('map_midi_cc', {expectedRevision: (await invoke('get_rack')).revision,
+            channel: 1, cc: 7, moduleId: 'main', paramId: 'volume'});
+        expect(mapped).toMatchObject({ok: true, key: '0:7'});
+        const move = await start('perform_controls', {expectedRevision: mapped.revision,
+            controls: [{channel: 1, cc: 7, value: 127, durationSeconds: 5, easing: 'ease-out'}]});
+        await page.waitForFunction(() => window.eurorackApp.state.getParam('main', 'volume') > 0.22);
+        await cdp.send('WebMCP.cancelInvocation', {invocationId: move.invocationId});
+        expect((await move.response).status).toBe('Canceled');
+        const held = await invoke('get_rack');
+        expect(held.audioRunning).toBe(true);
+        expect(held.patch.params.main.volume).toBeLessThan(1);
+        expect(await invoke('perform_controls', {expectedRevision: held.revision,
+            controls: [{moduleId: 'main', paramId: 'volume', value: 0.3}]})).toMatchObject({ok: true, controls: [{paramValue: 0.3}]});
+    } finally { await cdp.detach(); }
 });

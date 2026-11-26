@@ -1,4 +1,4 @@
-export const MEASUREMENT_CHANGES = new Set(['param-changed', 'module-added', 'module-removed', 'cables-changed', 'patch-loaded', 'registry']);
+export const MEASUREMENT_CHANGES = new Set(['param-changed', 'midi-mappings-changed', 'module-added', 'module-removed', 'cables-changed', 'patch-loaded', 'registry']);
 const error = (code, message) => Object.assign(new Error(message), {code});
 
 /** Opt-in analysis of the live final output. PCM stays in memory in this tab. */

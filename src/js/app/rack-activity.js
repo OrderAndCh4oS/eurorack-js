@@ -10,6 +10,8 @@ function resultSummary(tool, result) {
     const count = (value, label) => `${value} ${label}${value === 1 ? '' : 's'}`;
     if (!result.ok) return result.error.message;
     if (tool === 'present_step') return result.caption;
+    if (tool === 'map_midi_cc') return `Mapped ${result.mapping.moduleId}.${result.mapping.paramId}`;
+    if (tool === 'perform_controls') return `${count(result.controls.length, 'control')} · revision ${result.revision}`;
     if (tool === 'apply_draft') return result.applied ? 'Draft applied to the rack.' : 'Draft application cancelled.';
     if (tool === 'describe_modules') return count(result.modules.length, 'module definition');
     if (tool === 'measure_audio' && result.capture) return `${result.capture.durationSeconds} s of stereo output · revision ${result.revision}`;

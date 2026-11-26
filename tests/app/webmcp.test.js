@@ -153,14 +153,14 @@ describe('Eurorack WebMCP tools', () => {
         expect(JSON.parse(activity.lastMeasurement.response)).toEqual(measurement);
     });
 
-    it('uses document.modelContext and an AbortSignal to register and dispose all seven tools', async () => {
+    it('uses document.modelContext and an AbortSignal to register and dispose every tool', async () => {
         const {workbench} = fixture();
         const registerTool = vi.fn(async () => {});
         const prepareEvaluator = vi.fn(async () => {expect(registerTool).not.toHaveBeenCalled();});
         const adapter = await registerRackTools({document: {modelContext:{registerTool}}, workbench, registry:pluginRegistry, prepareEvaluator});
         expect(prepareEvaluator).toHaveBeenCalledOnce();
         expect(adapter.supported).toBe(true);
-        expect(registerTool.mock.calls.map(([tool]) => tool.name)).toEqual(['get_rack','describe_modules','validate_script','apply_draft','debug_rack','measure_audio','present_step']);
+        expect(registerTool.mock.calls.map(([tool]) => tool.name)).toEqual(['get_rack','describe_modules','validate_script','apply_draft','map_midi_cc','perform_controls','debug_rack','measure_audio','present_step']);
         const signal = registerTool.mock.calls[0][1].signal;
         expect(signal.aborted).toBe(false);
         expect(registerTool.mock.calls.every(([,options]) => options.signal === signal)).toBe(true);

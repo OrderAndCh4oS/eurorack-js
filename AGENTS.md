@@ -303,6 +303,8 @@ The app imports `TEST_PATCHES` directly. Retained musical demos, SFX, and drum c
 
 ## Live patch walkthroughs
 
+For a requested **live performance**, read `get_rack` and inspect parameter domains with `describe_modules`. While `audioRunning` is true, use `perform_controls` to move knobs on the playing graph. Each move accepts a target `value`, `durationSeconds` and `easing`. Address the control by instance and parameter, or use `map_midi_cc` to bind a controller in place. Carry the returned revision into each successive gesture. [Perform a playing rack](docs/webmcp.md#perform-a-playing-rack)
+
 For a requested **live walkthrough or OBS recording** in the running app, build one playable stage at a time. Read `get_rack`, extend the current source, validate, and apply each stage individually. When `hasUnsavedChanges` is true and the draft carries the current work into the requested next stage, pass `discardUnsavedChanges: true` to `apply_draft`. Check the wiring or measure the playing output at the new revision. Call `present_step` with a concise caption about the change or a measured result, the relevant module instance ID when useful, and the requested viewing time. Await the hold before continuing. The user can follow the calls and full measurement reports in **Analysis**. See [Record a live walkthrough](docs/webmcp.md#record-a-live-walkthrough).
 
 ## Updating Patches

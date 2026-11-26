@@ -1,6 +1,6 @@
 # WebMCP
 
-Let a compatible browser agent inspect your rack, write patch code, check the wiring, and apply changes. Agent code appears in the editor. If you want to review it first, ask the agent to wait before applying it.
+Let a compatible browser agent inspect your rack, write patch code, check the wiring and perform the piece by moving live controls. Agent patch code appears in the editor. If you want to review it first, ask the agent to wait before applying it.
 
 ## Connect an agent
 
@@ -32,6 +32,41 @@ A useful first request is:
 
 Sound reaches the speakers through an **OUT** module. The nominal voltage standards are ±5 V for audio, 1 V/octave for pitch, and 0/10 V for gates. For a step-by-step code example, see [Write your first patch](patch-workbench-guide.md).
 
+## Perform a playing rack
+
+Press **Start** in the desktop rack. You can give the agent several moves in a single request.
+
+> Open the filter slowly over eight seconds. Bring up the delay mix over the first four seconds, then ease the filter back down. Keep the sequencer running.
+
+The agent reads `get_rack` for the instance IDs, current values, `audioRunning` and `revision`. Use `describe_modules` for the parameter IDs, ranges and switch positions. Send `perform_controls` a target `value` for each control. Each move has its own `durationSeconds` and `easing`. For a VCF instance named `filter`, the following call opens the cutoff and lowers the resonance together. Substitute the current revision.
+
+```json
+{
+  "expectedRevision": 12,
+  "controls": [
+    { "moduleId": "filter", "paramId": "cutoff", "value": 0.82, "durationSeconds": 8, "easing": "ease-in-out" },
+    { "moduleId": "filter", "paramId": "resonance", "value": 0.25, "durationSeconds": 4, "easing": "ease-out" }
+  ]
+}
+```
+
+Moves start together from the current settings. Omit the duration for an immediate change, or choose up to 30 seconds per move. `linear` travels at a constant rate. `ease-in` starts slowly, `ease-out` settles gently into the target, and `ease-in-out` does both. Switches and stepped knobs follow their declared settings. Timing uses the tab’s clock and can vary with browser load. The call finishes when the longest move ends. Pass its returned `revision` into the next gesture or `measure_audio`.
+
+To reuse a controller assignment, call `map_midi_cc` with the current revision, `channel: 1`, `cc: 74`, `moduleId: "filter"` and `paramId: "cutoff"`. You can set `min` and `max` in the knob’s units to limit its travel. The binding replaces any previous assignment for that CC or knob. Existing MIDI Learn and patch-script mappings work too. Channel 1, CC 74 appears in the patch as `"0:74"`.
+
+Use the mapping’s returned revision for a gesture like this one. A CC target uses an integer from 0 to 127. The mapped knob glides at its native precision. MIDI input modules also receive the corresponding whole CC values, so an agent can play a patched **MIDI-CC** input even without a knob assignment. All of this works with hardware MIDI disconnected.
+
+```json
+{
+  "expectedRevision": 14,
+  "controls": [
+    { "channel": 1, "cc": 74, "value": 32, "durationSeconds": 6, "easing": "ease-out" }
+  ]
+}
+```
+
+A gesture accepts up to 16 distinct controls. The audio graph keeps playing through the moves. Cancelling a call holds the values reached so far. Moving an active target by hand gives you control and ends the gesture. After an interruption, read `get_rack` before continuing. **Save** keeps the current knob settings and MIDI bindings in the patch. The timed gestures themselves last for the performance.
+
 ## Develop a module
 
 Before developing or changing a module type, read [Codebase Architecture and Schemas](architecture.md) first, then [Creating Modules](creating-modules.md). These guides cover thread ownership, DSP and UI contracts, trusted plugin registration, research and testing. Repository agents must also follow `AGENTS.md` and consult the module's `research/modules/{moduleId}.md`.
@@ -44,15 +79,17 @@ Agents developing modules for others should follow the [contribution workflow](c
 
 ## Tool reference
 
-All seven tools take a JSON object. Use `{}` for tools with no arguments. Extra or unknown fields are rejected.
+All tools take a JSON object. Use `{}` for tools with no arguments. Extra or unknown fields are rejected.
 
 | Tool | Input | Success result, alongside `ok: true` |
 | --- | --- | --- |
-| `get_rack` | `{}` | Current v3 `patch`, equivalent JavaScript `source`, `revision`, `hasUnsavedChanges`, and `diagnostics` |
+| `get_rack` | `{}` | Current v3 `patch`, equivalent JavaScript `source`, `revision`, `audioRunning`, `hasUnsavedChanges`, and `diagnostics` |
 | `describe_modules` | `{}` | `modules`: the catalogue of IDs, names, categories and widths in HP; `documentation`: development guide links |
 | `describe_modules` | `{ "types": ["vco", "out"] }` | `modules` with exact input/output ports and parameter contracts for 1–12 distinct known types; `documentation`: development guide links |
 | `validate_script` | `{ "source": "patch()…", "expectedRevision": 1 }` | `draftId`, compiled `patch`, `diagnostics`, `revision`, and `expiresAt` |
 | `apply_draft` | `{ "draftId": "…" }` with optional boolean `discardUnsavedChanges` (default `false`) | `applied: true` on success. A rack with unsaved edits returns the `unsaved-changes` error unless the flag is true. |
+| `map_midi_cc` | `expectedRevision`, `channel` (1–16), `cc` (0–127), `moduleId`, `paramId`, optional `min` and `max` | Patch mapping `key`, `mapping` and current `revision` |
+| `perform_controls` | `expectedRevision` and `controls`. Each move has a panel or MIDI address, target `value`, optional `durationSeconds` and `easing`. | Current `revision` and `controls` with resolved panel IDs and `paramValue` for mapped or directly addressed knobs |
 | `debug_rack` | `{}` | Current `revision`, `moduleCount`, `cableCount`, and structured `issues` |
 | `measure_audio` | `{ "expectedRevision": 1, "durationSeconds": 5 }` | `revision`, `implementationVersion`, `capture` details and a JSON `report` of the running stereo output |
 | `present_step` | `{ "caption": "The filter now follows the envelope.", "moduleId": "filter", "holdSeconds": 6 }` | The caption, optional module instance ID and hold duration, returned when the viewing time has elapsed |
@@ -141,7 +178,7 @@ For each stage, the agent reads the current rack, extends its source, validates 
 | --- | --- |
 | No tools appear | Check Chrome support, enable the testing flag, reopen the rack, and check that your agent is connected to that tab. |
 | `unsaved-changes` | The current rack and validated draft are available. To replace the rack's unsaved edits, call `apply_draft` with the same `draftId` and `discardUnsavedChanges: true`. |
-| `rack-changed` | Read the rack again and validate against its new revision. |
+| `rack-changed` | Read the rack again and use its new revision for the next gesture or validation. |
 | `source-changed` | Validate the selected Code script again. |
 | `draft-not-found` | The draft expired, was replaced, or was already applied. Validate again. |
 | `busy` | Wait for the current operation to finish. |
@@ -151,7 +188,7 @@ For each stage, the agent reads the current rack, extends its source, validates 
 | `source-limit` or `patch-limit` | Reduce the script or patch size. |
 | `cancelled` | The operation was cancelled. Start again when ready. |
 | `operation-failed` | Read the returned message for the compiler or evaluator error, then correct the script and validate again. |
-| `audio-not-running` | Press Start in the rack; audio must keep running throughout the measurement. |
+| `audio-not-running` | Press Start in the rack and keep playback running throughout the gesture or measurement. |
 | `analysis-unavailable`, `analysis-failed` | Analysis could not load or run. The rack remains available; retry the measurement. |
 | `capture-timeout`, `analysis-timeout` | Capture or analysis took too long. Check that audio is running and try a shorter duration. |
 
@@ -171,12 +208,12 @@ The adapter follows Chrome's [imperative API](https://developer.chrome.com/docs/
 
 The evaluator iframe is prepared before tools are registered. Each evaluation reuses that host and creates a fresh worker, without navigating a child frame during the tool call.
 
-The default browser tests exercise the real isolated evaluator, staged walkthroughs and AudioWorklet → Worker → WASM analysis through a tool registration stub. The optional native suite uses installed Chrome with WebMCP enabled and calls its actual `WebMCP.enable`, `invokeTool` and `cancelInvocation` CDP commands. It covers all seven tools, exact draft application, diagnostics, audio measurement, captions, cancellation, stale edits and timeout recovery.
+The default browser tests exercise the real isolated evaluator, staged walkthroughs and AudioWorklet → Worker → WASM analysis through a tool registration stub. They measure the output before and after a live fade. The optional native suite uses installed Chrome with WebMCP enabled and calls its actual `WebMCP.enable`, `invokeTool` and `cancelInvocation` CDP commands. It covers tool discovery, exact draft application, diagnostics, MIDI mappings, timed gestures, audio measurement, captions, cancellation, stale edits and timeout recovery.
 
 For an isolated native test session, use a recent Chrome with `--enable-features=WebMCP` and a separate user-data directory. Browser and agent support outside the tested setup still needs checking.
 
 ```sh
-npm test -- tests/app/webmcp.test.js tests/patch-script/draft-service.test.js tests/patch-script/evaluator.test.js tests/rack/diagnostics.test.js
+npm test -- tests/app/webmcp.test.js tests/app/midi-performance.test.js tests/patch-script/draft-service.test.js tests/patch-script/evaluator.test.js tests/rack/diagnostics.test.js
 npx playwright test tests/e2e/webmcp.spec.js tests/e2e/audio-analysis.spec.js tests/e2e/patch-evaluator.spec.js tests/e2e/rack-debugger.spec.js
 npm run test:webmcp
 ```

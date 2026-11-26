@@ -531,8 +531,10 @@ export class PatchWorkbench {
         if (['module-event', 'module-error', 'audio-error', 'audio-started', 'audio-stopped'].includes(event.type)) {
             this.log(event.type.includes('error') ? 'error' : 'event', `${event.type}: ${stringify(event.diagnostic || event.error || event.event || '')}`);
         }
-        if (['module-added', 'module-removed', 'cables-changed', 'param-changed', 'patch-loaded'].includes(event.type) && this.isRackDrifted()) {
-            this.setStatus('Saved · rack differs from last Apply', 'warning');
+        const driftMessage = 'Saved · rack differs from last Apply';
+        if (['module-added', 'module-removed', 'cables-changed', 'param-changed', 'midi-mappings-changed', 'patch-loaded'].includes(event.type)
+            && this.status.textContent !== driftMessage && this.isRackDrifted()) {
+            this.setStatus(driftMessage, 'warning');
         }
     }
 

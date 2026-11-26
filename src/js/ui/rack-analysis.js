@@ -6,7 +6,7 @@ const TOOL_NAMES = {
     apply_draft: 'Apply patch', edit_spacer: 'Edit spacer', map_midi_cc: 'Map MIDI control', perform_controls: 'Perform controls',
     debug_rack: 'Check wiring', measure_audio: 'Measure audio', present_step: 'Present step'
 };
-const PHASES = {loading: 'Loading analyser', capturing: 'Capturing audio', analysing: 'Analysing audio', presenting: 'Showing caption'};
+const PHASES = {loading: 'Loading analyser', capturing: 'Capturing audio', analysing: 'Analysing audio', presenting: 'Showing caption', performing: 'Moving controls'};
 const STATUS = {running: 'In progress', complete: 'Complete', cancelled: 'Cancelled', failed: 'Failed'};
 const actor = entry => entry.source === 'agent' ? 'Agent' : 'You';
 
@@ -68,6 +68,7 @@ export function initRackAnalysis({document: doc, host, analysis, activity, redra
     let unread = false;
     let audioContext;
     let highlightedModule = null;
+    let movingControls;
     let manualDuration;
 
     function renderActivity() {
@@ -88,7 +89,7 @@ export function initRackAnalysis({document: doc, host, analysis, activity, redra
 
     function showStep(step) {
         write(caption.querySelector('p'), step?.caption ?? '');
-        caption.hidden = !step;
+        caption.hidden = !step?.caption;
         const moduleId = step?.moduleId;
         const target = moduleId ? doc.getElementById(`module-${moduleId}`) : null;
         if (target !== highlightedModule) {
@@ -102,11 +103,27 @@ export function initRackAnalysis({document: doc, host, analysis, activity, redra
         }
     }
 
+    function showMovingControls(controls) {
+        if (movingControls === controls) return;
+        movingControls = controls;
+        const targets = new Map();
+        for (const {moduleId, paramId} of controls ?? []) {
+            const panel = doc.getElementById(`module-${moduleId}`);
+            for (const element of panel?.querySelectorAll('[data-module][data-param]') ?? []) {
+                if (element.dataset.module === moduleId && element.dataset.param === paramId) {
+                    targets.set(element, () => host.state.getParam(moduleId, paramId));
+                }
+            }
+        }
+        doc.dispatchEvent(new doc.defaultView.CustomEvent('agent-controls-change', {detail: targets}));
+    }
+
     function refresh(event) {
         const entries = activity.entries;
         const active = entries.filter(entry => entry.status === 'running');
         const capture = active.find(entry => entry.tool === 'measure_audio' && entry.phase);
-        const step = active.find(entry => entry.phase === 'presenting')?.step;
+        const performance = active.find(entry => entry.phase === 'performing')?.step;
+        const step = performance?.caption || performance?.moduleId ? performance : active.find(entry => entry.phase === 'presenting')?.step;
         const agent = active.find(entry => entry.source === 'agent');
         if (event?.detail && event.detail === activity.lastMeasurement) editedSinceMeasurement = false;
         if (panel.hidden && event?.detail?.source === 'agent') unread = true;
@@ -117,6 +134,7 @@ export function initRackAnalysis({document: doc, host, analysis, activity, redra
         write(indicator, badge);
         toggle.classList.toggle('analysis-busy', active.length > 0);
         showStep(step);
+        showMovingControls(performance?.controls);
         if (panel.hidden) return;
         const running = host.engine && host.audioCtx?.state === 'running';
         if (capture) {
@@ -130,6 +148,7 @@ export function initRackAnalysis({document: doc, host, analysis, activity, redra
         const latest = showingActivity ? entries[0] : entries.find(entry => entry.tool === 'measure_audio');
         let message;
         if (capture) message = `${actor(capture)} · ${PHASES[capture.phase]}`;
+        else if (performance) message = 'Agent · Moving controls';
         else if (step) message = 'Agent · Presenting a walkthrough step';
         else if (agent) message = `Agent · ${TOOL_NAMES[agent.tool]}`;
         else if (latest?.error && !(running && latest.error.code === 'audio-not-running')) message = `${actor(latest)} · ${STATUS[latest.status]}. ${latest.error.message}`;
@@ -212,6 +231,8 @@ export function initRackAnalysis({document: doc, host, analysis, activity, redra
     observer?.observe(workbench);
     return {dispose() {
         activity.removeEventListener('change', refresh);
+        showStep();
+        showMovingControls();
         audioContext?.removeEventListener('statechange', refresh);
         observer?.disconnect();
         unsubscribe();

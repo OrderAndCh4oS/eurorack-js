@@ -8,6 +8,7 @@ const id = '01M7BFD4Q75HAXTR0K74V5KMKP';
 function fixture() {
     const rack = {revision: 3, patch: {modules: []}, source: 'patch()', diagnostics: {issues: [], moduleCount: 0, cableCount: 0}};
     const workbench = {
+        app: {state: {getModule: moduleId => rack.patch.modules.find(module => module.id === moduleId)}},
         drafts: {getRack: vi.fn(() => rack)},
         stageAgentScript: vi.fn(), validateDraft: vi.fn(async () => ({draftId: id})),
         applyDraft: vi.fn(async () => ({applied: true}))

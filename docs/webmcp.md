@@ -43,6 +43,8 @@ The agent reads `get_rack` for the instance IDs, current values, `audioRunning` 
 ```json
 {
   "expectedRevision": 12,
+  "caption": "The filter opens as the resonance falls.",
+  "moduleId": "filter",
   "controls": [
     { "moduleId": "filter", "paramId": "cutoff", "value": 0.82, "durationSeconds": 8, "easing": "ease-in-out" },
     { "moduleId": "filter", "paramId": "resonance", "value": 0.25, "durationSeconds": 4, "easing": "ease-out" }
@@ -51,6 +53,8 @@ The agent reads `get_rack` for the instance IDs, current values, `audioRunning` 
 ```
 
 Moves start together from the current settings. Omit the duration for an immediate change, or choose up to 30 seconds per move. `linear` travels at a constant rate. `ease-in` starts slowly, `ease-out` settles gently into the target, and `ease-in-out` does both. Switches and stepped knobs follow their declared settings. Timing uses the tab’s clock and can vary with browser load. The call finishes when the longest move ends. Pass its returned `revision` into the next gesture or `measure_audio`.
+
+Each moving panel control shows an accent ring and a tooltip with its current value, including controls addressed through a mapped MIDI CC. Each tooltip clears when its move finishes. The optional top-level `caption` (1–240 characters) stays visible for the duration of the gesture. The optional top-level `moduleId` scrolls the chosen panel into view and outlines it for the same duration. An immediate change finishes in the same call. Use `present_step` to hold a view after it.
 
 To reuse a controller assignment, call `map_midi_cc` with the current revision, `channel: 1`, `cc: 74`, `moduleId: "filter"` and `paramId: "cutoff"`. You can set `min` and `max` in the knob’s units to limit its travel. The binding replaces any previous assignment for that CC or knob. Existing MIDI Learn and patch-script mappings work too. Channel 1, CC 74 appears in the patch as `"0:74"`.
 
@@ -104,7 +108,7 @@ All tools take a JSON object. Use `{}` for tools with no arguments. Extra or unk
 | `edit_spacer` | `expectedRevision`, `action` and either `row` to add or `moduleId` to update or remove. Add and update accept `hp` and `style`. | Spacer ID, row, used and free HP, current revision and installed panel settings |
 | `apply_draft` | `{ "draftId": "…" }` with optional boolean `discardUnsavedChanges` (default `false`) | `applied: true` on success. A rack with unsaved edits returns the `unsaved-changes` error unless the flag is true. |
 | `map_midi_cc` | `expectedRevision`, `channel` (1–16), `cc` (0–127), `moduleId`, `paramId`, optional `min` and `max` | Patch mapping `key`, `mapping` and current `revision` |
-| `perform_controls` | `expectedRevision` and `controls`. Each move has a panel or MIDI address, target `value`, optional `durationSeconds` and `easing`. | Current `revision` and `controls` with resolved panel IDs and `paramValue` for mapped or directly addressed knobs |
+| `perform_controls` | `expectedRevision`, `controls`, optional `caption` and focus `moduleId`. Each move has a panel or MIDI address, target `value`, optional `durationSeconds` and `easing`. | Current `revision` and `controls` with resolved panel IDs and `paramValue` for mapped or directly addressed knobs |
 | `debug_rack` | `{}` | Current `revision`, `moduleCount`, `cableCount`, and structured `issues` |
 | `measure_audio` | `{ "expectedRevision": 1, "durationSeconds": 5 }` | `revision`, `implementationVersion`, `capture` details and a JSON `report` of the running stereo output |
 | `present_step` | `{ "caption": "The filter now follows the envelope.", "moduleId": "filter", "holdSeconds": 6 }` | The caption, optional module instance ID and hold duration, returned when the viewing time has elapsed |
@@ -180,6 +184,8 @@ These measurements describe the captured signal. They do not establish that a pa
 ## Record a live walkthrough
 
 Open the rack, press **Start**, and start recording the browser window and its audio in OBS. Leave **Analysis → Activity** open to include tool calls in the shot, or choose **Measurements** to show the latest test results. Walkthrough captions appear on the rack with either tab open or with the panel closed.
+
+For a knob sweep, put the caption and focus module in the same `perform_controls` call as the timed moves. The viewer sees the caption, moving pointers and live values together. On a densely wired patch, select **Cables: Dim** to make the pointers easier to see.
 
 > Build a patch slowly for an OBS recording. Start with a playable voice. Add one layer at a time and test it. After each change, use present_step to highlight the module, caption what changed or what you measured, and wait eight seconds before continuing.
 

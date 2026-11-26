@@ -85,6 +85,7 @@
 .agent-caption strong { font: 700 11px/1.4 var(--site-font); text-transform: uppercase; letter-spacing: .06em; }
 .agent-caption p { margin-top: 3px; font: 700 clamp(16px, 1.5vw, 23px)/1.25 var(--site-heading-font); overflow-wrap: anywhere; }
 .module.agent-step-target { outline: 4px solid var(--library-accent); outline-offset: -4px; }
+.module [data-param].agent-control-target { outline: 3px solid var(--library-accent); outline-offset: 2px; }
 .rack-analysis-open > .rack-container, .rack-container:has(.agent-step-target) { height: calc(100% - var(--analysis-code-height, 0px)); }
 @media (max-width: 760px) {
     .agent-caption { left: 6px; bottom: calc(var(--analysis-code-height, 0px) + 6px); max-width: calc(100vw - 12px); }

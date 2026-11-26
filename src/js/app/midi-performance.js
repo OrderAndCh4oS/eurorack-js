@@ -101,7 +101,7 @@ function advanceMove(app, { panel, midi }, amount) {
     }
 }
 
-export function performControls(workbench, { expectedRevision, controls }, signal) {
+export function performControls(workbench, { expectedRevision, controls }, signal, onMovingControls) {
     const { app, drafts } = workbench;
     return drafts.exclusive(async () => {
         drafts.requireCurrentEditor(expectedRevision);
@@ -127,6 +127,7 @@ export function performControls(workbench, { expectedRevision, controls }, signa
         const account = patchLibrary?.accountGeneration;
         const started = performance.now();
         let pending = moves;
+        let displayedCount = 0;
         try {
             while (pending.length) {
                 signal?.throwIfAborted();
@@ -147,11 +148,18 @@ export function performControls(workbench, { expectedRevision, controls }, signa
                     }
                 }
                 const elapsed = performance.now() - started;
+                const continuing = pending.filter(move => elapsed < move.durationMs);
+                // Publish targets only when a move starts or finishes, never at the audio-control rate.
+                if (continuing.length && continuing.length !== displayedCount) {
+                    displayedCount = continuing.length;
+                    onMovingControls?.(continuing.filter(({panel}) => panel && panel.from !== panel.to)
+                        .map(({panel: {moduleId, paramId}}) => ({moduleId, paramId})));
+                }
                 for (const move of pending) {
                     const progress = elapsed >= move.durationMs ? 1 : elapsed / move.durationMs;
                     advanceMove(app, move, move.curve(progress));
                 }
-                pending = pending.filter(move => elapsed < move.durationMs);
+                pending = continuing;
                 if (pending.length) {
                     const nextEnd = Math.min(...pending.map(move => move.durationMs));
                     await delay(Math.min(1000 / 60, nextEnd - elapsed), signal);

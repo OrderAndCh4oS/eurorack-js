@@ -17,6 +17,60 @@ const invoke = (page, name, input = {}) => page.evaluate(async ({name,input}) =>
 const source = `patch().module('vco','osc',{coarse:Math.random()}).module('out','main').connect('osc.triangle','main.L')`;
 const validate = async page => invoke(page, 'validate_script', {source, expectedRevision:(await invoke(page,'get_rack')).revision});
 
+test('moving controls show their changing tooltips without hover and release them independently', async ({page}) => {
+    await bootWithTools(page, '/?test=Test+-+VCO+Only');
+    await page.locator('#startButton').click();
+    await page.waitForFunction(() => window.eurorackApp.host.engine?.activeRevision);
+    const rack = await invoke(page, 'get_rack');
+    const mapped = await invoke(page, 'map_midi_cc', {expectedRevision: rack.revision, channel: 1, cc: 7,
+        moduleId: 'out', paramId: 'volume'});
+    const controls = [
+        {moduleId: 'vco', paramId: 'coarse', value: 0.65, durationSeconds: 1.5},
+        {channel: 1, cc: 7, value: 127, durationSeconds: 3, easing: 'ease-in-out'}
+    ];
+    const volume = page.locator('#module-out .knob[data-param="volume"]');
+    const pitch = page.locator('#module-vco .knob[data-param="coarse"]');
+    const gesture = invoke(page, 'perform_controls', {expectedRevision: mapped.revision, controls});
+    await expect(page.getByRole('tooltip')).toHaveCount(2);
+    const tipFor = async control => page.locator('#' + await control.getAttribute('aria-describedby'));
+    const pitchTip = await tipFor(pitch);
+    const volumeTip = await tipFor(volume);
+    const first = await volumeTip.textContent();
+    await expect(volumeTip).toHaveText(/^Vol 0\./);
+    await expect(volumeTip).not.toHaveText(first);
+    await expect(pitchTip).toBeVisible();
+    await pitch.hover({force: true});
+    await expect(page.getByRole('tooltip')).toHaveCount(2);
+    await page.mouse.move(1, 1);
+    await expect(pitchTip).toBeHidden();
+    await expect(volumeTip).toBeVisible();
+    await expect(page.locator('#agent-caption')).toBeHidden();
+    expect(await gesture).toMatchObject({ok: true});
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
+    await expect(volume).not.toHaveAttribute('aria-describedby', /agent-control-tooltip/);
+    await expect(pitch).not.toHaveAttribute('aria-describedby', /agent-control-tooltip/);
+});
+
+test('a player taking over a sweep keeps the manual tooltip and clears the agent presentation', async ({page}) => {
+    await bootWithTools(page, '/?test=Test+-+Fold+Percussion');
+    await page.locator('#startButton').click();
+    await page.waitForFunction(() => window.eurorackApp.host.engine?.activeRevision);
+    const {revision} = await invoke(page, 'get_rack');
+    const gesture = invoke(page, 'perform_controls', {expectedRevision: revision, caption: 'Opening the fold.',
+        controls: [{moduleId: 'perc', paramId: 'mode', value: 2, durationSeconds: 5},
+            {moduleId: 'perc', paramId: 'fold', value: 0.9, durationSeconds: 5}]});
+    await expect(page.getByRole('tooltip').filter({hasText: 'Mode Liquid'})).toBeVisible();
+    await expect(page.locator('#agent-caption')).toHaveText(/Opening the fold/);
+    const fold = page.locator('#module-perc .knob[data-param="fold"]');
+    await fold.press('Home');
+    expect(await gesture).toMatchObject({ok: false, error: {code: 'rack-changed'}});
+    await expect(page.locator('#agent-caption')).toBeHidden();
+    await expect(page.locator('.agent-control-target')).toHaveCount(0);
+    await expect(page.getByRole('tooltip')).toHaveText('Fold 0.00');
+    await fold.press('Escape');
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
+});
+
 test('an agent fills, resizes, restyles and reclaims a row while the rack plays', async ({page}) => {
     await bootWithTools(page, '/?test=Test+-+VCO+Only');
     await page.locator('#startButton').click();

@@ -132,7 +132,7 @@ test('native WebMCP measures running audio through WASM and cancels a capture', 
     } finally {await cdp.detach();}
 });
 
-test('native WebMCP maps a running knob and cancels a timed gesture at its current position', async ({page}) => {
+test('native WebMCP captions the moving knobs and clears their highlights on cancellation', async ({page}) => {
     const {cdp, invoke, start} = await connectTools(page);
     try {
         const rack = await invoke('get_rack');
@@ -144,11 +144,26 @@ test('native WebMCP maps a running knob and cancels a timed gesture at its curre
         const mapped = await invoke('map_midi_cc', {expectedRevision: (await invoke('get_rack')).revision,
             channel: 1, cc: 7, moduleId: 'main', paramId: 'volume'});
         expect(mapped).toMatchObject({ok: true, key: '0:7'});
-        const move = await start('perform_controls', {expectedRevision: mapped.revision,
-            controls: [{channel: 1, cc: 7, value: 127, durationSeconds: 5, easing: 'ease-out'}]});
+        const caption = 'Raising the output while the oscillator tunes up.';
+        const volume = page.locator('#module-main .knob[data-param="volume"]');
+        const pitch = page.locator('#module-osc .knob[data-param="coarse"]');
+        const move = await start('perform_controls', {expectedRevision: mapped.revision, caption, moduleId: 'main',
+            controls: [{channel: 1, cc: 7, value: 127, durationSeconds: 5, easing: 'ease-out'},
+                {moduleId: 'osc', paramId: 'coarse', value: 0.4, durationSeconds: 1.2}]});
+        await expect(page.locator('#agent-caption')).toContainText(caption);
+        await expect(page.locator('#module-main')).toHaveClass(/agent-step-target/);
+        await expect(volume).toHaveClass(/agent-control-target/);
+        await expect(pitch).toHaveClass(/agent-control-target/);
+        await expect(page.getByRole('tooltip').filter({hasText: /^Vol /})).toBeVisible();
         await page.waitForFunction(() => window.eurorackApp.state.getParam('main', 'volume') > 0.22);
+        await expect(pitch).not.toHaveClass(/agent-control-target/);
+        await expect(volume).toHaveClass(/agent-control-target/);
+        await expect(page.locator('#agent-caption')).toBeVisible();
         await cdp.send('WebMCP.cancelInvocation', {invocationId: move.invocationId});
         expect((await move.response).status).toBe('Canceled');
+        await expect(page.locator('#agent-caption')).toBeHidden();
+        await expect(page.locator('.agent-control-target, .agent-step-target')).toHaveCount(0);
+        await expect(page.getByRole('tooltip')).toHaveCount(0);
         const held = await invoke('get_rack');
         expect(held.audioRunning).toBe(true);
         expect(held.patch.params.main.volume).toBeLessThan(1);

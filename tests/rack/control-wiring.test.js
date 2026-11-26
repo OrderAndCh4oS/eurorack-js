@@ -49,7 +49,7 @@ async function mount(definition) {
     panel.addEventListener('click', event => EurorackApp.prototype.handleClick.call({ setParam: change }, event));
     document.body.appendChild(panel);
     for (const [param, value] of Object.entries(module.params)) syncParamToModuleUI(panel, module.id, param, value);
-    const audio = processor.modules[module.id].instance;
+    const audio = processor.modules[module.id]?.instance;
 
     function checkWrites(writes) {
         const label = `${definition.id} ${JSON.stringify(writes)}`;
@@ -63,7 +63,7 @@ async function mount(definition) {
     function close() {
         cleanupRenderedModule(panel);
         host.disposeDSP(module);
-        audio.dispose?.();
+        audio?.dispose?.();
         host.unsubscribeRegistry?.();
         host.unsubscribeUsage?.();
         panel.remove();
@@ -202,6 +202,11 @@ describe('panel to audio worklet', () => {
         const rack = await mount(definition);
         vi.useFakeTimers();
         try {
+            if (definition.role === 'spacer') {
+                expect(rack.audio).toBeUndefined();
+                expect(rack.panel.querySelector('[data-param]')).toBeNull();
+                return;
+            }
             for (const c of definition.ui.knobs || []) exerciseKnob(rack, c);
             for (const c of definition.ui.switches || []) {
                 exerciseChoices(rack, c, c.values ?? c.positions?.map((_, i) => i) ?? [0, 1]);

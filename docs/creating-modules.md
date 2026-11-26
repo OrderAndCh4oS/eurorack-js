@@ -423,6 +423,8 @@ ui: {
 
 State values may contain nested objects and arrays whose numeric leaves are finite. They are validated and synchronized with the worklet like control parameters, but the renderer does not create a control and they are not MIDI-learn targets. A custom renderer must call `onParamChange('scaleMemory', nextValue)` after replacing the value. Prefer immutable replacement so rack state, URL encoding, and the worklet receive the same snapshot. Runtime-only bulk data such as audio buffers still belongs in `captureRuntimeState()` rather than patch params.
 
+The built-in `spacer` uses `ui.state` to store its integer width (`min`, `max`, `step`) and print name (`values`). The rack validates these constraints on import and edit. Layout code reads each instance's width with `getPanelHP(definition, params)`. The host omits passive spacers from its audio graph.
+
 ### Ports and Voltages
 
 Each port uses id, label, port, signal, and optional voltage.

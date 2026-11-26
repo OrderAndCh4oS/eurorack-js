@@ -19,7 +19,7 @@ async function connectTools(page) {
         waiting.get(event.invocationId)?.(event);
     });
     await cdp.send('WebMCP.enable');
-    await expect.poll(() => tools.size).toBe(9);
+    await expect.poll(() => tools.size).toBe(10);
     const start = async (name,input = {}) => {
         const tool = tools.get(name);
         const {invocationId} = await cdp.send('WebMCP.invokeTool',{frameId:tool.frameId,toolName:name,input});
@@ -42,7 +42,7 @@ test('native Chrome discovers all tools, catches wiring issues and applies the e
     testInfo.annotations.push({type:'browser',description:browser.version()});
     const {tools,cdp,invoke,start} = await connectTools(page);
     try {
-        expect([...tools.keys()].sort()).toEqual(['apply_draft','debug_rack','describe_modules','get_rack','map_midi_cc','measure_audio','perform_controls','present_step','validate_script']);
+        expect([...tools.keys()].sort()).toEqual(['apply_draft','debug_rack','describe_modules','edit_spacer','get_rack','map_midi_cc','measure_audio','perform_controls','present_step','validate_script']);
         const navigations = [];
         page.on('framenavigated',frame => navigations.push(frame.url()));
         const before = await invoke('get_rack');
@@ -60,6 +60,13 @@ test('native Chrome discovers all tools, catches wiring issues and applies the e
         expect(fixed.ok).toBe(true);
         expect(fixed.diagnostics.issues).toEqual([]);
         expect(await invoke('apply_draft',{draftId:fixed.draftId})).toEqual({ok:true,applied:true});
+        const fitted = await invoke('get_rack');
+        expect(fitted.patch).toEqual(fixed.patch);
+        const spacer = await invoke('edit_spacer', {action:'add', row:1, hp:'fill', style:'weave', expectedRevision:fitted.revision});
+        expect(spacer).toMatchObject({ok:true, hp:fitted.rows[0].freeHP, freeHP:0});
+        await expect(page.locator('#module-' + spacer.moduleId)).toHaveAttribute('data-spacer-style', 'weave');
+        const freed = await invoke('edit_spacer', {action:'remove', moduleId:spacer.moduleId, expectedRevision:spacer.revision});
+        expect(freed).toMatchObject({ok:true, freeHP:fitted.rows[0].freeHP});
         expect((await invoke('get_rack')).patch).toEqual(fixed.patch);
         expect((await invoke('debug_rack')).issues).toEqual([]);
         const caption = 'The LFO now modulates the oscillator.';

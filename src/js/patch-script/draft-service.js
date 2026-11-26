@@ -75,14 +75,18 @@ export class PatchDraftService {
         const record = this.app.patchLibrary?.active;
         const context = fingerprint({source: record?.source || null, id: record?.id || record?.key || null,
             account: this.app.patchLibrary?.accountGeneration || 0});
-        const next = fingerprint({patch, context});
+        // Empty rows are available for placement even though patch v3 omits them.
+        const layout = fingerprint({patch, rows: this.app.host.state.getRowCount()});
+        const next = context + '\n' + layout;
         if (next !== this.#fingerprint) { this.#fingerprint = next; this.#revision++; }
-        return {patch, fingerprint: fingerprint(patch), context, revision: this.#revision};
+        return {patch, fingerprint: layout, context, revision: this.#revision};
     }
 
     getRack() {
         const {patch, revision} = this.observe();
-        return {patch: copy(patch), revision, audioRunning: !!this.app.host.engine?.running && this.app.host.audioCtx?.state === 'running',
+        const state = this.app.host.state;
+        const rows = state.getRowNumbers().map(row => state.getRowSpace(row, this.registry));
+        return {patch: copy(patch), rows, revision, audioRunning: !!this.app.host.engine?.running && this.app.host.audioCtx?.state === 'running',
             hasUnsavedChanges: this.app.patchLibrary?.isDirty(patch) ?? false,
             source: formatPatchScript(patch, this.registry),
             diagnostics: analyseRackConnections(patch, this.registry)};
@@ -130,6 +134,13 @@ export class PatchDraftService {
 
     requireEditor() {
         if (this.app.inPlayerView) throw draftError('player-read-only', 'Open the desktop editor to edit patches.');
+    }
+
+    requireCurrentEditor(expectedRevision) {
+        if (!Number.isInteger(expectedRevision) || expectedRevision < 1) throw draftError('invalid-input', 'Provide the revision from get_rack.');
+        this.requireEditor();
+        if (this.app.patchLibrary?.replacing) throw draftError('busy', 'A patch is opening.');
+        if (this.observe().revision !== expectedRevision) throw draftError('rack-changed', 'The rack changed. Read it again before editing.');
     }
 
     async apply(draftId, {signal, isCurrent = () => true, onUnsavedChanges = 'prompt'} = {}) {

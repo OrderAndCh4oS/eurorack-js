@@ -81,6 +81,7 @@ import m79 from '../modules/fold-perc/index.js';
 import m80 from '../modules/dj-filter/index.js';
 import m81 from '../modules/slice-sampler/index.js';
 import m82 from '../modules/mutes/index.js';
+import m83 from '../modules/spacer/index.js';
 
 export const CORE_MODULE_DEFINITIONS = [
     m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15,
@@ -88,5 +89,5 @@ export const CORE_MODULE_DEFINITIONS = [
     m31, m32, m33, m34, m35, m36, m37, m38, m39, m40, m41, m42, m43, m44, m45,
     m46, m47, m48, m49, m50, m51, m52, m53, m54, m55, m56, m57, m58, m59, m60,
     m61, m62, m63, m64, m65, m66, m67, m68, m69, m70, m71, m72, m73, m74, m75,
-    m76, m77, m78, m79, m80, m81, m82
+    m76, m77, m78, m79, m80, m81, m82, m83
 ];

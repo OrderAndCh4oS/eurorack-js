@@ -1,6 +1,6 @@
 import {expect, test} from '@playwright/test';
 
-async function bootWithTools(page) {
+async function bootWithTools(page, path = '/') {
     await page.addInitScript(() => {
         window.rackTools = {};
         Object.defineProperty(document, 'modelContext', {value: {
@@ -10,12 +10,52 @@ async function bootWithTools(page) {
             }
         }});
     });
-    await page.goto('/');
+    await page.goto(path);
     await page.waitForFunction(() => window.rackTools.present_step);
 }
 const invoke = (page, name, input = {}) => page.evaluate(async ({name,input}) => window.rackTools[name].execute(input), {name,input});
 const source = `patch().module('vco','osc',{coarse:Math.random()}).module('out','main').connect('osc.triangle','main.L')`;
 const validate = async page => invoke(page, 'validate_script', {source, expectedRevision:(await invoke(page,'get_rack')).revision});
+
+test('an agent fills, resizes, restyles and reclaims a row while the rack plays', async ({page}) => {
+    await bootWithTools(page, '/?test=Test+-+VCO+Only');
+    await page.locator('#startButton').click();
+    await page.waitForFunction(() => window.eurorackApp.host.engine?.activeRevision);
+    const graph = () => page.evaluate(() => window.eurorackApp.host.engine.activeRevision);
+    const originalGraph = await graph();
+    const before = await invoke(page, 'get_rack');
+    const first = before.rows.find(item => item.row === 1);
+    expect(first.freeHP + first.usedHP).toBe(84);
+    const catalogue = await invoke(page, 'describe_modules');
+    expect(catalogue.modules.find(def => def.id === 'spacer').hpRange).toEqual({min:1, max:84});
+    const details = await invoke(page, 'describe_modules', {types:['spacer']});
+    expect(details.modules[0].parameters.find(p => p.param === 'style').values).toHaveLength(6);
+
+    const edit = input => invoke(page, 'edit_spacer', input);
+    const added = await edit({action:'add', expectedRevision:before.revision, row:1, index:0, hp:'fill', style:'orbit'});
+    expect(added).toMatchObject({ok:true, row:1, hp:first.freeHP, style:'orbit', freeHP:0});
+    const panel = page.locator('#module-' + added.moduleId);
+    await expect(panel).toHaveAttribute('data-spacer-style', 'orbit');
+    const current = await invoke(page, 'get_rack');
+    expect(current.patch.modules[0].id).toBe(added.moduleId);
+    expect(current.rows[0].freeHP).toBe(0);
+    expect((await edit({action:'add', expectedRevision:current.revision, row:1})).error.code).toBe('no-space');
+    expect((await edit({action:'update', expectedRevision:before.revision, moduleId:added.moduleId, hp:1})).error.code).toBe('rack-changed');
+    expect((await edit({action:'update', expectedRevision:current.revision, moduleId:added.moduleId, hp:1, style:'blue'})).ok).toBe(false);
+    expect((await invoke(page, 'get_rack')).patch).toEqual(current.patch);
+    const resized = await edit({action:'update', expectedRevision:current.revision, moduleId:added.moduleId, hp:1, style:'prism'});
+    expect(resized).toMatchObject({ok:true, hp:1, freeHP:first.freeHP-1});
+    await expect(panel).toHaveAttribute('data-spacer-style', 'prism');
+    expect((await panel.boundingBox()).width).toBe(18);
+    expect((await edit({action:'remove', expectedRevision:resized.revision, moduleId:before.patch.modules[0].id})).ok).toBe(false);
+    const removed = await edit({action:'remove', expectedRevision:resized.revision, moduleId:added.moduleId});
+    expect(removed).toMatchObject({ok:true, freeHP:first.freeHP});
+    await expect(panel).toHaveCount(0);
+    const after = await invoke(page, 'get_rack');
+    expect(after.patch).toEqual(before.patch);
+    expect(after.audioRunning).toBe(true);
+    expect(await graph()).toBe(originalGraph);
+});
 
 test('performs consecutive gestures on the playing graph with panel mappings and MIDI-to-CV', async ({page}) => {
     await bootWithTools(page);

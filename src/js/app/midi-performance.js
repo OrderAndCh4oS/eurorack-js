@@ -15,13 +15,6 @@ export const EASING_NAMES = Object.keys(curves);
 
 function invalid(message) { throw draftError('invalid-input', message); }
 
-function checkRack({ app, drafts }, expectedRevision) {
-    if (!Number.isInteger(expectedRevision) || expectedRevision < 1) invalid('Provide the revision from get_rack.');
-    drafts.requireEditor();
-    if (app.patchLibrary?.replacing) throw draftError('busy', 'A patch is opening.');
-    if (drafts.observe().revision !== expectedRevision) throw draftError('rack-changed', 'The rack changed. Read it again before performing.');
-}
-
 function midiKey(channel, cc) {
     if (!Number.isInteger(channel) || !inRange(channel, 1, 16) || !Number.isInteger(cc) || !inRange(cc, 0, 127)) {
         invalid('Use MIDI channel 1–16 and CC number 0–127.');
@@ -43,7 +36,7 @@ function panelDomain(app, moduleId, paramId) {
 export function mapMidiCC(workbench, { expectedRevision, channel, cc, moduleId, paramId, min, max }) {
     const { app, drafts } = workbench;
     return drafts.exclusive(() => {
-        checkRack(workbench, expectedRevision);
+        drafts.requireCurrentEditor(expectedRevision);
         const key = midiKey(channel, cc);
         const range = controlRange(panelDomain(app, moduleId, paramId));
         const mapping = { moduleId, paramId, min: min === undefined ? range.min : min, max: max === undefined ? range.max : max };
@@ -111,7 +104,7 @@ function advanceMove(app, { panel, midi }, amount) {
 export function performControls(workbench, { expectedRevision, controls }, signal) {
     const { app, drafts } = workbench;
     return drafts.exclusive(async () => {
-        checkRack(workbench, expectedRevision);
+        drafts.requireCurrentEditor(expectedRevision);
         if (!Array.isArray(controls) || !inRange(controls.length, 1, MAX_PERFORMANCE_CONTROLS)) {
             invalid(`Provide 1–${MAX_PERFORMANCE_CONTROLS} controls per gesture.`);
         }

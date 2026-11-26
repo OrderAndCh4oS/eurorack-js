@@ -3,7 +3,7 @@ import { MEASUREMENT_CHANGES } from '../audio/audio-analysis.js';
 
 const TOOL_NAMES = {
     get_rack: 'Read rack', describe_modules: 'Inspect modules', validate_script: 'Validate patch',
-    apply_draft: 'Apply patch', map_midi_cc: 'Map MIDI control', perform_controls: 'Perform controls',
+    apply_draft: 'Apply patch', edit_spacer: 'Edit spacer', map_midi_cc: 'Map MIDI control', perform_controls: 'Perform controls',
     debug_rack: 'Check wiring', measure_audio: 'Measure audio', present_step: 'Present step'
 };
 const PHASES = {loading: 'Loading analyser', capturing: 'Capturing audio', analysing: 'Analysing audio', presenting: 'Showing caption'};

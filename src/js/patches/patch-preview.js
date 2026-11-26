@@ -18,7 +18,9 @@ function aborted(signal) {
 }
 
 function previewKey(state, options) {
-    return JSON.stringify([PATCH_PREVIEW_RENDERER_VERSION, options.mode || 'light', options.maxWidth, options.maxHeight, options.maxPixels, state]);
+    const version = state.modules.some(module => module.type === 'spacer')
+        ? PATCH_PREVIEW_RENDERER_VERSION + '/spacer-prints-2' : PATCH_PREVIEW_RENDERER_VERSION;
+    return JSON.stringify([version, options.mode || 'light', options.maxWidth, options.maxHeight, options.maxPixels, state]);
 }
 
 export async function getTestPatchPreview(state, name, mode = 'light') {

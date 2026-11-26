@@ -160,7 +160,7 @@ describe('Eurorack WebMCP tools', () => {
         const adapter = await registerRackTools({document: {modelContext:{registerTool}}, workbench, registry:pluginRegistry, prepareEvaluator});
         expect(prepareEvaluator).toHaveBeenCalledOnce();
         expect(adapter.supported).toBe(true);
-        expect(registerTool.mock.calls.map(([tool]) => tool.name)).toEqual(['get_rack','describe_modules','validate_script','apply_draft','map_midi_cc','perform_controls','debug_rack','measure_audio','present_step']);
+        expect(registerTool.mock.calls.map(([tool]) => tool.name)).toEqual(['get_rack','describe_modules','validate_script','apply_draft','edit_spacer','map_midi_cc','perform_controls','debug_rack','measure_audio','present_step']);
         const signal = registerTool.mock.calls[0][1].signal;
         expect(signal.aborted).toBe(false);
         expect(registerTool.mock.calls.every(([,options]) => options.signal === signal)).toBe(true);

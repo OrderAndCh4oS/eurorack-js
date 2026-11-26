@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { CORE_MODULE_DEFINITIONS } from '../src/js/rack/core-definitions.js';
+import { getPanelHP, MAX_HP_PER_ROW } from '../src/js/rack/module-contract.js';
 import { normalizePatch } from '../src/js/app/patch-format.js';
 import { PATCH_LIMITS } from '../src/js/patches/limits.js';
 import { controlRange, getControlDomain, legalControlValue } from '../src/js/rack/control-domain.js';
@@ -76,7 +77,7 @@ export function validateState(raw, contracts = registry) {
     assert(raw && !raw.state && Array.isArray(raw.modules) && raw.modules.length <= LIMITS.modules, 'Invalid patch modules.');
     assert(Array.isArray(raw.cables) && raw.cables.length <= LIMITS.cables, 'Too many patch cables.');
     assertBuiltInModules(raw, contracts);
-    const placements = new Set(); const rowHP = new Map();
+    const placements = new Set();
     for (const module of raw.modules) {
         assert(module && typeof module.id === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(module.id), 'Invalid module instance ID.');
         assert(typeof module.type === 'string', 'Invalid module type.');
@@ -84,8 +85,6 @@ export function validateState(raw, contracts = registry) {
         assert(Number.isInteger(module.index) && module.index >= 0 && module.index < LIMITS.modules, 'Invalid rack position.');
         const place = `${module.row}:${module.index}`;
         assert(!placements.has(place), 'Two modules occupy the same rack position.'); placements.add(place);
-        rowHP.set(module.row, (rowHP.get(module.row) || 0) + (contracts.get(module.type)?.hp || 0));
-        assert(rowHP.get(module.row) <= 84, 'Rack row exceeds 84 HP.');
         for (const [param, value] of Object.entries(raw.params?.[module.id] || {})) {
             const domain = getControlDomain(contracts.get(module.type), param);
             if (domain) assert(legalControlValue(domain, value), `Parameter ${module.id}.${param} is outside its declared control settings.`);
@@ -94,6 +93,12 @@ export function validateState(raw, contracts = registry) {
     let state;
     try { state = normalizePatch(raw, { registry: contracts }); }
     catch (error) { throw new HttpError(400, 'invalid_patch', error.message); }
+    const rowHP = new Map();
+    for (const module of state.modules) {
+        const used = (rowHP.get(module.row) || 0) + getPanelHP(contracts.get(module.type), state.params[module.id]);
+        assert(used <= MAX_HP_PER_ROW, `Rack row exceeds ${MAX_HP_PER_ROW} HP.`);
+        rowHP.set(module.row, used);
+    }
     assert(Object.keys(state.midiMappings).length <= 2048, 'Too many MIDI mappings.');
     for (const [key, mapping] of Object.entries(state.midiMappings)) {
         const parts = /^(\d{1,2}):(\d{1,3})$/.exec(key);

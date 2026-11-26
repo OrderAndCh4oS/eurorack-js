@@ -140,9 +140,11 @@ export default {
             },
             { "id": "gateSeq", "type": "gate-seq", "row": 4, "index": 0 },
             { "id": "sampler", "type": "slice-sampler", "row": 4, "index": 1 },
-            { "id": "sampleOut", "type": "out", "row": 4, "index": 2 }
+            { "id": "sampleOut", "type": "out", "row": 4, "index": 2 },
+            { "id": "blank", "type": "spacer", "row": 4, "index": 3 }
         ],
         "params": {
+            "blank": { "hp": 7, "style": "contour" },
             "gateSeq": { "pattern": [{}, { "length": 4, "cells": [1, -1, 2, -1] }] },
             "sampleOut": { "volume": 0.2 },
             "clock": {

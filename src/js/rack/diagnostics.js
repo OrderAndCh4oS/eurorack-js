@@ -12,20 +12,22 @@ function portTargets(moduleId, direction, ports) {
 export function analyseRackConnections(patch, registry) {
     const modules = patch.modules;
     const cables = patch.cables;
-    const nodes = new Map(modules.map(module => {
+    const nodes = new Map();
+    for (const module of modules) {
         const definition = registry.get(module.type);
         if (!definition) throw new Error(`Module type "${module.type}" not found`);
+        if (definition.role === 'spacer') continue;
         const inputs = getModulePorts(definition, 'input');
         const audioOutput = definition.role === 'audio-output';
-        return [module.id, {
+        nodes.set(module.id, {
             inputs,
             outputs: getModulePorts(definition, 'output'),
             audioOutput,
             terminalInputs: new Set(audioOutput ? inputs.map(input => input.port) : definition.diagnostics?.terminalInputs || []),
             incoming: [],
             outgoing: []
-        }];
-    }));
+        });
+    }
 
     cables.forEach(cable => {
         const source = nodes.get(cable.fromModule);
@@ -52,7 +54,7 @@ export function analyseRackConnections(patch, registry) {
     }
 
     const issues = [];
-    if (modules.length && ![...nodes.values()].some(node => node.audioOutput)) {
+    if (nodes.size && ![...nodes.values()].some(node => node.audioOutput)) {
         issues.push({ code: 'missing-output', severity: 'info', message: 'No OUT module', moduleIds: [] });
     }
 

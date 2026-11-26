@@ -1,7 +1,7 @@
 import { BUFFER, SAMPLE_RATE } from '../config/constants.js';
 import { createAudioWorkletEngine } from '../audio/worklet-engine.js';
 import { getNestedValue, setNestedValue } from '../utils/nested-access.js';
-import { applyControlEdit, assertModuleParam } from '../rack/module-contract.js';
+import { applyControlEdit, assertModuleParam, getPanelHP } from '../rack/module-contract.js';
 import { loadCorePlugin, pluginRegistry } from '../rack/registry.js';
 import { normalizePatch } from './patch-format.js';
 import { RackState } from './rack-state.js';
@@ -88,7 +88,7 @@ export class RackHost {
     addModule(type, options = {}) {
         const moduleState = this.state.addModule(type, this.registry, options);
         this.createDSP(moduleState);
-        this.syncTopology();
+        if (this.registry.get(type).role !== 'spacer') this.syncTopology();
         this.emit({ type: 'module-added', moduleId: moduleState.id });
         return moduleState;
     }
@@ -119,7 +119,7 @@ export class RackHost {
         try {
             for (const sourceRow of [...groups.keys()].sort((a, b) => a - b)) {
                 const group = groups.get(sourceRow).sort((a, b) => a.index - b.index);
-                const width = group.reduce((hp, module) => hp + this.registry.get(module.type).hp, 0);
+                const width = group.reduce((hp, module) => hp + getPanelHP(this.registry.get(module.type), patch.params[module.id]), 0);
                 if (width > state.maxHPPerRow) throw new Error('The copied modules exceed the width of a rack row.');
                 let target = state.getRowNumbers().find(n => n >= nextRow && state.getRowHP(n, this.registry) + width <= state.maxHPPerRow);
                 if (!target) {
@@ -151,8 +151,8 @@ export class RackHost {
                 if (!copy) throw new Error('Could not connect the copied modules.');
                 cables.push(copy);
             }
-            activating = true;
-            await this.syncTopology({ throwOnError: true });
+            activating = patch.modules.some(module => this.registry.get(module.type).role !== 'spacer');
+            if (activating) await this.syncTopology({ throwOnError: true });
             const activeCables = new Set(state.cables);
             result = {
                 modules: [...copies.values()].filter(copy => state.getModule(copy.id) === copy),
@@ -183,7 +183,7 @@ export class RackHost {
         if (!moduleState) return null;
         this.disposeDSP(moduleState);
         const removed = this.state.removeModule(moduleId);
-        this.syncTopology();
+        if (this.registry.get(removed.type).role !== 'spacer') this.syncTopology();
         this.emit({ type: 'module-removed', moduleId });
         return removed;
     }
@@ -224,6 +224,10 @@ export class RackHost {
         if (!moduleState) throw new Error(`Module instance "${moduleId}" not found`);
         const definition = this.registry.get(moduleState.type);
         assertModuleParam(definition, param, value);
+        if (definition.role === 'spacer' && param === 'hp' &&
+            this.state.getRowHP(moduleState.row, this.registry) - moduleState.params.hp + value > this.state.maxHPPerRow) {
+            throw new Error(`Spacer does not fit in row ${moduleState.row}`);
+        }
         const edited = applyControlEdit(definition, moduleState.params, param, value);
         if (!this.state.setParam(moduleId, param, value)) return false;
         const dsp = this.state.getModule(moduleId)?.instance;
@@ -231,7 +235,7 @@ export class RackHost {
             setNestedValue(dsp.params, param, value);
             if (edited) setNestedValue(dsp.params, edited, getNestedValue(moduleState.params, edited));
         }
-        this.engine?.setParam?.(moduleId, param, value);
+        if (definition.role !== 'spacer') this.engine?.setParam?.(moduleId, param, value);
         this.emit({ type: 'param-changed', moduleId, param, value });
         return true;
     }
@@ -409,6 +413,11 @@ export class RackHost {
 
     createRuntimePatchState({ includeMedia = true } = {}) {
         const patch = this.serializePatch();
+        patch.modules = patch.modules.filter(module => {
+            if (this.registry.get(module.type)?.role !== 'spacer') return true;
+            delete patch.params[module.id];
+            return false;
+        });
         patch.modules = patch.modules.map(module => {
             // Cable edits reuse the playing sampler. Sending its saved PCM with
             // every topology would clone megabytes without changing that instance.

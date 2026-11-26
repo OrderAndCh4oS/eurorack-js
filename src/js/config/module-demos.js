@@ -332,4 +332,8 @@ export const MODULE_DEMOS = [
         id: "mutes", title: "Performance Mutes", patch: "Test - Performance Mutes",
         intro: "Bring four stems in and out by hand or from four mute gates. Each channel smooths the cut so you can punch in between beats."
     },
+    {
+        id: "spacer", title: "Spacer prints", patch: "Test - Spacer Prints",
+        intro: "Fill open rail space with a printed panel from 1 to 84 HP wide. Give each panel its own artwork and switch the rack theme to see its other palette."
+    },
 ];

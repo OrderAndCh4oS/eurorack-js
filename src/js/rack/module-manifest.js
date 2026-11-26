@@ -81,7 +81,8 @@ export const MODULE_MANIFEST = [
     { id: 'fold-perc', load: () => import('../modules/fold-perc/index.js') },
     { id: 'dj-filter', load: () => import('../modules/dj-filter/index.js') },
     { id: 'slice-sampler', load: () => import('../modules/slice-sampler/index.js') },
-    { id: 'mutes', load: () => import('../modules/mutes/index.js') }
+    { id: 'mutes', load: () => import('../modules/mutes/index.js') },
+    { id: 'spacer', load: () => import('../modules/spacer/index.js') }
 ];
 
 export const MODULE_ORDER = MODULE_MANIFEST.map(mod => mod.id);

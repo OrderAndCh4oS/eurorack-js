@@ -18,6 +18,7 @@ import { setSwitchValue, updateKnobRotation } from '../ui/toolkit/components.js'
 import { RackPlayer } from '../ui/rack-player.js';
 import { initMidiSetup } from '../ui/midi-setup.js';
 import { RackSelection } from '../ui/rack-selection.js';
+import { openSpacerPicker } from '../ui/spacer-picker.js';
 import { controlRange, getControlDomain, snapControlValue } from '../rack/control-domain.js';
 import { RackState } from './rack-state.js';
 import { createRackHost } from './rack-host.js';
@@ -229,6 +230,16 @@ export class EurorackApp {
         this.populateSidebar();
         this.host.subscribe(event => {
             if (event.type === 'registry') this.populateSidebar();
+            if (event.type === 'param-changed') {
+                const module = this.state.getModule(event.moduleId);
+                if (module?.type === 'spacer' && module.element) {
+                    module.element.dispatchEvent(new this.document.defaultView.Event('spacer-change'));
+                    if (event.param === 'hp') {
+                        this.renderAllCables();
+                        this.player?.fit();
+                    }
+                }
+            }
         });
         this.bindEvents();
         this.initMidi();
@@ -382,9 +393,9 @@ export class EurorackApp {
                 item.innerHTML = `
                     <div class="sidebar-module-color"></div>
                     <div class="sidebar-module-name">${def.name}</div>
-                    <div class="sidebar-module-hp">${def.hp}hp</div>
+                    <div class="sidebar-module-hp">${def.role === 'spacer' ? '1–' + this.state.maxHPPerRow : def.hp}hp</div>
                 `;
-                item.addEventListener('click', () => this.addModule(def.id));
+                item.addEventListener('click', () => def.role === 'spacer' ? openSpacerPicker(this) : this.addModule(def.id));
                 sidebar.appendChild(item);
             });
         });
@@ -443,6 +454,7 @@ export class EurorackApp {
         this.document.getElementById('midiDrumControllerBtn').addEventListener('click', () => this.openMidiTool('/midi-drum-controller.html'));
         this.cableOpacityToggle?.addEventListener('click', () => this.toggleCableOpacity());
         this.document.getElementById('addRackRow')?.addEventListener('click', () => this.addRackRow());
+        this.document.getElementById('addSpacer')?.addEventListener('click', () => openSpacerPicker(this));
         this.document.getElementById('removeRackRow')?.addEventListener('click', () => this.removeRackRow());
     }
 
@@ -462,6 +474,7 @@ export class EurorackApp {
         }
         this.updateTransport();
         if (player) {
+            this.document.querySelector('#spacerPicker[open]')?.close();
             this.cancelCableDrag();
             this.cancelModuleDrag();
             this.selection.clear();
@@ -561,7 +574,8 @@ export class EurorackApp {
 
         this.renderModule(moduleState.id);
         this.markEmptyRows();
-        this.syncEngineModules();
+        if (type === 'spacer') this.renderAllCables();
+        else this.syncEngineModules();
         return moduleState.id;
     }
 
@@ -608,6 +622,20 @@ export class EurorackApp {
         label.setAttribute('role', 'button');
         label.setAttribute('aria-label', `Select ${definition.name}`);
         label.setAttribute('aria-pressed', 'false');
+        if (definition.role === 'spacer') {
+            label.setAttribute('aria-keyshortcuts', 'Shift+F10');
+            const edit = event => {
+                if (this.inPlayerView) return;
+                event.preventDefault();
+                if (event.type === 'contextmenu') label.focus({ preventScroll: true });
+                openSpacerPicker(this, moduleState);
+            };
+            element.addEventListener('contextmenu', edit);
+            element.addEventListener('keydown', event => {
+                if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) edit(event);
+            });
+            element.querySelector('.spacer-legend').addEventListener('click', edit);
+        }
 
         const removeBtn = this.document.createElement('button');
         removeBtn.className = 'remove-btn';
@@ -670,7 +698,7 @@ export class EurorackApp {
         this.visualCables = this.visualCables.filter(cable => cable.fromModule !== id && cable.toModule !== id);
         this.markConnectedJacks();
         this.markEmptyRows();
-        this.syncEngineModules();
+        if (mod.type !== 'spacer') this.syncEngineModules();
         this.renderAllCables();
     }
 

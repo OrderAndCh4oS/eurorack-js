@@ -93,6 +93,7 @@ import testFoldPerc from './patches/test-fold-perc.js';
 import testDjFilter from './patches/test-dj-filter.js';
 import testSliceSampler from './patches/test-slice-sampler.js';
 import testMutes from './patches/test-mutes.js';
+import testSpacer from './patches/test-spacer.js';
 
 export const TEST_PATCHES = {
     // Test patches - Modules
@@ -113,6 +114,7 @@ export const TEST_PATCHES = {
     [testDjFilter.name]: testDjFilter,
     [testSliceSampler.name]: testSliceSampler,
     [testMutes.name]: testMutes,
+    [testSpacer.name]: testSpacer,
     [testSeqSwitch.name]: testSeqSwitch,
     [testEuclid.name]: testEuclid,
     [testChangesCascade.name]: testChangesCascade,

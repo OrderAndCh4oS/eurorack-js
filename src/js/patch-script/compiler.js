@@ -74,7 +74,7 @@ export function compilePatchDescription(description, {
         if (placement.row) state.ensureRowCount(placement.row);
         const definition = registry.get(declaration.type);
         if (!definition) throw new Error(`Module type "${declaration.type}" not found`);
-        const row = placement.row ?? state.findFirstFittingRow(definition, registry) ?? state.addRow();
+        const row = placement.row ?? state.findFirstFittingRow(definition, registry, declaration.params) ?? state.addRow();
         if (row > PATCH_LIMITS.rows) {
             throw Object.assign(new Error(`The patch must fit within ${PATCH_LIMITS.rows} rows.`), {code: 'patch-limit'});
         }
@@ -111,6 +111,7 @@ export function compilePatchDescription(description, {
     try {
         patch.modules.forEach((module, rackOrder) => {
             const definition = registry.get(module.type);
+            if (definition.role === 'spacer') return;
             const instance = definition.createDSP({ sampleRate, bufferSize: blockSize, blockSize, audioCtx: null, services: {} });
             Object.entries(patch.params[module.id] || {}).forEach(([param, value]) => setNestedValue(instance.params, param, value));
             created.push(instance);

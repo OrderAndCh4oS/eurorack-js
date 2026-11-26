@@ -210,6 +210,12 @@ reconstructed base.
 |----|--------|-------------|
 | `out` | OUT | Stereo output to speakers |
 
+### Other
+
+| ID | Module | Description |
+|----|--------|-------------|
+| `spacer` | Spacer | Fill 1–84 HP with one of six prints in light and dark palettes. Right-click to change a panel’s print or width. |
+
 ## Patch Workbench
 
 Open **Code** in the app toolbar to build and debug racks with client-side JavaScript. The workbench provides syntax highlighting; themed surrounding controls; module, parameter, control-state, MIDI, and direction-aware socket completion; non-mutating validation; atomic Apply; AudioWorklet profiling; named local scripts; and graphical-rack snapshots.

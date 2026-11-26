@@ -2,6 +2,7 @@ import { beforeAll, describe, it, expect } from 'vitest';
 import { FACTORY_PATCHES } from '../../src/js/config/factory-patches.js';
 import { normalizePatch } from '../../src/js/app/patch-format.js';
 import { MODULE_MANIFEST } from '../../src/js/rack/module-manifest.js';
+import { assertModuleParam } from '../../src/js/rack/module-contract.js';
 
 describe('factory-patches', () => {
     let moduleDefinitions;
@@ -422,7 +423,10 @@ describe('factory-patches', () => {
                 cable.toModule
             ]));
             const customRenderedIds = patch.state.modules
-                .filter(module => customRenderedTypes.includes(module.type))
+                .filter(module => {
+                    const { ui, render } = moduleDefinitions.get(module.type);
+                    return render && (ui.inputs?.length || ui.outputs?.length);
+                })
                 .map(module => module.id);
             expect(customRenderedIds.every(id => connectedModuleIds.has(id))).toBe(true);
             expect(patch.state.cables).toEqual(expect.arrayContaining([
@@ -450,8 +454,15 @@ describe('factory-patches', () => {
                 Object.values(value).forEach(expectFiniteValue);
             };
             Object.values(FACTORY_PATCHES).forEach(patch => {
-                Object.entries(patch.state.params).forEach(([, params]) => {
-                    Object.values(params).forEach(expectFiniteValue);
+                const types = new Map(patch.state.modules.map(module => [module.id, module.type]));
+                Object.entries(patch.state.params).forEach(([id, params]) => {
+                    const definition = moduleDefinitions.get(types.get(id));
+                    Object.entries(params).forEach(([param, value]) => {
+                        assertModuleParam(definition, param, value);
+                        if (typeof value === 'string') {
+                            expect(definition.ui.state?.find(field => field.param === param)?.values).toContain(value);
+                        } else expectFiniteValue(value);
+                    });
                 });
             });
         });

@@ -1,8 +1,8 @@
 import { getNestedValue, setNestedValue } from '../utils/nested-access.js';
-import { assertModuleParam, assertOctoConnection, validateCablePorts } from '../rack/module-contract.js';
+import { assertModuleParam, assertOctoConnection, getPanelHP, MAX_HP_PER_ROW, validateCablePorts } from '../rack/module-contract.js';
 import { switchValues } from '../rack/control-domain.js';
 
-export const MAX_HP_PER_ROW = 84;
+export { MAX_HP_PER_ROW };
 
 export function createDefaultParams(definition) {
     const params = {};
@@ -99,8 +99,13 @@ export class RackState {
         return (this.rows[row] || []).reduce((sum, id) => {
             const mod = this.modules.get(id);
             const def = mod ? registry.get(mod.type) : null;
-            return sum + (def?.hp || 0);
+            return sum + getPanelHP(def, mod?.params);
         }, 0);
+    }
+
+    getRowSpace(row, registry) {
+        const usedHP = this.getRowHP(row, registry);
+        return { row, usedHP, freeHP: this.maxHPPerRow - usedHP };
     }
 
     generateInstanceId(type, reservedIds = null) {
@@ -123,9 +128,9 @@ export class RackState {
         }
     }
 
-    findFirstFittingRow(definition, registry) {
+    findFirstFittingRow(definition, registry, params) {
         const fittingRow = this.getRowNumbers().find(row =>
-            this.getRowHP(row, registry) + definition.hp <= this.maxHPPerRow
+            this.getRowHP(row, registry) + getPanelHP(definition, params) <= this.maxHPPerRow
         );
         if (fittingRow) return fittingRow;
         return null;
@@ -189,12 +194,12 @@ export class RackState {
         }
         Object.entries(params || {}).forEach(([param, value]) => assertModuleParam(definition, param, value));
 
-        const targetRow = row || this.findFirstFittingRow(definition, registry);
+        const targetRow = row || this.findFirstFittingRow(definition, registry, params);
         if (!targetRow || !this.rows[targetRow]) {
             throw new Error(`Invalid rack row: ${targetRow}`);
         }
 
-        if (this.getRowHP(targetRow, registry) + definition.hp > this.maxHPPerRow) {
+        if (this.getRowHP(targetRow, registry) + getPanelHP(definition, params) > this.maxHPPerRow) {
             throw new Error(`Module "${type}" does not fit in row ${targetRow}`);
         }
 
@@ -256,26 +261,14 @@ export class RackState {
 
         const definition = registry.get(mod.type);
         const currentRow = mod.row;
-        this.rows[currentRow] = this.rows[currentRow].filter(moduleId => moduleId !== id);
-
-        try {
-            if (targetRow !== currentRow && this.getRowHP(targetRow, registry) + definition.hp > this.maxHPPerRow) {
-                throw new Error(`Module "${id}" does not fit in row ${targetRow}`);
-            }
-
-            const rowModules = this.rows[targetRow];
-            const insertIndex = index === null || index === undefined
-                ? rowModules.length
-                : Math.max(0, Math.min(index, rowModules.length));
-
-            mod.row = targetRow;
-            rowModules.splice(insertIndex, 0, id);
-        } catch (error) {
-            this.rows[currentRow].push(id);
-            mod.row = currentRow;
-            throw error;
+        if (targetRow !== currentRow && this.getRowHP(targetRow, registry) + getPanelHP(definition, mod.params) > this.maxHPPerRow) {
+            throw new Error(`Module "${id}" does not fit in row ${targetRow}`);
         }
-
+        this.rows[currentRow] = this.rows[currentRow].filter(moduleId => moduleId !== id);
+        const rowModules = this.rows[targetRow];
+        const insertIndex = index == null ? rowModules.length : Math.max(0, Math.min(index, rowModules.length));
+        mod.row = targetRow;
+        rowModules.splice(insertIndex, 0, id);
         return mod;
     }
 

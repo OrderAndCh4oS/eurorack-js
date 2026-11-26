@@ -2,6 +2,12 @@ import { getNestedValue, setNestedValue } from '../utils/nested-access.js';
 import { getControlDomain, inRange, legalControlValue } from './control-domain.js';
 
 export const SIGNAL_TYPES = Object.freeze(['audio', 'cv', 'gate', 'trigger', 'any', 'octo-link']);
+export const MAX_HP_PER_ROW = 84;
+
+export function getPanelHP(definition, params) {
+    if (definition?.role === 'spacer') return params?.hp ?? definition.hp;
+    return definition?.hp ?? 0;
+}
 
 const DEFAULT_VOLTAGE = Object.freeze({
     audio: Object.freeze({ min: -5, max: 5, normal: 0 }),
@@ -104,8 +110,8 @@ export function assertModuleParam(definition, param, value) {
     const moduleId = definition?.id || 'unknown';
     assert(getModuleParamPaths(definition).has(param), `Module "${moduleId}" has no parameter "${param}"`);
     assert(hasOnlyFiniteLeaves(value), `Module "${moduleId}" parameter "${param}" contains a non-finite value`);
-    const domain = getControlDomain(definition, param);
-    if (domain) {
+    const domain = getControlDomain(definition, param) ?? definition.ui?.state?.find(field => field.param === param);
+    if (domain && (domain.values || domain.min !== undefined)) {
         assert(legalControlValue(domain, value), `Module "${moduleId}" parameter "${param}" is outside its declared control settings`);
     }
 }

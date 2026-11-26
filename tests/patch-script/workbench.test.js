@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ulid } from 'ulid';
 import { executePatchScript } from '../../src/js/patch-script/builder.js';
+import { RackState } from '../../src/js/app/rack-state.js';
 import { loadCorePlugin, pluginRegistry } from '../../src/js/rack/registry.js';
 import { LocalModuleStore } from '../../src/js/local-modules/store.js';
 import {
@@ -20,25 +21,20 @@ beforeEach(() => {
 });
 
 function createWorkbench(initialPatch = null, options = {}) {
-    let currentPatch = initialPatch || {
-        version: 3,
-        plugins: { core: 1 },
-        modules: [],
-        params: {},
-        cables: [],
-        midiMappings: {}
-    };
+    const state = new RackState();
+    if (initialPatch) state.loadPatch(initialPatch, pluginRegistry);
     let listener = null;
     const app = {
         host: {
             sampleRate: 44100,
             blockSize: 16,
-            serializePatch: () => currentPatch,
+            state,
+            serializePatch: () => state.serializePatch(pluginRegistry),
             subscribe: next => { listener = next; return () => { listener = null; }; },
             engine: null
         },
-        state: { getModule: () => null },
-        loadPatchState: vi.fn(async patch => { currentPatch = patch; listener?.({ type: 'patch-loaded' }); return true; }),
+        state,
+        loadPatchState: vi.fn(async patch => { state.loadPatch(patch, pluginRegistry); listener?.({ type: 'patch-loaded' }); return true; }),
         localModuleRuntime: { activate: vi.fn(async () => ({ type: 'local-test-module' })) },
         addModule: vi.fn(type => ({ id: 'added-module', type })),
         renderAllCables: vi.fn()

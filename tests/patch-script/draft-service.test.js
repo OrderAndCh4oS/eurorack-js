@@ -1,25 +1,36 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { executePatchScript } from '../../src/js/patch-script/builder.js';
+import { RackState } from '../../src/js/app/rack-state.js';
 import { PatchDraftService } from '../../src/js/patch-script/draft-service.js';
 import { loadCorePlugin, pluginRegistry } from '../../src/js/rack/registry.js';
 
 beforeAll(() => loadCorePlugin());
 const source = `patch().module('vco', 'osc', {coarse: Math.random()})
   .module('out', 'main').connect('osc.triangle', 'main.L')`;
-const empty = () => ({version: 3, plugins: {core: 1}, modules: [], params: {}, cables: [], midiMappings: {}});
+const empty = () => new RackState().serializePatch(pluginRegistry);
 function fixture(options = {}) {
-    let state = empty();
+    const state = new RackState();
+    const edit = patch => state.loadPatch(patch, pluginRegistry);
     let id = 0;
     const app = {
-        host: { serializePatch: () => state, sampleRate: 44100, blockSize: 16 },
-        loadPatchState: vi.fn(async (patch, {beforeApply} = {}) => { beforeApply?.(); state = patch; return true; })
+        host: { state, serializePatch: () => state.serializePatch(pluginRegistry), sampleRate: 44100, blockSize: 16 },
+        loadPatchState: vi.fn(async (patch, {beforeApply} = {}) => { beforeApply?.(); edit(patch); return true; })
     };
     const evaluate = vi.fn(async code => executePatchScript(code));
     const service = new PatchDraftService({app, registry: pluginRegistry, evaluate, createId: async () => String(++id), ...options});
-    return {app, service, evaluate, edit: patch => { state = patch; }};
+    return {app, service, evaluate, edit};
 }
 
 describe('retained patch drafts', () => {
+    it('reports space on empty rows and revises the layout when one is added', () => {
+        const {app, service} = fixture();
+        const first = service.getRack();
+        expect(first.rows).toEqual([1, 2].map(row => ({row, usedHP:0, freeHP:84})));
+        app.host.state.addRow();
+        const next = service.getRack();
+        expect(next.revision).toBeGreaterThan(first.revision);
+        expect(next.rows.at(-1)).toEqual({row:3, usedHP:0, freeHP:84});
+    });
     it('applies the exact validated random result once, without evaluating again', async () => {
         const {service, evaluate, app} = fixture();
         const result = await service.validate(source, {expectedRevision: service.getRack().revision});

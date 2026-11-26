@@ -1195,7 +1195,7 @@
             --factory-module-dark-header: #3a3933;
         }
 
-        body.theme-dark :is(.module, .sidebar-module-color) {
+        body.theme-dark :is(.module, .sidebar-module-color, .spacer-swatch) {
             --factory-module-bg: var(--factory-module-dark-bg, var(--factory-panel));
             --factory-module-header: var(--factory-module-dark-header, var(--factory-panel-light));
         }
@@ -1955,6 +1955,7 @@
     <div class="toolbar-section">
         <button id="addRackRow">+ Row</button>
         <button id="removeRackRow">- Row</button>
+        <button id="addSpacer" type="button" aria-haspopup="dialog" aria-controls="spacerPicker">+ Spacer</button>
         <button id="clearCables">Clear Cables</button>
         <button
             id="cableOpacityToggle"
@@ -1971,6 +1972,26 @@
         <button id="rackDebuggerToggle" type="button" title="Check rack connections" aria-controls="rack-debugger" aria-expanded="false" aria-pressed="false">Debug</button>
     </div>
 </div>
+
+<dialog id="spacerPicker" class="patch-dialog" aria-labelledby="spacerPickerTitle">
+    <form>
+        <h2 id="spacerPickerTitle">Add spacer</h2>
+        <div class="spacer-placement">
+            <label>Rack row<select name="row"></select></label>
+            <label>Width (HP)<input name="hp" type="number" min="1" step="1" required></label>
+            <button type="button" data-fill-gap>Fill gap</button>
+        </div>
+        <fieldset class="spacer-styles">
+            <legend>Artwork</legend>
+            <div class="spacer-swatches"></div>
+        </fieldset>
+        <p class="patch-dialog-error" role="alert" hidden></p>
+        <div class="patch-dialog-actions">
+            <button type="button" data-cancel>Cancel</button>
+            <button type="submit" class="primary">Add spacer</button>
+        </div>
+    </form>
+</dialog>
 
 <dialog id="midiSetup" class="patch-dialog" aria-labelledby="midiSetupTitle">
     <div class="midi-setup-heading">

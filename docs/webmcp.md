@@ -67,6 +67,20 @@ Use the mapping’s returned revision for a gesture like this one. A CC target u
 
 A gesture accepts up to 16 distinct controls. The audio graph keeps playing through the moves. Cancelling a call holds the values reached so far. Moving an active target by hand gives you control and ends the gesture. After an interruption, read `get_rack` before continuing. **Save** keeps the current knob settings and MIDI bindings in the patch. The timed gestures themselves last for the performance.
 
+## Place spacers
+
+`get_rack.rows` lists the used and free HP on every row, including empty rows. Ask an agent to “fill the rest of row 1 with an Orbit spacer” or “shrink the spacer to 2 HP to make room for a filter.” The agent can edit the layout while a patch plays.
+
+This `edit_spacer` call fills the chosen row with Orbit. Substitute the current revision.
+
+```json
+{ "action": "add", "row": 1, "hp": "fill", "style": "orbit", "expectedRevision": 12 }
+```
+
+The response includes the generated `moduleId`, its width and style, the remaining `freeHP` and a new revision. To insert between modules, pass a zero-based `index`. To change a panel, send `action: "update"` with its `moduleId`, the latest revision and a new width or style. Use `action: "remove"` with that ID and revision to free its entire width.
+
+`describe_modules` with `{"types":["spacer"]}` lists the six style IDs and width limits. In patch scripts, use the same settings, for example `patch().module('spacer', 'blank', {hp: 7, style: 'contour'}, {row: 1, index: 0})`.
+
 ## Develop a module
 
 Before developing or changing a module type, read [Codebase Architecture and Schemas](architecture.md) first, then [Creating Modules](creating-modules.md). These guides cover thread ownership, DSP and UI contracts, trusted plugin registration, research and testing. Repository agents must also follow `AGENTS.md` and consult the module's `research/modules/{moduleId}.md`.
@@ -83,10 +97,11 @@ All tools take a JSON object. Use `{}` for tools with no arguments. Extra or unk
 
 | Tool | Input | Success result, alongside `ok: true` |
 | --- | --- | --- |
-| `get_rack` | `{}` | Current v3 `patch`, equivalent JavaScript `source`, `revision`, `audioRunning`, `hasUnsavedChanges`, and `diagnostics` |
+| `get_rack` | `{}` | Current v3 `patch`, equivalent JavaScript `source`, `rows` with used and free HP, `revision`, `audioRunning`, `hasUnsavedChanges`, and `diagnostics` |
 | `describe_modules` | `{}` | `modules`: the catalogue of IDs, names, categories and widths in HP; `documentation`: development guide links |
 | `describe_modules` | `{ "types": ["vco", "out"] }` | `modules` with exact input/output ports and parameter contracts for 1–12 distinct known types; `documentation`: development guide links |
 | `validate_script` | `{ "source": "patch()…", "expectedRevision": 1 }` | `draftId`, compiled `patch`, `diagnostics`, `revision`, and `expiresAt` |
+| `edit_spacer` | `expectedRevision`, `action` and either `row` to add or `moduleId` to update or remove. Add and update accept `hp` and `style`. | Spacer ID, row, used and free HP, current revision and installed panel settings |
 | `apply_draft` | `{ "draftId": "…" }` with optional boolean `discardUnsavedChanges` (default `false`) | `applied: true` on success. A rack with unsaved edits returns the `unsaved-changes` error unless the flag is true. |
 | `map_midi_cc` | `expectedRevision`, `channel` (1–16), `cc` (0–127), `moduleId`, `paramId`, optional `min` and `max` | Patch mapping `key`, `mapping` and current `revision` |
 | `perform_controls` | `expectedRevision` and `controls`. Each move has a panel or MIDI address, target `value`, optional `durationSeconds` and `easing`. | Current `revision` and `controls` with resolved panel IDs and `paramValue` for mapped or directly addressed knobs |

@@ -306,6 +306,24 @@ export const TEST_PATCH_PREVIEWS = {
       "bytes": 36416
     }
   },
+  "Test - Spacer Prints": {
+    "light": {
+      "key": "6cf8efd51276eefeb77487ab6ee728752d943f2bf8b5d92fe27c6dfe6d887ae4",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "cb20812cd6a8baeeed1bcbf46cffc2e73fe5bc126f6d67dd46cd453a6954de0e.webp",
+      "width": 640,
+      "height": 289,
+      "bytes": 42918
+    },
+    "dark": {
+      "key": "76b3c44c42ab1dd2fb4784e3f5f3c2807d5a414163cc30113a8db94c8cab35d1",
+      "rendererVersion": "rack-industrial-v3",
+      "file": "946529f7adc3f3d7e2869e57b5ffbee2e8f3fdadbf3aa8dd0f657d55b3ffd93e.webp",
+      "width": 640,
+      "height": 289,
+      "bytes": 39618
+    }
+  },
   "Test - Sequential Switch": {
     "light": {
       "key": "e313f7d014a5e31442eded5c73b72b9f213ec12cdf5b3b962aa46cf18c57d282",
@@ -1298,20 +1316,20 @@ export const TEST_PATCH_PREVIEWS = {
   },
   "Test - Custom Modules": {
     "light": {
-      "key": "a804c3f5f021db67b83d00b0bfd2f3e3499fe56c5011e7850005af6dbc44ec3d",
+      "key": "ba6ae1da1e88ad048370978c764987514d64ec8ffa9db442cb7c3ee14b7a4cfb",
       "rendererVersion": "rack-industrial-v3",
-      "file": "203f9906745e23f5ffcd890b1214fdb760c55b194ed80fc3466b34b9f31a45be.webp",
+      "file": "dca24c36ed8db729d0810edb6665cf2223b72b36666a3634feed30aa253db70d.webp",
       "width": 382,
       "height": 480,
-      "bytes": 39244
+      "bytes": 41130
     },
     "dark": {
-      "key": "c533b5e4cd3a502c4f9681eccaec503efb3c278b4f6ff0301e4f0bd9c9f991ba",
+      "key": "b545fda59b0dbd08ed4b182124d640be0631c54300e7d75d0fdc74270c3c021e",
       "rendererVersion": "rack-industrial-v3",
-      "file": "b0887d98a054e07ed36de84258b16f89fce31bc17df4f14614bb628e3208afb2.webp",
+      "file": "f0c5d99d4139fe4ced951bab117879c92e1acb16b3419e4fc712d009a6597007.webp",
       "width": 382,
       "height": 480,
-      "bytes": 39120
+      "bytes": 40746
     }
   },
   "Test - MIDI-CV": {

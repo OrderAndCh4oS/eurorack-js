@@ -82,6 +82,43 @@ test('each print has two palettes and edits survive a shared patch link', async 
     expect(await styles()).toEqual(['prism', ...prints.slice(1)]);
 });
 
+test('narrow spacer labels fit inside their footer in both themes', async ({ page }) => {
+    await page.goto('/?test=Test+-+Spacer+Prints');
+    const panels = page.locator('.module-type-spacer');
+    await expect(panels).toHaveCount(prints.length);
+
+    for (const theme of ['light', 'dark']) {
+        if (theme === 'dark') await page.locator('#themeModeToggle').click();
+        const clipped = await panels.evaluateAll(nodes => {
+            const failures = [];
+            for (const hp of [6, 5, 4, 3, 2, 1]) {
+                for (const panel of nodes) {
+                    window.eurorackApp.setParam(panel.dataset.instanceId, 'hp', hp);
+                    const button = panel.querySelector('.spacer-legend');
+                    const footer = button.getBoundingClientRect();
+                    const art = panel.querySelector('canvas').getBoundingClientRect();
+                    const labels = hp >= 5 ? button.children : [button.firstElementChild];
+                    for (const label of labels) {
+                        const text = document.createRange();
+                        text.selectNodeContents(label);
+                        const box = text.getBoundingClientRect();
+                        if (text.getClientRects().length !== 1 || !box.width ||
+                            box.left < footer.left - 0.5 || box.right > footer.right + 0.5 ||
+                            box.top < Math.max(footer.top, art.bottom) - 0.5 || box.bottom > footer.bottom + 0.5) {
+                            failures.push(`${panel.dataset.spacerStyle} ${hp} HP: ${label.textContent}`);
+                        }
+                    }
+                }
+            }
+            return failures;
+        });
+        expect(clipped, theme).toEqual([]);
+    }
+
+    await page.getByRole('button', { name: 'Change artwork for Contour, 1 HP spacer' }).click();
+    await expect(page.getByRole('dialog', { name: 'Edit spacer' }).getByRole('spinbutton')).toHaveValue('1');
+});
+
 test('fills gaps from 1 to 84 HP while a voice continues playing', async ({ page }) => {
     await page.goto('/?test=Test+-+VCO+Only');
     await page.locator('#startButton').click();

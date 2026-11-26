@@ -89,12 +89,12 @@ export default {
             border-block: 1px solid var(--factory-rule);
         }
         .module-type-spacer .spacer-legend {
-            position: absolute; bottom: 0; left: 15px; right: 15px; height: 28px;
+            position: absolute; bottom: 0; inset-inline: 15px; height: 28px;
             padding: 0 2px; display: flex; justify-content: space-between; align-items: center; gap: 2px;
             background: transparent; border: 0; color: var(--factory-ink);
-            text-transform: uppercase; font: bold 9px/1 'Courier New', monospace; cursor: pointer;
+            text-transform: uppercase; white-space: nowrap; font: bold 9px/1 'Courier New', monospace; cursor: pointer;
         }
-        .spacer-legend span:last-child { font-size: 8px; font-weight: normal; white-space: nowrap; }
+        .spacer-legend span:last-child { font-size: 8px; font-weight: normal; }
         .spacer-legend:hover span:first-child { text-decoration: underline; text-underline-offset: 3px; }
         .spacer-legend:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
         .spacer-screw {
@@ -108,13 +108,15 @@ export default {
         .spacer-screw.bl, .spacer-screw.br { bottom: 10px; }
         .spacer-screw.tl, .spacer-screw.bl { left: 5px; }
         .spacer-screw.tr, .spacer-screw.br { right: 5px; }
+        .module-5hp .spacer-legend { inset-inline: 14px; padding: 0; }
         body .module.module-type-spacer.spacer-narrow > .module-label { font-size: 0; }
         .spacer-narrow .spacer-legend { inset-inline: 1px; bottom: 14px; height: 14px; justify-content: center; }
         .spacer-narrow .spacer-legend span:last-child { display: none; }
         .spacer-narrow .spacer-screw.tl, .spacer-narrow .spacer-screw.bl { left: calc(50% - 3.5px); }
         .spacer-narrow .spacer-screw.bl { bottom: 4px; }
         .spacer-narrow .spacer-screw.tr, .spacer-narrow .spacer-screw.br { display: none; }
-        .spacer-strip .spacer-legend { height: 46px; writing-mode: vertical-rl; }
+        .spacer-strip .spacer-legend { height: 46px; }
+        .spacer-strip .spacer-legend span:first-child { writing-mode: vertical-rl; }
         .spacer-strip .spacer-print { height: calc(100% - 80px); }
         .module.module-type-spacer.spacer-strip .remove-btn { top: 1px; right: 0; }
     `

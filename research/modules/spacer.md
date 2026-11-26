@@ -14,6 +14,8 @@ The built-in `spacer` belongs to the Other category. This checkout implements a 
 
 Each instance stores `hp` and `style` in patch state. Contour uses nested elevation lines, Orbit uses elliptical tracks, Weave uses interlaced bands, Dunes uses a layered landscape, Prism uses angular facets and Pulse uses stacked waveforms. The six prints use the faceplates of VCF, MIX, DIV, VCO, LFO and VCA respectively. Artwork draws with the Industrial theme's ink, neutral shades and signal orange. The panel hardware, picker and saved previews follow the same light and dark theme. Right-click or Shift+F10 opens the artwork picker. [Industrial colours](../../src/industrial-theme.css)
 
+The print name sits between the artwork and the bottom screw on 1–4 HP panels. It reads vertically at 1–2 HP and horizontally at 3–4 HP. From 5 HP the footer also shows the width. The artwork button's accessible name includes the print and width at every size.
+
 Agents can inspect the available HP on each row, place and reprint a spacer, or remove it to reclaim room for a module. A direct spacer edit uses the current rack revision and updates the existing panel layout during playback.
 
 The panel has no controls that affect a signal, jacks, LEDs, normal voltages or calibration. Its contract factory supplies empty input and output maps. Production audio omits the panel altogether. Original procedural artwork is drawn when its width, style or palette changes. The six-panel factory demo illustrates both theme previews.

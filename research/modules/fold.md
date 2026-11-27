@@ -96,6 +96,33 @@ out = fold(biasedInput);
 - Fold CV: bipolar -5..+5 V, adding -0.5..+0.5 before the Fold clamp
 - Symmetry CV: bipolar -5..+5 V, adding -2..+2 V to the pre-fold offset
 
+## Implementation Plan — output coupling (2026-11-27)
+
+The recorded *Copper & Vactrol 168* performance developed a sustained offset during its wet section. At 10× drive and Sym 0.35 the existing sine transfer produces −4.76 V from 0 V in. The patch sends this signal through an LPG to both the mixer and GRANULITA. [Public patch](https://eurorackjs.orderandchaos.xyz/patches/01M8CX34Y6Q7XJ0VKKSEJZD4DN)
+
+Keep the `fold` effect's pre-fold bias and antialiasing. AC-couple its audio output at 18 Hz, with the pole computed from sample rate and unity gain at Nyquist. Reserve the final 1% of the ±5 V rail for a soft knee. Feed the bounded output back into the DC estimate so a lopsided waveform stays centered even when peaks reach a rail. Initialize the estimate at the silent operating point of the loaded controls. This costs one scalar of persistent state in addition to the folder's previous input. A downstream master filter would leave the offset in effect sends. [Julius O. Smith III, *Introduction to Digital Filters*, DC Blocker, accessed 2026-11-27](https://www.dsprelated.com/freebooks/filters/DC_Blocker.html)
+
+This work in the current checkout keeps the patch format, Fold and Sym parameters, jack definitions and panel intact. Existing patches can load their saved settings. Sub-audio signals at Out will be attenuated. Validate a biased silent start, knob and CV changes, reset, even harmonics, bass response and voltage bounds in `tests/dsp/fold.test.js`. Compare existing patches using FOLD, run the strict DSP audit matrix and run the full unit suite.
+
+The old silence test used Sym 0. Its symmetry test accepted any change in the mean of a single 128-sample block. The voltage audit records DC, but a constant −4.76 V satisfies the ±5 V rail check. The new regression tests check for silence with bias already present, let a live CV change settle across multiple blocks, and measure even harmonics over a complete cycle. A Chromium test captures the granular return at OUT, then patches in a real oscillator to verify the same route carries sound. [FOLD tests](../../tests/dsp/fold.test.js) · [Browser capture](../../tests/e2e/composition-modules.spec.js)
+
+### Public patch impact
+
+On 2026-11-27, 7 of the 33 public catalogue entries used FOLD. Copper is the patch that prompted the fix. The six other patches using FOLD all route its output as audio. The other 26 public patches have no FOLD signal path.
+
+Each comparison rendered 16 seconds from the saved settings at 48 kHz with 128-frame blocks, identical random seeds and the rack's compiled routing graph. The table reports the change in stereo RMS at OUT, including DC. The 18 Hz high-pass can also change bass phase and the shape of transients. Live control moves can produce larger differences.
+
+| Existing public patch | Change at OUT |
+| --- | ---: |
+| [Acid Bath (Arranged)](https://eurorackjs.orderandchaos.xyz/patches/01M7Z9Q4P2BKKD4V8EN8FN438T) | −0.181 dB |
+| [Acid Bath](https://eurorackjs.orderandchaos.xyz/patches/01M7Z9N8SC3EGJ83NZH4R92JFX) | −0.144 dB |
+| [Sluice](https://eurorackjs.orderandchaos.xyz/patches/01M86K5X353W4TDWM88H6D5GY2) | −0.033 dB |
+| [Doppelgänger Acid](https://eurorackjs.orderandchaos.xyz/patches/01M89Z5XYYEC96R3EYZ2H1ED6H) | +0.018 dB |
+| [Tidal Grammar](https://eurorackjs.orderandchaos.xyz/patches/01M7RMHYC05QJYH0VGJNZG474F) | −0.015 dB |
+| [Stop-Time Phonk // Tokyo Noir](https://eurorackjs.orderandchaos.xyz/patches/01M89YJ7B8R1G2M0WN2E5ZEAQH) | −0.003 dB |
+
+Copper's saved mix measured 0.598 dB lower. For a separate Act V comparison, set Fold to 0.78, Sym to 0.35, TZ FM to 0.65, Odd to 0.85, GRANULITA Blend to 0.85 and Verb to 0.72, and mute stems 1 and 2. Over the last four seconds of each render, the mean left output changed from +0.24079 to +0.00059 full scale at Joy X +0.82 and from −0.24027 to −0.00001 at Joy X −0.75. These are two held settings from the performance. The original recording contains continuous gestures.
+
 ## Use Cases
 1. **Sine to complex** - Transform pure sine into harmonically rich timbre
 2. **Triangle sweetening** - Add upper harmonics to triangle wave

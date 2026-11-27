@@ -1,3 +1,5 @@
+import { softLimitVoltage } from '../../utils/voltage.js';
+
 /**
  * Fold (Wavefolder) Module
  *
@@ -20,12 +22,16 @@
  * - Drive scales with fold amount
  * - Offset adds DC bias for asymmetric folding
  * - First-order antiderivative antialiasing reduces reflected harmonics
+ * - An 18 Hz output coupling filter rejects the resulting DC
  *
  * References:
  * - https://noiseengineering.us/blogs/loquelic-literitas-the-blog/getting-started-wavefolders/
  * - https://ccrma.stanford.edu/~jatin/ComplexNonlinearities/Wavefolder.html
  * - https://www.pure.ed.ac.uk/ws/portalfiles/portal/34115216/bilbao_pdf.pdf
  */
+
+const OUTPUT_SCALE = 5;
+const DC_CUTOFF_HZ = 18;
 
 export default {
     id: 'fold',
@@ -39,10 +45,10 @@ export default {
         const ownAudio = new Float32Array(bufferSize);
         const ownFoldCV = new Float32Array(bufferSize);
         const ownSymCV = new Float32Array(bufferSize);
-        let previousDrivenInput = 0;
-
-        // Output scaling (sin outputs ±1, scale to ±5V)
-        const OUTPUT_SCALE = 5;
+        const dcTracking = -Math.expm1(-2 * Math.PI * DC_CUTOFF_HZ / sampleRate);
+        const coupledScale = OUTPUT_SCALE * (1 - dcTracking / 2); // Unity high-frequency gain
+        let previousDrivenInput = null;
+        let outputBias = 0;
 
         // CV scaling
         const FOLD_CV_SCALE = 0.1;  // 5V = +0.5 fold
@@ -85,6 +91,12 @@ export default {
                     // Combine drive and normalized input so parameter/CV changes
                     // are part of the signal presented to the nonlinearity.
                     const drivenInput = drive * input / 5;
+                    if (previousDrivenInput === null) {
+                        // A saved Sym setting is already present before the first note.
+                        const restingInput = drive * offset / 5;
+                        previousDrivenInput = Number.isFinite(restingInput) ? restingInput : 0;
+                        outputBias = Math.sin(Math.PI * previousDrivenInput) * coupledScale;
+                    }
                     const delta = drivenInput - previousDrivenInput;
 
                     // First-order antiderivative antialiasing for sin(PI*x).
@@ -97,8 +109,11 @@ export default {
                         : Math.sin(Math.PI * (drivenInput + previousDrivenInput) * 0.5);
                     previousDrivenInput = drivenInput;
 
-                    // Scale output back to audio range
-                    out[i] = folded * OUTPUT_SCALE;
+                    // Track the bounded output so asymmetric peaks at the rails
+                    // cannot reintroduce a sustained offset after DC removal.
+                    const sample = softLimitVoltage(folded * coupledScale - outputBias, OUTPUT_SCALE, 0.99);
+                    out[i] = sample;
+                    outputBias += dcTracking * sample;
                 }
             },
 
@@ -107,7 +122,8 @@ export default {
                 ownFoldCV.fill(0);
                 ownSymCV.fill(0);
                 out.fill(0);
-                previousDrivenInput = 0;
+                previousDrivenInput = null;
+                outputBias = 0;
             }
         };
     },

@@ -32,7 +32,7 @@ For a West Coast-style bass voice, send a short envelope to Fold CV so each atta
 
 | Jack | Signal | What it does |
 | --- | --- | --- |
-| Out (`out`) | Audio | Carries the folded waveform. |
+| Out (`out`) | Audio | Carries the folded waveform. An 18 Hz high-pass removes steady voltage after folding. |
 
 ## Design background
 

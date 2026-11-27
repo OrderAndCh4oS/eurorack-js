@@ -120,6 +120,31 @@ test('muting the two patched stems silences both channels of the performance dem
     }).toBe(0);
 });
 
+test('a biased FOLD stays silent at the granular return until audio is patched in', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => window.eurorackApp?.patchLibrary);
+    await page.evaluate(() => window.eurorackApp.loadPatchState({
+        version: 3, plugins: { core: 1 }, midiMappings: {},
+        modules: ['vco', 'fold', 'granulita', 'out'].map((type, index) => ({ id: type, type, row: 1, index })),
+        params: { fold: { fold: 1, sym: 0.35 }, granulita: { blend: 0.85, verb: 0.72 } },
+        cables: [
+            { fromModule: 'fold', fromPort: 'out', toModule: 'granulita', toPort: 'inL' },
+            { fromModule: 'granulita', fromPort: 'outL', toModule: 'out', toPort: 'L' },
+            { fromModule: 'vco', fromPort: 'triangle', toModule: 'out', toPort: 'R' }
+        ]
+    }, { managed: true }));
+    await page.locator('#startButton').click();
+    const idle = await capture(page, 'Biased folder and dry reference', 0.5);
+    expect(idle.left.peak).toBe(0);
+    expect(idle.right.rms).toBeGreaterThan(0.1);
+
+    await page.evaluate(() => window.eurorackApp.host.connect({
+        fromModule: 'vco', fromPort: 'triangle', toModule: 'fold', toPort: 'audio'
+    }));
+    const playing = await capture(page, 'Folded granular return', 0.5);
+    expect(playing.left.rms).toBeGreaterThan(0.01);
+});
+
 test('a divided gate keeps a stem silent through a clock pause until reset', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.eurorackApp?.patchLibrary);

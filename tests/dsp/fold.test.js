@@ -220,28 +220,71 @@ describe('Fold Module', () => {
     });
 
     describe('Symmetry Control', () => {
-        it('should create asymmetric folding with symmetry offset', () => {
-            dsp.params.fold = 0.5;
+        it('keeps the even harmonics of asymmetric folding while rejecting the steady offset', () => {
+            dsp.params.fold = 0.3;
             for (let i = 0; i < bufferSize; i++) {
-                dsp.inputs.audio[i] = Math.sin(i * 0.1) * 3;
+                dsp.inputs.audio[i] = 0.8 * Math.sin(2 * Math.PI * i / bufferSize);
             }
+            for (const sym of [0, 0.18]) {
+                dsp.params.sym = sym;
+                for (let block = 0; block < 100; block++) dsp.process();
+                const cycle = dsp.outputs.out;
+                const mean = cycle.reduce((sum, value) => sum + value, 0) / bufferSize;
+                expect(Math.abs(mean)).toBeLessThan(0.001);
 
-            // Symmetric (centered)
-            dsp.params.sym = 0;
-            dsp.process();
-            const centered = [...dsp.outputs.out];
+                // Adding opposite halves of a complete cycle cancels its odd harmonics.
+                const evenPeak = Math.max(...cycle.map((value, i) =>
+                    Math.abs((value + cycle[(i + bufferSize / 2) % bufferSize]) / 2)));
+                if (sym === 0) expect(evenPeak).toBeLessThan(0.001);
+                else expect(evenPeak).toBeGreaterThan(0.5);
+            }
+        });
+    });
 
-            // Calculate mean (should be ~0 for symmetric)
-            const centeredMean = centered.reduce((a, b) => a + b, 0) / bufferSize;
+    describe('Output coupling', () => {
+        it.each([44100, 48000, 96000])('starts silent with bias and rejects a sustained CV change at %i Hz', rate => {
+            for (const size of [128, 512]) {
+                const folder = foldModule.createDSP({ sampleRate: rate, bufferSize: size });
+                folder.params.fold = 1;
+                folder.params.sym = 0.35;
+                folder.process();
+                expect(folder.outputs.out.every(value => value === 0)).toBe(true);
 
-            // Asymmetric
-            dsp.params.sym = 0.5;
-            dsp.process();
-            const offset = [...dsp.outputs.out];
-            const offsetMean = offset.reduce((a, b) => a + b, 0) / bufferSize;
+                // Reverse the silent operating point from −4.76 V to +4.76 V.
+                folder.params.sym = 0;
+                folder.inputs.symCV.fill(-1.75);
+                let peak = 0;
+                for (let elapsed = 0; elapsed < 0.16 * rate; elapsed += size) {
+                    folder.process();
+                    for (const value of folder.outputs.out) peak = Math.max(peak, Math.abs(value));
+                }
+                expect(peak).toBeGreaterThan(4.5);
+                expect(peak).toBeLessThanOrEqual(5);
+                expect(folder.outputs.out.every(value => Math.abs(value) < 0.0001)).toBe(true);
 
-            // Asymmetric should have different DC content
-            expect(Math.abs(offsetMean - centeredMean)).toBeGreaterThan(0);
+                folder.reset();
+                folder.process();
+                expect(folder.outputs.out.every(value => value === 0)).toBe(true);
+            }
+        });
+
+        it.each([[18, Math.SQRT1_2], [72, 0.970]])('preserves the expected small-signal gain at %i Hz', (hz, gain) => {
+            const rate = 48000;
+            const folder = foldModule.createDSP({ sampleRate: rate, bufferSize });
+            folder.params.fold = 0;
+            let energy = 0;
+            for (let start = 0; start < rate; start += bufferSize) {
+                for (let i = 0; i < bufferSize; i++) {
+                    folder.inputs.audio[i] = 0.01 * Math.sin(2 * Math.PI * hz * (start + i) / rate);
+                }
+                folder.process();
+                for (let i = 0; i < bufferSize; i++) {
+                    if (start + i >= rate / 2) energy += folder.outputs.out[i] ** 2;
+                }
+            }
+            // The sine folder's small-signal gain at minimum drive is π.
+            const amplitude = Math.sqrt(2 * energy / (rate / 2));
+            expect(amplitude / (0.01 * Math.PI)).toBeCloseTo(gain, 2);
         });
     });
 
@@ -254,15 +297,20 @@ describe('Fold Module', () => {
             }
             dsp.process();
 
-            // Output should be bounded (sine folder naturally limits to ±1, scaled to ±5)
-            for (let i = 0; i < bufferSize; i++) {
-                expect(dsp.outputs.out[i]).toBeGreaterThanOrEqual(-6);
-                expect(dsp.outputs.out[i]).toBeLessThanOrEqual(6);
-            }
+            expect(Math.min(...dsp.outputs.out)).toBeGreaterThanOrEqual(-5);
+            expect(Math.max(...dsp.outputs.out)).toBeLessThanOrEqual(5);
         });
     });
 
     describe('Buffer Integrity', () => {
+        it('recovers from a non-finite CV sample when the panel starts', () => {
+            dsp.inputs.symCV[0] = NaN;
+            for (let i = 0; i < bufferSize; i++) dsp.inputs.audio[i] = Math.sin(i * 0.1);
+            dsp.process();
+            expect(dsp.outputs.out.every(Number.isFinite)).toBe(true);
+            expect(dsp.outputs.out.some(value => Math.abs(value) > 0.1)).toBe(true);
+        });
+
         it('should produce no NaN values', () => {
             dsp.params.fold = 0.7;
             for (let i = 0; i < bufferSize; i++) {

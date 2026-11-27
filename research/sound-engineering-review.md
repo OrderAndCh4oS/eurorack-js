@@ -1,6 +1,6 @@
 # DSP And Sound Engineering Audit
 
-Last audited 2026-11-25.
+Last rack-wide audit 2026-11-25. FOLD output coupling checked 2026-11-27.
 
 The rack now has 83 core modules. The July baseline below covered the first 62. Each registered module has a dated measurement record alongside its hardware references and DSP decisions in [module research](modules/).
 
@@ -116,7 +116,7 @@ MIDI OUT samples pitch and velocity at the gate rise and releases the original n
 | `resbank` | Audio/Strum normals use cable state, so connected silence cannot invoke internal excitation or unintended auto-strums. |
 | `vcf` | Maximum resonance receives a one-shot deterministic seed so documented self-oscillation can start; CV and slew-reset contracts are explicit. |
 | `ring` | Four-quadrant voltage scaling is locked, over-range multiplication uses a continuous rail, and sum-frequency Nyquist limits are documented. |
-| `fold` | First-order antiderivative antialiasing replaces the raw sine lookup; a coherent high-drive render reduces measured reflected-harmonic power by 8.26 dB while preserving ±5 V rails. |
+| `fold` | First-order antiderivative antialiasing reduces reflected-harmonic power by 8.26 dB. The 18 Hz output coupling stage holds a biased silent input at 0 V and retains the ±5 V rails. In two Copper Act V settings the mean at OUT fell from about ±0.24 to within 0.001 full scale. [Patch comparisons and measurements](modules/fold.md#public-patch-impact) |
 | `lpg` | VCA/Combo/LP changes now crossfade over 4 ms, reducing the measured mode-boundary jump from 1.997 V to 0.171 V; CV contracts and complete reset behavior are explicit. |
 | `formant` | Drive/Mix changes now slew over 5 ms and reset covers every CV buffer; the measured dry-to-wet boundary falls from 2.841 V to 0.040 V. |
 | `pluck` | Excitation, damping, DC blocking, and idle detection now preserve physical time across sample rates; the 96/44.1 kHz brightness ratio falls from 2.043x to 1.206x. |

@@ -1,5 +1,11 @@
 # Resonator Bank (resbank)
 
+## Implementation Plan for the November 2026 correction
+
+Normalize the `resbank` Modal resonators' external band-pass drive for their pole radius. For the internal strum excite each mode with its pickup weight and pole angle, so low notes and long decays keep headroom. Preserve frequency, Odd/Even routing, per-voice histories, polyphonic tails, the two string models and the LED contract. Test a single unloaded strike and a small DC input after Strum. [Mutable Instruments Rings source](https://github.com/pichenettes/eurorack/tree/master/rings)
+
+Run the focused DSP tests, strict voltage matrix and full unit suite on `main`. Measure the level change in the two public patches using the modal strum.
+
 ## Research Status
 
 - Queue status: `spec-ready` before implementation.
@@ -63,7 +69,7 @@
 - Audio is nominal +/-5 V; internal limiter/soft saturation prevents runaway feedback.
 - Pitch follows 1 V/oct around the coarse root. Frequencies are limited below 0.45 * sample rate.
 - A strum freezes the old voice tail and allocates the next voice round-robin.
-- With unpatched audio, modal mode uses a filtered impulse while string modes use a position-shaped noise burst.
+- With unpatched audio, Modal strikes each mode with a single impulse scaled for its frequency and pickup position. The string models use a short noise burst.
 - With unpatched strum, a meaningful V/oct step triggers; if V/oct is also unpatched, a sharp external audio transient triggers.
 - Reset clears filters, delay lines, detectors, voice allocation, outputs, and LEDs.
 

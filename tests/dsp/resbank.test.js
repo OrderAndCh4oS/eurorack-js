@@ -90,6 +90,40 @@ describe('resbank', () => {
         expect(energy(signal.slice(-256))).toBeLessThan(energy(signal.slice(0, 512)));
     });
 
+    it('rings from one internal strike without pinning the audio rails', () => {
+        const dsp = create({ sampleRate: 48000, bufferSize: 128 });
+        const signal = renderStrike(dsp, 375);
+        expect(energy(signal)).toBeGreaterThan(0.01);
+        expect(signal.filter(sample => Math.abs(sample) >= 4.99).length / signal.length).toBeLessThan(0.01);
+    });
+
+    it('rejects DC in an active modal voice while responding to AC excitation', () => {
+        const dsp = create({ sampleRate: 48000, bufferSize: 128 });
+        dsp.onInputConnected('audio');
+        dsp.onInputConnected('strum');
+        dsp.inputs.strum[0] = 10;
+        dsp.inputs.audio.fill(0.001);
+        for (let block = 0; block < 750; block++) {
+            dsp.process();
+            dsp.inputs.strum.fill(0);
+        }
+        expect(maxAbs(dsp.outputs.mix)).toBeLessThan(0.0001);
+        expect(dsp.getActiveVoiceCount()).toBe(1);
+        for (let i = 0; i < 128; i++) dsp.inputs.audio[i] = 3 * Math.sin(i * 0.02);
+        dsp.process();
+        expect(maxAbs(dsp.outputs.mix)).toBeGreaterThan(0.0001);
+    });
+
+    it('switches from a modal tail to a string model without a second strike', () => {
+        const dsp = create({ sampleRate: 48000, bufferSize: 128 });
+        renderStrike(dsp, 40);
+        dsp.params.model = 1;
+        for (let block = 0; block < 12; block++) {
+            dsp.process();
+            expect(maxAbs(dsp.outputs.mix)).toBe(0);
+        }
+    });
+
     it('renders three distinct resonator models', () => {
         const rendered = [0, 1, 2].map(model => {
             const dsp = create();

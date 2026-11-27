@@ -27,7 +27,10 @@ function createVoice(sampleRate) {
         modalY2: new Float64Array(MAX_MODES),
         modalA1: new Float64Array(MAX_MODES),
         modalA2: new Float64Array(MAX_MODES),
-        modalGain: new Float64Array(MAX_MODES),
+        modalDrive: new Float64Array(MAX_MODES),
+        modalStrike: new Float64Array(MAX_MODES),
+        previousInput: 0,
+        twoSamplesAgo: 0,
         modalCount: 0,
         delays: Array.from({ length: 4 }, () => new Float32Array(maxDelay)),
         writes: new Int32Array(4),
@@ -44,7 +47,8 @@ function clearVoice(voice) {
     voice.modalY2.fill(0);
     voice.modalA1.fill(0);
     voice.modalA2.fill(0);
-    voice.modalGain.fill(0);
+    voice.previousInput = 0;
+    voice.twoSamplesAgo = 0;
     voice.modalCount = 0;
     voice.delays.forEach(delay => delay.fill(0));
     voice.writes.fill(0);
@@ -73,28 +77,37 @@ function modalCoefficients(voice, sampleRate, frequency, structure, brightness, 
         if (partial >= sampleRate * 0.45) break;
         const highLoss = 1 + mode * (1 - brightness) * 0.08;
         const radius = Math.exp(-1 / Math.max(1, decaySeconds * sampleRate / highLoss));
-        voice.modalA1[mode] = 2 * radius * Math.cos(2 * Math.PI * partial / sampleRate);
+        const angle = 2 * Math.PI * partial / sampleRate;
+        voice.modalA1[mode] = 2 * radius * Math.cos(angle);
         voice.modalA2[mode] = -(radius * radius);
         const pickup = Math.sin(Math.PI * harmonic * clamp(position, 0.02, 0.98));
-        voice.modalGain[mode] = pickup * (0.15 + brightness * 0.85) ** (mode * 0.12) / Math.sqrt(resolution);
+        const weight = pickup * (0.15 + brightness * 0.85) ** (mode * 0.12) / Math.sqrt(resolution);
+        // Normalize the external band-pass drive as decay varies. A strike excites
+        // a decaying sinusoid with this pickup weight regardless of its frequency.
+        voice.modalDrive[mode] = weight * (1 - radius * radius) * 0.5;
+        voice.modalStrike[mode] = weight * Math.sin(angle);
         count++;
     }
     return count;
 }
 
-function processModal(voice, input, modeIndex, modeTotal) {
+function processModal(voice, input, strike, listening) {
     let odd = 0;
     let even = 0;
-    for (let mode = 0; mode < modeTotal; mode++) {
+    const difference = input - voice.twoSamplesAgo;
+    voice.twoSamplesAgo = voice.previousInput;
+    voice.previousInput = input;
+    for (let mode = 0; mode < voice.modalCount; mode++) {
         const y = voice.modalA1[mode] * voice.modalY1[mode] +
-            voice.modalA2[mode] * voice.modalY2[mode] + input * voice.modalGain[mode];
+            voice.modalA2[mode] * voice.modalY2[mode] + difference * voice.modalDrive[mode] +
+            (strike ? voice.modalStrike[mode] : 0);
         voice.modalY2[mode] = voice.modalY1[mode];
         voice.modalY1[mode] = finite(y);
         if (mode % 2 === 0) odd += y;
         else even += y;
     }
     voice.lastEnergy = voice.lastEnergy * 0.999 + (odd * odd + even * even) * 0.001;
-    if (voice.lastEnergy < 1e-10 && modeIndex > 32) voice.active = false;
+    if (!listening && voice.lastEnergy < 1e-10) voice.active = false;
     return [odd, even];
 }
 
@@ -194,6 +207,7 @@ export default {
         let pitchInitialized = false;
         let lastAudio = 0;
         let noiseState = 0x13579bdf;
+        const excitationDuration = Math.max(1, Math.round(sampleRate * 0.004));
         let excitationSamples = 0;
         let excitationVoice = 0;
         let audioConnected = false;
@@ -204,7 +218,7 @@ export default {
             return noiseState / 0xffffffff * 2 - 1;
         }
 
-        function allocate(frequency, polyphony) {
+        function allocate(frequency, polyphony, model) {
             activeVoice = (activeVoice + 1) % polyphony;
             const voice = voices[activeVoice];
             voice.active = true;
@@ -212,7 +226,7 @@ export default {
             voice.lastEnergy = Math.max(voice.lastEnergy, 1e-5);
             voice.modalCount = 0;
             excitationVoice = activeVoice;
-            excitationSamples = Math.max(1, Math.round(sampleRate * 0.004));
+            excitationSamples = model !== 0 && !audioConnected ? excitationDuration : 0;
         }
 
         return {
@@ -269,8 +283,9 @@ export default {
                     const input = audioConnected ? finite(this.inputs.audio[i]) : 0;
                     const audioTransient = !strumConnected && audioConnected &&
                         Math.abs(input) > 0.5 && Math.abs(lastAudio) <= 0.5;
-                    if (rising || pitchStep || audioTransient) {
-                        allocate(frequency, polyphony);
+                    const strumNow = rising || pitchStep || audioTransient;
+                    if (strumNow) {
+                        allocate(frequency, polyphony, model);
                         if (model === 0) {
                             const voice = voices[activeVoice];
                             voice.modalCount = modalCoefficients(
@@ -284,9 +299,10 @@ export default {
                     lastAudio = input;
 
                     let excitation = input;
-                    if (!audioConnected && excitationSamples > 0) {
-                        const envelope = excitationSamples / Math.max(1, Math.round(sampleRate * 0.004));
-                        excitation = model === 0 ? envelope * 1.5 : random() * envelope * 1.2;
+                    if (excitationSamples > 0) {
+                        if (model !== 0 && !audioConnected) {
+                            excitation = random() * (excitationSamples / excitationDuration) * 1.2;
+                        }
                         excitationSamples--;
                     }
 
@@ -298,7 +314,9 @@ export default {
                         const voiceInput = voiceIndex === excitationVoice ? excitation : 0;
                         let parts;
                         if (model === 0) {
-                            parts = processModal(voice, voiceInput, voice.modalCount, voice.modalCount);
+                            const selected = voiceIndex === excitationVoice;
+                            parts = processModal(voice, voiceInput,
+                                selected && !audioConnected && strumNow, selected && audioConnected);
                         } else {
                             parts = processStrings(
                                 voice, voiceInput, sampleRate, structure, brightness, damping, position, model === 1

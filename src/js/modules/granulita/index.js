@@ -93,6 +93,10 @@ export default {
         const readAudioL = createLinearCircularReader(audioBufferL);
         const readAudioR = createLinearCircularReader(audioBufferR);
         let writeHead = 0;
+        // Remove DC before grains can multiply it in the reverb. The dry path uses the original inputs.
+        const biasTracking = -Math.expm1(-2 * Math.PI * 18 / sampleRate);
+        const wetInputGain = 1 - biasTracking / 2;
+        let biasL = 0, biasR = 0;
         let frozen = false;
 
         // Grain pool
@@ -242,6 +246,8 @@ export default {
             audioBufferL.fill(0);
             audioBufferR.fill(0);
             writeHead = 0;
+            biasL = 0;
+            biasR = 0;
             frozen = false;
 
             for (const grain of grains) {
@@ -460,11 +466,15 @@ export default {
 
                     const inputL = inL[i];
                     const inputR = rightInputConnected ? inR[i] : inputL;
+                    const centeredL = (Number.isFinite(inputL) ? inputL : 0) - biasL;
+                    const centeredR = (Number.isFinite(inputR) ? inputR : 0) - biasR;
+                    biasL += biasTracking * centeredL;
+                    biasR += biasTracking * centeredR;
 
                     // Write to audio buffer (unless frozen)
                     if (!frozen) {
-                        audioBufferL[writeHead] = inputL;
-                        audioBufferR[writeHead] = inputR;
+                        audioBufferL[writeHead] = wetInputGain * centeredL;
+                        audioBufferR[writeHead] = wetInputGain * centeredR;
                         writeHead = (writeHead + 1) % audioBufferSize;
                     }
 

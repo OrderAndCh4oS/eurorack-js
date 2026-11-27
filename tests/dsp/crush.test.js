@@ -226,6 +226,17 @@ describe('CRUSH Module', () => {
         });
     });
 
+    it('rounds opposite half-steps symmetrically on both channels', () => {
+        Object.assign(dsp.params, { bits: 0, rate: 0, mix: 1 });
+        dsp.onInputConnected('inR');
+        dsp.inputs.inL.set([1.25, -1.25, 3.75, -3.75]);
+        dsp.inputs.inR.set([-1.25, 1.25, -3.75, 3.75]);
+        dsp.process();
+        expect(dsp.outputs.outL[0]).toBe(2.5);
+        expect(dsp.outputs.outL[1]).toBe(-2.5);
+        for (let i = 0; i < 4; i++) expect(dsp.outputs.outR[i]).toBe(-dsp.outputs.outL[i]);
+    });
+
     describe('Reset', () => {
         it('should reset sample hold state', () => {
             dsp.params.rate = 1;

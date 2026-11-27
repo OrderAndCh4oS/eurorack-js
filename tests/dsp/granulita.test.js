@@ -324,6 +324,10 @@ describe('GRANULITA (Granular Chord Generator)', () => {
     });
 
     describe('hitMode switch behavior', () => {
+        function fillAudio(buffer) {
+            for (let i = 0; i < buffer.length; i++) buffer[i] = 2 * Math.sin(2 * Math.PI * i / 8);
+        }
+
         it('should freeze at hitMode = 0 (FRZ)', () => {
             granulita.params.hitMode = 0;
             expect(granulita.params.hitMode).toBe(0);
@@ -348,7 +352,7 @@ describe('GRANULITA (Granular Chord Generator)', () => {
             small.params.length = 0;
             small.params.direction = 2;
             small.params.hitMode = 0;
-            small.inputs.inL.fill(2);
+            fillAudio(small.inputs.inL);
 
             try {
                 for (let block = 0; block < 4; block++) small.process();
@@ -367,7 +371,7 @@ describe('GRANULITA (Granular Chord Generator)', () => {
             small.params.length = 0;
             small.params.direction = 2;
             small.params.hitMode = 2;
-            small.inputs.inL.fill(2);
+            fillAudio(small.inputs.inL);
 
             try {
                 for (let block = 0; block < 4; block++) small.process();
@@ -387,11 +391,11 @@ describe('GRANULITA (Granular Chord Generator)', () => {
             const small = createGranulita({ sampleRate: 1000, bufferSize: 64 });
             small.params.blend = 1;
             small.params.verb = 0;
-            small.params.count = 1;
+            small.params.count = 1 / 32; // One grain at a time so overlapping copies cannot cancel the test tone.
             small.params.length = 0;
             small.params.direction = 2;
             small.params.hitMode = 0;
-            small.inputs.inL.fill(2);
+            fillAudio(small.inputs.inL);
 
             try {
                 for (let block = 0; block < 80; block++) small.process();
@@ -651,6 +655,22 @@ describe('GRANULITA (Granular Chord Generator)', () => {
             expect(granulita.outputs.outL.every(v => !isNaN(v))).toBe(true);
             expect(granulita.outputs.outR.every(v => !isNaN(v))).toBe(true);
         });
+    });
+
+    it('rejects sustained stereo bias in the grains and reverb while keeping the Blend dry level', () => {
+        const dsp = createGranulita({ sampleRate: 8000, bufferSize: 128 });
+        dsp.onInputConnected('inR');
+        dsp.inputs.inL.fill(0.05);
+        dsp.inputs.inR.fill(-0.025);
+        Object.assign(dsp.params, { blend: 0.85, verb: 0.72 });
+        for (let block = 0; block < 1250; block++) dsp.process();
+        for (const [port, input] of [['outL', 0.05], ['outR', -0.025]]) {
+            const peakError = Math.max(...dsp.outputs[port].map(sample => Math.abs(sample - input * 0.15)));
+            expect(peakError).toBeLessThan(0.0001);
+        }
+        dsp.params.blend = 1;
+        dsp.process();
+        for (const out of Object.values(dsp.outputs)) expect(Math.max(...out.map(Math.abs))).toBeLessThan(0.0001);
     });
 
     describe('freeze mode behavior', () => {

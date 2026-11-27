@@ -23,6 +23,23 @@ function frequenciesWith(params = {}, inputs = {}) {
 }
 
 describe('ensemble-vco', () => {
+    it('keeps the gaps of Pulsar quiet after even-order Chebyshev shaping', () => {
+        const dsp = create({ sampleRate: 48000, bufferSize: 128 });
+        Object.assign(dsp.params, { twist: 1, twistMode: 1, warp: 1, warpMode: 1 });
+        const sums = [0, 0, 0], energies = [0, 0, 0];
+        const outputs = [dsp.outputs.mono, dsp.outputs.outA, dsp.outputs.outB];
+        for (let start = 0; start < 48000; start += 128) {
+            dsp.process();
+            outputs.forEach((out, ch) => {
+                for (const value of out) { sums[ch] += value; energies[ch] += value * value; }
+            });
+        }
+        for (let ch = 0; ch < 3; ch++) {
+            expect(Math.abs(sums[ch] / 48000)).toBeLessThan(0.04);
+            expect(Math.sqrt(energies[ch] / 48000)).toBeGreaterThan(0.2);
+        }
+    });
+
     it('declares the complete oscillator bank contract', () => {
         const dsp = create({ bufferSize: 64 });
         expect(ensembleModule).toMatchObject({ id: 'ensemble-vco', category: 'source', hp: 16 });

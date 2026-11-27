@@ -1,8 +1,8 @@
 # DSP And Sound Engineering Audit
 
-Last rack-wide audit 2026-11-25. FOLD output coupling checked 2026-11-27.
+Last rack-wide audit 2026-11-27.
 
-The rack now has 83 core modules. The July baseline below covered the first 62. Each registered module has a dated measurement record alongside its hardware references and DSP decisions in [module research](modules/).
+The rack now has 84 core definitions, including Spacer. The July baseline below covered the first 62. [Module research](modules/)
 
 ## Scope And Method
 
@@ -34,6 +34,16 @@ npm run audit:dsp -- --module vcf --json
 - The Node timing column is diagnostic only. It includes stimulus/capture overhead and is not a real-time AudioWorklet benchmark.
 
 ## Remediation Completed
+
+### Drum noise, DC offset and looper transport (2026-11-27)
+
+At four hits per second, SNARE averaged −0.205 V and HAT −0.498 V before repair. Their unbounded noise generators overflowed and their filters passed the resulting offset. With 32-bit wrap and corrected filters, the means were −0.00035 V and +0.00004 V. The old signals stayed within the ±5 V rails, so range and peak tests passed. The new regressions check repeated hits, filter response and the mean of the output. [SNARE tests](../tests/dsp/snare.test.js) · [HAT tests](../tests/dsp/hat.test.js)
+
+GRANULITA now removes steady voltage before recording grains. The dry path remains available at Blend settings below full wet. RESBANK Modal gives each harmonic a bounded strike and rejects constant external excitation. A single default strike previously put 99.85% of the first second at or above 4.99 V magnitude. The corrected strike peaked at 2.50 V. ENSEMBLE now keeps the silent part of each Pulsar cycle silent through its Chebyshev shaper. CRUSH rounds positive and negative half-steps symmetrically. [GRANULITA tests](../tests/dsp/granulita.test.js) · [RESBANK tests](../tests/dsp/resbank.test.js) · [ENSEMBLE tests](../tests/dsp/ensemble-vco.test.js) · [CRUSH tests](../tests/dsp/crush.test.js)
+
+LOOP's clock inputs update the live Record and Reverse state independently of saved control values. The Chromium regression watches Record turn on and off, then completes a WebMCP measurement and a timed control sweep from the same starting revision. [Browser regression](../tests/e2e/audio-analysis.spec.js)
+
+Matched 24-second renders of all 33 public patches used their saved controls, a fixed random seed and the compiled worklet at 48 kHz. Sixteen used the affected drums. The largest four-second mean at OUT fell from 1.69% to 0.17% of full scale in Stop-Time Phonk and from 1.65% to 0.18% in Doppelgänger Acid. Salt Horizon had the largest change in overall RMS level, down 1.89 dB with its corrected modal strums. Night Freight was down 0.45 dB. These measurements describe the rendered excerpts. [Public patch library](https://eurorackjs.orderandchaos.xyz/patches)
 
 ### Gate Seq driving Performance Mutes (2026-11-25)
 

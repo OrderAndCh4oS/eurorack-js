@@ -41,7 +41,7 @@ export default {
     hp: 6,
     color: 'module-color-ten',
     category: 'effect',
-    telemetry: { fields: [], methods: ['getLoopInfo'] },
+    telemetry: { params: ['record', 'reverse', 'clear'], fields: [], methods: ['getLoopInfo'] },
 
     css: `
         .loop-container {
@@ -150,7 +150,11 @@ export default {
         let recordHead = 0;
         let playHead = 0;
         let loopLength = 0;
-        let lastRecordParam = 0;
+        let recordParam = 0;
+        let reverseParam = 0;
+        let recordCommandPending = false;
+        let recordingFromPanel = false;
+        let reverseToggledByCV = false;
         let lastRecTrigHigh = false;
         let lastReverseTrigHigh = false;
         let lastOutput = 0;
@@ -196,8 +200,9 @@ export default {
             recordHead = 0;
             playHead = 0;
             loopLength = 0;
-            lastRecordParam = 0;
-            dsp.params.record = 0;
+            recordParam = 0;
+            recordCommandPending = false;
+            recordingFromPanel = false;
             dsp.params.clear = 0;
         }
 
@@ -206,7 +211,9 @@ export default {
             recording = false;
             recordHead = hasLoop ? loopLength : 0;
             playHead = 0;
-            lastRecordParam = 0;
+            recordCommandPending = false;
+            recordingFromPanel = false;
+            reverseToggledByCV = false;
             lastRecTrigHigh = false;
             lastReverseTrigHigh = false;
             lastOutput = 0;
@@ -215,7 +222,7 @@ export default {
             ownIn.fill(0);
             ownRecTrig.fill(0);
             ownReverseTrig.fill(0);
-            dsp.params.record = 0;
+            recordParam = 0;
             dsp.params.clear = 0;
             dsp.leds.recording = 0;
             dsp.leds.playing = hasLoop ? 1 : 0;
@@ -241,7 +248,7 @@ export default {
             return Math.floor(clamp(dsp.params.length ?? 1, 0, 1) * maxSamples);
         }
 
-        function finishFirstRecording(dsp) {
+        function finishFirstRecording() {
             if (!hasLoop && recordHead > 1) {
                 loopLength = Math.min(recordHead, maxSamples);
                 hasLoop = true;
@@ -250,15 +257,12 @@ export default {
                 if (shouldDeclickLoop()) startOutputTransition();
             }
             recording = false;
-            dsp.params.record = 0;
-            lastRecordParam = 0;
         }
 
-        function syncRecordState(dsp) {
-            const recordParam = dsp.params.record ? 1 : 0;
-            if (recordParam === lastRecordParam) return;
-
-            if (recordParam) {
+        function setRecording(enabled, fromPanel) {
+            recordingFromPanel = enabled && fromPanel;
+            if (enabled === recording) return;
+            if (enabled) {
                 recording = true;
                 if (!hasLoop) {
                     loopBuffer.fill(0);
@@ -266,24 +270,29 @@ export default {
                     playHead = 0;
                     loopLength = 0;
                 }
-            } else if (recording) {
-                if (!hasLoop) {
-                    finishFirstRecording(dsp);
-                } else {
-                    fadeLoopEdges();
-                    if (shouldDeclickLoop()) startOutputTransition();
-                    recording = false;
-                }
+            } else if (!hasLoop) {
+                finishFirstRecording();
+            } else {
+                fadeLoopEdges();
+                if (shouldDeclickLoop()) startOutputTransition();
+                recording = false;
             }
-
-            lastRecordParam = dsp.params.record ? 1 : 0;
         }
 
         return {
             params: {
                 mode: 0,
-                record: 0,
-                reverse: 0,
+                // A panel command can take over after a CV edge, even when the saved value repeats.
+                get record() { return recordParam; },
+                set record(value) {
+                    recordParam = value;
+                    recordCommandPending = true;
+                },
+                get reverse() { return reverseParam; },
+                set reverse(value) {
+                    reverseParam = value;
+                    reverseToggledByCV = false;
+                },
                 halfSpeed: 0,
                 level: 0.8,
                 length: 1,
@@ -309,27 +318,30 @@ export default {
                 if (this.params.clear) {
                     clearLoop(this);
                 }
+                if (recordCommandPending) {
+                    setRecording(Boolean(this.params.record), true);
+                    recordCommandPending = false;
+                }
 
                 const input = this.inputs.in;
                 const recTrig = this.inputs.recTrig;
                 const reverseTrig = this.inputs.reverseTrig;
+                const panelReverse = Boolean(this.params.reverse);
                 const level = clamp(this.params.level, 0, 1);
                 const mix = clamp(this.params.mix ?? 1, 0, 1);
 
                 for (let i = 0; i < bufferSize; i++) {
                     const recHigh = recTrig[i] > TRIGGER_THRESHOLD;
                     if (recHigh && !lastRecTrigHigh) {
-                        this.params.record = this.params.record ? 0 : 1;
+                        setRecording(!recording, false);
                     }
                     lastRecTrigHigh = recHigh;
 
                     const reverseHigh = reverseTrig[i] > TRIGGER_THRESHOLD;
                     if (reverseHigh && !lastReverseTrigHigh) {
-                        this.params.reverse = this.params.reverse ? 0 : 1;
+                        reverseToggledByCV = !reverseToggledByCV;
                     }
                     lastReverseTrigHigh = reverseHigh;
-
-                    syncRecordState(this);
 
                     const inputSample = clamp(input[i], -AUDIO_LIMIT, AUDIO_LIMIT);
 
@@ -338,8 +350,7 @@ export default {
                         if (recordingLimit <= 1) {
                             recording = false;
                             recordHead = 0;
-                            this.params.record = 0;
-                            lastRecordParam = 0;
+                            if (recordingFromPanel) recordParam = 0;
                             emitOutput(i, 0);
                             continue;
                         }
@@ -348,7 +359,8 @@ export default {
                         emitOutput(i, inputSample * level);
                         recordHead++;
                         if (recordHead >= recordingLimit) {
-                            finishFirstRecording(this);
+                            if (recordingFromPanel) recordParam = 0;
+                            finishFirstRecording();
                         }
                         continue;
                     }
@@ -375,7 +387,7 @@ export default {
                         }
                     }
 
-                    const direction = this.params.reverse ? -1 : 1;
+                    const direction = panelReverse !== reverseToggledByCV ? -1 : 1;
                     const ratio = this.params.halfSpeed ? 0.5 : 1;
                     playHead = wrap(playHead + direction * ratio, loopLength);
                 }
@@ -407,7 +419,8 @@ export default {
             getLoopInfo() {
                 return {
                     hasLoop,
-                    recording,
+                    recording: recordCommandPending ? Boolean(recordParam) : recording,
+                    reverse: Boolean(reverseParam) !== reverseToggledByCV,
                     loopLength,
                     recordHead,
                     playHead,
@@ -465,7 +478,7 @@ export default {
         recordArea.className = 'loop-record-area';
 
         const recordButton = document.createElement('button');
-        recordButton.className = `loop-record-button${dsp?.params.record ? ' recording' : ''}`;
+        recordButton.className = 'loop-record-button';
         recordButton.dataset.module = instance.id;
         recordButton.dataset.param = 'record';
         recordButton.dataset.rendererManaged = 'true';
@@ -475,29 +488,35 @@ export default {
         recordButtonInner.className = 'loop-record-button-inner';
         recordButton.appendChild(recordButtonInner);
 
+        function showRecording(value) {
+            const pressed = Boolean(value);
+            recordButton.classList.toggle('recording', pressed);
+            recordButton.setAttribute('aria-pressed', String(pressed));
+        }
+        showRecording(dsp?.params.record);
         recordButton.addEventListener('mousedown', event => {
             event.stopPropagation();
         });
         recordButton.addEventListener('click', event => {
             event.stopPropagation();
             const value = recordButton.classList.contains('recording') ? 0 : 1;
-            recordButton.classList.toggle('recording', value === 1);
+            showRecording(value);
             onParamChange('record', value);
         });
-        toolkit.registerParamControl('record', recordButton, value => {
-            recordButton.classList.toggle('recording', value === 1 || value === true);
-        });
+        toolkit.registerParamControl('record', recordButton, showRecording);
 
         recordArea.appendChild(recordButton);
         main.appendChild(recordArea);
 
         const switchRow = document.createElement('div');
         switchRow.className = 'loop-switches';
-        switchRow.appendChild(toolkit.createSwitch({
+        const reverseSwitch = toolkit.createSwitch({
             id: 'reverse',
             label: 'Rev',
             value: dsp?.params.reverse || 0
-        }));
+        });
+        switchRow.appendChild(reverseSwitch);
+        const reverseButton = reverseSwitch.querySelector('button');
         switchRow.appendChild(toolkit.createSwitch({
             id: 'halfSpeed',
             label: '1/2',
@@ -567,21 +586,20 @@ export default {
 
         container.appendChild(main);
 
-        function syncRecordButton() {
+        let lastTransport;
+        function syncTransport() {
             const mod = getModule ? getModule() : null;
             const liveDsp = mod?.instance || dsp;
-            const liveValue = liveDsp?.params?.record ?? mod?.params?.record ?? 0;
-            const value = liveValue ? 1 : 0;
-
-            recordButton.classList.toggle('recording', value === 1);
-
-            if (mod?.params && mod.params.record !== value) {
-                onParamChange('record', value);
-            }
+            const transport = liveDsp?.getLoopInfo?.();
+            if (!transport || transport === lastTransport) return;
+            lastTransport = transport;
+            showRecording(transport.recording);
+            reverseButton.classList.toggle('on', transport.reverse);
+            reverseButton.setAttribute('aria-pressed', String(transport.reverse));
         }
 
-        syncRecordButton();
-        toolkit.animate(syncRecordButton);
+        syncTransport();
+        toolkit.animate(syncTransport);
     },
 
     ui: {

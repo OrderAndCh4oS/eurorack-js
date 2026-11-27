@@ -1,5 +1,11 @@
 # Bitcrusher Module Research
 
+## Implementation Plan for the November 2026 correction
+
+Use symmetric rounding at quantizer midpoints in the `crush` effect. Equally loud opposite polarities must reach equally spaced, opposite output codes. At 2 bits test a centered ±1.25 V square at full mix on both channels. Preserve the sample-hold rate, the dry mix, input normals, rails and LED. [ECMAScript `Math.round` tie behavior](https://tc39.es/ecma262/#sec-math.round)
+
+Validate on `main` with the focused stereo DSP tests, the strict voltage matrix and the full unit suite. The two public patches using CRUSH are Final Form and Obsidian 168.
+
 ## Overview
 
 Lo-fi effect that reduces bit depth and sample rate for digital distortion/aliasing.
@@ -20,7 +26,7 @@ Two main processes:
 ```javascript
 // Reduce to N bits
 const levels = Math.pow(2, bits);
-const quantized = Math.round(input * levels / 2) / (levels / 2);
+const quantized = Math.sign(input) * Math.round(Math.abs(input) * levels / 2) / (levels / 2);
 ```
 
 ### Sample Rate Reduction
@@ -35,7 +41,7 @@ output = heldSample;
 ```
 
 ### Key Parameters
-- **Bits**: Bit depth (1-16 bits)
+- **Bits**: Bit depth (2–16 bits)
 - **Rate**: Sample rate reduction factor (1x-64x)
 - **Mix**: Dry/wet balance
 
@@ -52,8 +58,9 @@ if (sampleCounter >= rateReduction) {
 }
 
 // Bit depth reduction
-const levels = Math.pow(2, bits);
-const crushed = Math.floor(heldSample * levels / 2 + 0.5) / (levels / 2);
+const halfLevels = Math.pow(2, bits) / 2;
+const magnitude = Math.round(Math.abs(heldSample) / 5 * halfLevels);
+const crushed = Math.sign(heldSample) * magnitude / halfLevels * 5;
 
 // Mix
 output = input * (1 - mix) + crushed * mix;

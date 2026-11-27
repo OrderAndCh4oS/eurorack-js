@@ -344,7 +344,7 @@ describe('renderModule', () => {
         expect(onParamChange).toHaveBeenNthCalledWith(2, 'loop_1', 'record', 0);
     });
 
-    it('syncs LOOP record button off when DSP auto-stops recording', () => {
+    it('shows LOOP transport telemetry without writing a patch edit', () => {
         let frameCallback;
         const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
             frameCallback = callback;
@@ -367,11 +367,12 @@ describe('renderModule', () => {
 
         expect(recordButton.classList.contains('recording')).toBe(true);
 
-        dsp.params.record = 0;
+        dsp.getLoopInfo = () => ({ recording: false, reverse: true });
         frameCallback();
 
         expect(recordButton.classList.contains('recording')).toBe(false);
-        expect(onParamChange).toHaveBeenCalledWith('loop_1', 'record', 0);
+        expect(panel.querySelector('#switch-loop_1-reverse').getAttribute('aria-pressed')).toBe('true');
+        expect(onParamChange).not.toHaveBeenCalled();
 
         requestFrame.mockRestore();
         cancelFrame.mockRestore();

@@ -1,5 +1,11 @@
 # Ensemble Oscillator (ensemble-vco)
 
+## Implementation Plan for the November 2026 correction
+
+Pulsar compresses the active waveform into part of each cycle. Apply the silent interval to the shaped voice so even Chebyshev orders cannot turn the gap into DC. Keep phase and Cross FM running during the gap. Test the mono and stereo outputs for centered pitched energy with Pulsar and Cheb together. The existing knobs, CV inputs, outputs, LEDs and saved scales carry over. [4ms Ensemble Oscillator manual](https://4mscompany.com/media/ENOSC/manual/Ensemble-Osc-manual-v1.1f.pdf)
+
+Run the oscillator tests, strict voltage matrix and full unit suite on `main`. All seven public patches using ENSEMBLE select Fold warp. A dedicated Pulsar and Cheb patch exercises the affected combination.
+
 ## Research Status
 
 - Queue status: `spec-ready` before implementation.

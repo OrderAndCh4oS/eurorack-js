@@ -225,7 +225,7 @@ describe('LOOP - Minimal Looper', () => {
             loop.inputs.recTrig[0] = 5;
             loop.process();
 
-            expect(loop.params.record).toBe(1);
+            expect(loop.params.record).toBe(0);
             expect(loop.getLoopInfo().recording).toBe(true);
 
             loop.inputs.recTrig.fill(0);
@@ -240,13 +240,29 @@ describe('LOOP - Minimal Looper', () => {
         it('toggles reverse from reverse trigger rising edges', () => {
             loop.inputs.reverseTrig[0] = 5;
             loop.process();
-            expect(loop.params.reverse).toBe(1);
+            expect(loop.params.reverse).toBe(0);
+            expect(loop.getLoopInfo().reverse).toBe(true);
 
             loop.inputs.reverseTrig.fill(0);
             loop.process();
             loop.inputs.reverseTrig[0] = 5;
             loop.process();
             expect(loop.params.reverse).toBe(0);
+            expect(loop.getLoopInfo().reverse).toBe(false);
+        });
+
+        it('accepts absolute panel commands after CV moved the transport', () => {
+            loop.inputs.in.fill(2);
+            loop.inputs.recTrig[1] = 5;
+            loop.inputs.reverseTrig[1] = 5;
+            loop.process();
+            expect(loop.getLoopInfo()).toMatchObject({ recording: true, reverse: true });
+            loop.inputs.recTrig.fill(0);
+            loop.inputs.reverseTrig.fill(0);
+            loop.params.record = 0;
+            loop.params.reverse = 0;
+            loop.process();
+            expect(loop.getLoopInfo()).toMatchObject({ recording: false, reverse: false, hasLoop: true });
         });
 
         it('clears loop state with clear param', () => {
@@ -290,7 +306,8 @@ describe('LOOP - Minimal Looper', () => {
             loop.process();
             loop.inputs.recTrig[0] = 2.51;
             loop.process();
-            expect(loop.params.record).toBe(1);
+            expect(loop.getLoopInfo().recording).toBe(true);
+            expect(loop.params.record).toBe(0);
         });
 
         it('reset preserves captured loop and resets transport only', () => {

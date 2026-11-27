@@ -47,6 +47,8 @@ export default {
         // Filter states (bandpass for metallic character)
         let bpState1 = 0;
         let bpState2 = 0;
+        let previousInput = 0;
+        let twoSamplesAgo = 0;
 
         // LED decay
         const ledDecay = Math.exp(-1 / (sampleRate * 0.1) * bufferSize);
@@ -131,14 +133,16 @@ export default {
                     metallic /= 6; // Normalize
 
                     // Generate noise
-                    noiseState = noiseState * 1664525 + 1013904223;
+                    noiseState = (Math.imul(noiseState, 1664525) + 1013904223) >>> 0;
                     const noise = ((noiseState >>> 16) / 32768 - 1);
 
                     // Bandpass filter the mixed signal for cymbal character
                     const input = metallic * (1 - blendParam * 0.5) + noise * blendParam;
 
                     // Simple 2-pole bandpass
-                    const filtered = (b0 * input - a1 * bpState1 - a2 * bpState2) / norm;
+                    const filtered = (b0 * (input - twoSamplesAgo) - a1 * bpState1 - a2 * bpState2) / norm;
+                    twoSamplesAgo = previousInput;
+                    previousInput = input;
                     bpState2 = bpState1;
                     bpState1 = filtered;
 
@@ -172,6 +176,8 @@ export default {
                 noiseState = INITIAL_NOISE_STATE;
                 bpState1 = 0;
                 bpState2 = 0;
+                previousInput = 0;
+                twoSamplesAgo = 0;
                 leds.active = 0;
             }
         };

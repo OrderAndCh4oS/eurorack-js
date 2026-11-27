@@ -258,6 +258,36 @@ describe('2hp Snare - Snare Drum Synthesizer', () => {
         });
     });
 
+    it('keeps the wire noise centered across repeated strikes after startup', () => {
+        const voice = createSnare({ sampleRate: 48000, bufferSize: 128 });
+        Object.assign(voice.params, { snap: 0.9, decay: 0.22, pitch: 0.64 });
+        let sum = 0, power = 0;
+        for (let start = 0; start < 96000; start += 128) {
+            for (let i = 0; i < 128; i++) voice.inputs.trigger[i] = (start + i) % 12000 < 240 ? 10 : 0;
+            voice.process();
+            for (const sample of voice.outputs.out) { sum += sample; power += sample * sample; }
+        }
+        expect(Math.abs(sum / 96000)).toBeLessThan(0.01);
+        expect(Math.sqrt(power / 96000)).toBeGreaterThan(0.3);
+    });
+
+    it('subtracts the accumulated low-frequency component of the wire noise', () => {
+        const voice = createSnare({ sampleRate: 44100, bufferSize: 16 });
+        Object.assign(voice.params, { pitch: 0, snap: 1, decay: 1 });
+        voice.inputs.trigger[0] = 10;
+        voice.process();
+        let word = 0, low = 0;
+        for (let i = 0; i < 16; i++) {
+            word = (word * 1664525 + 1013904223) % 2 ** 32;
+            const noise = Math.floor(word / 65536) / 32768 - 1;
+            const wire = (noise - low) * Math.exp(-4.5 * i / (0.15 * 44100));
+            low = 0.85 * low + 0.15 * noise;
+            const triangle = 1 - 4 * (i + 1) * 100 / 44100;
+            const body = 0.5 * triangle * Math.exp(-4.5 * i / (0.3 * 44100));
+            expect(voice.outputs.out[i]).toBeCloseTo(5 * Math.tanh(1.2 * (body + 1.5 * wire)), 5);
+        }
+    });
+
     describe('reset', () => {
         it('should clear output and state on reset', () => {
             snare.inputs.trigger[0] = 10;

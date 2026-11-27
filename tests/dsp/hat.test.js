@@ -50,6 +50,7 @@ describe('2hp Hat - Hi-Hat Cymbal Synthesizer', () => {
         it('should have short decay for closed hat', () => {
             hat.inputs.trigClosed[0] = 10;
             hat.process();
+            hat.inputs.trigClosed.fill(0);
             for (let i = 0; i < 5; i++) hat.process();
             const closedLevel = Math.max(...hat.outputs.out.map(Math.abs));
 
@@ -249,6 +250,34 @@ describe('2hp Hat - Hi-Hat Cymbal Synthesizer', () => {
             expect(hat.outputs.out.every(Number.isFinite)).toBe(true);
             expect(Math.max(...hat.outputs.out.map(Math.abs))).toBeLessThanOrEqual(5);
         });
+    });
+
+    it('keeps repeated noise-heavy open hats centered and audible', () => {
+        const voice = createHat({ sampleRate: 48000, bufferSize: 128 });
+        Object.assign(voice.params, { blend: 1, decay: 0.75 });
+        let sum = 0, power = 0;
+        for (let start = 0; start < 96000; start += 128) {
+            for (let i = 0; i < 128; i++) voice.inputs.trigOpen[i] = (start + i) % 12000 < 240 ? 10 : 0;
+            voice.process();
+            for (const sample of voice.outputs.out) { sum += sample; power += sample * sample; }
+        }
+        expect(Math.abs(sum / 96000)).toBeLessThan(0.01);
+        expect(Math.sqrt(power / 96000)).toBeGreaterThan(0.4);
+    });
+
+    it('rejects steady input in the numerator of the sizzle band-pass', () => {
+        const voice = createHat({ sampleRate: 48000, bufferSize: 3 });
+        Object.assign(voice.params, { blend: 0, sizzle: 0.5, decay: 1 });
+        voice.inputs.trigOpen[0] = 10;
+        voice.process();
+        // All six metal oscillators are high during the first three samples.
+        const omega = 2 * Math.PI * 8000 / 48000;
+        const alpha = Math.sin(omega) / 8;
+        const a1 = -2 * Math.cos(omega), a2 = 1 - alpha, a0 = 1 + alpha;
+        const first = alpha / a0, second = (alpha - a1 * first) / a0;
+        const third = (-a1 * second - a2 * first) / a0;
+        const envelope = Math.exp(-4.5 * 2 / (0.8 * 48000));
+        expect(voice.outputs.out[2]).toBeCloseTo(5 * Math.tanh(2 * third * envelope), 5);
     });
 
     describe('reset', () => {

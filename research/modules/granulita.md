@@ -1,5 +1,11 @@
 # Granulita Versio (granulita)
 
+## Implementation Plan for the November 2026 correction
+
+AC-couple both inputs to the `granulita` grain recorder at 18 Hz. Filtering here protects direct grains and their send to all six feedback combs per channel. The Blend dry path keeps its existing response. Use independent scalar histories per channel, including during freeze, and clear them on reset. Measure settled stereo DC, dry and wet endpoints, and an audible bass tone with the Copper settings. [Julius O. Smith III, *Introduction to Digital Filters*, DC blocker](https://www.dsprelated.com/freebooks/filters/DC_Blocker.html)
+
+Run the stereo DSP tests, strict voltage matrix and full unit suite on `main`. Five public patches use GRANULITA, including Copper & Vactrol 168.
+
 ## Hardware Reference
 - **Based on**: [Noise Engineering Granulita Versio](https://noiseengineering.us/products/granulita-versio/)
 - **Manual**: [Granulita Versio Manual](https://manuals.noiseengineering.us/gv/)

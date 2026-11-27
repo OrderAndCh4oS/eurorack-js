@@ -146,11 +146,18 @@ function unreadControls(rack, definition) {
     let observing = false;
     for (const instance of [rack.audio, rack.module.instance]) {
         for (const { param } of controls) {
+            const descriptor = Object.getOwnPropertyDescriptor(instance.params, param);
             let value = instance.params[param];
             Object.defineProperty(instance.params, param, {
                 configurable: true, enumerable: true,
-                get() { if (observing) unread.delete(param); return value; },
-                set(next) { value = next; }
+                get() {
+                    if (observing) unread.delete(param);
+                    return descriptor?.get ? descriptor.get.call(this) : value;
+                },
+                set(next) {
+                    if (descriptor?.set) descriptor.set.call(this, next);
+                    else value = next;
+                }
             });
         }
     }

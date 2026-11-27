@@ -1,5 +1,11 @@
 # Hi-Hat Synthesizer (hat)
 
+## Implementation Plan for the November 2026 correction
+
+The `hat` voice needs bounded 32-bit noise and both input taps of its existing band-pass biquad. The previous generator reached infinity after about 1 ms. The missing negative input tap passed the resulting DC through every open hit. Retain two input history samples, clear them on reset, and exercise repeated open/closed hits at the Blend extremes. Preserve choking, Sizzle, the free-running oscillators, the LED and the ±5 V output. [Robert Bristow-Johnson, *Audio EQ Cookbook*, band-pass filters](https://www.w3.org/TR/audio-eq-cookbook/)
+
+Run the focused drum tests, strict voltage matrix and full unit suite on `main`. Fifteen public patches use HAT and provide mix-level comparisons.
+
 ## Hardware Reference
 - **Based on**: [2hp Hat](https://www.twohp.com/modules/p/hat)
 - **Classic Reference**: Roland TR-808 Hi-Hat/Cymbal
@@ -136,7 +142,7 @@ metallic /= 6;  // Normalize
 ### Noise Blending
 ```javascript
 // LCG white noise
-noiseState = noiseState * 1664525 + 1013904223;
+noiseState = (Math.imul(noiseState, 1664525) + 1013904223) >>> 0;
 const noise = ((noiseState >>> 16) / 32768 - 1);
 
 // Blend metallic oscillators with noise
@@ -158,7 +164,9 @@ const a2 = 1 - alpha;
 const norm = 1 + alpha;
 
 // Apply filter
-const filtered = (b0 * input - a1 * bpState1 - a2 * bpState2) / norm;
+const filtered = (b0 * (input - twoSamplesAgo) - a1 * bpState1 - a2 * bpState2) / norm;
+twoSamplesAgo = previousInput;
+previousInput = input;
 bpState2 = bpState1;
 bpState1 = filtered;
 ```

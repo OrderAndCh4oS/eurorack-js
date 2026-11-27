@@ -51,7 +51,7 @@ export default {
 
         // Simple noise filter state
         let noiseFilterState = 0;
-        const noiseFilterCoeff = 0.85; // Highpass-ish character
+        const noiseTracking = 1 - Math.pow(0.85, 44100 / sampleRate);
 
         return {
             params: {
@@ -113,12 +113,12 @@ export default {
                     const triSample = 4 * Math.abs(phase - 0.5) - 1;
 
                     // Generate noise
-                    noiseState = noiseState * 1664525 + 1013904223;
+                    noiseState = (Math.imul(noiseState, 1664525) + 1013904223) >>> 0;
                     const noise = ((noiseState >>> 16) / 32768 - 1);
 
                     // Highpass filter the noise for snare character
                     const filteredNoise = noise - noiseFilterState;
-                    noiseFilterState = noise * (1 - noiseFilterCoeff);
+                    noiseFilterState += noiseTracking * filteredNoise;
 
                     // Mix body and noise based on snap parameter + CV
                     const snapCV = finiteOr(this.inputs.snapCV[i]) / 5;

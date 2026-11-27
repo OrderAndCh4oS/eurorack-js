@@ -522,7 +522,9 @@ export default {
                         const shapedPhase = twistPhase(phases[voice], twist, twistMode);
                         const sine = Math.sin(2 * Math.PI * shapedPhase);
                         previousSines[voice] = sine;
-                        const shaped = warpSample(sine, warp, warpMode) * weights[voice] * normalization;
+                        // Even Chebyshev orders map zero to ±1. Leave the gap between pulsars silent.
+                        const inPulsarGap = twistMode === 1 && phases[voice] >= 1 - twist * 0.9;
+                        const shaped = inPulsarGap ? 0 : warpSample(sine, warp, warpMode) * weights[voice] * normalization;
                         monoSample += shaped;
                         const toA = stereoMode === 0 ? voice % 2 === 0 : stereoMode === 1 ? voice < Math.ceil(count / 2) : voice === 0;
                         if (toA) aSample += shaped;

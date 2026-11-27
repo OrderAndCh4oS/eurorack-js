@@ -14,6 +14,11 @@
 
 import { softLimitVoltage } from '../../utils/voltage.js';
 
+function quantize(volts, halfLevels) {
+    const magnitude = Math.round(Math.abs(volts) / 5 * halfLevels);
+    return Math.sign(volts) * magnitude / halfLevels * 5;
+}
+
 export default {
     id: 'crush',
     name: 'CRUSH',
@@ -86,11 +91,8 @@ export default {
                     // Bit depth reduction (quantization)
                     // Scale to levels, round, scale back
                     // Input is ±5V range, normalize to -1 to 1 for quantization
-                    const normalizedL = heldSampleL / 5;
-                    const normalizedR = heldSampleR / 5;
-
-                    const crushedL = Math.round(normalizedL * halfLevels) / halfLevels * 5;
-                    const crushedR = Math.round(normalizedR * halfLevels) / halfLevels * 5;
+                    const crushedL = quantize(heldSampleL, halfLevels);
+                    const crushedR = quantize(heldSampleR, halfLevels);
 
                     // Mix dry and wet
                     outL[i] = softLimitVoltage(inputL * (1 - mix) + crushedL * mix, 5);

@@ -1,5 +1,11 @@
 # 2hp Loop - Minimal Looper (loop)
 
+## Implementation Plan for the November 2026 correction
+
+CV edges on `recTrig` and `reverseTrig` control the `loop` effect's runtime transport. Reflect that state on the panel using bounded `getLoopInfo` telemetry, while preserving manual Record/Reverse commands, length cutoff, Clear, captured audio and the v3 controls. Test repeated CV edges, handover to the panel, stable saved params, and a WebMCP measurement and eased sweep spanning clock edges. [Rack telemetry contract](../../docs/architecture.md#custom-renderer-telemetry)
+
+Validate on `main` with the focused DSP and renderer suites, the strict voltage matrix and the clocked browser test. None of the 33 public patches in the November 27 catalogue uses LOOP.
+
 ## Hardware Reference
 
 - **Based on**: [2hp Loop](https://www.twohp.com/modules/loop)

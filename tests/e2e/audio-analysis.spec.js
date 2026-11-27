@@ -20,6 +20,32 @@ async function startTone(page) {
     return (await call(page, 'get_rack')).revision;
 }
 
+test('clocking LOOP transport leaves the patch revision stable across audio measurement and gestures', async ({page}) => {
+    await boot(page);
+    await page.evaluate(() => window.eurorackApp.loadPatchState({
+        version:3, plugins:{core:1}, midiMappings:{},
+        modules:['clk', 'loop', 'vco', 'out'].map((type, index) => ({id:type, type, index, row:1})),
+        params:{clk:{rate:0.26}, out:{volume:0.3}},
+        cables:[
+            {fromModule:'clk', fromPort:'clock', toModule:'loop', toPort:'recTrig'},
+            {fromModule:'clk', fromPort:'clock', toModule:'loop', toPort:'reverseTrig'},
+            {fromModule:'vco', fromPort:'triangle', toModule:'loop', toPort:'in'},
+            {fromModule:'vco', fromPort:'triangle', toModule:'out', toPort:'L'}
+        ]
+    }, {managed:true}));
+    await page.locator('#startButton').click();
+    await page.waitForFunction(() => window.eurorackApp.host.engine?.activeRevision);
+    const {revision} = await call(page, 'get_rack');
+    const rec = page.locator('.loop-record-button');
+    await expect(rec).toHaveClass(/recording/);
+    await expect(rec).not.toHaveClass(/recording/);
+    expect((await call(page, 'get_rack')).revision).toBe(revision);
+    expect(await call(page, 'measure_audio', {expectedRevision:revision, durationSeconds:1.2})).toMatchObject({ok:true, revision});
+    expect(await call(page, 'perform_controls', {expectedRevision:revision, controls:[
+        {moduleId:'out', paramId:'volume', value:0.4, durationSeconds:0.8}
+    ]})).toMatchObject({ok:true});
+});
+
 test('shows the exact agent measurement and loads WASM only on demand', async ({page}, testInfo) => {
     const wasmResponses = [];
     page.on('response', response => {if (response.url().endsWith('.wasm')) wasmResponses.push(response);});

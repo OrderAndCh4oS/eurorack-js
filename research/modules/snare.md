@@ -1,5 +1,11 @@
 # Snare Drum Synthesizer (snare)
 
+## Implementation Plan for the November 2026 correction
+
+The `snare` voice uses a deterministic 32-bit noise generator for its wire sound. Wrap each multiply and addition to an unsigned word, following the FOLD PERC implementation. Retain the previous low-pass estimate when subtracting the noise floor and scale its pole from the 44.1 kHz design rate. Repeated strikes should still have an audible noise band after minutes of playback, with a near-zero mean. Existing Snap, Decay, Pitch, trigger, CV, LED and audio connections carry over. [ECMAScript `Math.imul`](https://tc39.es/ecma262/#sec-math.imul)
+
+Run the focused drum tests, strict voltage matrix and full unit suite on `main`. Fourteen public patches use SNARE and provide mix-level comparisons.
+
 ## Hardware Reference
 - **Based on**: [2hp Snare](https://www.twohp.com/modules/p/snare)
 - **Classic Reference**: Analog snare drums (TR-808, TR-909)
@@ -123,12 +129,12 @@ const triSample = 4 * Math.abs(phase - 0.5) - 1;
 ### Noise Generation with Highpass
 ```javascript
 // Linear congruential generator for white noise
-noiseState = noiseState * 1664525 + 1013904223;
+noiseState = (Math.imul(noiseState, 1664525) + 1013904223) >>> 0;
 const noise = ((noiseState >>> 16) / 32768 - 1);
 
 // Simple highpass filter (removes low end for snare character)
 const filteredNoise = noise - noiseFilterState;
-noiseFilterState = noise * (1 - hpCoeff);  // hpCoeff ≈ 0.85
+noiseFilterState += filteredNoise * (1 - 0.85 ** (44100 / sampleRate));
 ```
 
 ### Mixing Body and Noise
